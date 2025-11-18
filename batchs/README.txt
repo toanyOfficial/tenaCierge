@@ -36,6 +36,14 @@ D−2~D−6은 선형 보간, 7일 이상은 D−7 변수 사용.
 
 매일 15:00, database의 work_fore_d1, work_fore_d7, work_fore_accuracy, work_fore_tuning 테이블을 자동 갱신하고 work_header 테이블에 다음날의 업무리스트를 저장한다.
 
+업무리스트 저장 rule
+- 매일 15:00 배치가 돌기 때문에 D+1 날짜의 입퇴실을 기준으로 하며 이 D+1날짜를 '당일'이라 칭한다.
+- 당일 퇴실이 있다면 무조건 클리닝 대상(cleaning yn==1)
+- 당일 퇴실은 없고 입실만 있다면 상태확인 대상(condition check yn==1 cleaning yn==0)
+- blanket_qty, amaenities_qty는 room 정보의 bed qty와 동일
+- checin, checkout time은 room 정보에서 가져온다
+- 나머지 값들은 추후 입력 값이기 때문에 null
+
 📅 2. 날짜 입력 및 실행 모드
 실행한날짜를 D0라고 했을때 다음날인 D1부터  다음주 같은요일까지의 D7 일정을 체크한다. 서버에 배치프로그램으로 등록한다.
 
@@ -150,36 +158,66 @@ horizon≥7 → D−7 세트
 
 
 
-🧠 12. AI 학습 배치 (train_model.py)
+🚀 업데이트 예정 (v1.5 개발 계획)
+🔹 1️⃣ 학습 기능 확장 (train_model.py)
 
-- `batchs/train_model.py`는 `work_fore_d1`, `work_fore_d7` 테이블의 과거 예측/실적을
-  로지스틱 회귀(Logistic Regression)로 재학습하여 α/β/컷오프를 자동 산출한다.
-- 기본 실행은 Shadow Mode이며, `--apply` 옵션을 주면 `model_variable`과
-  `work_fore_tuning` 로그에 곧바로 반영한다.
-- 주요 옵션
-  - `--days`: 학습에 사용할 히스토리 일수(기본 45)
-  - `--horizon {d1|d7|both}`: 학습 대상
-  - `--min-samples`: 샘플 부족 시 안전하게 skip
-  - `--target-precision`: D1 컷오프 탐색 목표치(기본 0.70)
+report.xlsx의 D-1 / D-7 데이터를 활용해
+Logistic Regression으로 α, β, high 재추정
 
-실행 예시
-```bash
-python batchs/train_model.py --days 60 --horizon both              # Shadow Mode
-python batchs/train_model.py --days 60 --horizon both --apply      # DB 즉시 반영
-```
+Shadow Mode (제안만 기록, 자동 반영 없음)
 
-훈련 절차
-1. `work_fore_d1` / `work_fore_d7`에서 run_dttm >= today-`days` 레코드 수집
-2. 요일별 점수(WEEKDAY_BASE)와 실제 out 여부를 이용해 α, β를 Gradient Descent로 갱신
-3. D1은 precision 목표를 만족하는 컷오프(`d1_high`)를 grid-search로 탐색
-4. Shadow Mode에서는 로그만 출력, Active Mode에서는 `model_variable`을 업데이트하고
-   `work_fore_tuning`에 horizon별 변경 이력을 남김
+D-7 → α, β 학습 / D-1 → high 학습
 
-학습 스크립트는 기존 Forecasting 배치와 동일한 DB 스키마를 사용하므로, 추가적인
-테이블 생성은 필요하지 않다.
+결과는 report.xlsx > Tuning 시트에 기록
+
+향후 --apply 모드에서 model_state.toml 자동 갱신 예정
+
+예시 로그
+[LOG] d7_alpha: 0.150 → 0.163 (+0.013)
+[LOG] d7_beta: 1.020 → 0.987 (−0.033)
+[LOG] d1_high: 0.650 → 0.670 (+0.020)
+
+🔹 2️⃣ report 파일 잠금 시 백업 저장
+
+Excel에서 report.xlsx를 열어둔 상태로 실행 시 PermissionError 발생 방지
+
+try/except로 백업 파일 자동 생성
+
+try:
+    wb.save(REPORT_XLSX)
+except PermissionError:
+    alt_name = f"report_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    print(f"[WARN] report.xlsx이 열려 있습니다. {alt_name}으로 임시 저장합니다.")
+    wb.save(alt_name)
+
+
+백업 파일명 예: report_backup_20251118_162350.xlsx
+
+🔹 3️⃣ D1 α·β Shadow Learning (확장안)
+
+D1 horizon에도 α, β 학습을 시도하되 실제 반영은 하지 않음
+
+결과만 Tuning 시트에 기록 (Shadow Mode)
+
+안정성 검증 후 Active 반영 고려
+
+📘 Forecasting Specification v1.4 (Current Stage)
+
+현재 시스템은 안정된 예측·튜닝 루프(D−1, D−7 기반)를 운영 중이며,
+다음 단계(v1.5)에서는 학습 모델(train_model.py)과 백업 저장 로직이 추가되어
+자가 학습형·복구 안전형 구조로 진화할 예정입니다.
 
 📦 추가 안내 (DB 기반 배치)
 
 - `db_forecasting.py`: 본 README 명세를 토대로 파일 기반 로직을 DB 테이블(work_fore_*, work_header 등)과 직접 연동하도록 재작성한 파이썬 스크립트입니다. `mysql-connector-python`으로 DB에 접속해 client_rooms/ics를 읽고 work_fore_d1/d7, work_header, work_fore_accuracy/tuning을 갱신합니다.
 - `schema.sql`: 현행 운영 DB 스키마를 그대로 정리한 파일로, 마이그레이션 및 로컬 샌드박스 구축 시 사용합니다.
-- `BATCH_REGISTRATION.md`: 운영 웹 서버(Next.js/Bun)에서 해당 배치를 systemd + API로 등록하는 절차를 상세히 설명합니다.
+- `BATCH_REGISTRATION.md`: 운영 웹 서버(Next.js/Bun)에서 해당 배치를 systemd + API로 등록하는 절차를 상세히 설명합니다.'
+
+
+-----------------------------------------------------------------------------------
+두번째 배치 프로그램 - 클리너 랭킹 업데이트
+-----------------------------------------------------------------------------------
+1. 매일 16:30 클리너 랭킹 업데이트 배치를 실행한다.
+2. 당일 업무 결과를 기준으로 랭킹을 재조정하는 프로그램이다.
+3. work_report에 올라온 정보를 바탕으로 worker의  current_score를 업데이트 한다.
+4. worker의 tier가 4,5,6,7인 사람들을 모집단으로 하여 당일 기준 current_score가 상위 5%이면 tier를 7로, 상위 10%이면 tier를 6으로, 상위 30%이면 tier를 5로 설정한다. current_score가 50점 이상이면 tier를 4로, 50점 미만이면 tier를 3으로 설정한다. tier1은 관리자가 수동으로 설정하기 때문에 시스템적으로는 다른 tier에서 1이 될 수도, 1에서 다른 tier가 될 수도 없다. tier2는 한 번도 업무를 해보지 않은 사람에 해당하며 한 번이라도 업무를 하게 되면 tier3으로 넘어가서 다시 tier2로 넘어갈 일은 없다.
