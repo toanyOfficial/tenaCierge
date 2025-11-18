@@ -182,3 +182,49 @@ curl -X POST https://ops.tenacierge.com/api/batch/register \
    `--days` 값을 늘려 샘플 수를 확보한다.
 
 위 과정을 적용하면 파일 기반 배치를 DB 기반으로 전환하면서도 웹 서버/대시보드와의 연결이 가능합니다.
+
+## 7. 클리너 랭킹 업데이트 배치(update_cleaner_ranking.py)
+
+16:30에 실행되는 랭킹 배치는 당일 work_reports(type=1)를 기준으로 클리너 점수/tier를 재조정합니다.
+
+1. **실행 스크립트** `/srv/tenaCierge/scripts/run_cleaner_ranking.sh`
+   ```bash
+   #!/usr/bin/env bash
+   set -euo pipefail
+   cd /srv/tenaCierge
+   source .venv/bin/activate
+   set -a && source .env.batch && set +a
+   python batchs/update_cleaner_ranking.py --target-date "$(date +%F)" >> logs/cleaner_ranking.log 2>&1
+   ```
+
+2. **systemd 등록**
+
+   `/etc/systemd/system/tena-cleaner-ranking.service`
+   ```ini
+   [Unit]
+   Description=Tena Cleaner Ranking Batch
+   After=network.target mysql.service
+
+   [Service]
+   Type=oneshot
+   User=deploy
+   WorkingDirectory=/srv/tenaCierge
+   ExecStart=/srv/tenaCierge/scripts/run_cleaner_ranking.sh
+   ```
+
+   `/etc/systemd/system/tena-cleaner-ranking.timer`
+   ```ini
+   [Unit]
+   Description=Run Cleaner Ranking every day 16:30
+
+   [Timer]
+   OnCalendar=*-*-* 16:30:00 Asia/Seoul
+   Persistent=true
+
+   [Install]
+   WantedBy=timers.target
+   ```
+
+3. **모니터링 팁**
+   - `logs/cleaner_ranking.log`에서 active 인원수, 상위 퍼센트 컷오프가 정상적으로 출력되는지 확인합니다.
+   - tier 1/2 인원이 의도치 않게 변경되지 않았는지 `SELECT id, tier FROM worker_header`로 주기 점검합니다.

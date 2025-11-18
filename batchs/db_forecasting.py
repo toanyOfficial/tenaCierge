@@ -82,6 +82,7 @@ class Room:
     sector: str
     building_name: str
     room_no: str
+    bed_count: int
     checkin_time: dt.time
     checkout_time: dt.time
     ical_urls: List[str]
@@ -101,6 +102,7 @@ class Prediction:
     out_time: Optional[dt.time]
     p_out: float
     label: str  # "○", "△", ""
+    has_checkin: bool
 
     @property
     def actual_out(self) -> bool:
@@ -246,6 +248,7 @@ def save_model_variables(conn, values: Dict[str, float]) -> None:
 def fetch_rooms(conn, reference_date: dt.date) -> List[Room]:
     sql = """
         SELECT cr.id, cr.building_id, cr.room_no,
+               cr.bed_count,
                cr.checkin_time, cr.checkout_time,
                cr.ical_url_1, cr.ical_url_2,
                eb.basecode_sector, eb.building_name
@@ -271,6 +274,7 @@ def fetch_rooms(conn, reference_date: dt.date) -> List[Room]:
                 sector=row["basecode_sector"],
                 building_name=row["building_name"],
                 room_no=row["room_no"],
+                bed_count=row["bed_count"],
                 checkin_time=row["checkin_time"],
                 checkout_time=row["checkout_time"],
                 ical_urls=urls,
@@ -324,6 +328,15 @@ def extract_out_time(events: Sequence[Event], target_date: dt.date) -> Optional[
         if start_of_day <= event.end <= end_of_day:
             return event.end.time()
     return None
+
+
+def has_checkin_on(events: Sequence[Event], target_date: dt.date) -> bool:
+    start_of_day = dt.datetime(target_date.year, target_date.month, target_date.day, tzinfo=SEOUL)
+    end_of_day = start_of_day + dt.timedelta(days=1)
+    for event in events:
+        if start_of_day <= event.start < end_of_day:
+            return True
+    return False
 
 
 # ------------------------------ 모델 계산 ------------------------------
@@ -382,6 +395,7 @@ class BatchRunner:
             for offset in range(self.start_offset, self.end_offset + 1):
                 target_date = self.run_date + dt.timedelta(days=offset)
                 out_time = extract_out_time(events, target_date)
+                checkin_flag = has_checkin_on(events, target_date)
                 p_out, high = compute_p_out(self.model, offset, target_date.weekday())
                 borderline = self.model["borderline"]
                 if p_out >= high:
@@ -398,6 +412,7 @@ class BatchRunner:
                         out_time=out_time,
                         p_out=p_out,
                         label=label,
+                        has_checkin=checkin_flag,
                     )
                 )
         self._persist_predictions(predictions)
@@ -453,16 +468,22 @@ class BatchRunner:
         self.conn.commit()
 
     def _persist_work_header(self, predictions: Sequence[Prediction]) -> None:
-        targets = [p for p in predictions if p.horizon == 1 and p.actual_out]
-        if not targets:
+        target_date = self.run_date + dt.timedelta(days=1)
+        entries: List[Tuple[Prediction, int, int]] = []
+        for pred in predictions:
+            if pred.target_date != target_date:
+                continue
+            if pred.actual_out:
+                entries.append((pred, 0, 1))  # conditionCheckYn, cleaning_yn
+            elif pred.has_checkin:
+                entries.append((pred, 1, 0))
+        if not entries:
+            logging.info("work_header 대상 없음 (target=%s)", target_date)
             return
-        logging.info("work_header 업데이트 (rows=%s)", len(targets))
+        logging.info("work_header 업데이트 (rows=%s)", len(entries))
         with self.conn.cursor() as cur:
-            cur.execute(
-                "DELETE FROM work_header WHERE date=%s",
-                (self.run_date + dt.timedelta(days=1),),
-            )
-            for pred in targets:
+            cur.execute("DELETE FROM work_header WHERE date=%s", (target_date,))
+            for pred, condition_check, cleaning in entries:
                 cur.execute(
                     """
                     INSERT INTO work_header
@@ -475,22 +496,18 @@ class BatchRunner:
                         (%s, %s, NULL, NULL,
                          %s, %s, %s,
                          %s, %s, %s,
-                         %s, %s, NULL,
-                         NULL, %s, %s)
+                         NULL, NULL, NULL,
+                         NULL, NULL, NULL)
                     """,
                     (
                         pred.target_date,
                         pred.room.id,
-                        0,
-                        0,
-                        0,
-                        1,
+                        pred.room.bed_count,
+                        pred.room.bed_count,
+                        condition_check,
+                        cleaning,
                         pred.room.checkin_time,
                         pred.room.checkout_time,
-                        1,
-                        1,
-                        "AUTO-GENERATED",
-                        0,
                     ),
                 )
         self.conn.commit()
