@@ -200,21 +200,22 @@ python batchs/train_model.py --days 60 --horizon both --apply      # DB 즉시 �
 
 🧹 13. 클리너 랭킹 업데이트 배치 (update_cleaner_ranking.py)
 
-- 매일 16:30 `batchs/update_cleaner_ranking.py`를 실행해 당일 업무 결과를 기반으로
-  클리너 current_score와 tier를 재조정한다.
-- work_reports(type=1) + work_header 조인으로 당일 평가 점수를 모아서 평균 current_score를
-  worker_header.current_score에 저장한다.
+- 매일 16:30 `batchs/update_cleaner_ranking.py`를 실행해 **최근 20일간**의 평가 이력을
+  기준으로 tier만 재조정한다. 점수 합계는 랭킹을 계산하는 동안에만 사용한다.
+- worker_evaluateHistory에서 `target_date` 포함 20일 전까지의 checklist_point_sum 합계를
+  worker별 가중치로 삼는다. 20일 안에 근무가 3회뿐이라면 3회만 합산하며,
+  더 이전 기록을 끌어오지 않는다.
 - tier 규칙
-  1. 모집단: 현재 tier가 4·5·6·7인 클리너 중 당일 점수가 있는 사람.
-  2. 상위 5%→tier 7, 상위 10%→tier 6, 상위 30%→tier 5.
-  3. 나머지는 current_score≥50이면 tier 4, 미만이면 tier 3.
-  4. tier 2는 첫 업무가 발생하면 3으로 올리고, tier 1은 시스템에서 변경하지 않는다.
-- 배치 로그에 active 인원/컷오프를 출력하며, `BATCH_REGISTRATION.md` 7장에서 systemd 등록
+  1. 모집단: 현재 tier가 3·4·5·6·7인 모든 클리너(당일 근무 여부와 무관하게).
+  2. 최근 20일 합계 점수를 기준으로 상위 5%→tier 7, 상위 10%→tier 6, 상위 30%→tier 5.
+  3. 나머지는 최근 20일 점수 합이 50점 이상이면 tier 4, 미만이면 tier 3.
+  4. tier 2는 해당 기간 점수가 발생하면 즉시 tier 3으로 승급시키고, tier 1은 시스템에서 변경하지 않는다.
+- 배치 로그에 계산 기간/인원/컷오프를 출력하며, `BATCH_REGISTRATION.md` 7장에서 systemd 등록
   예시를 확인할 수 있다.
 
 📦 추가 안내 (DB 기반 배치)
 
 - `db_forecasting.py`: 본 README 명세를 토대로 파일 기반 로직을 DB 테이블(work_fore_*, work_header 등)과 직접 연동하도록 재작성한 파이썬 스크립트입니다. `mysql-connector-python`으로 DB에 접속해 client_rooms/ics를 읽고 work_fore_d1/d7, work_header, work_fore_accuracy/tuning을 갱신합니다.
 - `schema.sql`: 현행 운영 DB 스키마를 그대로 정리한 파일로, 마이그레이션 및 로컬 샌드박스 구축 시 사용합니다.
-- `update_cleaner_ranking.py`: work_reports/worker_header를 사용한 16:30 랭킹 배치.
+- `update_cleaner_ranking.py`: worker_evaluateHistory/worker_header를 사용한 16:30 랭킹 배치.
 - `BATCH_REGISTRATION.md`: 운영 웹 서버(Next.js/Bun)에서 Forecasting/AI 학습/랭킹 배치를 systemd + API로 등록하는 절차를 상세히 설명합니다.

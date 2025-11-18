@@ -6,17 +6,14 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import json
 import logging
 import math
 import os
-from collections import defaultdict
-from typing import Dict, Iterable, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence
 
 import mysql.connector
 
 KST = dt.timezone(dt.timedelta(hours=9))
-SCORE_KEYS = ("current_score", "score", "points", "point", "checklist_point_sum", "total")
 
 
 def configure_logging() -> None:
@@ -45,50 +42,6 @@ def get_db_connection() -> mysql.connector.MySQLConnection:
     )
     logging.info("DB 접속 정보: %s:%s/%s", cfg["host"], cfg["port"], cfg["database"])
     return mysql.connector.connect(**cfg)
-
-
-def _loads_json(value) -> Optional[object]:
-    if value is None:
-        return None
-    if isinstance(value, (dict, list)):
-        return value
-    if isinstance(value, (bytes, bytearray)):
-        value = value.decode("utf-8", "ignore")
-    if isinstance(value, str):
-        try:
-            return json.loads(value)
-        except json.JSONDecodeError as exc:
-            logging.warning("JSON 파싱 실패: %s", exc)
-            return None
-    return None
-
-
-def _extract_score(payload) -> Optional[float]:
-    if payload is None:
-        return None
-    if isinstance(payload, (int, float)):
-        return float(payload)
-    if isinstance(payload, dict):
-        for key in SCORE_KEYS:
-            if key in payload and isinstance(payload[key], (int, float)):
-                return float(payload[key])
-        for value in payload.values():
-            nested = _extract_score(value)
-            if nested is not None:
-                return nested
-        return None
-    if isinstance(payload, list):
-        values: List[float] = []
-        for item in payload:
-            nested = _extract_score(item)
-            if nested is not None:
-                values.append(nested)
-        if values:
-            return sum(values) / len(values)
-        return None
-    return None
-
-
 class CleanerRankingBatch:
     def __init__(self, conn, target_date: dt.date) -> None:
         self.conn = conn
@@ -96,64 +49,59 @@ class CleanerRankingBatch:
 
     def run(self) -> None:
         scores = self._fetch_scores()
-        if not scores:
-            logging.info("%s 기준으로 점수 데이터가 없어 종료합니다.", self.target_date)
+        workers = self._load_workers(scores)
+        if not workers:
+            logging.info("worker_header 인원이 없어 종료합니다.")
             return
-        self._update_current_scores(scores)
-        workers = self._load_workers()
-        tier_updates = self._calculate_tiers(workers, scores.keys())
+        tier_updates = self._calculate_tiers(workers)
         self._persist_tiers(tier_updates)
         self.conn.commit()
 
-    def _fetch_scores(self) -> Dict[int, List[float]]:
+    def _fetch_scores(self) -> Dict[int, float]:
+        start_date = self.target_date - dt.timedelta(days=19)
+        start_dt = dt.datetime.combine(start_date, dt.time.min)
+        end_dt = dt.datetime.combine(self.target_date + dt.timedelta(days=1), dt.time.min)
         sql = """
-            SELECT wr.contents1, wr.contents2, wh.cleaner_id
-            FROM work_reports wr
-            JOIN work_header wh ON wh.id = wr.work_id
-            WHERE wr.type = 1
-              AND wh.date = %s
-              AND wh.cleaner_id IS NOT NULL
+            SELECT worker_id, COALESCE(SUM(checklist_point_sum), 0) AS total
+            FROM worker_evaluateHistory
+            WHERE evaluate_dttm >= %s
+              AND evaluate_dttm < %s
+            GROUP BY worker_id
         """
-        buckets: Dict[int, List[float]] = defaultdict(list)
+        scores: Dict[int, float] = {}
         with self.conn.cursor(dictionary=True) as cur:
-            cur.execute(sql, (self.target_date,))
+            cur.execute(sql, (start_dt, end_dt))
             for row in cur:
-                payload = _loads_json(row["contents1"]) or _loads_json(row["contents2"])
-                score = _extract_score(payload)
-                if score is None:
-                    continue
-                buckets[row["cleaner_id"]].append(score)
-        logging.info("%s 기준 점수 수집: %s명", self.target_date, len(buckets))
-        return buckets
+                scores[row["worker_id"]] = float(row["total"] or 0)
+        logging.info(
+            "%s ~ %s 점수 수집: %s명",
+            start_dt.date(),
+            (end_dt - dt.timedelta(days=1)).date(),
+            len(scores),
+        )
+        return scores
 
-    def _update_current_scores(self, scores: Dict[int, List[float]]) -> None:
-        with self.conn.cursor() as cur:
-            for worker_id, values in scores.items():
-                avg_score = sum(values) / len(values)
-                cur.execute(
-                    "UPDATE worker_header SET current_score=%s WHERE id=%s",
-                    (round(avg_score, 2), worker_id),
-                )
-        logging.info("current_score 업데이트 %s명", len(scores))
-
-    def _load_workers(self) -> List[Dict[str, Optional[float]]]:
+    def _load_workers(self, scores: Dict[int, float]) -> List[Dict[str, Optional[float]]]:
         with self.conn.cursor(dictionary=True) as cur:
-            cur.execute("SELECT id, tier, current_score FROM worker_header")
-            return list(cur.fetchall())
+            cur.execute("SELECT id, tier FROM worker_header")
+            workers: List[Dict[str, Optional[float]]] = []
+            for row in cur:
+                wid = row["id"]
+                row["score"] = float(scores.get(wid, 0.0))
+                workers.append(row)
+        return workers
 
     def _calculate_tiers(
         self,
         workers: Sequence[Dict[str, Optional[float]]],
-        active_worker_ids: Iterable[int],
     ) -> Dict[int, int]:
-        active = set(active_worker_ids)
         assigned: Dict[int, int] = {}
         population = [
             w
             for w in workers
-            if w["id"] in active and w["tier"] in (4, 5, 6, 7) and w["current_score"] is not None
+            if w["tier"] in (3, 4, 5, 6, 7)
         ]
-        population.sort(key=lambda w: w["current_score"], reverse=True)
+        population.sort(key=lambda w: w["score"], reverse=True)
         n = len(population)
         if n:
             top5 = min(n, max(1, math.ceil(n * 0.05)))
@@ -169,15 +117,15 @@ class CleanerRankingBatch:
                     assigned[wid] = 5
         for worker in workers:
             wid = worker["id"]
-            if wid not in active:
+            tier = worker["tier"]
+            score = worker["score"]
+            if tier == 1:
                 continue
-            if worker["tier"] == 1:
+            if tier == 2:
+                if score > 0:
+                    assigned.setdefault(wid, 3)
                 continue
-            if worker["tier"] == 2:
-                assigned.setdefault(wid, 3)
-                continue
-            score = worker["current_score"]
-            if score is None:
+            if tier not in (3, 4, 5, 6, 7):
                 continue
             if wid in assigned:
                 continue
