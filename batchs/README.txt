@@ -185,3 +185,9 @@ D1 horizon에도 α, β 학습을 시도하되 실제 반영은 하지 않음
 현재 시스템은 안정된 예측·튜닝 루프(D−1, D−7 기반)를 운영 중이며,
 다음 단계(v1.5)에서는 학습 모델(train_model.py)과 백업 저장 로직이 추가되어
 자가 학습형·복구 안전형 구조로 진화할 예정입니다.
+
+📦 추가 안내 (DB 기반 배치)
+
+- `db_forecasting.py`: 본 README 명세를 토대로 파일 기반 로직을 DB 테이블(work_fore_*, work_header 등)과 직접 연동하도록 재작성한 파이썬 스크립트입니다. `mysql-connector-python`으로 DB에 접속해 client_rooms/ics를 읽고 work_fore_d1/d7, work_header, work_fore_accuracy/tuning을 갱신합니다.
+- `schema.sql`: 현행 운영 DB 스키마를 그대로 정리한 파일로, 마이그레이션 및 로컬 샌드박스 구축 시 사용합니다.
+- `BATCH_REGISTRATION.md`: 운영 웹 서버(Next.js/Bun)에서 해당 배치를 systemd + API로 등록하는 절차를 상세히 설명합니다.
