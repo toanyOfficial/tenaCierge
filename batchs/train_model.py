@@ -56,6 +56,10 @@ class ParameterUpdate:
     explanation: str
     horizon: str
 
+    @property
+    def delta(self) -> float:
+        return self.after - self.before
+
 
 def configure_logging() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -240,6 +244,22 @@ def apply_updates(conn, model: Dict[str, float], updates: Sequence[ParameterUpda
     logging.info("%s개 변수 갱신 완료", len(updates))
 
 
+def log_shadow_suggestions(updates: Sequence[ParameterUpdate]) -> None:
+    if not updates:
+        return
+    logging.info("Shadow Mode 제안 요약")
+    logging.info("%-8s %-12s %-12s %-12s %s", "horizon", "name", "before", "after", "memo")
+    for upd in updates:
+        logging.info(
+            "%-8s %-12s %-.4f %-.4f %s",
+            upd.horizon,
+            upd.name,
+            upd.before,
+            upd.after,
+            upd.explanation,
+        )
+
+
 class ModelTrainer:
     def __init__(
         self,
@@ -271,7 +291,7 @@ class ModelTrainer:
         if self.apply_changes and updates:
             apply_updates(self.conn, self.model, updates)
         elif updates:
-            logging.info("Shadow Mode 제안: %s", updates)
+            log_shadow_suggestions(updates)
         else:
             logging.info("적용할 제안이 없습니다.")
 
