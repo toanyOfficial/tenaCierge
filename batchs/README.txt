@@ -137,51 +137,36 @@ horizon≥7 → D−7 세트
 
 
 
-🚀 업데이트 예정 (v1.5 개발 계획)
-🔹 1️⃣ 학습 기능 확장 (train_model.py)
+🧠 12. AI 학습 배치 (train_model.py)
 
-report.xlsx의 D-1 / D-7 데이터를 활용해
-Logistic Regression으로 α, β, high 재추정
+- `batchs/train_model.py`는 `work_fore_d1`, `work_fore_d7` 테이블의 과거 예측/실적을
+  로지스틱 회귀(Logistic Regression)로 재학습하여 α/β/컷오프를 자동 산출한다.
+- 기본 실행은 Shadow Mode이며, `--apply` 옵션을 주면 `model_variable`과
+  `work_fore_tuning` 로그에 곧바로 반영한다.
+- 주요 옵션
+  - `--days`: 학습에 사용할 히스토리 일수(기본 45)
+  - `--horizon {d1|d7|both}`: 학습 대상
+  - `--min-samples`: 샘플 부족 시 안전하게 skip
+  - `--target-precision`: D1 컷오프 탐색 목표치(기본 0.70)
 
-Shadow Mode (제안만 기록, 자동 반영 없음)
+실행 예시
+```bash
+python batchs/train_model.py --days 60 --horizon both              # Shadow Mode
+python batchs/train_model.py --days 60 --horizon both --apply      # DB 즉시 반영
+```
 
-D-7 → α, β 학습 / D-1 → high 학습
+훈련 절차
+1. `work_fore_d1` / `work_fore_d7`에서 run_dttm >= today-`days` 레코드 수집
+2. 요일별 점수(WEEKDAY_BASE)와 실제 out 여부를 이용해 α, β를 Gradient Descent로 갱신
+3. D1은 precision 목표를 만족하는 컷오프(`d1_high`)를 grid-search로 탐색
+4. Shadow Mode에서는 로그만 출력, Active Mode에서는 `model_variable`을 업데이트하고
+   `work_fore_tuning`에 horizon별 변경 이력을 남김
 
-결과는 report.xlsx > Tuning 시트에 기록
+학습 스크립트는 기존 Forecasting 배치와 동일한 DB 스키마를 사용하므로, 추가적인
+테이블 생성은 필요하지 않다.
 
-향후 --apply 모드에서 model_state.toml 자동 갱신 예정
+📦 추가 안내 (DB 기반 배치)
 
-예시 로그
-[LOG] d7_alpha: 0.150 → 0.163 (+0.013)
-[LOG] d7_beta: 1.020 → 0.987 (−0.033)
-[LOG] d1_high: 0.650 → 0.670 (+0.020)
-
-🔹 2️⃣ report 파일 잠금 시 백업 저장
-
-Excel에서 report.xlsx를 열어둔 상태로 실행 시 PermissionError 발생 방지
-
-try/except로 백업 파일 자동 생성
-
-try:
-    wb.save(REPORT_XLSX)
-except PermissionError:
-    alt_name = f"report_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    print(f"[WARN] report.xlsx이 열려 있습니다. {alt_name}으로 임시 저장합니다.")
-    wb.save(alt_name)
-
-
-백업 파일명 예: report_backup_20251118_162350.xlsx
-
-🔹 3️⃣ D1 α·β Shadow Learning (확장안)
-
-D1 horizon에도 α, β 학습을 시도하되 실제 반영은 하지 않음
-
-결과만 Tuning 시트에 기록 (Shadow Mode)
-
-안정성 검증 후 Active 반영 고려
-
-📘 Forecasting Specification v1.4 (Current Stage)
-
-현재 시스템은 안정된 예측·튜닝 루프(D−1, D−7 기반)를 운영 중이며,
-다음 단계(v1.5)에서는 학습 모델(train_model.py)과 백업 저장 로직이 추가되어
-자가 학습형·복구 안전형 구조로 진화할 예정입니다.
+- `db_forecasting.py`: 본 README 명세를 토대로 파일 기반 로직을 DB 테이블(work_fore_*, work_header 등)과 직접 연동하도록 재작성한 파이썬 스크립트입니다. `mysql-connector-python`으로 DB에 접속해 client_rooms/ics를 읽고 work_fore_d1/d7, work_header, work_fore_accuracy/tuning을 갱신합니다.
+- `schema.sql`: 현행 운영 DB 스키마를 그대로 정리한 파일로, 마이그레이션 및 로컬 샌드박스 구축 시 사용합니다.
+- `BATCH_REGISTRATION.md`: 운영 웹 서버(Next.js/Bun)에서 해당 배치를 systemd + API로 등록하는 절차를 상세히 설명합니다.
