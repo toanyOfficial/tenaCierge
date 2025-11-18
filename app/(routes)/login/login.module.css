@@ -1,0 +1,109 @@
+.wrapper {
+  min-height: calc(100vh - 80px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+  background: linear-gradient(135deg, #f5f7ff, #eef2ff);
+}
+
+.card {
+  width: min(420px, 100%);
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 40px 32px;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+}
+
+.badge {
+  align-self: flex-start;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+}
+
+.card h1 {
+  margin: 0;
+  font-size: 1.8rem;
+  color: #0f172a;
+}
+
+.description {
+  margin: 0;
+  color: #475569;
+  font-size: 1rem;
+}
+
+.helper {
+  margin: 0 0 8px;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.labelRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.optional {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.field {
+  border: 1px solid #d4dcff;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 1rem;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+
+.field:focus-visible {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+.error {
+  margin: 0;
+  color: #dc2626;
+  font-size: 0.9rem;
+}
+
+.submitBtn {
+  background: #111827;
+  border: none;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: filter 0.2s;
+}
+
+.submitBtn:hover {
+  filter: brightness(1.05);
+}
