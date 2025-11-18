@@ -23,6 +23,14 @@ D−2~D−6은 선형 보간, 7일 이상은 D−7 변수 사용.
 
 매일 15:00, database의 work_fore_d1, work_fore_d7, work_fore_accuracy, work_fore_tuning 테이블을 자동 갱신하고 work_header 테이블에 다음날의 업무리스트를 저장한다.
 
+업무리스트 저장 rule
+- 매일 15:00 배치가 돌기 때문에 D+1 날짜의 입퇴실을 기준으로 하며 이 D+1날짜를 '당일'이라 칭한다.
+- 당일 퇴실이 있다면 무조건 클리닝 대상(cleaning yn==1)
+- 당일 퇴실은 없고 입실만 있다면 상태확인 대상(condition check yn==1 cleaning yn==0)
+- blanket_qty, amaenities_qty는 room 정보의 bed qty와 동일
+- checin, checkout time은 room 정보에서 가져온다
+- 나머지 값들은 추후 입력 값이기 때문에 null
+
 📅 2. 날짜 입력 및 실행 모드
 실행한날짜를 D0라고 했을때 다음날인 D1부터  다음주 같은요일까지의 D7 일정을 체크한다. 서버에 배치프로그램으로 등록한다.
 
@@ -190,4 +198,13 @@ D1 horizon에도 α, β 학습을 시도하되 실제 반영은 하지 않음
 
 - `db_forecasting.py`: 본 README 명세를 토대로 파일 기반 로직을 DB 테이블(work_fore_*, work_header 등)과 직접 연동하도록 재작성한 파이썬 스크립트입니다. `mysql-connector-python`으로 DB에 접속해 client_rooms/ics를 읽고 work_fore_d1/d7, work_header, work_fore_accuracy/tuning을 갱신합니다.
 - `schema.sql`: 현행 운영 DB 스키마를 그대로 정리한 파일로, 마이그레이션 및 로컬 샌드박스 구축 시 사용합니다.
-- `BATCH_REGISTRATION.md`: 운영 웹 서버(Next.js/Bun)에서 해당 배치를 systemd + API로 등록하는 절차를 상세히 설명합니다.
+- `BATCH_REGISTRATION.md`: 운영 웹 서버(Next.js/Bun)에서 해당 배치를 systemd + API로 등록하는 절차를 상세히 설명합니다.'
+
+
+-----------------------------------------------------------------------------------
+두번째 배치 프로그램 - 클리너 랭킹 업데이트
+-----------------------------------------------------------------------------------
+1. 매일 16:30 클리너 랭킹 업데이트 배치를 실행한다.
+2. 당일 업무 결과를 기준으로 랭킹을 재조정하는 프로그램이다.
+3. work_report에 올라온 정보를 바탕으로 worker의  current_score를 업데이트 한다.
+4. worker의 tier가 4,5,6,7인 사람들을 모집단으로 하여 당일 기준 current_score가 상위 5%이면 tier를 7로, 상위 10%이면 tier를 6으로, 상위 30%이면 tier를 5로 설정한다. current_score가 50점 이상이면 tier를 4로, 50점 미만이면 tier를 3으로 설정한다. tier1은 관리자가 수동으로 설정하기 때문에 시스템적으로는 다른 tier에서 1이 될 수도, 1에서 다른 tier가 될 수도 없다. tier2는 한 번도 업무를 해보지 않은 사람에 해당하며 한 번이라도 업무를 하게 되면 tier3으로 넘어가서 다시 tier2로 넘어갈 일은 없다.
