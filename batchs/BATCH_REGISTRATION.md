@@ -131,4 +131,54 @@ curl -X POST https://ops.tenacierge.com/api/batch/register \
 - `model_variable` 테이블이 비어 있으면 기본값이 자동 채워지지만, DBA가 수동 조정 가능
 - ics 다운로드 실패 시 `batchs/ics`에 timestamp 폴더가 생성되었는지 확인
 
+## 6. AI 학습 배치(train_model.py) 등록
+
+`batchs/train_model.py`는 forecasting 배치가 쌓아둔 `work_fore_d1/d7` 데이터를 사용해
+모델 파라미터를 자동으로 재학습한다. 운영 서버에도 동일한 방식으로 등록할 수 있다.
+
+1. **실행 스크립트 작성** `/srv/tenaCierge/scripts/run_training.sh`
+   ```bash
+   #!/usr/bin/env bash
+   set -euo pipefail
+   cd /srv/tenaCierge
+   source .venv/bin/activate
+   set -a && source .env.batch && set +a
+   python batchs/train_model.py --days 60 --horizon both --apply >> logs/train_model.log 2>&1
+   ```
+
+2. **systemd 등록**
+
+   `/etc/systemd/system/tena-train-model.service`
+   ```ini
+   [Unit]
+   Description=Tena Forecast Model Trainer
+   After=network.target mysql.service
+
+   [Service]
+   Type=oneshot
+   User=deploy
+   WorkingDirectory=/srv/tenaCierge
+   ExecStart=/srv/tenaCierge/scripts/run_training.sh
+   ```
+
+   `/etc/systemd/system/tena-train-model.timer`
+   ```ini
+   [Unit]
+   Description=Run Tena Forecast training every Monday 02:00
+
+   [Timer]
+   OnCalendar=Mon *-*-* 02:00:00 Asia/Seoul
+   Persistent=true
+
+   [Install]
+   WantedBy=timers.target
+   ```
+
+3. **Shadow Mode 운영**: 안정성을 위해 초기에는 `--apply` 옵션을 제거하고 로그만 확인한다.
+   Precision/Recall 변동이 허용 범위에 들어온 것이 확인되면 `--apply`를 추가해 Active 모드로
+   전환한다.
+
+4. **장애 대응**: `logs/train_model.log`에서 `samples < min_samples` 메시지가 반복된다면
+   `--days` 값을 늘려 샘플 수를 확보한다.
+
 위 과정을 적용하면 파일 기반 배치를 DB 기반으로 전환하면서도 웹 서버/대시보드와의 연결이 가능합니다.
