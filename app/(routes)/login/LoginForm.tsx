@@ -90,7 +90,7 @@ export default function LoginForm() {
           id="registerNo"
           name="registerNo"
           className={styles.field}
-          placeholder="사번 또는 식별번호"
+          placeholder="5글자고유코드"
           value={values.registerNo}
           onChange={handleChange}
           aria-invalid={Boolean(errors.registerNo)}

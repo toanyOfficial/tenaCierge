@@ -11,10 +11,7 @@ export default function LoginPage() {
   return (
     <section className={styles.wrapper}>
       <div className={styles.card}>
-        <span className={styles.badge}>ID 000</span>
         <h1>로그인 화면</h1>
-        <p className={styles.description}>휴대폰번호를 입력해주세요</p>
-        <p className={styles.description}>관리번호를 입력해주세요</p>
         <p className={styles.helper}>둘 중 하나만 입력하셔도 됩니다.</p>
         <LoginForm />
       </div>
