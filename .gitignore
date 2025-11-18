@@ -1,0 +1,18 @@
+# Node/Bun dependencies
+node_modules/
+bun.lockb
+
+# Next.js
+.next/
+out/
+
+# Env files
+.env*
+!.env.example
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
