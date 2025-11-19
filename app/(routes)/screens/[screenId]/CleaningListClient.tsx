@@ -22,6 +22,7 @@ type WorkField = keyof Pick<
 >;
 
 type AddFormState = {
+  buildingKey: string | '';
   roomId: number | '';
   checkoutTime: string;
   checkinTime: string;
@@ -52,20 +53,46 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
   const canAdd = viewingAsAdmin || (viewingAsHost && snapshot.hostCanAdd);
 
   const roomOptions = useMemo(() => {
-    if (viewingAsAdmin && snapshot.adminRoomOptions.length > 0) {
-      return snapshot.adminRoomOptions;
+    if (viewingAsAdmin) {
+      if (snapshot.adminRoomOptions.length > 0) {
+        return snapshot.adminRoomOptions;
+      }
+      return snapshot.hostRoomOptions;
     }
 
     if (viewingAsHost) {
       return snapshot.hostRoomOptions;
     }
 
-    if (viewingAsAdmin) {
-      return snapshot.hostRoomOptions;
-    }
-
     return [];
   }, [snapshot.adminRoomOptions, snapshot.hostRoomOptions, viewingAsAdmin, viewingAsHost]);
+
+  const roomsByBuilding = useMemo<Record<string, RoomOption[]>>(() => {
+    return roomOptions.reduce<Record<string, RoomOption[]>>((acc, room) => {
+      const key = buildBuildingKey(room);
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+      acc[key].push(room);
+      return acc;
+    }, {});
+  }, [roomOptions]);
+
+  const buildingOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const list: { key: string; label: string }[] = [];
+
+    roomOptions.forEach((room) => {
+      const key = buildBuildingKey(room);
+      if (seen.has(key)) {
+        return;
+      }
+      seen.add(key);
+      list.push({ key, label: buildBuildingLabel(room) });
+    });
+
+    return list;
+  }, [roomOptions]);
 
   const [addForm, setAddForm] = useState<AddFormState>(() => createAddFormState(roomOptions[0] ?? null));
 
@@ -77,13 +104,24 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
     }
 
     setAddForm((prev) => {
-      if (prev.roomId && roomOptions.some((room) => room.roomId === prev.roomId)) {
-        return prev;
+      if (prev.roomId) {
+        const currentRoom = roomOptions.find((room) => room.roomId === prev.roomId);
+        if (currentRoom) {
+          const key = buildBuildingKey(currentRoom);
+          if (prev.buildingKey === key) {
+            return prev;
+          }
+          return { ...prev, buildingKey: key };
+        }
+      }
+
+      if (prev.buildingKey && roomsByBuilding[prev.buildingKey]?.length) {
+        return createAddFormState(roomsByBuilding[prev.buildingKey][0], prev.buildingKey);
       }
 
       return createAddFormState(roomOptions[0]);
     });
-  }, [roomOptions]);
+  }, [roomOptions, roomsByBuilding]);
 
   useEffect(() => {
     if (!isAddOpen) {
@@ -193,7 +231,38 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
     }
   }
 
-  const addRoom = roomOptions.find((room) => room.roomId === addForm.roomId) ?? roomOptions[0] ?? null;
+  function handleBuildingSelect(value: string) {
+    if (!value) {
+      setAddForm(createAddFormState(null));
+      return;
+    }
+
+    const nextRoom = roomsByBuilding[value]?.[0] ?? null;
+    setAddForm(createAddFormState(nextRoom, value));
+  }
+
+  function handleRoomSelect(value: string) {
+    if (!value) {
+      setAddForm((prev) => ({ ...prev, roomId: '' }));
+      return;
+    }
+
+    const nextRoom = roomOptions.find((room) => room.roomId === Number(value));
+
+    if (!nextRoom) {
+      setAddForm((prev) => ({ ...prev, roomId: '' }));
+      return;
+    }
+
+    setAddForm(createAddFormState(nextRoom));
+  }
+
+  const roomChoices =
+    addForm.buildingKey && roomsByBuilding[addForm.buildingKey]?.length
+      ? roomsByBuilding[addForm.buildingKey]
+      : roomOptions;
+
+  const addRoom = roomChoices.find((room) => room.roomId === addForm.roomId) ?? roomChoices[0] ?? null;
   const addBlanketBounds = addRoom ? getBlanketBounds(addRoom) : { min: 0, max: 0 };
   const addAmenitiesBounds = addRoom ? getAmenitiesBounds(addRoom) : { min: 0, max: 0 };
   const addCheckoutBounds = addRoom ? getCheckoutBounds(addRoom) : { min: '00:00', max: '00:00' };
@@ -277,23 +346,22 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                 return (
                   <article key={work.id} className={styles.workCard}>
                     <header className={styles.workCardHeader}>
-                      <div>
-                        <p className={styles.workTitle}>{work.roomName}</p>
-                        <p className={styles.workSubtitle}>{work.buildingName}</p>
-                      </div>
-                      <div className={styles.workHeaderActions}>
-                        <span className={work.cancelYn ? styles.badgeDanger : styles.badgeMuted}>
-                          {work.cancelYn ? '취소됨' : '예약 유지'}
-                        </span>
+                      <p className={styles.workTitle}>{work.roomName}</p>
+                      <div className={styles.workMetaRow}>
+                        <span className={styles.workSubtitle}>{work.buildingName}</span>
                         {canEdit ? (
                           <button
                             type="button"
-                            className={styles.cancelButton}
+                            className={styles.cancelToggle}
                             onClick={() => handleFieldChange(work.id, 'cancelYn', !work.cancelYn)}
                           >
-                            {work.cancelYn ? '예약 복구' : '취소하기'}
+                            {work.cancelYn ? '예약 유지' : '취소하기'}
                           </button>
-                        ) : null}
+                        ) : (
+                          <span className={work.cancelYn ? styles.badgeDanger : styles.badgeMuted}>
+                            {work.cancelYn ? '취소됨' : '예약 유지'}
+                          </span>
+                        )}
                       </div>
                     </header>
 
@@ -341,12 +409,16 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                         />
                       </FieldRow>
                       <FieldRow label="요청사항" description={canEditRequirements ? '255자 이내 수정 가능' : '열람 전용'}>
-                        <textarea
-                          value={work.requirements}
-                          readOnly={!canEditRequirements}
-                          aria-readonly={!canEditRequirements}
-                          onChange={(event) => handleFieldChange(work.id, 'requirements', event.target.value.slice(0, 255))}
-                        />
+                        {canEditRequirements ? (
+                          <textarea
+                            value={work.requirements}
+                            onChange={(event) =>
+                              handleFieldChange(work.id, 'requirements', event.target.value.slice(0, 255))
+                            }
+                          />
+                        ) : (
+                          <p className={styles.readonlyText}>{work.requirements || '요청 사항 없음'}</p>
+                        )}
                       </FieldRow>
                     </div>
 
@@ -383,28 +455,43 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
             </button>
             {isAddOpen ? (
               <form className={styles.addForm} onSubmit={handleAddSubmit}>
-                <p className={styles.subtle}>본인이 운영 중인 객실만 선택할 수 있습니다.</p>
-                <label className={styles.formControl}>
-                  <span>객실</span>
-                  <select
-                    value={addForm.roomId ? String(addForm.roomId) : ''}
-                    onChange={(event) => {
-                      const nextValue = event.target.value;
-                      if (!nextValue) {
-                        setAddForm(createAddFormState(null));
-                        return;
-                      }
-                      const nextRoom = roomOptions.find((room) => room.roomId === Number(nextValue)) ?? null;
-                      setAddForm(createAddFormState(nextRoom));
-                    }}
-                  >
-                    {roomOptions.map((room) => (
-                      <option key={room.roomId} value={room.roomId}>
-                        {room.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <p className={styles.subtle}>
+                  {viewingAsHost ? '본인이 운영 중인 객실만 선택할 수 있습니다.' : '빌딩을 먼저 고른 뒤 객실과 시간을 설정해 주세요.'}
+                </p>
+                <div className={styles.addSelectors}>
+                  <label className={styles.formControl}>
+                    <span>빌딩</span>
+                    <select value={addForm.buildingKey} onChange={(event) => handleBuildingSelect(event.target.value)}>
+                      {buildingOptions.length === 0 ? (
+                        <option value="">등록된 빌딩이 없습니다.</option>
+                      ) : (
+                        buildingOptions.map((building) => (
+                          <option key={building.key} value={building.key}>
+                            {building.label}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </label>
+                  <label className={styles.formControl}>
+                    <span>객실</span>
+                    <select
+                      value={addForm.roomId ? String(addForm.roomId) : ''}
+                      onChange={(event) => handleRoomSelect(event.target.value)}
+                      disabled={!roomChoices.length}
+                    >
+                      {roomChoices.length === 0 ? (
+                        <option value="">선택 가능한 객실이 없습니다.</option>
+                      ) : (
+                        roomChoices.map((room) => (
+                          <option key={room.roomId} value={room.roomId}>
+                            {room.label}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </label>
+                </div>
                 <div className={styles.addGrid}>
                   <AddField label="체크아웃" hint={`기준 ${addCheckoutBounds.min} ~ 최대 ${addCheckoutBounds.max}`}>
                     <input
@@ -487,9 +574,10 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
   );
 }
 
-function createAddFormState(room: RoomOption | null): AddFormState {
+function createAddFormState(room: RoomOption | null, forcedBuilding?: string): AddFormState {
   if (!room) {
     return {
+      buildingKey: forcedBuilding ?? '',
       roomId: '',
       checkoutTime: '00:00',
       checkinTime: '00:00',
@@ -500,6 +588,7 @@ function createAddFormState(room: RoomOption | null): AddFormState {
   }
 
   return {
+    buildingKey: forcedBuilding ?? buildBuildingKey(room),
     roomId: room.roomId,
     checkoutTime: room.defaultCheckout,
     checkinTime: room.defaultCheckin,
@@ -656,4 +745,14 @@ function clampTime(value: string, min: string, max: string) {
 
   const normalized = Math.max(minMinutes, Math.min(maxMinutes, current));
   return minutesToTimeString(normalized);
+}
+
+function buildBuildingKey(room: RoomOption) {
+  return `${room.buildingName ?? ''}__${room.buildingShortName ?? ''}`;
+}
+
+function buildBuildingLabel(room: RoomOption) {
+  const shortName = room.buildingShortName ?? '빌딩';
+  const fullName = room.buildingName ?? '';
+  return fullName ? `${shortName} · ${fullName}` : shortName;
 }

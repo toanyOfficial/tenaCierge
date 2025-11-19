@@ -7,7 +7,7 @@ import { fetchRoomMeta, fetchWorkRowById, serializeWorkRow } from '@/src/server/
 import type { CleaningWork } from '@/src/server/workTypes';
 import { validateWorkInput, type WorkMutationValues } from '@/src/server/workValidation';
 import { getProfileSummary } from '@/src/utils/profile';
-import { resolveWorkWindow } from '@/src/utils/workWindow';
+import { getKstNow, resolveWorkWindow, formatDateKey, type WorkWindowMeta } from '@/src/utils/workWindow';
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) ?? {};
@@ -26,6 +26,7 @@ export async function POST(request: Request) {
   }
 
   const meta = resolveWorkWindow();
+  const insertDate = isAdmin ? resolveAdminInsertDate(meta) : meta.targetDate;
 
   if (!isAdmin && !meta.hostCanAdd) {
     return NextResponse.json({ message: '현재 시간에는 작업을 추가할 수 없습니다.' }, { status: 403 });
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
 
   const current: CleaningWork = {
     id: 0,
-    date: meta.targetDate,
+    date: insertDate,
     roomId: roomMeta.roomId,
     roomName: `${roomMeta.buildingShortName}${roomMeta.roomNo}`,
     buildingName: roomMeta.buildingName,
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: validation.message }, { status: 400 });
   }
 
-  const insertPayload = buildInsertPayload(meta.targetDate, roomMeta.roomId, validation.values);
+  const insertPayload = buildInsertPayload(insertDate, roomMeta.roomId, validation.values);
 
   const result = await db.insert(workHeader).values(insertPayload);
   const newId = Number(result.insertId);
@@ -108,4 +109,17 @@ function buildInsertPayload(date: string, roomId: number, values: WorkMutationVa
     cleaningYn: true,
     supplyYn: true
   };
+}
+
+function resolveAdminInsertDate(meta: WorkWindowMeta) {
+  const now = getKstNow();
+  const minutes = now.getHours() * 60 + now.getMinutes();
+
+  if (minutes >= 16 * 60) {
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return formatDateKey(tomorrow);
+  }
+
+  return meta.targetDate;
 }

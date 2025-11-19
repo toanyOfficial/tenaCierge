@@ -108,48 +108,50 @@ export default function CommonHeader({ profile, activeRole, onRoleChange }: Prop
         </dl>
       </article>
 
-      <div className={styles.roleDropdown} ref={dropdownRef} aria-label="사용자 역할">
-        <button
-          type="button"
-          className={styles.roleTrigger}
-          onClick={toggleDropdown}
-          aria-haspopup="listbox"
-          aria-expanded={isOpen}
-          title={roleSummary}
-        >
-          <span>{triggerLabel}</span>
-          <ChevronIcon isOpen={isOpen} />
-        </button>
-        {isOpen ? (
-          roles.length > 0 ? (
-            <ul className={styles.roleMenu} role="listbox">
-              {roles.map((role) => (
-                <li key={role} role="option" aria-selected={role === activeRole} className={styles.roleMenuItem}>
-                  <button type="button" onClick={() => handleRoleSelect(role)}>
-                    <span>{roleLabels[role] ?? role}</span>
-                    <span className={role === activeRole ? styles.roleStatus : styles.roleStatusMuted}>
-                      {role === activeRole ? 'ON' : '선택'}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className={styles.roleMenuEmpty}>할당된 역할이 없습니다.</div>
-          )
-        ) : null}
-      </div>
+      <div className={styles.roleCluster}>
+        <div className={styles.roleDropdown} ref={dropdownRef} aria-label="사용자 역할">
+          <button
+            type="button"
+            className={styles.roleTrigger}
+            onClick={toggleDropdown}
+            aria-haspopup="listbox"
+            aria-expanded={isOpen}
+            title={roleSummary}
+          >
+            <span>{triggerLabel}</span>
+            <ChevronIcon isOpen={isOpen} />
+          </button>
+          {isOpen ? (
+            roles.length > 0 ? (
+              <ul className={styles.roleMenu} role="listbox">
+                {roles.map((role) => (
+                  <li key={role} role="option" aria-selected={role === activeRole} className={styles.roleMenuItem}>
+                    <button type="button" onClick={() => handleRoleSelect(role)}>
+                      <span>{roleLabels[role] ?? role}</span>
+                      <span className={role === activeRole ? styles.roleStatus : styles.roleStatusMuted}>
+                        {role === activeRole ? 'ON' : '선택'}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className={styles.roleMenuEmpty}>할당된 역할이 없습니다.</div>
+            )
+          ) : null}
+        </div>
 
-      <div className={styles.controls} aria-label="global buttons">
-        <button type="button" aria-label="홈으로 이동" onClick={handleHome}>
-          <HomeIcon />
-        </button>
-        <button type="button" aria-label="이전 화면" onClick={handleBack}>
-          <BackIcon />
-        </button>
-        <button type="button" aria-label="로그아웃" onClick={handleLogout}>
-          <LogoutIcon />
-        </button>
+        <div className={styles.controls} aria-label="global buttons">
+          <button type="button" aria-label="홈으로 이동" onClick={handleHome}>
+            <HomeIcon />
+          </button>
+          <button type="button" aria-label="이전 화면" onClick={handleBack}>
+            <BackIcon />
+          </button>
+          <button type="button" aria-label="로그아웃" onClick={handleLogout}>
+            <LogoutIcon />
+          </button>
+        </div>
       </div>
     </section>
   );

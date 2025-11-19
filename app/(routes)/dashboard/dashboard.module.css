@@ -1,27 +1,27 @@
 .commonBar {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 8px 16px;
+  gap: 12px;
+  padding: 12px 20px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 999px;
+  border-radius: 24px;
   color: #0f172a;
   width: 100%;
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+  box-sizing: border-box;
+  flex-wrap: wrap;
 }
 
 .profileCard {
-  background: #f8fafc;
-  border-radius: 999px;
-  padding: 4px 16px;
+  flex: 1 1 auto;
+  min-width: 220px;
 }
 
 .profileCard dl {
   margin: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px 16px;
+  gap: 8px 14px;
   align-items: center;
 }
 
@@ -46,11 +46,19 @@
   color: #0f172a;
 }
 
-.roleDropdown {
-  position: relative;
-  min-width: 160px;
+.roleCluster {
   display: flex;
   align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.roleDropdown {
+  position: relative;
+  min-width: 0;
+  flex-shrink: 0;
 }
 
 .roleTrigger {
@@ -58,8 +66,8 @@
   background: #f8fafc;
   color: #0f172a;
   border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 0.78rem;
+  padding: 6px 10px;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   display: inline-flex;
@@ -69,7 +77,7 @@
 }
 
 .roleTrigger span:first-child {
-  max-width: 200px;
+  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -161,13 +169,13 @@
 
 .controls {
   display: flex;
-  gap: 8px;
-  margin-left: auto;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .controls button {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   border: 1px solid rgba(15, 23, 42, 0.12);
   background: #f8fafc;
@@ -188,18 +196,19 @@
   .commonBar {
     flex-direction: column;
     align-items: flex-start;
-    border-radius: 24px;
   }
 
-  .profileCard,
+  .roleCluster {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
   .roleDropdown,
   .controls {
     width: 100%;
     justify-content: space-between;
-  }
-
-  .controls {
-    justify-content: flex-start;
   }
 
   .roleTrigger {

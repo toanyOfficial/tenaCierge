@@ -52,27 +52,31 @@
   background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
   width: 100%;
   overflow-x: hidden;
+  padding: 24px 12px 60px;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
 }
 
 .screenShell {
-  width: min(100%, 1200px);
+  width: 100%;
+  max-width: 1080px;
   margin: 0 auto;
-  padding: 32px 20px 80px;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  box-sizing: border-box;
 }
 
 .cleaningSection {
   background: #ffffff;
-  border-radius: 28px;
+  border-radius: 20px;
   border: 1px solid #e2e8f0;
-  padding: 28px;
-  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+  padding: 24px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
   width: 100%;
   box-sizing: border-box;
 }
@@ -100,11 +104,13 @@
 }
 
 .windowMeta {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
   font-size: 0.95rem;
   color: #475569;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .windowBadge {
@@ -147,45 +153,56 @@
 
 .cardGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
   width: 100%;
 }
 
 .workCard {
   border: 1px solid #e2e8f0;
-  border-radius: 24px;
-  padding: 20px;
+  border-radius: 18px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  background: #fdfcff;
+  gap: 12px;
+  background: #ffffff;
   min-width: 0;
 }
 
 .workCardHeader {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .workTitle {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   color: #0f172a;
 }
 
+.workMetaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+
 .workSubtitle {
-  margin: 2px 0 0;
+  margin: 0;
   color: #64748b;
   font-size: 0.9rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .badgeDanger,
 .badgeMuted {
-  padding: 4px 12px;
+  padding: 4px 10px;
   border-radius: 999px;
   font-size: 0.8rem;
   font-weight: 600;
@@ -201,45 +218,37 @@
   color: #475569;
 }
 
-.workHeaderActions {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.cancelButton {
+.cancelToggle {
   border: 1px solid #cbd5f5;
   border-radius: 999px;
-  padding: 6px 12px;
-  background: #fff;
-  color: #0f172a;
+  padding: 4px 12px;
+  background: #ffffff;
+  color: #334155;
   font-weight: 600;
+  font-size: 0.85rem;
   cursor: pointer;
 }
 
-.cancelButton:disabled {
-  opacity: 0.5;
+.cancelToggle:disabled {
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .workFields {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .fieldRow {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 8px 16px;
   width: 100%;
-  flex-wrap: wrap;
+  align-items: center;
 }
 
 .fieldMeta {
-  flex: 1 1 200px;
   min-width: 0;
 }
 
@@ -254,10 +263,12 @@
 }
 
 .fieldControl {
-  flex: 1 1 220px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
+  align-items: center;
   min-width: 0;
+  width: 100%;
+  gap: 8px;
 }
 
 .fieldControl input,
@@ -275,22 +286,37 @@
   color: #0f172a;
 }
 
+.fieldControl input[type='time'],
+.fieldControl input[type='number'] {
+  max-width: 150px;
+}
+
 .fieldControl textarea {
-  min-height: 72px;
+  min-height: 60px;
+}
+
+.readonlyText {
+  margin: 0;
+  padding: 6px 0;
+  color: #475569;
+  min-height: 32px;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
 
 .cardActions {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .cardActions button,
 .addForm button {
   border: none;
   border-radius: 999px;
-  padding: 10px 20px;
+  padding: 8px 18px;
   background: #0f172a;
   color: #fff;
   font-weight: 600;
@@ -331,12 +357,20 @@
   font-weight: 500;
 }
 
-.addSection {
-  border-top: 1px dashed #cbd5f5;
-  padding-top: 20px;
+
+.cardStatus {
+  min-height: 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 4px;
+}
+
+.addSection {
+  border-top: 1px dashed #cbd5f5;
+  padding-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .addTrigger {
@@ -355,7 +389,17 @@
 .addForm {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 16px;
+  background: #f8fafc;
+}
+
+.addSelectors {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .formControl {
@@ -364,6 +408,8 @@
   gap: 6px;
   font-weight: 600;
   color: #0f172a;
+  flex: 1 1 220px;
+  min-width: 200px;
 }
 
 .formControl em {
@@ -376,19 +422,34 @@
 .addGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
+  gap: 14px;
 }
+
 
 .stepper {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
+  width: auto;
 }
 
 .stepper input {
-  flex: 1;
+  width: 64px;
   text-align: center;
+}
+
+@media (max-width: 640px) {
+  .fieldRow {
+    grid-template-columns: 1fr;
+  }
+
+  .workMetaRow {
+    flex-wrap: wrap;
+  }
+
+  .addSelectors {
+    flex-direction: column;
+  }
 }
 
 .stepper button {
@@ -419,14 +480,5 @@
   .cardActions {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .fieldRow {
-    flex-direction: column;
-  }
-
-  .workHeaderActions {
-    width: 100%;
-    justify-content: space-between;
   }
 }
