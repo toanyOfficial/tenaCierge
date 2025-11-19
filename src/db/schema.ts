@@ -13,7 +13,7 @@ import {
 } from 'drizzle-orm/mysql-core';
 
 export const clientHeader = mysqlTable('client_header', {
-  id: mediumint('id').unsigned().autoincrement().notNull(),
+  id: mediumint('id', { unsigned: true }).autoincrement().notNull(),
   key: varchar('key', { length: 6 }).notNull(),
   name: varchar('name', { length: 10 }).notNull(),
   person: varchar('person', { length: 5 }).notNull(),
@@ -30,7 +30,7 @@ export const clientHeader = mysqlTable('client_header', {
 
 export const clientRooms = mysqlTable('client_rooms', {
   id: int('id').unsigned().autoincrement().notNull(),
-  clientId: mediumint('client_id').unsigned().notNull(),
+  clientId: mediumint('client_id', { unsigned: true }).notNull(),
   buildingId: tinyint('building_id').notNull(),
   roomNo: varchar('room_no', { length: 4 }).notNull(),
   centralPassword: varchar('central_password', { length: 20 }),
