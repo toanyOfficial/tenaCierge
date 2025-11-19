@@ -1,181 +1,141 @@
-.wrapper {
+.screen {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
+  padding: 28px;
+  background: #f5f6fb;
+  border-radius: 32px;
+  box-shadow: 0 35px 70px rgba(15, 23, 42, 0.08);
 }
 
-.overview {
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #94a3b8;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 2rem;
+  color: #0f172a;
+}
+
+.header p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.profileCard {
   background: #ffffff;
   border-radius: 24px;
-  padding: 28px;
-  box-shadow: 0 24px 50px rgba(15, 23, 42, 0.08);
+  padding: 24px;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
+}
+
+.profileCard dl {
+  margin: 0;
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
-.overview h1 {
-  margin: 0 0 8px;
-  font-size: 1.75rem;
+.profileRow {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 16px;
+  align-items: center;
 }
 
-.overview p {
-  margin: 0;
-  color: #475569;
-}
-
-.datePanel {
-  display: inline-flex;
-  flex-direction: column;
-  align-self: flex-start;
-  background: #0f172a;
-  color: #f8fafc;
-  padding: 12px 20px;
-  border-radius: 16px;
-  gap: 4px;
-}
-
-.datePanel span {
-  font-size: 0.85rem;
-  letter-spacing: 0.08em;
+.profileRow dt {
+  font-size: 0.9rem;
   text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
 }
 
-.datePanel strong {
-  font-size: 1.2rem;
-}
-
-.metricList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  list-style: none;
+.profileRow dd {
   margin: 0;
-  padding: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #0f172a;
 }
 
-.metric {
-  border-radius: 12px;
-  padding: 12px 16px;
-  min-width: 140px;
+.roleRow {
+  align-items: flex-start;
+}
+
+.roleList {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+  flex-wrap: wrap;
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
-.metric span {
-  font-size: 0.85rem;
-  color: #475569;
-}
-
-.metric strong {
-  font-size: 1.4rem;
-}
-
-.metric.accent {
+.roleList li {
+  padding: 6px 14px;
   background: rgba(37, 99, 235, 0.12);
   color: #1d4ed8;
-}
-
-.metric.neutral {
-  background: rgba(16, 185, 129, 0.12);
-  color: #047857;
-}
-
-.metric.warning {
-  background: rgba(234, 88, 12, 0.12);
-  color: #c2410c;
-}
-
-.card {
-  background: #ffffff;
-  border-radius: 20px;
-  padding: 24px;
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.07);
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.card header {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.card header h2 {
-  margin: 0;
-}
-
-.card header span {
-  font-size: 0.85rem;
-  color: #94a3b8;
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.table thead th {
-  text-align: left;
-  font-size: 0.8rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #94a3b8;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.table tbody td {
-  padding: 14px 0;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.helper {
-  font-size: 0.8rem;
-  color: #94a3b8;
-}
-
-.list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.list li {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 0;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.list li:last-child {
-  border-bottom: none;
-}
-
-.pill {
   border-radius: 999px;
-  padding: 4px 12px;
-  background: rgba(15, 23, 42, 0.08);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 600;
 }
 
-@media (max-width: 768px) {
-  .overview {
+.emptyValue {
+  color: #94a3b8;
+  font-size: 0.95rem;
+}
+
+.controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.controls button {
+  flex: 1;
+  min-width: 120px;
+  border: none;
+  border-radius: 999px;
+  padding: 14px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: #0f172a;
+  color: #ffffff;
+  box-shadow: 0 20px 30px rgba(15, 23, 42, 0.12);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.controls button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 25px 40px rgba(15, 23, 42, 0.16);
+}
+
+.logout {
+  background: #dc2626;
+}
+
+@media (max-width: 640px) {
+  .screen {
     padding: 20px;
   }
 
-  .card {
-    padding: 20px;
+  .profileRow {
+    grid-template-columns: 1fr;
   }
 
-  .list li {
-    flex-direction: column;
+  .controls button {
+    flex: 100%;
   }
 }
