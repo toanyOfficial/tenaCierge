@@ -67,3 +67,28 @@ export default function DashboardPage() {
 
   return <CommonHeader profile={profile} />;
 }
+
+function HomeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />
+    </svg>
+  );
+}
+
+function BackIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M10 5 3 12l7 7v-4h11v-6H10z" />
+    </svg>
+  );
+}
+
+function LogoutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M14 3v4h-2V3H5v18h7v-4h2v4h5a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1z" />
+      <path d="m11 9-2 3 2 3h9v-6z" />
+    </svg>
+  );
+}
