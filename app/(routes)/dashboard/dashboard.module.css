@@ -1,0 +1,181 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.overview {
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 28px;
+  box-shadow: 0 24px 50px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.overview h1 {
+  margin: 0 0 8px;
+  font-size: 1.75rem;
+}
+
+.overview p {
+  margin: 0;
+  color: #475569;
+}
+
+.datePanel {
+  display: inline-flex;
+  flex-direction: column;
+  align-self: flex-start;
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 12px 20px;
+  border-radius: 16px;
+  gap: 4px;
+}
+
+.datePanel span {
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.datePanel strong {
+  font-size: 1.2rem;
+}
+
+.metricList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.metric {
+  border-radius: 12px;
+  padding: 12px 16px;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric span {
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.metric strong {
+  font-size: 1.4rem;
+}
+
+.metric.accent {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
+.metric.neutral {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+}
+
+.metric.warning {
+  background: rgba(234, 88, 12, 0.12);
+  color: #c2410c;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.07);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.card header h2 {
+  margin: 0;
+}
+
+.card header span {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table thead th {
+  text-align: left;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.table tbody td {
+  padding: 14px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.helper {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.list li:last-child {
+  border-bottom: none;
+}
+
+.pill {
+  border-radius: 999px;
+  padding: 4px 12px;
+  background: rgba(15, 23, 42, 0.08);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .overview {
+    padding: 20px;
+  }
+
+  .card {
+    padding: 20px;
+  }
+
+  .list li {
+    flex-direction: column;
+  }
+}
