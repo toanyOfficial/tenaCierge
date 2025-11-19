@@ -131,18 +131,32 @@
   background: #f1f5f9;
   color: #0f172a;
   border-radius: 10px;
-  padding: 6px 10px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   font-size: 0.78rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
+.roleMenuItem button {
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 6px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
 .roleStatus {
   font-weight: 600;
   color: #10b981;
+}
+
+.roleStatusMuted {
+  font-weight: 600;
+  color: #94a3b8;
 }
 
 .controls {
@@ -191,5 +205,194 @@
   .roleTrigger {
     width: 100%;
     justify-content: space-between;
+  }
+}
+
+.dashboardStack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.rolePanels {
+  width: 100%;
+}
+
+.rolePlaceholder,
+.roleEmpty,
+.cleanerPanel {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 32px;
+  border: 1px solid #e2e8f0;
+  padding: 24px;
+  box-shadow: 0 25px 50px rgba(15, 23, 42, 0.08);
+}
+
+.rolePlaceholder,
+.roleEmpty {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #475569;
+}
+
+.rolePlaceholderTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.rolePlaceholderBody {
+  margin: 0;
+  line-height: 1.6;
+  color: #94a3b8;
+}
+
+.cleanerHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.cleanerTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.cleanerSubtitle {
+  margin: 4px 0 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.tierChip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  gap: 4px;
+}
+
+.tierChip strong {
+  font-size: 1.1rem;
+  color: #0f172a;
+}
+
+.cleanerMessage {
+  margin: 0 0 16px;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #0f172a;
+}
+
+.statusRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.statusBadge {
+  background: #ecfccb;
+  color: #3f6212;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.statusTime {
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.primaryCtaWrap {
+  margin-bottom: 16px;
+}
+
+.linkButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  padding: 10px 18px;
+  font-weight: 600;
+  color: #0f172a;
+  background: #f8fafc;
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.linkButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.1);
+}
+
+.primaryCta {
+  background: #111827;
+  color: #ffffff;
+  border-color: #111827;
+}
+
+.metaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.metaTile {
+  background: #f8fafc;
+  border-radius: 20px;
+  padding: 12px 16px;
+}
+
+.metaLabel {
+  margin: 0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}
+
+.metaValue {
+  margin: 4px 0 0;
+  font-weight: 600;
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.secondaryCtas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .cleanerPanel,
+  .rolePlaceholder,
+  .roleEmpty {
+    border-radius: 24px;
+    padding: 20px;
+  }
+
+  .metaGrid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   }
 }

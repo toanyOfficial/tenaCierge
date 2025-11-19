@@ -23,15 +23,18 @@ function sortRoles(roles: string[]) {
 
 type Props = {
   profile: ProfileSummary;
+  activeRole: string | null;
+  onRoleChange?: (role: string) => void;
 };
 
-export default function CommonHeader({ profile }: Props) {
+export default function CommonHeader({ profile, activeRole, onRoleChange }: Props) {
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
   const roles = useMemo(() => sortRoles(profile.roles), [profile.roles]);
   const roleSummary = roles.length ? roles.map((role) => roleLabels[role] ?? role).join(', ') : 'Role 없음';
+  const triggerLabel = activeRole ? roleLabels[activeRole] ?? activeRole : roleSummary;
 
   const handleHome = useCallback(() => {
     router.push('/dashboard');
@@ -57,6 +60,14 @@ export default function CommonHeader({ profile }: Props) {
   const toggleDropdown = useCallback(() => {
     setIsOpen((prev) => !prev);
   }, []);
+
+  const handleRoleSelect = useCallback(
+    (role: string) => {
+      onRoleChange?.(role);
+      setIsOpen(false);
+    },
+    [onRoleChange]
+  );
 
   useEffect(() => {
     function handleOutsideClick(event: MouseEvent) {
@@ -106,16 +117,20 @@ export default function CommonHeader({ profile }: Props) {
           aria-expanded={isOpen}
           title={roleSummary}
         >
-          <span>{roleSummary}</span>
+          <span>{triggerLabel}</span>
           <ChevronIcon isOpen={isOpen} />
         </button>
         {isOpen ? (
           roles.length > 0 ? (
             <ul className={styles.roleMenu} role="listbox">
               {roles.map((role) => (
-                <li key={role} role="option" aria-selected="true" className={styles.roleMenuItem}>
-                  <span>{roleLabels[role] ?? role}</span>
-                  <span className={styles.roleStatus}>ON</span>
+                <li key={role} role="option" aria-selected={role === activeRole} className={styles.roleMenuItem}>
+                  <button type="button" onClick={() => handleRoleSelect(role)}>
+                    <span>{roleLabels[role] ?? role}</span>
+                    <span className={role === activeRole ? styles.roleStatus : styles.roleStatusMuted}>
+                      {role === activeRole ? 'ON' : '선택'}
+                    </span>
+                  </button>
                 </li>
               ))}
             </ul>
