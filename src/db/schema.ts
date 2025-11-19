@@ -1,4 +1,16 @@
-import { mysqlTable, int, mediumint, varchar, timestamp, tinyint, boolean, time, date, bigint } from 'drizzle-orm/mysql-core';
+import {
+  mysqlTable,
+  int,
+  mediumint,
+  varchar,
+  timestamp,
+  tinyint,
+  boolean,
+  time,
+  date,
+  bigint,
+  char
+} from 'drizzle-orm/mysql-core';
 
 export const clientHeader = mysqlTable('client_header', {
   id: mediumint('id').unsigned().autoincrement().notNull(),
@@ -49,6 +61,22 @@ export const workHeader = mysqlTable('work_header', {
   checkoutTime: time('ceckout_time').notNull(),
   supplyYn: boolean('supply_yn').default(true).notNull(),
   cleaningFlag: tinyint('clening_flag').default(1).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const workerHeader = mysqlTable('worker_header', {
+  id: int('id').unsigned().autoincrement().notNull(),
+  registerCode: varchar('key', { length: 6 }).notNull(),
+  name: varchar('name', { length: 10 }).notNull(),
+  phone: varchar('phone', { length: 11 }),
+  registerNo: char('reg_no', { length: 13 }),
+  bankCode: varchar('basecode_bank', { length: 10 }),
+  bankValue: varchar('basecode_code', { length: 255 }),
+  accountNo: varchar('account_no', { length: 50 }),
+  rank: tinyint('rank').notNull(),
+  tier: tinyint('tier').default(3).notNull(),
+  comments: varchar('comments', { length: 255 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });

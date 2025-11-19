@@ -107,3 +107,9 @@
 .submitBtn:hover {
   filter: brightness(1.05);
 }
+
+.submitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  filter: none;
+}

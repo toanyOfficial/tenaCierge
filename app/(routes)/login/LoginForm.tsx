@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import styles from './login.module.css';
 
 type FormValues = {
@@ -34,8 +35,10 @@ function validate(values: FormValues): FormErrors {
 }
 
 export default function LoginForm() {
+  const router = useRouter();
   const [values, setValues] = useState<FormValues>(initialValues);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = event.target;
@@ -45,7 +48,7 @@ export default function LoginForm() {
     }));
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextErrors = validate(values);
     setErrors(nextErrors);
@@ -54,9 +57,36 @@ export default function LoginForm() {
       return;
     }
 
-    // TODO: 인증 API 연동 시 실제 로그인 로직을 추가합니다.
-    setValues(initialValues);
-    setErrors({});
+    setIsSubmitting(true);
+    try {
+      const normalizedPhone = values.phone.replace(/[^0-9]/g, '');
+      const payload = {
+        phone: normalizedPhone || undefined,
+        registerNo: values.registerNo.trim() || undefined
+      };
+
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({ message: '로그인에 실패했습니다.' }));
+        setErrors({ global: data?.message ?? '로그인에 실패했습니다.' });
+        return;
+      }
+
+      setValues(initialValues);
+      setErrors({});
+      router.push('/dashboard');
+    } catch (error) {
+      setErrors({ global: '로그인 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.' });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -98,7 +128,7 @@ export default function LoginForm() {
         {errors.registerNo && <p className={styles.error}>{errors.registerNo}</p>}
       </div>
 
-      <button type="submit" className={styles.submitBtn}>
+      <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
         로그인
       </button>
     </form>
