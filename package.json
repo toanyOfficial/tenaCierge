@@ -1,0 +1,27 @@
+{
+  "name": "tena-cierge-web",
+  "private": true,
+  "scripts": {
+    "dev": "bunx next dev --port 3200",
+    "build": "bunx next build",
+    "start": "bunx next start -p 3200",
+    "lint": "bunx next lint"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.30.10",
+    "luxon": "^3.4.4",
+    "mysql2": "^3.9.7",
+    "next": "^14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.5",
+    "typescript": "^5.4.5"
+  }
+}
