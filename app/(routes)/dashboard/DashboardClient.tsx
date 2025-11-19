@@ -2,23 +2,22 @@
 
 import { useMemo, useState } from 'react';
 
-import type { CleanerSnapshot, ProfileSummary } from './page';
+import type { AdminNotice, ButlerSnapshot, CleanerSnapshot, ProfileSummary } from './page';
 import CommonHeader from './CommonHeader';
 import CleanerPanel from './CleanerPanel';
+import ButlerPanel from './ButlerPanel';
+import HostPanel from './HostPanel';
+import AdminPanel from './AdminPanel';
 import styles from './dashboard.module.css';
 
 type Props = {
   profile: ProfileSummary;
   cleanerSnapshot: CleanerSnapshot | null;
+  butlerSnapshot: ButlerSnapshot | null;
+  adminNotice: AdminNotice | null;
 };
 
-const fallbackRoleMessages: Record<string, string> = {
-  admin: '관리자 전용 화면을 곧 준비하겠습니다.',
-  host: '호스트 화면은 정의서 업데이트 이후 구성됩니다.',
-  butler: '버틀러 보드는 다음 단계에서 노출됩니다.'
-};
-
-export default function DashboardClient({ profile, cleanerSnapshot }: Props) {
+export default function DashboardClient({ profile, cleanerSnapshot, butlerSnapshot, adminNotice }: Props) {
   const roles = profile.roles;
   const [activeRole, setActiveRole] = useState<string | null>(() => {
     if (profile.primaryRole && roles.includes(profile.primaryRole)) {
@@ -45,17 +44,27 @@ export default function DashboardClient({ profile, cleanerSnapshot }: Props) {
       return <CleanerPanel snapshot={cleanerSnapshot} />;
     }
 
+    if (activeRole === 'host') {
+      return <HostPanel />;
+    }
+
+    if (activeRole === 'butler') {
+      return <ButlerPanel snapshot={butlerSnapshot} />;
+    }
+
+    if (activeRole === 'admin') {
+      return <AdminPanel notice={adminNotice} />;
+    }
+
     return (
       <article className={styles.rolePlaceholder}>
         <header>
           <p className={styles.rolePlaceholderTitle}>{activeRole.toUpperCase()} 화면 준비중</p>
-          <p className={styles.rolePlaceholderBody}>
-            {fallbackRoleMessages[activeRole] ?? '이 역할에 맞는 패널은 추후 제공됩니다.'}
-          </p>
+          <p className={styles.rolePlaceholderBody}>이 역할에 맞는 패널은 추후 제공됩니다.</p>
         </header>
       </article>
     );
-  }, [activeRole, cleanerSnapshot]);
+  }, [activeRole, adminNotice, butlerSnapshot, cleanerSnapshot]);
 
   return (
     <div className={styles.dashboardStack}>

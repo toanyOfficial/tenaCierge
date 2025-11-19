@@ -221,7 +221,10 @@
 
 .rolePlaceholder,
 .roleEmpty,
-.cleanerPanel {
+.cleanerPanel,
+.hostPanel,
+.butlerPanel,
+.adminPanel {
   width: 100%;
   background: #ffffff;
   border-radius: 32px;
@@ -258,6 +261,35 @@
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 12px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.panelTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.panelSubtitle {
+  margin: 4px 0 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.panelEmpty {
+  margin: 0;
+  padding: 24px;
+  border-radius: 20px;
+  border: 1px dashed rgba(148, 163, 184, 0.6);
+  text-align: center;
+  color: #94a3b8;
 }
 
 .cleanerTitle {
@@ -397,8 +429,11 @@
 
 .applicationMeta {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  justify-content: space-between;
+  align-items: center;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
 }
 
 .applicationDate {
@@ -438,10 +473,302 @@
   gap: 8px;
 }
 
+.quickLinkGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.butlerSection {
+  margin-top: 24px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sectionHeader h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.sectionHeader p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.butlerSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.sectorCard {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  padding: 16px;
+  background: #f8fafc;
+}
+
+.sectorCard header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sectorCard header p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.sectorCard header span {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.sectorCard ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.buildingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+}
+
+.checkoutRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+  color: #475569;
+  font-size: 0.85rem;
+}
+
+.butlerDetailList {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.cleanerTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.cleanerSubtitle {
+  margin: 4px 0 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.tierChip {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detailRow {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.detailSector {
+  margin: 0;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.detailBuilding {
+  margin: 2px 0 0;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.detailMeta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+
+.detailMeta span {
+  color: #94a3b8;
+}
+
+.detailMeta strong {
+  font-size: 1rem;
+}
+
+.countBadge {
+  background: #0f172a;
+  color: #ffffff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.noticeButton {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-weight: 600;
+  background: #0f172a;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.noticeCard {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  padding: 16px;
+  background: #f8fafc;
+  margin-bottom: 24px;
+}
+
+.noticeCard header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.noticeCard header p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.noticeCard header span {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.noticeBody {
+  margin: 0;
+  white-space: pre-line;
+  line-height: 1.6;
+  color: #0f172a;
+}
+
+.noticeOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 50;
+}
+
+.noticeModal {
+  width: min(480px, 100%);
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 20px;
+  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.noticeModal header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.noticeModal header p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.noticeModal header button {
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.noticeModal textarea {
+  min-height: 160px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 16px;
+  padding: 12px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.noticeActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.noticeActions div {
+  display: flex;
+  gap: 8px;
+}
+
+.noticeActions button {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: #f8fafc;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.noticeActions button[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.noticeFeedback {
+  margin: 0;
+  text-align: right;
+  font-size: 0.85rem;
+  color: #ef4444;
+}
+
 @media (max-width: 768px) {
   .cleanerPanel,
   .rolePlaceholder,
-  .roleEmpty {
+  .roleEmpty,
+  .hostPanel,
+  .butlerPanel,
+  .adminPanel {
     border-radius: 24px;
     padding: 20px;
   }
@@ -454,5 +781,18 @@
   .applicationCancel {
     width: 100%;
     text-align: center;
+  }
+
+  .detailRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .detailMeta {
+    align-items: flex-start;
+  }
+
+  .quickLinkGrid {
+    flex-direction: column;
   }
 }
