@@ -1,0 +1,174 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+import type { ProfileSummary } from './page';
+import styles from './dashboard.module.css';
+
+const roleLabels: Record<string, string> = {
+  admin: 'Admin',
+  host: 'Host',
+  butler: 'Butler',
+  cleaner: 'Cleaner'
+};
+
+const roleOrder = ['admin', 'host', 'butler', 'cleaner'] satisfies Array<keyof typeof roleLabels>;
+
+function sortRoles(roles: string[]) {
+  return [...roles].sort(
+    (a, b) => roleOrder.indexOf(a as (typeof roleOrder)[number]) - roleOrder.indexOf(b as (typeof roleOrder)[number])
+  );
+}
+
+type Props = {
+  profile: ProfileSummary;
+};
+
+export default function CommonHeader({ profile }: Props) {
+  const router = useRouter();
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const roles = useMemo(() => sortRoles(profile.roles), [profile.roles]);
+  const roleSummary = roles.length ? roles.map((role) => roleLabels[role] ?? role).join(', ') : 'Role 없음';
+
+  const handleHome = useCallback(() => {
+    router.push('/dashboard');
+  }, [router]);
+
+  const handleBack = useCallback(() => {
+    router.back();
+  }, [router]);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      const response = await fetch('/api/logout', { method: 'POST' });
+      if (!response.ok) {
+        console.error('로그아웃 처리 실패');
+      }
+    } catch (error) {
+      console.error('로그아웃 처리 중 오류', error);
+    } finally {
+      router.replace('/login');
+    }
+  }, [router]);
+
+  const toggleDropdown = useCallback(() => {
+    setIsOpen((prev) => !prev);
+  }, []);
+
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      if (!dropdownRef.current) {
+        return;
+      }
+
+      if (event.target instanceof Node && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isOpen]);
+
+  return (
+    <section className={styles.commonBar} data-child-id="1">
+      <article className={styles.profileCard} aria-label="profiles">
+        <dl>
+          <div className={styles.profileRow}>
+            <dt>휴대전화</dt>
+            <dd>{profile.phone || '-'}</dd>
+          </div>
+          <div className={styles.profileRow}>
+            <dt>관리번호</dt>
+            <dd>{profile.registerNo || '-'}</dd>
+          </div>
+          <div className={styles.profileRow}>
+            <dt>이름</dt>
+            <dd>{profile.name || '이름 미지정'}</dd>
+          </div>
+        </dl>
+      </article>
+
+      <div className={styles.roleDropdown} ref={dropdownRef} aria-label="사용자 역할">
+        <button
+          type="button"
+          className={styles.roleTrigger}
+          onClick={toggleDropdown}
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
+          title={roleSummary}
+        >
+          <span>{roleSummary}</span>
+          <ChevronIcon isOpen={isOpen} />
+        </button>
+        {isOpen ? (
+          roles.length > 0 ? (
+            <ul className={styles.roleMenu} role="listbox">
+              {roles.map((role) => (
+                <li key={role} role="option" aria-selected="true" className={styles.roleMenuItem}>
+                  <span>{roleLabels[role] ?? role}</span>
+                  <span className={styles.roleStatus}>ON</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className={styles.roleMenuEmpty}>할당된 역할이 없습니다.</div>
+          )
+        ) : null}
+      </div>
+
+      <div className={styles.controls} aria-label="global buttons">
+        <button type="button" aria-label="홈으로 이동" onClick={handleHome}>
+          <HomeIcon />
+        </button>
+        <button type="button" aria-label="이전 화면" onClick={handleBack}>
+          <BackIcon />
+        </button>
+        <button type="button" aria-label="로그아웃" onClick={handleLogout}>
+          <LogoutIcon />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function ChevronIcon({ isOpen }: { isOpen: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={isOpen ? styles.chevronOpen : ''}>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+function HomeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />
+    </svg>
+  );
+}
+
+function BackIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M10 5 3 12l7 7v-4h11v-6H10z" />
+    </svg>
+  );
+}
+
+function LogoutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M14 3v4h-2V3H5v18h7v-4h2v4h5a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1z" />
+      <path d="m11 9-2 3 2 3h9v-6z" />
+    </svg>
+  );
+}
