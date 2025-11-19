@@ -9,6 +9,7 @@ out/
 # Env files
 .env*
 !.env.example
+!.env-example
 
 # Logs
 logs/
