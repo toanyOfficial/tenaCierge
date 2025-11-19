@@ -366,48 +366,64 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                     </header>
 
                     <div className={styles.workFields}>
-                      <FieldRow label="체크아웃" description={`기준 ${checkoutBounds.min} ~ 최대 ${checkoutBounds.max}`}>
-                        <input
-                          type="time"
-                          value={work.checkoutTime}
-                          min={checkoutBounds.min}
-                          max={checkoutBounds.max}
-                          disabled={!canEdit}
-                          onChange={(event) =>
-                            handleTimeChange(work.id, 'checkoutTime', event.target.value, checkoutBounds)
-                          }
-                        />
-                      </FieldRow>
-                      <FieldRow label="체크인" description={`최소 ${checkinBounds.min} ~ 기준 ${checkinBounds.max}`}>
-                        <input
-                          type="time"
-                          value={work.checkinTime}
-                          min={checkinBounds.min}
-                          max={checkinBounds.max}
-                          disabled={!canEdit}
-                          onChange={(event) => handleTimeChange(work.id, 'checkinTime', event.target.value, checkinBounds)}
-                        />
-                      </FieldRow>
-                      <FieldRow label="침구 수량" description={`${blanketBounds.min}~${blanketBounds.max}세트`}>
-                        <QuantityStepper
-                          value={work.blanketQty}
-                          min={blanketBounds.min}
-                          max={blanketBounds.max}
-                          disabled={!canEdit}
-                          onChange={(next) => handleNumberChange(work.id, 'blanketQty', next, blanketBounds.min, blanketBounds.max)}
-                        />
-                      </FieldRow>
-                      <FieldRow label="편의물품" description={`${amenitiesBounds.min}~${amenitiesBounds.max}세트`}>
-                        <QuantityStepper
-                          value={work.amenitiesQty}
-                          min={amenitiesBounds.min}
-                          max={amenitiesBounds.max}
-                          disabled={!canEdit}
-                          onChange={(next) =>
-                            handleNumberChange(work.id, 'amenitiesQty', next, amenitiesBounds.min, amenitiesBounds.max)
-                          }
-                        />
-                      </FieldRow>
+                      <div className={styles.inlineFieldGroup}>
+                        <FieldRow label="체크아웃" description={`기준 ${checkoutBounds.min} ~ 최대 ${checkoutBounds.max}`}>
+                          <input
+                            type="time"
+                            lang="en-GB"
+                            step={300}
+                            className={styles.timeInput}
+                            value={work.checkoutTime}
+                            min={checkoutBounds.min}
+                            max={checkoutBounds.max}
+                            disabled={!canEdit}
+                            onChange={(event) =>
+                              handleTimeChange(work.id, 'checkoutTime', event.target.value, checkoutBounds)
+                            }
+                          />
+                        </FieldRow>
+                        <FieldRow label="체크인" description={`최소 ${checkinBounds.min} ~ 기준 ${checkinBounds.max}`}>
+                          <input
+                            type="time"
+                            lang="en-GB"
+                            step={300}
+                            className={styles.timeInput}
+                            value={work.checkinTime}
+                            min={checkinBounds.min}
+                            max={checkinBounds.max}
+                            disabled={!canEdit}
+                            onChange={(event) =>
+                              handleTimeChange(work.id, 'checkinTime', event.target.value, checkinBounds)
+                            }
+                          />
+                        </FieldRow>
+                      </div>
+
+                      <div className={styles.inlineFieldGroup}>
+                        <FieldRow label="침구 수량" description={`${blanketBounds.min}~${blanketBounds.max}세트`}>
+                          <QuantityStepper
+                            value={work.blanketQty}
+                            min={blanketBounds.min}
+                            max={blanketBounds.max}
+                            disabled={!canEdit}
+                            onChange={(next) =>
+                              handleNumberChange(work.id, 'blanketQty', next, blanketBounds.min, blanketBounds.max)
+                            }
+                          />
+                        </FieldRow>
+                        <FieldRow label="어메니티" description={`${amenitiesBounds.min}~${amenitiesBounds.max}세트`}>
+                          <QuantityStepper
+                            value={work.amenitiesQty}
+                            min={amenitiesBounds.min}
+                            max={amenitiesBounds.max}
+                            disabled={!canEdit}
+                            onChange={(next) =>
+                              handleNumberChange(work.id, 'amenitiesQty', next, amenitiesBounds.min, amenitiesBounds.max)
+                            }
+                          />
+                        </FieldRow>
+                      </div>
+
                       <FieldRow label="요청사항" description={canEditRequirements ? '255자 이내 수정 가능' : '열람 전용'}>
                         {canEditRequirements ? (
                           <textarea
@@ -496,6 +512,9 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                   <AddField label="체크아웃" hint={`기준 ${addCheckoutBounds.min} ~ 최대 ${addCheckoutBounds.max}`}>
                     <input
                       type="time"
+                      lang="en-GB"
+                      step={300}
+                      className={styles.timeInput}
                       value={addForm.checkoutTime}
                       min={addCheckoutBounds.min}
                       max={addCheckoutBounds.max}
@@ -510,6 +529,9 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                   <AddField label="체크인" hint={`최소 ${addCheckinBounds.min} ~ 기준 ${addCheckinBounds.max}`}>
                     <input
                       type="time"
+                      lang="en-GB"
+                      step={300}
+                      className={styles.timeInput}
                       value={addForm.checkinTime}
                       min={addCheckinBounds.min}
                       max={addCheckinBounds.max}
@@ -521,6 +543,8 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                       }
                     />
                   </AddField>
+                </div>
+                <div className={styles.addGrid}>
                   <AddField label="침구 수량" hint={`${addBlanketBounds.min}~${addBlanketBounds.max}세트`}>
                     <QuantityStepper
                       value={addForm.blanketQty}
@@ -534,7 +558,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                       }
                     />
                   </AddField>
-                  <AddField label="편의물품" hint={`${addAmenitiesBounds.min}~${addAmenitiesBounds.max}세트`}>
+                  <AddField label="어메니티" hint={`${addAmenitiesBounds.min}~${addAmenitiesBounds.max}세트`}>
                     <QuantityStepper
                       value={addForm.amenitiesQty}
                       min={addAmenitiesBounds.min}

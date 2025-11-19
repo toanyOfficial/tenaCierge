@@ -1,15 +1,16 @@
 .commonBar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 20px;
+  gap: 16px;
+  padding: 20px 24px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 24px;
+  border-radius: 20px;
   color: #0f172a;
   width: 100%;
   box-sizing: border-box;
   flex-wrap: wrap;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
 }
 
 .profileCard {
@@ -49,9 +50,10 @@
 .roleCluster {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   margin-left: auto;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   min-width: 0;
 }
 
@@ -167,13 +169,7 @@
   color: #94a3b8;
 }
 
-.controls {
-  display: flex;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.controls button {
+.iconButton {
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -184,38 +180,38 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
-.controls button svg {
+.iconButton svg {
   width: 16px;
   height: 16px;
   fill: currentColor;
 }
 
-@media (max-width: 768px) {
-  .commonBar {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+  @media (max-width: 768px) {
+    .commonBar {
+      flex-direction: column;
+      align-items: flex-start;
+    }
 
-  .roleCluster {
-    width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
+    .roleCluster {
+      width: 100%;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
 
-  .roleDropdown,
-  .controls {
-    width: 100%;
-    justify-content: space-between;
-  }
+    .roleDropdown {
+      width: 100%;
+      justify-content: space-between;
+    }
 
-  .roleTrigger {
-    width: 100%;
-    justify-content: space-between;
+    .roleTrigger {
+      width: 100%;
+      justify-content: space-between;
+    }
   }
-}
 
 .dashboardStack {
   display: flex;
@@ -438,13 +434,11 @@
 
 .applicationMeta {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, 0.05);
+  align-items: center;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
 }
 
 .applicationDate {
@@ -572,6 +566,47 @@
 
 .butlerDetailList {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.panelTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.panelSubtitle {
+  margin: 4px 0 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.panelEmpty {
+  margin: 0;
+  padding: 24px;
+  border-radius: 20px;
+  border: 1px dashed rgba(148, 163, 184, 0.6);
+  text-align: center;
+  color: #94a3b8;
+}
+
+.cleanerTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.cleanerSubtitle {
+  margin: 4px 0 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.tierChip {
+  display: inline-flex;
   flex-direction: column;
   gap: 12px;
 }
@@ -689,10 +724,68 @@
   gap: 8px;
 }
 
-.noticeModal header {
+.applicationRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.05);
+}
+
+.applicationMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.05);
+}
+
+.applicationDate {
+  margin: 0;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.applicationArea {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.applicationCancel {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: transparent;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.applicationEmpty {
+  padding: 32px 12px;
+  text-align: center;
+  color: #94a3b8;
+  border-radius: 18px;
+  border: 1px dashed rgba(148, 163, 184, 0.6);
+  background: #ffffff;
+}
+
+.secondaryCtas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quickLinkGrid {
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
 }
 

@@ -108,7 +108,7 @@ export default function CommonHeader({ profile, activeRole, onRoleChange }: Prop
         </dl>
       </article>
 
-      <div className={styles.roleCluster}>
+      <div className={styles.roleCluster} aria-label="역할 선택 및 글로벌 조작">
         <div className={styles.roleDropdown} ref={dropdownRef} aria-label="사용자 역할">
           <button
             type="button"
@@ -141,17 +141,15 @@ export default function CommonHeader({ profile, activeRole, onRoleChange }: Prop
           ) : null}
         </div>
 
-        <div className={styles.controls} aria-label="global buttons">
-          <button type="button" aria-label="홈으로 이동" onClick={handleHome}>
-            <HomeIcon />
-          </button>
-          <button type="button" aria-label="이전 화면" onClick={handleBack}>
-            <BackIcon />
-          </button>
-          <button type="button" aria-label="로그아웃" onClick={handleLogout}>
-            <LogoutIcon />
-          </button>
-        </div>
+        <button type="button" aria-label="이전 화면" className={styles.iconButton} onClick={handleBack}>
+          <BackIcon />
+        </button>
+        <button type="button" aria-label="홈으로 이동" className={styles.iconButton} onClick={handleHome}>
+          <HomeIcon />
+        </button>
+        <button type="button" aria-label="로그아웃" className={styles.iconButton} onClick={handleLogout}>
+          <LogoutIcon />
+        </button>
       </div>
     </section>
   );
