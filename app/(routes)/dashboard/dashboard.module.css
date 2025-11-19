@@ -438,27 +438,6 @@
   border: 1px solid rgba(15, 23, 42, 0.05);
 }
 
-.applicationMeta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: inherit;
-  color: inherit;
-  cursor: pointer;
-}
-
-.applicationDate {
-  margin: 0;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.applicationArea {
-  margin: 0;
-  color: #64748b;
-  font-size: 0.9rem;
-}
-
 .applicationDate {
   margin: 0;
   font-weight: 600;

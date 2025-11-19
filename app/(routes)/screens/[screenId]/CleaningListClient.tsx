@@ -9,14 +9,17 @@ import styles from './screens.module.css';
 
 import type { ProfileSummary } from '@/src/utils/profile';
 import type { CleaningWork } from '@/src/server/workTypes';
-import { addMinutes } from '@/src/utils/time';
+import { addMinutes, minutesToTimeString, parseTimeString } from '@/src/utils/time';
 
 type Props = {
   profile: ProfileSummary;
   snapshot: CleaningSnapshot;
 };
 
-type WorkField = keyof Pick<CleaningWork, 'checkoutTime' | 'checkinTime' | 'blanketQty' | 'amenitiesQty' | 'cancelYn' | 'requirements'>;
+type WorkField = keyof Pick<
+  CleaningWork,
+  'checkoutTime' | 'checkinTime' | 'blanketQty' | 'amenitiesQty' | 'cancelYn' | 'requirements'
+>;
 
 type AddFormState = {
   roomId: number | '';
@@ -24,7 +27,6 @@ type AddFormState = {
   checkinTime: string;
   blanketQty: number;
   amenitiesQty: number;
-  cancelYn: boolean;
   requirements: string;
 };
 
@@ -39,6 +41,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
   const [isAdding, setIsAdding] = useState(false);
   const [addStatus, setAddStatus] = useState('');
   const [addError, setAddError] = useState('');
+  const [isAddOpen, setIsAddOpen] = useState(false);
 
   const viewingAsHost = activeRole === 'host';
   const viewingAsAdmin = activeRole === 'admin';
@@ -69,6 +72,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
   useEffect(() => {
     if (!roomOptions.length) {
       setAddForm(createAddFormState(null));
+      setIsAddOpen(false);
       return;
     }
 
@@ -80,6 +84,13 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
       return createAddFormState(roomOptions[0]);
     });
   }, [roomOptions]);
+
+  useEffect(() => {
+    if (!isAddOpen) {
+      setAddStatus('');
+      setAddError('');
+    }
+  }, [isAddOpen]);
 
   const visibleWorks = useMemo(() => {
     if (viewingAsHost) {
@@ -110,14 +121,24 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
     setWorks((prev) => prev.map((work) => (work.id === id ? { ...work, [field]: value } : work)));
   }
 
-  function handleNumberChange(id: number, field: Extract<WorkField, 'blanketQty' | 'amenitiesQty'>, raw: string, min: number, max: number) {
-    const parsed = Number(raw);
+  function handleNumberChange(
+    id: number,
+    field: Extract<WorkField, 'blanketQty' | 'amenitiesQty'>,
+    nextValue: number,
+    min: number,
+    max: number
+  ) {
+    const clamped = clampNumber(nextValue, min, max);
+    handleFieldChange(id, field, clamped);
+  }
 
-    if (Number.isNaN(parsed)) {
-      return;
-    }
-
-    const clamped = Math.max(min, Math.min(parsed, max));
+  function handleTimeChange(
+    id: number,
+    field: Extract<WorkField, 'checkoutTime' | 'checkinTime'>,
+    nextValue: string,
+    bounds: { min: string; max: string }
+  ) {
+    const clamped = clampTime(nextValue, bounds.min, bounds.max);
     handleFieldChange(id, field, clamped);
   }
 
@@ -173,10 +194,10 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
   }
 
   const addRoom = roomOptions.find((room) => room.roomId === addForm.roomId) ?? roomOptions[0] ?? null;
-  const addBlanketBounds = getBlanketBounds(addRoom);
-  const addAmenitiesBounds = getAmenitiesBounds(addRoom);
-  const addCheckoutBounds = getCheckoutBounds(addRoom);
-  const addCheckinBounds = getCheckinBounds(addRoom);
+  const addBlanketBounds = addRoom ? getBlanketBounds(addRoom) : { min: 0, max: 0 };
+  const addAmenitiesBounds = addRoom ? getAmenitiesBounds(addRoom) : { min: 0, max: 0 };
+  const addCheckoutBounds = addRoom ? getCheckoutBounds(addRoom) : { min: '00:00', max: '00:00' };
+  const addCheckinBounds = addRoom ? getCheckinBounds(addRoom) : { min: '00:00', max: '00:00' };
 
   async function handleAddSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -199,7 +220,6 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
           checkinTime: addForm.checkinTime,
           blanketQty: addForm.blanketQty,
           amenitiesQty: addForm.amenitiesQty,
-          cancelYn: addForm.cancelYn,
           requirements: addForm.requirements
         })
       });
@@ -261,9 +281,20 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                         <p className={styles.workTitle}>{work.roomName}</p>
                         <p className={styles.workSubtitle}>{work.buildingName}</p>
                       </div>
-                      <span className={work.cancelYn ? styles.badgeDanger : styles.badgeMuted}>
-                        {work.cancelYn ? '취소됨' : '예약 유지'}
-                      </span>
+                      <div className={styles.workHeaderActions}>
+                        <span className={work.cancelYn ? styles.badgeDanger : styles.badgeMuted}>
+                          {work.cancelYn ? '취소됨' : '예약 유지'}
+                        </span>
+                        {canEdit ? (
+                          <button
+                            type="button"
+                            className={styles.cancelButton}
+                            onClick={() => handleFieldChange(work.id, 'cancelYn', !work.cancelYn)}
+                          >
+                            {work.cancelYn ? '예약 복구' : '취소하기'}
+                          </button>
+                        ) : null}
+                      </div>
                     </header>
 
                     <div className={styles.workFields}>
@@ -274,7 +305,9 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                           min={checkoutBounds.min}
                           max={checkoutBounds.max}
                           disabled={!canEdit}
-                          onChange={(event) => handleFieldChange(work.id, 'checkoutTime', event.target.value)}
+                          onChange={(event) =>
+                            handleTimeChange(work.id, 'checkoutTime', event.target.value, checkoutBounds)
+                          }
                         />
                       </FieldRow>
                       <FieldRow label="체크인" description={`최소 ${checkinBounds.min} ~ 기준 ${checkinBounds.max}`}>
@@ -284,48 +317,28 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                           min={checkinBounds.min}
                           max={checkinBounds.max}
                           disabled={!canEdit}
-                          onChange={(event) => handleFieldChange(work.id, 'checkinTime', event.target.value)}
+                          onChange={(event) => handleTimeChange(work.id, 'checkinTime', event.target.value, checkinBounds)}
                         />
                       </FieldRow>
                       <FieldRow label="침구 수량" description={`${blanketBounds.min}~${blanketBounds.max}세트`}>
-                        <input
-                          type="number"
+                        <QuantityStepper
                           value={work.blanketQty}
                           min={blanketBounds.min}
                           max={blanketBounds.max}
                           disabled={!canEdit}
-                          onChange={(event) =>
-                            handleNumberChange(work.id, 'blanketQty', event.target.value, blanketBounds.min, blanketBounds.max)
-                          }
+                          onChange={(next) => handleNumberChange(work.id, 'blanketQty', next, blanketBounds.min, blanketBounds.max)}
                         />
                       </FieldRow>
                       <FieldRow label="편의물품" description={`${amenitiesBounds.min}~${amenitiesBounds.max}세트`}>
-                        <input
-                          type="number"
+                        <QuantityStepper
                           value={work.amenitiesQty}
                           min={amenitiesBounds.min}
                           max={amenitiesBounds.max}
                           disabled={!canEdit}
-                          onChange={(event) =>
-                            handleNumberChange(
-                              work.id,
-                              'amenitiesQty',
-                              event.target.value,
-                              amenitiesBounds.min,
-                              amenitiesBounds.max
-                            )
+                          onChange={(next) =>
+                            handleNumberChange(work.id, 'amenitiesQty', next, amenitiesBounds.min, amenitiesBounds.max)
                           }
                         />
-                      </FieldRow>
-                      <FieldRow label="취소 여부">
-                        <button
-                          type="button"
-                          className={work.cancelYn ? styles.toggleOn : styles.toggleOff}
-                          disabled={!canEdit}
-                          onClick={() => handleFieldChange(work.id, 'cancelYn', !work.cancelYn)}
-                        >
-                          {work.cancelYn ? '취소 복구' : '취소하기'}
-                        </button>
                       </FieldRow>
                       <FieldRow label="요청사항" description={canEditRequirements ? '255자 이내 수정 가능' : '열람 전용'}>
                         <textarea
@@ -358,106 +371,116 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
           <div className={styles.noticeCard}>익일 과업지시서를 작성중입니다. 잠시 후 다시 확인해 주세요.</div>
         ) : null}
 
-        {showAddForm(canAdd, roomOptions) ? (
-          <form className={styles.addForm} onSubmit={handleAddSubmit}>
-            <h2>work 추가</h2>
-            <p className={styles.subtle}>본인이 운영 중인 객실만 선택할 수 있습니다.</p>
-            <label className={styles.formControl}>
-              <span>객실</span>
-              <select
-                value={addForm.roomId ? String(addForm.roomId) : ''}
-                onChange={(event) => {
-                  const nextValue = event.target.value;
-                  if (!nextValue) {
-                    setAddForm(createAddFormState(null));
-                    return;
-                  }
-                  const nextRoom = roomOptions.find((room) => room.roomId === Number(nextValue)) ?? null;
-                  setAddForm(createAddFormState(nextRoom));
-                }}
-              >
-                {roomOptions.map((room) => (
-                  <option key={room.roomId} value={room.roomId}>
-                    {room.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className={styles.addGrid}>
-              <AddField label="체크아웃" hint={`기준 ${addCheckoutBounds.min} ~ 최대 ${addCheckoutBounds.max}`}>
-                <input
-                  type="time"
-                  value={addForm.checkoutTime}
-                  min={addCheckoutBounds.min}
-                  max={addCheckoutBounds.max}
-                  onChange={(event) => setAddForm((prev) => ({ ...prev, checkoutTime: event.target.value }))}
-                />
-              </AddField>
-              <AddField label="체크인" hint={`최소 ${addCheckinBounds.min} ~ 기준 ${addCheckinBounds.max}`}>
-                <input
-                  type="time"
-                  value={addForm.checkinTime}
-                  min={addCheckinBounds.min}
-                  max={addCheckinBounds.max}
-                  onChange={(event) => setAddForm((prev) => ({ ...prev, checkinTime: event.target.value }))}
-                />
-              </AddField>
-              <AddField label="침구 수량" hint={`${addBlanketBounds.min}~${addBlanketBounds.max}세트`}>
-                <input
-                  type="number"
-                  value={addForm.blanketQty}
-                  min={addBlanketBounds.min}
-                  max={addBlanketBounds.max}
-                  onChange={(event) => {
-                    const nextValue = Number(event.target.value);
-                    if (Number.isNaN(nextValue)) {
-                      return;
-                    }
-                    setAddForm((prev) => ({ ...prev, blanketQty: nextValue }));
-                  }}
-                />
-              </AddField>
-              <AddField label="편의물품" hint={`${addAmenitiesBounds.min}~${addAmenitiesBounds.max}세트`}>
-                <input
-                  type="number"
-                  value={addForm.amenitiesQty}
-                  min={addAmenitiesBounds.min}
-                  max={addAmenitiesBounds.max}
-                  onChange={(event) => {
-                    const nextValue = Number(event.target.value);
-                    if (Number.isNaN(nextValue)) {
-                      return;
-                    }
-                    setAddForm((prev) => ({ ...prev, amenitiesQty: nextValue }));
-                  }}
-                />
-              </AddField>
-            </div>
-            <label className={styles.formControl}>
-              <span>취소 여부</span>
-              <input
-                type="checkbox"
-                checked={addForm.cancelYn}
-                onChange={(event) => setAddForm((prev) => ({ ...prev, cancelYn: event.target.checked }))}
-              />
-            </label>
-            <label className={styles.formControl}>
-              <span>요청사항 {viewingAsAdmin ? '(선택)' : '(Admin 전용)'}</span>
-              <textarea
-                value={addForm.requirements}
-                maxLength={255}
-                disabled={!viewingAsAdmin}
-                onChange={(event) =>
-                  setAddForm((prev) => ({ ...prev, requirements: event.target.value.slice(0, 255) }))
-                }
-              />
-            </label>
-            <button type="submit" disabled={!canAdd || !addRoom || isAdding}>
-              {isAdding ? '추가 중...' : 'work 추가'}
+        {canAdd && roomOptions.length > 0 ? (
+          <div className={styles.addSection}>
+            <button
+              type="button"
+              className={styles.addTrigger}
+              onClick={() => setIsAddOpen((prev) => !prev)}
+            >
+              <span aria-hidden="true">+</span>
+              <span>{isAddOpen ? '작업 추가 닫기' : '작업 추가'}</span>
             </button>
-            {addStatus ? <p className={styles.statusOk}>{addStatus}</p> : null}
-            {addError ? <p className={styles.statusError}>{addError}</p> : null}
-          </form>
+            {isAddOpen ? (
+              <form className={styles.addForm} onSubmit={handleAddSubmit}>
+                <p className={styles.subtle}>본인이 운영 중인 객실만 선택할 수 있습니다.</p>
+                <label className={styles.formControl}>
+                  <span>객실</span>
+                  <select
+                    value={addForm.roomId ? String(addForm.roomId) : ''}
+                    onChange={(event) => {
+                      const nextValue = event.target.value;
+                      if (!nextValue) {
+                        setAddForm(createAddFormState(null));
+                        return;
+                      }
+                      const nextRoom = roomOptions.find((room) => room.roomId === Number(nextValue)) ?? null;
+                      setAddForm(createAddFormState(nextRoom));
+                    }}
+                  >
+                    {roomOptions.map((room) => (
+                      <option key={room.roomId} value={room.roomId}>
+                        {room.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className={styles.addGrid}>
+                  <AddField label="체크아웃" hint={`기준 ${addCheckoutBounds.min} ~ 최대 ${addCheckoutBounds.max}`}>
+                    <input
+                      type="time"
+                      value={addForm.checkoutTime}
+                      min={addCheckoutBounds.min}
+                      max={addCheckoutBounds.max}
+                      onChange={(event) =>
+                        setAddForm((prev) => ({
+                          ...prev,
+                          checkoutTime: clampTime(event.target.value, addCheckoutBounds.min, addCheckoutBounds.max)
+                        }))
+                      }
+                    />
+                  </AddField>
+                  <AddField label="체크인" hint={`최소 ${addCheckinBounds.min} ~ 기준 ${addCheckinBounds.max}`}>
+                    <input
+                      type="time"
+                      value={addForm.checkinTime}
+                      min={addCheckinBounds.min}
+                      max={addCheckinBounds.max}
+                      onChange={(event) =>
+                        setAddForm((prev) => ({
+                          ...prev,
+                          checkinTime: clampTime(event.target.value, addCheckinBounds.min, addCheckinBounds.max)
+                        }))
+                      }
+                    />
+                  </AddField>
+                  <AddField label="침구 수량" hint={`${addBlanketBounds.min}~${addBlanketBounds.max}세트`}>
+                    <QuantityStepper
+                      value={addForm.blanketQty}
+                      min={addBlanketBounds.min}
+                      max={addBlanketBounds.max}
+                      onChange={(next) =>
+                        setAddForm((prev) => ({
+                          ...prev,
+                          blanketQty: clampNumber(next, addBlanketBounds.min, addBlanketBounds.max)
+                        }))
+                      }
+                    />
+                  </AddField>
+                  <AddField label="편의물품" hint={`${addAmenitiesBounds.min}~${addAmenitiesBounds.max}세트`}>
+                    <QuantityStepper
+                      value={addForm.amenitiesQty}
+                      min={addAmenitiesBounds.min}
+                      max={addAmenitiesBounds.max}
+                      onChange={(next) =>
+                        setAddForm((prev) => ({
+                          ...prev,
+                          amenitiesQty: clampNumber(next, addAmenitiesBounds.min, addAmenitiesBounds.max)
+                        }))
+                      }
+                    />
+                  </AddField>
+                </div>
+                {viewingAsAdmin ? (
+                  <label className={styles.formControl}>
+                    <span>요청사항 (선택)</span>
+                    <textarea
+                      value={addForm.requirements}
+                      maxLength={255}
+                      onChange={(event) =>
+                        setAddForm((prev) => ({ ...prev, requirements: event.target.value.slice(0, 255) }))
+                      }
+                    />
+                  </label>
+                ) : null}
+                <button type="submit" disabled={!canAdd || !addRoom || isAdding}>
+                  {isAdding ? '추가 중...' : '작업 추가'}
+                </button>
+                {addStatus ? <p className={styles.statusOk}>{addStatus}</p> : null}
+                {addError ? <p className={styles.statusError}>{addError}</p> : null}
+              </form>
+            ) : null}
+          </div>
         ) : null}
       </section>
     </div>
@@ -472,7 +495,6 @@ function createAddFormState(room: RoomOption | null): AddFormState {
       checkinTime: '00:00',
       blanketQty: 0,
       amenitiesQty: 0,
-      cancelYn: false,
       requirements: ''
     };
   }
@@ -483,7 +505,6 @@ function createAddFormState(room: RoomOption | null): AddFormState {
     checkinTime: room.defaultCheckin,
     blanketQty: room.bedCount,
     amenitiesQty: room.bedCount,
-    cancelYn: false,
     requirements: ''
   };
 }
@@ -558,10 +579,6 @@ function buildWindowLabel(window: CleaningSnapshot['window']) {
   }
 }
 
-function showAddForm(canAdd: boolean, options: RoomOption[]) {
-  return canAdd && options.length > 0;
-}
-
 function FieldRow({ label, description, children }: { label: string; description?: string; children: ReactNode }) {
   return (
     <div className={styles.fieldRow}>
@@ -583,4 +600,60 @@ function AddField({ label, hint, children }: { label: string; hint?: string; chi
       {children}
     </label>
   );
+}
+
+function QuantityStepper({
+  value,
+  min,
+  max,
+  disabled,
+  onChange
+}: {
+  value: number;
+  min: number;
+  max: number;
+  disabled?: boolean;
+  onChange: (next: number) => void;
+}) {
+  return (
+    <div className={styles.stepper}>
+      <button type="button" onClick={() => onChange(value - 1)} disabled={disabled || value <= min}>
+        -
+      </button>
+      <input
+        type="number"
+        value={value}
+        min={min}
+        max={max}
+        disabled={disabled}
+        onChange={(event) => {
+          const parsed = Number(event.target.value);
+          if (Number.isNaN(parsed)) {
+            return;
+          }
+          onChange(parsed);
+        }}
+      />
+      <button type="button" onClick={() => onChange(value + 1)} disabled={disabled || value >= max}>
+        +
+      </button>
+    </div>
+  );
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, Math.trunc(value)));
+}
+
+function clampTime(value: string, min: string, max: string) {
+  const current = parseTimeString(value);
+  const minMinutes = parseTimeString(min);
+  const maxMinutes = parseTimeString(max);
+
+  if (current === null || minMinutes === null || maxMinutes === null) {
+    return min;
+  }
+
+  const normalized = Math.max(minMinutes, Math.min(maxMinutes, current));
+  return minutesToTimeString(normalized);
 }
