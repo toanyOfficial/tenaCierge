@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import type { ProfileSummary } from './page';
+import type { ProfileSummary } from '@/src/utils/profile';
 import styles from './dashboard.module.css';
 
 const roleLabels: Record<string, string> = {

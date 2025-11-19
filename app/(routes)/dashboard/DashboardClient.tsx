@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react';
 
-import type { AdminNotice, ButlerSnapshot, CleanerSnapshot, ProfileSummary } from './page';
+import type { AdminNotice, ButlerSnapshot, CleanerSnapshot } from './page';
+import type { ProfileSummary } from '@/src/utils/profile';
 import CommonHeader from './CommonHeader';
 import CleanerPanel from './CleanerPanel';
 import ButlerPanel from './ButlerPanel';
