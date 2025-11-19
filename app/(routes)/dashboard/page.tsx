@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 
-import styles from './dashboard.module.css';
+import CommonHeader from './CommonHeader';
 
 export const metadata: Metadata = {
   title: '업무 현황 | TenaCierge Ops',
@@ -18,7 +18,7 @@ function normalizeRoleList(list: string[]) {
     .sort((a, b) => roleOrder.indexOf(a as (typeof roleOrder)[number]) - roleOrder.indexOf(b as (typeof roleOrder)[number]));
 }
 
-type ProfileSummary = {
+export type ProfileSummary = {
   phone: string;
   registerNo: string;
   name: string;
@@ -65,57 +65,7 @@ function getProfileSummary(): ProfileSummary {
 export default function DashboardPage() {
   const profile = getProfileSummary();
 
-  return (
-    <section className={styles.commonBar} data-child-id="1">
-      <article className={styles.profileCard} aria-label="profiles">
-        <dl>
-          <div className={styles.profileRow}>
-            <dt>휴대전화</dt>
-            <dd>{profile.phone || '-'}</dd>
-          </div>
-          <div className={styles.profileRow}>
-            <dt>관리번호</dt>
-            <dd>{profile.registerNo || '-'}</dd>
-          </div>
-          <div className={styles.profileRow}>
-            <dt>이름</dt>
-            <dd>{profile.name || '이름 미지정'}</dd>
-          </div>
-        </dl>
-      </article>
-
-      <div className={styles.roleGroup} role="group" aria-label="사용자 역할">
-        <span className={styles.roleLabel}>Role</span>
-        <div className={styles.roleToggles}>
-          {roleOrder.map((role) => {
-            const isActive = profile.roles.includes(role);
-            return (
-              <button
-                key={role}
-                type="button"
-                className={`${styles.roleToggle} ${isActive ? styles.roleToggleActive : ''}`}
-                aria-pressed={isActive}
-              >
-                {role}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className={styles.controls} aria-label="global buttons">
-        <button type="button" aria-label="홈으로 이동">
-          <HomeIcon />
-        </button>
-        <button type="button" aria-label="이전 화면">
-          <BackIcon />
-        </button>
-        <button type="button" aria-label="로그아웃">
-          <LogoutIcon />
-        </button>
-      </div>
-    </section>
-  );
+  return <CommonHeader profile={profile} />;
 }
 
 function HomeIcon() {
