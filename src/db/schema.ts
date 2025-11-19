@@ -29,7 +29,7 @@ export const clientHeader = mysqlTable('client_header', {
 });
 
 export const clientRooms = mysqlTable('client_rooms', {
-  id: int('id').unsigned().autoincrement().notNull(),
+  id: int('id', { unsigned: true }).autoincrement().notNull(),
   clientId: mediumint('client_id', { unsigned: true }).notNull(),
   buildingId: tinyint('building_id').notNull(),
   roomNo: varchar('room_no', { length: 4 }).notNull(),
@@ -48,7 +48,7 @@ export const clientRooms = mysqlTable('client_rooms', {
 });
 
 export const workHeader = mysqlTable('work_header', {
-  id: bigint('id', { mode: 'number' }).autoincrement().notNull(),
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
   date: date('date').notNull(),
   room: int('room').notNull(),
   cleanerId: int('cleaner_id'),
@@ -66,7 +66,7 @@ export const workHeader = mysqlTable('work_header', {
 });
 
 export const workerHeader = mysqlTable('worker_header', {
-  id: int('id').unsigned().autoincrement().notNull(),
+  id: int('id', { unsigned: true }).autoincrement().notNull(),
   registerCode: varchar('key', { length: 6 }).notNull(),
   name: varchar('name', { length: 10 }).notNull(),
   phone: varchar('phone', { length: 11 }),
