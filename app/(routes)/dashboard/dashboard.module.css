@@ -1,141 +1,127 @@
-.screen {
+.commonBar {
   display: flex;
-  flex-direction: column;
-  gap: 32px;
-  padding: 28px;
-  background: #f5f6fb;
-  border-radius: 32px;
-  box-shadow: 0 35px 70px rgba(15, 23, 42, 0.08);
-}
-
-.header {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #94a3b8;
-}
-
-.header h1 {
-  margin: 0;
-  font-size: 2rem;
+  align-items: center;
+  gap: 24px;
+  padding: 10px 18px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
   color: #0f172a;
-}
-
-.header p {
-  margin: 0;
-  color: #475569;
-  line-height: 1.5;
+  width: 100%;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
 }
 
 .profileCard {
-  background: #ffffff;
-  border-radius: 24px;
-  padding: 24px;
-  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
+  background: #f8fafc;
+  border-radius: 999px;
+  padding: 4px 18px;
 }
 
 .profileCard dl {
   margin: 0;
   display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.profileRow {
-  display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 12px 16px;
   align-items: center;
 }
 
+.profileRow {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
 .profileRow dt {
-  font-size: 0.9rem;
-  text-transform: uppercase;
+  font-size: 0.72rem;
   letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: #94a3b8;
 }
 
 .profileRow dd {
   margin: 0;
-  font-size: 1.1rem;
   font-weight: 600;
   color: #0f172a;
 }
 
-.roleRow {
-  align-items: flex-start;
-}
-
-.roleList {
+.roleGroup {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  list-style: none;
-  padding: 0;
-  margin: 0;
+  align-items: center;
+  gap: 10px;
 }
 
-.roleList li {
-  padding: 6px 14px;
-  background: rgba(37, 99, 235, 0.12);
-  color: #1d4ed8;
-  border-radius: 999px;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.emptyValue {
+.roleLabel {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
   color: #94a3b8;
-  font-size: 0.95rem;
+}
+
+.roleToggles {
+  display: flex;
+  gap: 6px;
+}
+
+.roleToggle {
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  background: transparent;
+  color: rgba(15, 23, 42, 0.45);
+  cursor: default;
+}
+
+.roleToggleActive {
+  background: #38bdf8;
+  color: #0f172a;
+  border-color: #38bdf8;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.04);
 }
 
 .controls {
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .controls button {
-  flex: 1;
-  min-width: 120px;
-  border: none;
-  border-radius: 999px;
-  padding: 14px 24px;
-  font-size: 1rem;
-  font-weight: 600;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #f8fafc;
+  color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  background: #0f172a;
-  color: #ffffff;
-  box-shadow: 0 20px 30px rgba(15, 23, 42, 0.12);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.controls button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 25px 40px rgba(15, 23, 42, 0.16);
+.controls button svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
 }
 
-.logout {
-  background: #dc2626;
-}
-
-@media (max-width: 640px) {
-  .screen {
-    padding: 20px;
+@media (max-width: 768px) {
+  .commonBar {
+    flex-direction: column;
+    align-items: flex-start;
+    border-radius: 24px;
   }
 
-  .profileRow {
-    grid-template-columns: 1fr;
+  .profileCard,
+  .roleGroup,
+  .controls {
+    width: 100%;
+    justify-content: space-between;
   }
 
-  .controls button {
-    flex: 100%;
+  .controls {
+    justify-content: flex-start;
   }
 }

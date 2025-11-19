@@ -66,15 +66,7 @@ export default function DashboardPage() {
   const profile = getProfileSummary();
 
   return (
-    <section className={styles.screen} data-child-id="1">
-      <header className={styles.header}>
-        <p className={styles.eyebrow}>공통 파트</p>
-        <h1>업무 현황 기본 정보</h1>
-        <p>
-          어느 역할로 접속했든 동일하게 노출되는 사용자 프로필과 글로벌 조작 버튼입니다.
-        </p>
-      </header>
-
+    <section className={styles.commonBar} data-child-id="1">
       <article className={styles.profileCard} aria-label="profiles">
         <dl>
           <div className={styles.profileRow}>
@@ -89,28 +81,64 @@ export default function DashboardPage() {
             <dt>이름</dt>
             <dd>{profile.name || '이름 미지정'}</dd>
           </div>
-          <div className={`${styles.profileRow} ${styles.roleRow}`}>
-            <dt>Role</dt>
-            <dd>
-              {profile.roles.length > 0 ? (
-                <ul className={styles.roleList}>
-                  {profile.roles.map((role) => (
-                    <li key={role}>{role}</li>
-                  ))}
-                </ul>
-              ) : (
-                <span className={styles.emptyValue}>부여된 역할이 없습니다.</span>
-              )}
-            </dd>
-          </div>
         </dl>
       </article>
 
+      <div className={styles.roleGroup} role="group" aria-label="사용자 역할">
+        <span className={styles.roleLabel}>Role</span>
+        <div className={styles.roleToggles}>
+          {roleOrder.map((role) => {
+            const isActive = profile.roles.includes(role);
+            return (
+              <button
+                key={role}
+                type="button"
+                className={`${styles.roleToggle} ${isActive ? styles.roleToggleActive : ''}`}
+                aria-pressed={isActive}
+              >
+                {role}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className={styles.controls} aria-label="global buttons">
-        <button type="button">Home</button>
-        <button type="button">Back</button>
-        <button type="button" className={styles.logout}>Logout</button>
+        <button type="button" aria-label="홈으로 이동">
+          <HomeIcon />
+        </button>
+        <button type="button" aria-label="이전 화면">
+          <BackIcon />
+        </button>
+        <button type="button" aria-label="로그아웃">
+          <LogoutIcon />
+        </button>
       </div>
     </section>
+  );
+}
+
+function HomeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />
+    </svg>
+  );
+}
+
+function BackIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M10 5 3 12l7 7v-4h11v-6H10z" />
+    </svg>
+  );
+}
+
+function LogoutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M14 3v4h-2V3H5v18h7v-4h2v4h5a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1z" />
+      <path d="m11 9-2 3 2 3h9v-6z" />
+    </svg>
   );
 }
