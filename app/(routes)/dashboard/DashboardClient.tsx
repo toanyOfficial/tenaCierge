@@ -42,7 +42,7 @@ export default function DashboardClient({ profile, cleanerSnapshot }: Props) {
     }
 
     if (activeRole === 'cleaner') {
-      return <CleanerPanel profile={profile} snapshot={cleanerSnapshot} />;
+      return <CleanerPanel snapshot={cleanerSnapshot} />;
     }
 
     return (
@@ -55,7 +55,7 @@ export default function DashboardClient({ profile, cleanerSnapshot }: Props) {
         </header>
       </article>
     );
-  }, [activeRole, cleanerSnapshot, profile]);
+  }, [activeRole, cleanerSnapshot]);
 
   return (
     <div className={styles.dashboardStack}>

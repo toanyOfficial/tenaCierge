@@ -1,14 +1,17 @@
 import Link from 'next/link';
 
-import type { CleanerSnapshot, ProfileSummary } from './page';
+import type { CleanerSnapshot } from './page';
 import styles from './dashboard.module.css';
 
 type Props = {
-  profile: ProfileSummary;
   snapshot: CleanerSnapshot | null;
 };
 
 function getStatusLabel(snapshot: CleanerSnapshot) {
+  if (snapshot.tomorrowWorkApplied) {
+    return '내일 근무 신청 완료';
+  }
+
   if (snapshot.workApplied) {
     return '오늘 근무 신청 완료';
   }
@@ -20,7 +23,7 @@ function getStatusLabel(snapshot: CleanerSnapshot) {
   return '신청 대기중';
 }
 
-export default function CleanerPanel({ profile, snapshot }: Props) {
+export default function CleanerPanel({ snapshot }: Props) {
   if (!snapshot) {
     return (
       <section className={styles.cleanerPanel} data-child-id="5">
@@ -45,8 +48,8 @@ export default function CleanerPanel({ profile, snapshot }: Props) {
           <p className={styles.cleanerSubtitle}>{snapshot.workDateLabel}</p>
         </div>
         <div className={styles.tierChip} aria-label="클리너 등급">
-          <span>Tier</span>
-          <strong>{snapshot.tier ?? '-'}</strong>
+          <span>클리너 등급</span>
+          <strong>{snapshot.tierLabel}</strong>
         </div>
       </header>
 
@@ -60,29 +63,34 @@ export default function CleanerPanel({ profile, snapshot }: Props) {
       {snapshot.canApplyNow ? (
         <div className={styles.primaryCtaWrap}>
           <Link href="/screens/003" className={`${styles.linkButton} ${styles.primaryCta}`} prefetch={false}>
-            업무 신청 화면으로 이동 (ID 003)
+            업무 신청하기
           </Link>
         </div>
       ) : null}
 
-      <div className={styles.metaGrid}>
-        <div className={styles.metaTile}>
-          <p className={styles.metaLabel}>클리너</p>
-          <p className={styles.metaValue}>{profile.name}</p>
-        </div>
-        <div className={styles.metaTile}>
-          <p className={styles.metaLabel}>근무 구역</p>
-          <p className={styles.metaValue}>{snapshot.assignmentSummary ?? snapshot.sectorName ?? '미정'}</p>
-        </div>
-        <div className={styles.metaTile}>
-          <p className={styles.metaLabel}>신청 가능 시간</p>
-          <p className={styles.metaValue}>{snapshot.applyAvailableAt}</p>
-        </div>
-        <div className={styles.metaTile}>
-          <p className={styles.metaLabel}>근무 신청 여부</p>
-          <p className={styles.metaValue}>{snapshot.workApplied ? 'Y' : 'N'}</p>
-        </div>
-      </div>
+      <section className={styles.applicationPanel} aria-label="신청현황">
+        <header>
+          <p>신청현황</p>
+          <span>날짜 · 구역</span>
+        </header>
+        <ul className={styles.applicationList}>
+          {snapshot.applications.length ? (
+            snapshot.applications.map((application) => (
+              <li key={application.id} className={styles.applicationRow}>
+                <div className={styles.applicationMeta}>
+                  <p className={styles.applicationDate}>{application.dateLabel}</p>
+                  <p className={styles.applicationArea}>{application.sectorLabel}</p>
+                </div>
+                <button type="button" className={styles.applicationCancel} aria-label={`${application.dateLabel} 신청 취소`}>
+                  취소하기
+                </button>
+              </li>
+            ))
+          ) : (
+            <li className={styles.applicationEmpty}>신청된 근무가 없습니다.</li>
+          )}
+        </ul>
+      </section>
 
       <div className={styles.secondaryCtas}>
         <Link href="/screens/004" className={styles.linkButton} prefetch={false}>
