@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
-const COOKIE_NAMES = ['tc_name', 'tc_phone', 'tc_register', 'tc_roles'] as const;
+const COOKIE_NAMES = ['name', 'phone', 'register_no', 'role_arrange', 'role', 'tc_name', 'tc_phone', 'tc_register', 'tc_roles'] as const;
 
 export async function POST() {
   const cookieStore = cookies();

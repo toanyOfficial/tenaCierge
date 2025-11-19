@@ -52,6 +52,7 @@ export type ProfileSummary = {
   registerNo: string;
   name: string;
   roles: string[];
+  primaryRole: string | null;
 };
 
 function parseRoles(raw: string | undefined | null) {
@@ -78,16 +79,18 @@ function parseRoles(raw: string | undefined | null) {
 
 function getProfileSummary(): ProfileSummary {
   const cookieStore = cookies();
-  const phone = cookieStore.get('tc_phone')?.value || '-';
-  const registerNo = cookieStore.get('tc_register')?.value || '-';
-  const name = cookieStore.get('tc_name')?.value || '이름 미지정';
-  const roles = parseRoles(cookieStore.get('tc_roles')?.value);
+  const phone = cookieStore.get('phone')?.value || cookieStore.get('tc_phone')?.value || '-';
+  const registerNo = cookieStore.get('register_no')?.value || cookieStore.get('tc_register')?.value || '-';
+  const name = cookieStore.get('name')?.value || cookieStore.get('tc_name')?.value || '이름 미지정';
+  const roles = parseRoles(cookieStore.get('role_arrange')?.value ?? cookieStore.get('tc_roles')?.value);
+  const primaryRoleCookie = cookieStore.get('role')?.value?.trim();
 
   return {
     phone,
     registerNo,
     name,
-    roles
+    roles,
+    primaryRole: primaryRoleCookie && roles.includes(primaryRoleCookie) ? primaryRoleCookie : roles[0] ?? null
   };
 }
 

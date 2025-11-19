@@ -1,11 +1,11 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { eq, or } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import { clientHeader, workerHeader } from '@/src/db/schema';
 
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30일
+const COOKIE_MAX_AGE = 60 * 60 * 24; // 1일
 
 type WorkerRecord = {
   id: number;
@@ -22,73 +22,61 @@ type ClientRecord = {
   registerNo: string;
 };
 
-function buildWorkerWhereClause(phone?: string, registerNo?: string) {
-  const conditions = [];
+type SearchIdentifier =
+  | { type: 'register'; value: string }
+  | { type: 'phone'; value: string };
 
-  if (phone) {
-    conditions.push(eq(workerHeader.phone, phone));
-  }
+const ROLE_PRIORITY: Array<'admin' | 'host' | 'butler' | 'cleaner'> = ['admin', 'host', 'butler', 'cleaner'];
 
-  if (registerNo) {
-    conditions.push(eq(workerHeader.registerCode, registerNo));
-  }
-
-  if (conditions.length === 0) {
-    return undefined;
-  }
-
-  if (conditions.length === 1) {
-    return conditions[0];
-  }
-
-  return or(...conditions);
+function buildWorkerClause(identifier: SearchIdentifier) {
+  return identifier.type === 'register'
+    ? eq(workerHeader.registerCode, identifier.value)
+    : eq(workerHeader.phone, identifier.value);
 }
 
-function buildClientWhereClause(phone?: string, registerNo?: string) {
-  const conditions = [];
-
-  if (phone) {
-    conditions.push(eq(clientHeader.phone, phone));
-  }
-
-  if (registerNo) {
-    conditions.push(eq(clientHeader.registerCode, registerNo));
-  }
-
-  if (conditions.length === 0) {
-    return undefined;
-  }
-
-  if (conditions.length === 1) {
-    return conditions[0];
-  }
-
-  return or(...conditions);
+function buildClientClause(identifier: SearchIdentifier) {
+  return identifier.type === 'register'
+    ? eq(clientHeader.registerCode, identifier.value)
+    : eq(clientHeader.phone, identifier.value);
 }
 
-function resolveRoles(worker?: WorkerRecord | null, client?: ClientRecord | null) {
-  const roleOrder: Array<'admin' | 'host' | 'butler' | 'cleaner'> = ['admin', 'host', 'butler', 'cleaner'];
-  const roleSet = new Set<string>();
+function appendRole(list: string[], role: 'admin' | 'host' | 'butler' | 'cleaner') {
+  if (!list.includes(role)) {
+    list.push(role);
+  }
+}
+
+function resolveRoleArrange(worker: WorkerRecord | null, client: ClientRecord | null) {
+  const roles: string[] = [];
 
   if (client) {
-    roleSet.add('host');
+    appendRole(roles, 'host');
   }
 
   if (worker) {
-    roleSet.add('cleaner');
+    appendRole(roles, 'cleaner');
 
     if (worker.tier === 7) {
-      roleSet.add('butler');
+      appendRole(roles, 'butler');
     }
 
     if (worker.tier === 99) {
-      roleSet.add('admin');
+      appendRole(roles, 'butler');
+      appendRole(roles, 'admin');
     }
   }
 
-  return Array.from(roleSet).sort(
-    (a, b) => roleOrder.indexOf(a as typeof roleOrder[number]) - roleOrder.indexOf(b as typeof roleOrder[number])
-  );
+  return roles;
+}
+
+function resolvePrimaryRole(roleArrange: string[]) {
+  for (const role of ROLE_PRIORITY) {
+    if (roleArrange.includes(role)) {
+      return role;
+    }
+  }
+
+  return null;
 }
 
 export async function POST(request: Request) {
@@ -107,50 +95,68 @@ export async function POST(request: Request) {
     );
   }
 
-  const workerWhereClause = buildWorkerWhereClause(normalizedPhone || undefined, normalizedRegister || undefined);
-  const clientWhereClause = buildClientWhereClause(normalizedPhone || undefined, normalizedRegister || undefined);
+  const identifiers: SearchIdentifier[] = [];
 
-  if (!workerWhereClause && !clientWhereClause) {
-    return NextResponse.json({ message: '유효한 로그인 정보가 필요합니다.' }, { status: 400 });
+  if (normalizedRegister) {
+    identifiers.push({ type: 'register', value: normalizedRegister });
   }
 
-  const workerPromise = workerWhereClause
-    ? db
-        .select({
-          id: workerHeader.id,
-          name: workerHeader.name,
-          phone: workerHeader.phone,
-          registerNo: workerHeader.registerCode,
-          tier: workerHeader.tier
-        })
-        .from(workerHeader)
-        .where(workerWhereClause)
-        .limit(1)
-    : Promise.resolve([] as WorkerRecord[]);
+  if (normalizedPhone) {
+    identifiers.push({ type: 'phone', value: normalizedPhone });
+  }
 
-  const clientPromise = clientWhereClause
-    ? db
-        .select({
-          id: clientHeader.id,
-          name: clientHeader.name,
-          phone: clientHeader.phone,
-          registerNo: clientHeader.registerCode
-        })
-        .from(clientHeader)
-        .where(clientWhereClause)
-        .limit(1)
-    : Promise.resolve([] as ClientRecord[]);
+  let worker: WorkerRecord | null = null;
+  let client: ClientRecord | null = null;
 
-  const [[worker], [client]] = await Promise.all([workerPromise, clientPromise]);
+  for (const identifier of identifiers) {
+    const [workerResult] = await db
+      .select({
+        id: workerHeader.id,
+        name: workerHeader.name,
+        phone: workerHeader.phone,
+        registerNo: workerHeader.registerCode,
+        tier: workerHeader.tier
+      })
+      .from(workerHeader)
+      .where(buildWorkerClause(identifier))
+      .limit(1);
+
+    if (workerResult?.tier === 1) {
+      return NextResponse.json({ message: '로그인이 제한된 유저입니다.' }, { status: 403 });
+    }
+
+    const [clientResult] = await db
+      .select({
+        id: clientHeader.id,
+        name: clientHeader.name,
+        phone: clientHeader.phone,
+        registerNo: clientHeader.registerCode
+      })
+      .from(clientHeader)
+      .where(buildClientClause(identifier))
+      .limit(1);
+
+    if (workerResult || clientResult) {
+      worker = workerResult ?? null;
+      client = clientResult ?? null;
+      break;
+    }
+  }
 
   if (!worker && !client) {
     return NextResponse.json({ message: '일치하는 구성원을 찾지 못했습니다.' }, { status: 404 });
   }
 
-  const roles = resolveRoles(worker, client);
+  const roleArrange = resolveRoleArrange(worker, client);
 
-  if (roles.length === 0) {
+  if (roleArrange.length === 0) {
     return NextResponse.json({ message: '해당 계정에 부여할 역할이 없습니다.' }, { status: 403 });
+  }
+
+  const primaryRole = resolvePrimaryRole(roleArrange);
+
+  if (!primaryRole) {
+    return NextResponse.json({ message: '역할 우선순위를 계산하지 못했습니다.' }, { status: 500 });
   }
 
   const profile = {
@@ -170,10 +176,11 @@ export async function POST(request: Request) {
     maxAge: COOKIE_MAX_AGE
   };
 
-  cookieStore.set('tc_name', profile.name, sharedOptions);
-  cookieStore.set('tc_phone', profile.phone ?? '', sharedOptions);
-  cookieStore.set('tc_register', profile.registerNo ?? '', sharedOptions);
-  cookieStore.set('tc_roles', JSON.stringify(roles), sharedOptions);
+  cookieStore.set('name', profile.name ?? '', sharedOptions);
+  cookieStore.set('phone', profile.phone ?? '', sharedOptions);
+  cookieStore.set('register_no', profile.registerNo ?? '', sharedOptions);
+  cookieStore.set('role_arrange', JSON.stringify(roleArrange), sharedOptions);
+  cookieStore.set('role', primaryRole, sharedOptions);
 
-  return NextResponse.json({ profile, roles });
+  return NextResponse.json({ profile, roleArrange, role: primaryRole });
 }

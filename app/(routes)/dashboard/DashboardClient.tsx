@@ -21,6 +21,10 @@ const fallbackRoleMessages: Record<string, string> = {
 export default function DashboardClient({ profile, cleanerSnapshot }: Props) {
   const roles = profile.roles;
   const [activeRole, setActiveRole] = useState<string | null>(() => {
+    if (profile.primaryRole && roles.includes(profile.primaryRole)) {
+      return profile.primaryRole;
+    }
+
     if (roles.includes('cleaner')) {
       return 'cleaner';
     }
