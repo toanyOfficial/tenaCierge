@@ -1,7 +1,7 @@
 -- Core client tables
 CREATE TABLE `client_header` (
   `id` MEDIUMINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `key` VARCHAR(6) NOT NULL,
+  `register_no` VARCHAR(6) NOT NULL,
   `name` VARCHAR(10) NOT NULL,
   `person` VARCHAR(5) NOT NULL,
   `phone` VARCHAR(11) NOT NULL,
@@ -62,7 +62,7 @@ CREATE TABLE `work_header` (
 
 CREATE TABLE `worker_header` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `key` VARCHAR(6) NOT NULL,
+  `register_no` VARCHAR(6) NOT NULL,
   `name` VARCHAR(10) NOT NULL,
   `phone` VARCHAR(11) NULL,
   `reg_no` CHAR(13) NULL,

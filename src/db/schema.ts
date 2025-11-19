@@ -14,7 +14,7 @@ import {
 
 export const clientHeader = mysqlTable('client_header', {
   id: mediumint('id', { unsigned: true }).autoincrement().notNull(),
-  key: varchar('key', { length: 6 }).notNull(),
+  registerCode: varchar('register_no', { length: 6 }).notNull(),
   name: varchar('name', { length: 10 }).notNull(),
   person: varchar('person', { length: 5 }).notNull(),
   phone: varchar('phone', { length: 11 }).notNull(),
@@ -67,10 +67,10 @@ export const workHeader = mysqlTable('work_header', {
 
 export const workerHeader = mysqlTable('worker_header', {
   id: int('id', { unsigned: true }).autoincrement().notNull(),
-  registerCode: varchar('key', { length: 6 }).notNull(),
+  registerCode: varchar('register_no', { length: 6 }).notNull(),
   name: varchar('name', { length: 10 }).notNull(),
   phone: varchar('phone', { length: 11 }),
-  registerNo: char('reg_no', { length: 13 }),
+  registrationNo: char('reg_no', { length: 13 }),
   bankCode: varchar('basecode_bank', { length: 10 }),
   bankValue: varchar('basecode_code', { length: 255 }),
   accountNo: varchar('account_no', { length: 50 }),

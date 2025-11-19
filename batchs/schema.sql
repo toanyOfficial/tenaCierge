@@ -4,7 +4,7 @@
 -- Table: cleint_header
 CREATE TABLE `cleint_header` (
   `id` MEDIUMINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'PK',
-  `key` VARCHAR(6) NOT NULL COMMENT '영대문자,숫자섞어서 랜덤생성/중복불가',
+  `register_no` VARCHAR(6) NOT NULL COMMENT '영대문자,숫자섞어서 랜덤생성/중복불가',
   `name` VARCHAR(10) NOT NULL,
   `person` VARCHAR(5) NOT NULL,
   `phone` VARCHAR(11) NOT NULL COMMENT '휴대전화만 가능',
@@ -245,7 +245,7 @@ CREATE TABLE `worker_evaluateHistory` (
 -- Table: worker_header
 CREATE TABLE `worker_header` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'PK',
-  `key` VARCHAR(6) NOT NULL COMMENT '영대문자,숫자섞어서 랜덤생성/중복불가',
+  `register_no` VARCHAR(6) NOT NULL COMMENT '영대문자,숫자섞어서 랜덤생성/중복불가',
   `name` VARCHAR(10) NOT NULL,
   `phone` VARCHAR(11) NULL COMMENT '휴대전화만 가능',
   `reg_no` CHAR(13) NULL,

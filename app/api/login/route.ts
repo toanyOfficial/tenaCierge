@@ -63,7 +63,7 @@ export async function POST(request: Request) {
       id: workerHeader.id,
       name: workerHeader.name,
       phone: workerHeader.phone,
-      registerCode: workerHeader.registerCode,
+      registerNo: workerHeader.registerCode,
       tier: workerHeader.tier
     })
     .from(workerHeader)
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
 
   cookieStore.set('tc_name', worker.name, sharedOptions);
   cookieStore.set('tc_phone', worker.phone ?? '', sharedOptions);
-  cookieStore.set('tc_register', worker.registerCode, sharedOptions);
+  cookieStore.set('tc_register', worker.registerNo, sharedOptions);
   cookieStore.set('tc_role', role, sharedOptions);
 
   return NextResponse.json({
