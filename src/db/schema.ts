@@ -47,6 +47,22 @@ export const clientRooms = mysqlTable('client_rooms', {
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
 
+export const etcBuildings = mysqlTable('etc_buildings', {
+  id: tinyint('id', { unsigned: true }).autoincrement().notNull(),
+  sectorCode: varchar('basecode_sector', { length: 10 }).notNull(),
+  sectorLabel: varchar('basecode_code', { length: 255 }).notNull(),
+  buildingName: varchar('building_name', { length: 20 }).notNull(),
+  shortName: varchar('building_short_name', { length: 10 }).notNull()
+});
+
+export const etcNotice = mysqlTable('etc_notice', {
+  id: int('id', { unsigned: true }).autoincrement().notNull(),
+  noticeDate: date('notice_date').notNull(),
+  notice: varchar('notice', { length: 255 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
 export const workHeader = mysqlTable('work_header', {
   id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
   date: date('date').notNull(),
