@@ -429,8 +429,11 @@
 
 .applicationMeta {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  justify-content: space-between;
+  align-items: center;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
 }
 
 .applicationDate {
@@ -558,6 +561,26 @@
 
 .butlerDetailList {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.cleanerTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.cleanerSubtitle {
+  margin: 4px 0 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.tierChip {
+  display: inline-flex;
   flex-direction: column;
   gap: 12px;
 }
@@ -672,7 +695,7 @@
   box-shadow: 0 30px 60px rgba(15, 23, 42, 0.2);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .noticeModal header {
