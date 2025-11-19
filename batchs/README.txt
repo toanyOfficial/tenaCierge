@@ -39,6 +39,14 @@ D−2~D−6은 선형 보간, 7일 이상은 D−7 변수 사용.
 
 매일 15:00, database의 work_fore_d1, work_fore_d7, work_fore_accuracy, work_fore_tuning 테이블을 자동 갱신하고 work_header 테이블에 다음날의 업무리스트를 저장한다.
 
+업무리스트 저장 rule
+- 매일 15:00 배치가 돌기 때문에 D+1 날짜의 입퇴실을 기준으로 하며 이 D+1날짜를 '당일'이라 칭한다.
+- 당일 퇴실이 있다면 무조건 클리닝 대상(cleaning yn==1)
+- 당일 퇴실은 없고 입실만 있다면 상태확인 대상(condition check yn==1 cleaning yn==0)
+- blanket_qty, amaenities_qty는 room 정보의 bed qty와 동일
+- checin, checkout time은 room 정보에서 가져온다
+- 나머지 값들은 추후 입력 값이기 때문에 null
+
 📅 2. 날짜 입력 및 실행 모드
 실행한날짜를 D0라고 했을때 다음날인 D1부터  다음주 같은요일까지의 D7 일정을 체크한다. 서버에 배치프로그램으로 등록한다.
 
