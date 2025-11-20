@@ -148,13 +148,19 @@ def configure_logging() -> None:
     )
 
 
+def seoul_today() -> dt.date:
+    """현재 서울(KST) 날짜를 반환한다."""
+
+    return dt.datetime.now(dt.timezone.utc).astimezone(SEOUL).date()
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="DB 기반 Forecasting 배치")
     parser.add_argument(
         "--run-date",
         type=lambda s: dt.datetime.strptime(s, "%Y-%m-%d").date(),
-        default=dt.datetime.now(SEOUL).date(),
-        help="배치 기준일 (기본: 오늘)",
+        default=None,
+        help="배치 기준일 (기본: 오늘 KST)",
     )
     parser.add_argument(
         "--start-offset",
@@ -279,11 +285,12 @@ def log_error(
     error_code: Optional[str] = None,
     level: int = 2,
     app_name: str = "db_forecasting",
+    run_date: Optional[dt.date] = None,
 ) -> None:
     """etc_errorLogs 테이블에 오류 정보를 적재한다."""
 
     try:
-        context_json = json.dumps({"run_date": str(dt.date.today())})
+        context_json = json.dumps({"run_date": str(run_date or seoul_today())})
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -821,11 +828,14 @@ class BatchRunner:
 def main() -> None:
     configure_logging()
     args = parse_args()
+    run_date = args.run_date or seoul_today()
+    now_seoul = dt.datetime.now(dt.timezone.utc).astimezone(SEOUL)
+    logging.info("기준일(KST): %s (현재 서울 시각 %s)", run_date, now_seoul.strftime("%Y-%m-%d %H:%M:%S"))
     conn = get_db_connection()
     try:
         runner = BatchRunner(
             conn=conn,
-            run_date=args.run_date,
+            run_date=run_date,
             start_offset=args.start_offset,
             end_offset=args.end_offset,
             keep_days=args.ics_keep_days,
@@ -835,7 +845,7 @@ def main() -> None:
         stack = traceback.format_exc()
         logging.error("배치 실행 실패", exc_info=exc)
         try:
-            log_error(conn, message=str(exc), stacktrace=stack)
+            log_error(conn, message=str(exc), stacktrace=stack, run_date=run_date)
         except Exception:
             logging.error("에러로그 저장 중 추가 오류 발생", exc_info=True)
         raise
