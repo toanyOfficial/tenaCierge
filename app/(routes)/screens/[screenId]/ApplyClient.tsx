@@ -215,7 +215,6 @@ export default function ApplyClient({ profile, snapshot }: Props) {
                 </div>
                 <div className={styles.applyCell}>
                   <p className={styles.applySector}>{slot.sectorLabel}</p>
-                  {slot.buildingName ? <span className={styles.applyBuilding}>{slot.buildingName}</span> : null}
                 </div>
                 <div className={styles.applyCell}>
                   <span className={slot.isButlerSlot ? styles.positionButler : styles.positionCleaner}>{slot.positionLabel}</span>

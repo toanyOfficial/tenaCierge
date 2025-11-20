@@ -2,27 +2,19 @@ import { and, asc, eq, gte, lte } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 
 import { db } from '@/src/db/client';
-import { clientRooms, etcBuildings, workApply, workHeader, workerHeader } from '@/src/db/schema';
+import { workApply, workerHeader } from '@/src/db/schema';
 
-const cleanerWorker = alias(workerHeader, 'applyCleaner');
-const butlerWorker = alias(workerHeader, 'applyButler');
+const applicantWorker = alias(workerHeader, 'applyWorker');
 
 const selection = {
   id: workApply.id,
-  workId: workApply.workId,
   workDate: workApply.workDate,
   butlerYn: workApply.butlerYn,
   sectorCode: workApply.sectorCode,
   sectorValue: workApply.sectorValue,
-  buildingSector: etcBuildings.sectorLabel,
-  buildingName: etcBuildings.buildingName,
-  buildingShortName: etcBuildings.shortName,
-  cleanerId: workHeader.cleanerId,
-  cleanerName: cleanerWorker.name,
-  cleanerTier: cleanerWorker.tier,
-  butlerId: workHeader.butlerId,
-  butlerName: butlerWorker.name,
-  butlerTier: butlerWorker.tier
+  workerId: workApply.workerId,
+  workerName: applicantWorker.name,
+  workerTier: applicantWorker.tier
 };
 
 export type ApplyRow = Awaited<ReturnType<typeof listApplyRows>>[number];
@@ -36,7 +28,7 @@ export async function listApplyRows(startDate: string, endDate: string) {
         lte(workApply.workDate, endDate)
       )
     )
-    .orderBy(asc(workApply.workDate), asc(etcBuildings.sectorLabel), asc(workApply.id));
+    .orderBy(asc(workApply.workDate), asc(workApply.sectorValue), asc(workApply.id));
 }
 
 export async function getApplyRowById(applyId: number) {
@@ -51,9 +43,5 @@ function baseQuery() {
   return db
     .select(selection)
     .from(workApply)
-    .leftJoin(workHeader, eq(workApply.workId, workHeader.id))
-    .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
-    .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
-    .leftJoin(cleanerWorker, eq(workHeader.cleanerId, cleanerWorker.id))
-    .leftJoin(butlerWorker, eq(workHeader.butlerId, butlerWorker.id));
+    .leftJoin(applicantWorker, eq(workApply.workerId, applicantWorker.id));
 }

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
-import { workHeader, workerEvaluateHistory } from '@/src/db/schema';
+import { workApply, workerEvaluateHistory } from '@/src/db/schema';
 import { getApplyRowById } from '@/src/server/workApply';
 import { findWorkerById, findWorkerByProfile } from '@/src/server/workers';
 import { getApplyHorizonDays, getApplyStartLabel } from '@/src/utils/tier';
@@ -48,7 +48,7 @@ export async function PATCH(request: Request, { params }: { params: { applyId: s
   const now = getKstNow();
   const daysUntil = computeDaysUntil(slot.workDate, now);
   const isButlerSlot = Boolean(slot.butlerYn);
-  const occupantId = isButlerSlot ? slot.butlerId : slot.cleanerId;
+  const occupantId = slot.workerId;
 
   if (body.action === 'apply') {
     return handleApply({ profile, slot, now, daysUntil, isButlerSlot, occupantId, body });
@@ -75,10 +75,6 @@ async function handleApply({ profile, slot, now, daysUntil, isButlerSlot, occupa
 
   if (!worker) {
     return NextResponse.json({ message: '신청 가능한 작업자 정보를 찾을 수 없습니다.' }, { status: 400 });
-  }
-
-  if (!slot.workId) {
-    return NextResponse.json({ message: '해당 업무는 아직 배정할 수 없습니다.' }, { status: 400 });
   }
 
   if (!isAdmin) {
@@ -115,10 +111,7 @@ async function handleApply({ profile, slot, now, daysUntil, isButlerSlot, occupa
     return NextResponse.json({ message: '이미 신청이 완료된 일정입니다.' }, { status: 200 });
   }
 
-  await db
-    .update(workHeader)
-    .set(isButlerSlot ? { butlerId: worker.id } : { cleanerId: worker.id })
-    .where(eq(workHeader.id, slot.workId));
+  await db.update(workApply).set({ workerId: worker.id, cancelYn: false }).where(eq(workApply.id, slot.id));
 
   return NextResponse.json({ message: '신청이 완료되었습니다.' });
 }
@@ -134,10 +127,6 @@ type CancelContext = {
 
 async function handleCancel({ profile, slot, now, daysUntil, isButlerSlot, occupantId }: CancelContext) {
   const isAdmin = profile.roles.includes('admin');
-
-  if (!slot.workId) {
-    return NextResponse.json({ message: '취소할 수 없는 일정입니다.' }, { status: 400 });
-  }
 
   if (!occupantId) {
     return NextResponse.json({ message: '아직 누구도 신청하지 않은 일정입니다.' }, { status: 400 });
@@ -155,15 +144,12 @@ async function handleCancel({ profile, slot, now, daysUntil, isButlerSlot, occup
   const checklist = { '1': `${Math.max(daysUntil, 0)}일전업무취소` };
 
   await db.transaction(async (tx) => {
-    await tx
-      .update(workHeader)
-      .set(isButlerSlot ? { butlerId: null } : { cleanerId: null })
-      .where(eq(workHeader.id, slot.workId!));
+    await tx.update(workApply).set({ workerId: null, cancelYn: true }).where(eq(workApply.id, slot.id));
 
     await tx.insert(workerEvaluateHistory).values({
       workerId: occupantId,
       evaluatedAt: now,
-      workId: slot.workId!,
+      workId: slot.id,
       checklistTitleArray: checklist,
       checklistPointSum: penalty,
       comment: PENALTY_COMMENT

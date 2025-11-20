@@ -30,11 +30,9 @@ export type ApplySnapshot = {
 
 export type ApplySlot = {
   id: number;
-  workId: number | null;
   workDate: string;
   workDateLabel: string;
   sectorLabel: string;
-  buildingName: string | null;
   positionLabel: string;
   isButlerSlot: boolean;
   assignedWorkerId: number | null;
@@ -146,8 +144,8 @@ function buildSlot(row: ApplyRow, context: SlotBuildContext) {
   }
 
   const isButlerSlot = Boolean(row.butlerYn);
-  const occupantId = isButlerSlot ? row.butlerId : row.cleanerId;
-  const occupantName = isButlerSlot ? row.butlerName : row.cleanerName;
+  const occupantId = row.workerId;
+  const occupantName = row.workerName;
   const isMine = Boolean(occupantId) && context.workerId === occupantId;
   const roleAllowed = context.isAdmin
     ? true
@@ -168,16 +166,15 @@ function buildSlot(row: ApplyRow, context: SlotBuildContext) {
     roleAllowed &&
     available &&
     (context.isAdmin || (context.canApplyNow && daysUntil <= context.horizonDays));
-  const sectorLabel = row.buildingSector || row.sectorValue || '미지정 섹터';
+  const sectorLabel = row.sectorValue || row.sectorCode || '미지정 섹터';
   const positionLabel = isButlerSlot ? '버틀러' : '클리너';
 
   return {
     id: row.id,
-    workId: row.workId ?? null,
     workDate: dateString,
     workDateLabel: formatKoreanDate(targetDate),
     sectorLabel,
-    buildingName: row.buildingName ?? null,
+    
     positionLabel,
     isButlerSlot,
     assignedWorkerId: occupantId ?? null,
