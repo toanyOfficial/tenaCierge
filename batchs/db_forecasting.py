@@ -180,6 +180,11 @@ def parse_args() -> argparse.Namespace:
         default=3,
         help="ics 폴더 보관 일수 (README 규칙: 3일)",
     )
+    parser.add_argument(
+        "--allow-backfill",
+        action="store_true",
+        help="지정된 run-date를 강제로 사용 (기본은 서울 오늘 날짜로 강제)",
+    )
     return parser.parse_args()
 
 
@@ -828,7 +833,15 @@ class BatchRunner:
 def main() -> None:
     configure_logging()
     args = parse_args()
-    run_date = args.run_date or seoul_today()
+    today_seoul = seoul_today()
+    run_date = args.run_date or today_seoul
+    if args.run_date and not args.allow_backfill and args.run_date != today_seoul:
+        logging.warning(
+            "입력 run-date %s가 현재 서울 날짜 %s와 달라 서울 날짜로 강제합니다. backfill 실행 시 --allow-backfill 사용",
+            args.run_date,
+            today_seoul,
+        )
+        run_date = today_seoul
     now_seoul = dt.datetime.now(dt.timezone.utc).astimezone(SEOUL)
     logging.info("기준일(KST): %s (현재 서울 시각 %s)", run_date, now_seoul.strftime("%Y-%m-%d %H:%M:%S"))
     conn = get_db_connection()
