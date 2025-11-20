@@ -134,10 +134,9 @@ CREATE TABLE `etc_notice` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Table: work_apply
 CREATE TABLE `work_apply` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'PK',
-  `work_id` BIGINT NULL,
+  `worker_id` INT UNSIGNED NULL,
   `work_date` DATE NOT NULL,
   `basecode_sector` VARCHAR(10) NOT NULL COMMENT '지역코드',
   `basecode_code` VARCHAR(255) NOT NULL COMMENT '지역값',
@@ -234,7 +233,7 @@ CREATE TABLE `work_fore_variable` (
 CREATE TABLE `work_header` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'PK',
   `date` DATE NOT NULL,
-  `room` INT NOT NULL,
+  `room_id` INT NOT NULL,
   `cleaner_id` INT NULL,
   `butler_id` INT NULL,
   `amenities_qty` TINYINT NOT NULL,
