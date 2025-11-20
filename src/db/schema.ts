@@ -5,6 +5,7 @@ import {
   date,
   datetime,
   decimal,
+  smallint,
   int,
   json,
   mediumint,
@@ -162,12 +163,22 @@ export const workApply = mysqlTable(
 );
 
 export const workApplyRules = mysqlTable('work_apply_rules', {
+  id: bigintNumber('id', { unsigned: true }).autoincrement().notNull(),
+  minWeight: smallint('min_weight').notNull(),
+  maxWeight: smallint('max_weight'),
+  cleanerCount: tinyint('cleaner_count').notNull(),
+  butlerCount: tinyint('butler_count').notNull(),
+  levelFlag: tinyint('level_flag').default(1).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const workerTierRules = mysqlTable('worker_tier_rules', {
   id: int('id', { unsigned: true }).autoincrement().notNull(),
-  minWeight: tinyint('min_weight').notNull(),
-  maxWeight: tinyint('max_weight'),
-  cleanerCount: tinyint('cleaner_count').default(0).notNull(),
-  butlerCount: tinyint('butler_count').default(0).notNull(),
-  level: varchar('level', { length: 20 }).notNull(),
+  minPercentage: tinyint('min_percentage', { unsigned: true }).notNull(),
+  maxPercentage: tinyint('max_percentage').notNull(),
+  tier: tinyint('tier').notNull(),
+  comment: varchar('comment', { length: 100 }).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
