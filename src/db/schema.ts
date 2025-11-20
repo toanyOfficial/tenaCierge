@@ -155,7 +155,7 @@ export const workApply = mysqlTable(
     sectorValue: varchar('basecode_code', { length: 255 }).notNull(),
     seq: tinyint('seq').notNull(),
     position: tinyint('position').notNull(),
-    workerId: int('worker_id').notNull(),
+    workerId: int('worker_id'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
   },

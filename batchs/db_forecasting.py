@@ -327,21 +327,19 @@ def fetch_apply_rules(conn) -> List[ApplyRule]:
     ]
 
 
-def fetch_sector_weights(conn, target_date: dt.date) -> List[Tuple[str, str, int]]:
-    sql = """
-        SELECT eb.basecode_sector, eb.basecode_code, SUM(COALESCE(cr.weight, 0)) AS total_weight
-        FROM client_rooms cr
-        JOIN etc_buildings eb ON eb.id = cr.building_id
-        WHERE cr.open_yn = 1
-        GROUP BY eb.basecode_sector, eb.basecode_code
-    """
-    with conn.cursor(dictionary=True) as cur:
-        cur.execute(sql)
-        rows = cur.fetchall()
-    return [
-        (row["basecode_sector"], row["basecode_code"], int(row["total_weight"]))
-        for row in rows
-    ]
+def fetch_sector_weights(
+    predictions: Sequence[Prediction], target_date: dt.date
+) -> List[Tuple[str, str, int]]:
+    totals: Dict[Tuple[str, str], int] = {}
+    for pred in predictions:
+        if pred.target_date != target_date:
+            continue
+        if not pred.actual_out:
+            continue
+        key = (pred.room.sector, pred.room.sector_value)
+        totals[key] = totals.get(key, 0) + pred.room.weight
+
+    return [(sector, value, weight) for (sector, value), weight in totals.items()]
 
 
 def fetch_available_workers(conn, target_date: dt.date) -> List[WorkerAvailability]:
@@ -545,7 +543,7 @@ class BatchRunner:
                 )
         self._persist_predictions(predictions)
         self._persist_work_header(predictions)
-        self._persist_work_apply_slots(self.run_date + dt.timedelta(days=1))
+        self._persist_work_apply_slots(self.run_date + dt.timedelta(days=1), predictions)
         self._persist_accuracy(predictions)
         self._adjust_threshold(predictions)
 
@@ -596,59 +594,35 @@ class BatchRunner:
                 )
         self.conn.commit()
 
-    def _persist_work_apply_slots(self, target_date: dt.date) -> None:
+    def _persist_work_apply_slots(
+        self, target_date: dt.date, predictions: Sequence[Prediction]
+    ) -> None:
         rules = fetch_apply_rules(self.conn)
         if not rules:
             logging.info("work_apply_rules 데이터가 없어 apply 생성이 스킵됩니다.")
             return
-        sector_weights = fetch_sector_weights(self.conn, target_date)
+        sector_weights = fetch_sector_weights(predictions, target_date)
         if not sector_weights:
             logging.info("sector 가중치 합계가 없어 apply 생성이 스킵됩니다 (target=%s)", target_date)
             return
-        workers = fetch_available_workers(self.conn, target_date)
 
-        # 가용 인원이 없어도 apply 슬롯은 생성되어야 하므로, 후보는 비어있을 수 있다.
-        butler_candidates = sorted(
-            (w for w in workers if w.tier >= 7),
-            key=lambda w: (-int(w.is_regular), -int(w.add_override), -w.tier, w.id),
-        )
-        cleaner_candidates = sorted(
-            (w for w in workers if w.tier > 1),
-            key=lambda w: (-int(w.is_regular), -int(w.add_override), -w.tier, w.id),
-        )
-
-        def pop_candidate(pool: List[WorkerAvailability], used: set[int]) -> Optional[WorkerAvailability]:
-            while pool:
-                worker = pool.pop(0)
-                if worker.id in used:
-                    continue
-                used.add(worker.id)
-                return worker
-            return None
-
-        # 기존 배정자를 우선 유지하기 위해 worker_id를 미리 확보하되, seq는 새로 시작한다.
-        existing_assignments: Dict[Tuple[str, int], List[int]] = {}
-        used_workers: set[int] = set()
+        existing_counts: Dict[Tuple[str, int], Tuple[int, int]] = {}
         with self.conn.cursor(dictionary=True) as cur:
             cur.execute(
                 """
-                SELECT basecode_sector, position, worker_id
+                SELECT basecode_sector, position,
+                       COUNT(*) AS cnt, COALESCE(MAX(seq), 0) AS max_seq
                 FROM work_apply
-                WHERE work_date=%s AND worker_id IS NOT NULL AND worker_id > 0
-                ORDER BY seq ASC
+                WHERE work_date=%s
+                GROUP BY basecode_sector, position
                 """,
                 (target_date,),
             )
             for row in cur.fetchall():
                 key = (row["basecode_sector"], int(row["position"]))
-                existing_assignments.setdefault(key, []).append(int(row["worker_id"]))
-                used_workers.add(int(row["worker_id"]))
-
-        placeholder_worker_id = -1
+                existing_counts[key] = (int(row["cnt"]), int(row["max_seq"]))
 
         with self.conn.cursor() as cur:
-            # 일단 해당 날짜 데이터를 모두 지우고 새 seq(1부터)로 재구성한다.
-            cur.execute("DELETE FROM work_apply WHERE work_date=%s", (target_date,))
             for sector_code, sector_value, weight_sum in sector_weights:
                 rule = _match_rule(weight_sum, rules)
                 if not rule:
@@ -659,38 +633,26 @@ class BatchRunner:
                     )
                     continue
 
-                seq = 0
-
                 for position, required in ((2, rule.butler_count), (1, rule.cleaner_count)):
                     key = (sector_code, position)
-                    pool = butler_candidates if position == 2 else cleaner_candidates
-                    retained = existing_assignments.get(key, []).copy()
+                    current_count, max_seq = existing_counts.get(key, (0, 0))
+                    if current_count >= required:
+                        continue
 
-                    for _ in range(required):
+                    seq = max_seq
+                    for _ in range(required - current_count):
                         seq += 1
-                        # tinyint 범위를 넘지 않도록 안전 장치
                         if seq > 127:
                             raise ValueError(f"apply seq overflow for sector {sector_code}: {seq}")
-
-                        worker_id: int
-                        if retained:
-                            worker_id = retained.pop(0)
-                        else:
-                            worker = pop_candidate(pool, used_workers)
-                            worker_id = worker.id if worker else placeholder_worker_id
-                            if worker is None:
-                                placeholder_worker_id -= 1
 
                         cur.execute(
                             """
                             INSERT INTO work_apply
                                 (work_date, basecode_sector, basecode_code, seq, position, worker_id)
-                            VALUES (%s, %s, %s, %s, %s, %s)
+                            VALUES (%s, %s, %s, %s, %s, NULL)
                             """,
-                            (target_date, sector_code, sector_value, seq, position, worker_id),
+                            (target_date, sector_code, sector_value, seq, position),
                         )
-
-                # 다음 sector로 넘어갈 때 placeholder를 초기화하지 않아 미배정 슬롯 식별 가능
         self.conn.commit()
 
     def _persist_work_header(self, predictions: Sequence[Prediction]) -> None:
