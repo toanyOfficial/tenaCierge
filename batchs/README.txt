@@ -76,6 +76,46 @@ D−2~D−6은 선형 보간, 7일 이상은 D−7 변수 사용.
 - 규칙 비교는 항상 `min_weight < 합계 ≤ max_weight` 형태(상한 포함, 하한 초과)로 수행한다.
 - 구간 규칙이 없거나 가중치 합계가 0인 sector는 스킵되며, 기존 신청자는 그대로 유지한다.
 
+🧾 7-2. work_apply 생성 Rule (매일 15:00)
+- `client_rooms.weight`를 sector별로 합산한 뒤, `work_apply_rules` 테이블의 구간에 매핑해
+  클리너/버틀러 필요 인원을 산출한다.
+- 버틀러 정원은 정직원 스케줄(주간 패턴 + 예외)에 맞춰 우선 배정하며, 신청 기록은
+  기존 `work_apply` 데이터와 중복되지 않도록 ON DUPLICATE KEY로 삽입한다.
+- 규칙 비교는 항상 `min_weight < 합계 ≤ max_weight` 형태(상한 포함, 하한 초과)로 수행한다.
+- 구간 규칙이 없거나 가중치 합계가 0인 sector는 스킵되며, 기존 신청자는 그대로 유지한다.
+
+🧾 7-2. work_apply 생성 Rule (매일 15:00)
+- `client_rooms.weight`를 sector별로 합산한 뒤, `work_apply_rules` 테이블의 구간에 매핑해
+  클리너/버틀러 필요 인원을 산출한다.
+- 버틀러 정원은 정직원 스케줄(주간 패턴 + 예외)에 맞춰 우선 배정하며, 신청 기록은
+  기존 `work_apply` 데이터와 중복되지 않도록 ON DUPLICATE KEY로 삽입한다.
+- 규칙 비교는 항상 `min_weight < 합계 ≤ max_weight` 형태(상한 포함, 하한 초과)로 수행한다.
+- 구간 규칙이 없거나 가중치 합계가 0인 sector는 스킵되며, 기존 신청자는 그대로 유지한다.
+
+🧾 7-2. work_apply 생성 Rule (매일 15:00)
+- `client_rooms.weight`를 sector별로 합산한 뒤, `work_apply_rules` 테이블의 구간에 매핑해
+  클리너/버틀러 필요 인원을 산출한다.
+- 버틀러 정원은 정직원 스케줄(주간 패턴 + 예외)에 맞춰 우선 배정하며, 신청 기록은
+  기존 `work_apply` 데이터와 중복되지 않도록 ON DUPLICATE KEY로 삽입한다.
+- 규칙 비교는 항상 `min_weight < 합계 ≤ max_weight` 형태(상한 포함, 하한 초과)로 수행한다.
+- 구간 규칙이 없거나 가중치 합계가 0인 sector는 스킵되며, 기존 신청자는 그대로 유지한다.
+
+🧾 7-2. work_apply 생성 Rule (매일 15:00)
+- `client_rooms.weight`를 sector별로 합산한 뒤, `work_apply_rules` 테이블의 구간에 매핑해
+  클리너/버틀러 필요 인원을 산출한다.
+- 버틀러 정원은 정직원 스케줄(주간 패턴 + 예외)에 맞춰 우선 배정하며, 신청 기록은
+  기존 `work_apply` 데이터와 중복되지 않도록 ON DUPLICATE KEY로 삽입한다.
+- 규칙 비교는 항상 `min_weight < 합계 ≤ max_weight` 형태(상한 포함, 하한 초과)로 수행한다.
+- 구간 규칙이 없거나 가중치 합계가 0인 sector는 스킵되며, 기존 신청자는 그대로 유지한다.
+
+🧾 7-2. work_apply 생성 Rule (매일 15:00)
+- `client_rooms.weight`를 sector별로 합산한 뒤, `work_apply_rules` 테이블의 구간에 매핑해
+  클리너/버틀러 필요 인원을 산출한다.
+- 버틀러 정원은 정직원 스케줄(주간 패턴 + 예외)에 맞춰 우선 배정하며, 신청 기록은
+  기존 `work_apply` 데이터와 중복되지 않도록 ON DUPLICATE KEY로 삽입한다.
+- 규칙 비교는 항상 `min_weight < 합계 ≤ max_weight` 형태(상한 포함, 하한 초과)로 수행한다.
+- 구간 규칙이 없거나 가중치 합계가 0인 sector는 스킵되며, 기존 신청자는 그대로 유지한다.
+
 📅 2. 날짜 입력 및 실행 모드
 실행한날짜를 D0라고 했을때 다음날인 D1부터  다음주 같은요일까지의 D7 일정을 체크한다. 서버에 배치프로그램으로 등록한다.
 
