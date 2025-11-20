@@ -1,3 +1,15 @@
+🔔 배치 프로그램 개요
+
+01. ICS 분석(매일 14:50)
+- 모든 객실의 ICS 파일을 내려받아 보관 폴더(D0~D3)를 순환 정리한다.
+- D1·D7 체크아웃 예측을 학습/튜닝하고 성능을 기록한다.
+- D1 예측 결과를 기반으로 다음날 `work_header` 데이터를 생성한다.
+- D1~D7 체크아웃 예측을 sector 가중치 규칙에 매핑해 `work_apply` 데이터를 생성한다.
+
+02. 랭크 재조정(매일 17:00)
+- 최근 20일간 `worker_evaluateHistory` 총점을 합산한다.
+- 점수 구간에 따라 클리너 랭크를 재산정하고 tier를 업데이트한다.
+
 0. 밑작업
 ics파일은 D0 D1 D2 D3 폴더를 만들어두고 3일간 보관한다. 배치 돌릴 때 마다
 - D3폴더에 있는 모든 컨텐츠를 삭제한다.
@@ -20,6 +32,9 @@ ics파일은 D0 D1 D2 D3 폴더를 만들어두고 3일간 보관한다. 배치 
 - work_header 저장 규칙(15:00 배치)과 클리너 랭킹 업데이트 배치(16:30)가 추가되어,
   `db_forecasting.py`와 `update_cleaner_ranking.py`에서 각각 어떻게 데이터를 적재/재정렬하는지
   바로 확인할 수 있습니다.
+- 15:00 배치가 sector별 가중치(`client_rooms.weight`)와 규칙 테이블(`work_apply_rules`)을
+  읽어 `work_apply` 데이터를 미리 생성하고, 정직원 근무 패턴(`worker_weekly_pattern`/
+  `worker_schedule_exception`)을 기반으로 버틀러 슬롯을 우선 배정하도록 보강했습니다.
 
 
 
@@ -46,6 +61,13 @@ D−2~D−6은 선형 보간, 7일 이상은 D−7 변수 사용.
 - blanket_qty, amaenities_qty는 room 정보의 bed qty와 동일
 - checin, checkout time은 room 정보에서 가져온다
 - 나머지 값들은 추후 입력 값이기 때문에 null
+
+🧾 7-2. work_apply 생성 Rule (매일 15:00)
+- `client_rooms.weight`를 sector별로 합산한 뒤, `work_apply_rules` 테이블의 구간에 매핑해
+  클리너/버틀러 필요 인원을 산출한다.
+- 버틀러 정원은 정직원 스케줄(주간 패턴 + 예외)에 맞춰 우선 배정하며, 신청 기록은
+  기존 `work_apply` 데이터와 중복되지 않도록 ON DUPLICATE KEY로 삽입한다.
+- 구간 규칙이 없거나 가중치 합계가 0인 sector는 스킵되며, 기존 신청자는 그대로 유지한다.
 
 📅 2. 날짜 입력 및 실행 모드
 실행한날짜를 D0라고 했을때 다음날인 D1부터  다음주 같은요일까지의 D7 일정을 체크한다. 서버에 배치프로그램으로 등록한다.

@@ -80,11 +80,13 @@ class Room:
     id: int
     building_id: int
     sector: str
+    sector_value: str
     building_name: str
     room_no: str
     bed_count: int
     checkin_time: dt.time
     checkout_time: dt.time
+    weight: int
     ical_urls: List[str]
 
 
@@ -117,6 +119,23 @@ class Prediction:
         return (self.predicted_positive and self.actual_out) or (
             (not self.predicted_positive) and (not self.actual_out)
         )
+
+
+@dataclass
+class ApplyRule:
+    min_weight: int
+    max_weight: Optional[int]
+    cleaner_count: int
+    butler_count: int
+    level: str
+
+
+@dataclass
+class WorkerAvailability:
+    id: int
+    tier: int
+    add_override: bool
+    is_regular: bool
 
 
 # ------------------------------ 유틸 ------------------------------
@@ -248,10 +267,10 @@ def save_model_variables(conn, values: Dict[str, float]) -> None:
 def fetch_rooms(conn, reference_date: dt.date) -> List[Room]:
     sql = """
         SELECT cr.id, cr.building_id, cr.room_no,
-               cr.bed_count,
+               cr.bed_count, cr.weight,
                cr.checkin_time, cr.checkout_time,
                cr.ical_url_1, cr.ical_url_2,
-               eb.basecode_sector, eb.building_name
+               eb.basecode_sector, eb.basecode_code, eb.building_name
         FROM client_rooms cr
         JOIN etc_buildings eb ON eb.id = cr.building_id
         WHERE cr.start_date <= %s
@@ -272,9 +291,11 @@ def fetch_rooms(conn, reference_date: dt.date) -> List[Room]:
                 id=row["id"],
                 building_id=row["building_id"],
                 sector=row["basecode_sector"],
+                sector_value=row["basecode_code"],
                 building_name=row["building_name"],
                 room_no=row["room_no"],
                 bed_count=row["bed_count"],
+                weight=row.get("weight", 1) or 0,
                 checkin_time=row["checkin_time"],
                 checkout_time=row["checkout_time"],
                 ical_urls=urls,
@@ -282,6 +303,115 @@ def fetch_rooms(conn, reference_date: dt.date) -> List[Room]:
         )
     logging.info("활성 객실 %s건 로딩", len(rooms))
     return rooms
+
+
+def fetch_apply_rules(conn) -> List[ApplyRule]:
+    with conn.cursor(dictionary=True) as cur:
+        cur.execute(
+            """
+            SELECT min_weight, max_weight, cleaner_count, butler_count, level
+            FROM work_apply_rules
+            ORDER BY min_weight ASC
+            """
+        )
+        rows = cur.fetchall()
+    return [
+        ApplyRule(
+            min_weight=int(row["min_weight"]),
+            max_weight=(int(row["max_weight"]) if row["max_weight"] is not None else None),
+            cleaner_count=int(row["cleaner_count"]),
+            butler_count=int(row["butler_count"]),
+            level=row["level"],
+        )
+        for row in rows
+    ]
+
+
+def fetch_sector_weights(conn, target_date: dt.date) -> List[Tuple[str, str, int]]:
+    sql = """
+        SELECT eb.basecode_sector, eb.basecode_code, SUM(COALESCE(cr.weight, 0)) AS total_weight
+        FROM client_rooms cr
+        JOIN etc_buildings eb ON eb.id = cr.building_id
+        WHERE cr.start_date <= %s
+          AND (cr.end_date IS NULL OR cr.end_date >= %s)
+        GROUP BY eb.basecode_sector, eb.basecode_code
+    """
+    params = (target_date, target_date)
+    with conn.cursor(dictionary=True) as cur:
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+    return [
+        (row["basecode_sector"], row["basecode_code"], int(row["total_weight"]))
+        for row in rows
+    ]
+
+
+def fetch_available_workers(conn, target_date: dt.date) -> List[WorkerAvailability]:
+    weekday = (target_date.weekday() + 1) % 7  # Python Mon=0 → DB Sun=0
+    with conn.cursor(dictionary=True) as cur:
+        cur.execute(
+            """
+            SELECT w.id, w.tier,
+                   EXISTS(
+                       SELECT 1 FROM worker_schedule_exception e
+                       WHERE e.worker_id = w.id AND e.excpt_date = %s AND e.cancel_work_yn = 1
+                   ) AS has_cancel_exc,
+                   EXISTS(
+                       SELECT 1 FROM worker_schedule_exception e
+                       WHERE e.worker_id = w.id AND e.excpt_date = %s AND e.add_work_yn = 1
+                   ) AS has_add_exc,
+                   EXISTS(
+                       SELECT 1 FROM worker_weekly_pattern p
+                       WHERE p.worker_id = w.id AND p.weekday = %s
+                   ) AS has_weekly
+            FROM worker_header w
+            WHERE w.tier > 1
+        """,
+            (target_date, target_date, weekday),
+        )
+        rows = cur.fetchall()
+    avail: List[WorkerAvailability] = []
+    for row in rows:
+        if row["has_cancel_exc"]:
+            continue
+        if not (row["has_add_exc"] or row["has_weekly"]):
+            continue
+        avail.append(
+            WorkerAvailability(
+                id=int(row["id"]),
+                tier=int(row["tier"]),
+                add_override=bool(row["has_add_exc"]),
+                is_regular=bool(row["has_weekly"]),
+            )
+        )
+    return avail
+
+
+def _match_rule(weight: int, rules: List[ApplyRule]) -> Optional[ApplyRule]:
+    for rule in rules:
+        upper_ok = True if rule.max_weight is None else weight <= rule.max_weight
+        if weight > rule.min_weight and upper_ok:
+            return rule
+    return None
+
+
+def _pick_workers(candidates: List[WorkerAvailability], count: int, used: set[int]) -> List[WorkerAvailability]:
+    selected: List[WorkerAvailability] = []
+    for worker in sorted(
+        candidates,
+        key=lambda w: (
+            -int(w.is_regular),
+            -int(w.add_override),
+            -w.tier,
+            w.id,
+        ),
+    ):
+        if worker.id in used:
+            continue
+        selected.append(worker)
+        if len(selected) >= count:
+            break
+    return selected
 
 
 # ------------------------------ ICS 처리 ------------------------------
@@ -417,6 +547,7 @@ class BatchRunner:
                 )
         self._persist_predictions(predictions)
         self._persist_work_header(predictions)
+        self._persist_work_apply_slots(self.run_date + dt.timedelta(days=1))
         self._persist_accuracy(predictions)
         self._adjust_threshold(predictions)
 
@@ -467,6 +598,75 @@ class BatchRunner:
                 )
         self.conn.commit()
 
+    def _persist_work_apply_slots(self, target_date: dt.date) -> None:
+        rules = fetch_apply_rules(self.conn)
+        if not rules:
+            logging.info("work_apply_rules 데이터가 없어 apply 생성이 스킵됩니다.")
+            return
+        sector_weights = fetch_sector_weights(self.conn, target_date)
+        if not sector_weights:
+            logging.info("sector 가중치 합계가 없어 apply 생성이 스킵됩니다 (target=%s)", target_date)
+            return
+        workers = fetch_available_workers(self.conn, target_date)
+        if not workers:
+            logging.info("배정 가능한 인원이 없어 apply 생성이 스킵됩니다 (target=%s)", target_date)
+            return
+
+        butler_candidates = [w for w in workers if w.tier >= 7]
+        cleaner_candidates = [w for w in workers if w.tier > 1]
+
+        used_workers: set[int] = set()
+        seq_map: Dict[str, int] = {}
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute("SELECT worker_id FROM work_apply WHERE work_date=%s", (target_date,))
+            used_workers.update(int(row["worker_id"]) for row in cur.fetchall())
+            cur.execute(
+                "SELECT basecode_sector, MAX(seq) AS max_seq FROM work_apply WHERE work_date=%s GROUP BY basecode_sector",
+                (target_date,),
+            )
+            for row in cur.fetchall():
+                seq_map[row["basecode_sector"]] = int(row["max_seq"]) if row["max_seq"] is not None else 0
+
+        with self.conn.cursor() as cur:
+            for sector_code, sector_value, weight_sum in sector_weights:
+                rule = _match_rule(weight_sum, rules)
+                if not rule:
+                    logging.info("해당 구간의 apply 규칙을 찾지 못해 건너뜁니다. sector=%s, weight=%s", sector_code, weight_sum)
+                    continue
+                seq = seq_map.get(sector_code, 0)
+
+                butlers = _pick_workers(butler_candidates, rule.butler_count, used_workers)
+                cleaners = _pick_workers(cleaner_candidates, rule.cleaner_count, used_workers)
+
+                for worker in butlers:
+                    seq += 1
+                    cur.execute(
+                        """
+                        INSERT INTO work_apply
+                            (work_date, basecode_sector, basecode_code, seq, position, worker_id)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        ON DUPLICATE KEY UPDATE worker_id=worker_id
+                        """,
+                        (target_date, sector_code, sector_value, seq, 2, worker.id),
+                    )
+                    used_workers.add(worker.id)
+
+                for worker in cleaners:
+                    seq += 1
+                    cur.execute(
+                        """
+                        INSERT INTO work_apply
+                            (work_date, basecode_sector, basecode_code, seq, position, worker_id)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        ON DUPLICATE KEY UPDATE worker_id=worker_id
+                        """,
+                        (target_date, sector_code, sector_value, seq, 1, worker.id),
+                    )
+                    used_workers.add(worker.id)
+
+                seq_map[sector_code] = seq
+        self.conn.commit()
+
     def _persist_work_header(self, predictions: Sequence[Prediction]) -> None:
         target_date = self.run_date + dt.timedelta(days=1)
         entries: List[Tuple[Prediction, int, int]] = []
@@ -487,7 +687,7 @@ class BatchRunner:
                 cur.execute(
                     """
                     INSERT INTO work_header
-                        (date, room, cleaner_id, butler_id,
+                        (date, room_id, cleaner_id, butler_id,
                          amenities_qty, blanket_qty, conditionCheckYn,
                          cleaning_yn, checkin_time, ceckout_time,
                          supply_yn, clening_flag, cleaning_end_time,

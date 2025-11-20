@@ -72,6 +72,7 @@ CREATE TABLE `client_rooms` (
   `ical_url_1` VARCHAR(2083) NULL,
   `ical_url_2` VARCHAR(2083) NULL,
   `settle_flag` TINYINT NOT NULL DEFAULT 1 COMMENT '1:기본계약요건/2:커스텀계약요건',
+  `weight` TINYINT NOT NULL DEFAULT 1,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
@@ -102,7 +103,7 @@ CREATE TABLE `etc_buildings` (
   `building_food` VARCHAR(20) NULL,
   `building_way_img_basePath` VARCHAR(255) NULL,
   `building_way_img_relativePath` VARCHAR(255) NULL,
-  `delete_yn` BOOLEAN NOT NULL,
+  `delete_yn` BOOLEAN NOT NULL DEFAULT 0,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
@@ -134,15 +135,27 @@ CREATE TABLE `etc_notice` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Table: work_apply
 CREATE TABLE `work_apply` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'PK',
-  `work_id` BIGINT NULL,
   `work_date` DATE NOT NULL,
   `basecode_sector` VARCHAR(10) NOT NULL COMMENT '지역코드',
   `basecode_code` VARCHAR(255) NOT NULL COMMENT '지역값',
-  `butler_yn` BOOLEAN NOT NULL COMMENT '0:클리닝/1:버틀러',
-  `cancel_yn` BOOLEAN NOT NULL COMMENT '0:취소안함/1:취소',
+  `seq` TINYINT NOT NULL,
+  `position` TINYINT NOT NULL COMMENT '1:클리너/2:버틀러',
+  `worker_id` INT NOT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `ux_work_apply` (`work_date`, `worker_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `work_apply_rules` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'PK',
+  `min_weight` TINYINT NOT NULL,
+  `max_weight` TINYINT NULL,
+  `cleaner_count` TINYINT NOT NULL DEFAULT 0,
+  `butler_count` TINYINT NOT NULL DEFAULT 0,
+  `level` VARCHAR(20) NOT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
@@ -234,7 +247,7 @@ CREATE TABLE `work_fore_variable` (
 CREATE TABLE `work_header` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'PK',
   `date` DATE NOT NULL,
-  `room` INT NOT NULL,
+  `room_id` INT NOT NULL,
   `cleaner_id` INT NULL,
   `butler_id` INT NULL,
   `amenities_qty` TINYINT NOT NULL,
