@@ -1,3 +1,21 @@
+🔔 배치 프로그램 개요
+
+01. ICS 분석(매일 14:50)
+- 모든 객실의 ICS 파일을 내려받아 보관 폴더(D0~D3)를 순환 정리한다.
+- D1·D7 체크아웃 예측을 학습/튜닝하고 성능을 기록한다.
+- D1 예측 결과를 기반으로 다음날 `work_header` 데이터를 생성한다.
+- D1~D7 체크아웃 예측을 sector 가중치 규칙에 매핑해 `work_apply` 데이터를 생성한다.
+
+02. 랭크 재조정(매일 17:00)
+- 최근 20일간 `worker_evaluateHistory` 총점을 합산한다.
+- `worker_tier_rules` 테이블에서 정의한 구간(min < percentile ≤ max)을 읽어 점수 퍼센타일에
+  맞춰 tier를 재산정한다.
+
+실행 전 준비
+- DB 접속 정보는 환경 변수 `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`으로
+  전달해야 한다. 예) `set -a && source /srv/tenaCierge/.env.batch && set +a`
+- `DB_PASSWORD`가 비어 있으면 스크립트는 즉시 종료하므로 비밀번호를 반드시 지정한다.
+
 0. 밑작업
 ics파일은 D0 D1 D2 D3 폴더를 만들어두고 3일간 보관한다. 배치 돌릴 때 마다
 - D3폴더에 있는 모든 컨텐츠를 삭제한다.
@@ -20,6 +38,9 @@ ics파일은 D0 D1 D2 D3 폴더를 만들어두고 3일간 보관한다. 배치 
 - work_header 저장 규칙(15:00 배치)과 클리너 랭킹 업데이트 배치(16:30)가 추가되어,
   `db_forecasting.py`와 `update_cleaner_ranking.py`에서 각각 어떻게 데이터를 적재/재정렬하는지
   바로 확인할 수 있습니다.
+- 15:00 배치가 sector별 가중치(`client_rooms.weight`)와 규칙 테이블(`work_apply_rules`)을
+  읽어 `work_apply` 데이터를 미리 생성하고, 정직원 근무 패턴(`worker_weekly_pattern`/
+  `worker_schedule_exception`)을 기반으로 버틀러 슬롯을 우선 배정하도록 보강했습니다.
 
 
 
@@ -47,8 +68,21 @@ D−2~D−6은 선형 보간, 7일 이상은 D−7 변수 사용.
 - checin, checkout time은 room 정보에서 가져온다
 - 나머지 값들은 추후 입력 값이기 때문에 null
 
+🧾 7-2. work_apply 생성 Rule (매일 15:00)
+- D1~D7 ICS에서 추출한 "확정 퇴실(out)" 객실만 대상으로, `client_rooms.weight`를
+  sector별로 합산한다.
+- 합산한 가중치를 `work_apply_rules`의 구간에 대입해 필요한 클리너·버틀러 슬롯 수를
+  계산한다. 비교식은 항상 `min_weight < 합계 ≤ max_weight`(하한 초과, 상한 포함)를 사용한다.
+- 해당 날짜의 기존 `work_apply` 데이터를 삭제하지 않고, 부족한 슬롯만 seq를 이어서 추가한다.
+  이때 `worker_id`는 NULL로 비워두며, 실제 신청/배정 시점에 업데이트한다.
+- 규칙을 찾지 못하거나 가중치 합이 0인 sector는 건너뛰고, 이미 만들어진 슬롯은 유지한다.
+
 📅 2. 날짜 입력 및 실행 모드
 실행한날짜를 D0라고 했을때 다음날인 D1부터  다음주 같은요일까지의 D7 일정을 체크한다. 서버에 배치프로그램으로 등록한다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 과거 데이터를 재생성하려면 `--run-date YYYY-MM-DD`
+  옵션을 명시적으로 지정한다.
 
 🧾 3. 파일 및 폴더 구조
 ics/YYYYMMDDhhmmss/          # ICS 다운로드 폴더
