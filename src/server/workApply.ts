@@ -1,10 +1,11 @@
 import { and, asc, eq, gte, lte } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/mysql-core';
 
 import { db } from '@/src/db/client';
 import { clientRooms, etcBuildings, workApply, workHeader, workerHeader } from '@/src/db/schema';
 
-const cleanerWorker = workerHeader.as('applyCleaner');
-const butlerWorker = workerHeader.as('applyButler');
+const cleanerWorker = alias(workerHeader, 'applyCleaner');
+const butlerWorker = alias(workerHeader, 'applyButler');
 
 const selection = {
   id: workApply.id,

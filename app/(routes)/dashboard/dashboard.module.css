@@ -692,6 +692,13 @@
   gap: 12px;
 }
 
+.noticeModal header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .noticeModal header p {
   margin: 0;
   font-weight: 600;
