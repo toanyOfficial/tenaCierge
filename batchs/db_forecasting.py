@@ -626,34 +626,29 @@ class BatchRunner:
                 return worker
             return None
 
+        # 기존 배정자를 우선 유지하기 위해 worker_id를 미리 확보하되, seq는 새로 시작한다.
+        existing_assignments: Dict[Tuple[str, int], List[int]] = {}
         used_workers: set[int] = set()
-        seq_map: Dict[str, int] = {}
-        existing_map: Dict[Tuple[str, int], List[Dict]] = {}
         with self.conn.cursor(dictionary=True) as cur:
             cur.execute(
                 """
-                SELECT id, basecode_sector, basecode_code, seq, position, worker_id
+                SELECT basecode_sector, position, worker_id
                 FROM work_apply
-                WHERE work_date=%s
+                WHERE work_date=%s AND worker_id IS NOT NULL AND worker_id > 0
                 ORDER BY seq ASC
                 """,
                 (target_date,),
             )
             for row in cur.fetchall():
                 key = (row["basecode_sector"], int(row["position"]))
-                existing_map.setdefault(key, []).append(row)
-                if row["worker_id"] and int(row["worker_id"]) > 0:
-                    used_workers.add(int(row["worker_id"]))
-            cur.execute(
-                "SELECT basecode_sector, MAX(seq) AS max_seq FROM work_apply WHERE work_date=%s GROUP BY basecode_sector",
-                (target_date,),
-            )
-            for row in cur.fetchall():
-                seq_map[row["basecode_sector"]] = int(row["max_seq"]) if row["max_seq"] is not None else 0
+                existing_assignments.setdefault(key, []).append(int(row["worker_id"]))
+                used_workers.add(int(row["worker_id"]))
 
         placeholder_worker_id = -1
 
         with self.conn.cursor() as cur:
+            # 일단 해당 날짜 데이터를 모두 지우고 새 seq(1부터)로 재구성한다.
+            cur.execute("DELETE FROM work_apply WHERE work_date=%s", (target_date,))
             for sector_code, sector_value, weight_sum in sector_weights:
                 rule = _match_rule(weight_sum, rules)
                 if not rule:
@@ -664,43 +659,38 @@ class BatchRunner:
                     )
                     continue
 
-                seq = seq_map.get(sector_code, 0)
+                seq = 0
 
                 for position, required in ((2, rule.butler_count), (1, rule.cleaner_count)):
                     key = (sector_code, position)
-                    rows = existing_map.get(key, [])
                     pool = butler_candidates if position == 2 else cleaner_candidates
+                    retained = existing_assignments.get(key, []).copy()
 
-                    # 기존 슬롯 중 미배정(<=0)인 경우 가용 인원에 우선 배정
-                    for row in rows:
-                        if row["worker_id"] is None or int(row["worker_id"]) <= 0:
-                            worker = pop_candidate(pool, used_workers)
-                            if not worker:
-                                continue
-                            cur.execute("UPDATE work_apply SET worker_id=%s WHERE id=%s", (worker.id, row["id"]))
-
-                    current_count = len(rows)
-                    missing = max(0, required - current_count)
-
-                    for _ in range(missing):
+                    for _ in range(required):
                         seq += 1
-                        worker = pop_candidate(pool, used_workers)
-                        worker_id = worker.id if worker else placeholder_worker_id
+                        # tinyint 범위를 넘지 않도록 안전 장치
+                        if seq > 127:
+                            raise ValueError(f"apply seq overflow for sector {sector_code}: {seq}")
+
+                        worker_id: int
+                        if retained:
+                            worker_id = retained.pop(0)
+                        else:
+                            worker = pop_candidate(pool, used_workers)
+                            worker_id = worker.id if worker else placeholder_worker_id
+                            if worker is None:
+                                placeholder_worker_id -= 1
+
                         cur.execute(
                             """
                             INSERT INTO work_apply
                                 (work_date, basecode_sector, basecode_code, seq, position, worker_id)
                             VALUES (%s, %s, %s, %s, %s, %s)
-                            ON DUPLICATE KEY UPDATE worker_id=VALUES(worker_id)
                             """,
                             (target_date, sector_code, sector_value, seq, position, worker_id),
                         )
-                        if worker:
-                            used_workers.add(worker.id)
-                        else:
-                            placeholder_worker_id -= 1
 
-                seq_map[sector_code] = seq
+                # 다음 sector로 넘어갈 때 placeholder를 초기화하지 않아 미배정 슬롯 식별 가능
         self.conn.commit()
 
     def _persist_work_header(self, predictions: Sequence[Prediction]) -> None:
