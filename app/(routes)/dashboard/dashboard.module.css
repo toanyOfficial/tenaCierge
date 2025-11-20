@@ -481,6 +481,12 @@
   color: #0f172a;
 }
 
+.applicationDate {
+  margin: 0;
+  font-weight: 600;
+  color: #0f172a;
+}
+
 .applicationArea {
   margin: 0;
   color: #64748b;

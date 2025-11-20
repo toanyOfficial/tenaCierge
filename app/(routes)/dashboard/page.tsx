@@ -140,20 +140,20 @@ async function getCleanerSnapshot(profile: ProfileSummary): Promise<CleanerSnaps
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowDateStr = formatDateKey(tomorrow);
 
-  const assignmentsRaw = await db
-    .select({
-      id: workHeader.id,
-      date: workHeader.date,
-      sectorLabel: etcBuildings.sectorLabel,
-      buildingName: etcBuildings.buildingName,
-      roomNo: clientRooms.roomNo
-    })
-    .from(workHeader)
-    .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
-    .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
-    .where(and(eq(workHeader.cleanerId, worker.id), gte(workHeader.date, targetDateStr)))
-    .orderBy(asc(workHeader.date))
-    .limit(6);
+    const assignmentsRaw = await db
+      .select({
+        id: workHeader.id,
+        date: workHeader.date,
+        sectorLabel: etcBuildings.sectorValue,
+        buildingName: etcBuildings.shortName,
+        roomNo: clientRooms.roomNo
+      })
+      .from(workHeader)
+      .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
+      .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
+      .where(and(eq(workHeader.cleanerId, worker.id), gte(workHeader.date, targetDateStr)))
+      .orderBy(asc(workHeader.date))
+      .limit(6);
 
     const assignments = assignmentsRaw.map((entry) => ({
       ...entry,
@@ -233,8 +233,8 @@ async function getButlerSnapshot(): Promise<ButlerSnapshot | null> {
       .select({
         id: workHeader.id,
         checkoutTime: workHeader.checkoutTime,
-        buildingName: etcBuildings.buildingName,
-        sectorLabel: etcBuildings.sectorLabel,
+        buildingName: etcBuildings.shortName,
+        sectorLabel: etcBuildings.sectorValue,
         roomNo: clientRooms.roomNo
       })
       .from(workHeader)
