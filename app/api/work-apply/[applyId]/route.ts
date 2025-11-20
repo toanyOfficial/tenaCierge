@@ -47,7 +47,7 @@ export async function PATCH(request: Request, { params }: { params: { applyId: s
 
   const now = getKstNow();
   const daysUntil = computeDaysUntil(slot.workDate, now);
-  const isButlerSlot = Boolean(slot.butlerYn);
+  const isButlerSlot = slot.position === 2;
   const occupantId = slot.workerId;
 
   if (body.action === 'apply') {
@@ -111,7 +111,7 @@ async function handleApply({ profile, slot, now, daysUntil, isButlerSlot, occupa
     return NextResponse.json({ message: '이미 신청이 완료된 일정입니다.' }, { status: 200 });
   }
 
-  await db.update(workApply).set({ workerId: worker.id, cancelYn: false }).where(eq(workApply.id, slot.id));
+  await db.update(workApply).set({ workerId: worker.id }).where(eq(workApply.id, slot.id));
 
   return NextResponse.json({ message: '신청이 완료되었습니다.' });
 }
@@ -144,7 +144,7 @@ async function handleCancel({ profile, slot, now, daysUntil, isButlerSlot, occup
   const checklist = { '1': `${Math.max(daysUntil, 0)}일전업무취소` };
 
   await db.transaction(async (tx) => {
-    await tx.update(workApply).set({ workerId: null, cancelYn: true }).where(eq(workApply.id, slot.id));
+    await tx.update(workApply).set({ workerId: null }).where(eq(workApply.id, slot.id));
 
     await tx.insert(workerEvaluateHistory).values({
       workerId: occupantId,

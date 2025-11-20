@@ -143,12 +143,12 @@ export const etcNotice = mysqlTable('etc_notice', {
 
 export const workApply = mysqlTable('work_apply', {
   id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
-  workerId: int('worker_id', { unsigned: true }),
-  workDate: date('date').notNull(),
+  workDate: date('work_date').notNull(),
   sectorCode: varchar('basecode_sector', { length: 10 }).notNull(),
   sectorValue: varchar('basecode_code', { length: 255 }).notNull(),
-  butlerYn: boolean('butler_yn').notNull(),
-  cancelYn: boolean('cancel_yn').notNull(),
+  seq: tinyint('seq').notNull(),
+  position: tinyint('position').notNull(),
+  workerId: int('worker_id', { unsigned: true }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });

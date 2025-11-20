@@ -143,7 +143,7 @@ function buildSlot(row: ApplyRow, context: SlotBuildContext) {
     return null;
   }
 
-  const isButlerSlot = Boolean(row.butlerYn);
+  const isButlerSlot = row.position === 2;
   const occupantId = row.workerId;
   const occupantName = row.workerName;
   const isMine = Boolean(occupantId) && context.workerId === occupantId;
