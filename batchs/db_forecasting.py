@@ -107,10 +107,8 @@ class Prediction:
     p_out: float
     label: str  # "○", "△", ""
     has_checkin: bool
-
-    @property
-    def actual_out(self) -> bool:
-        return self.out_time is not None
+    has_checkout: bool
+    actual_observed: bool
 
     @property
     def predicted_positive(self) -> bool:
@@ -118,8 +116,10 @@ class Prediction:
 
     @property
     def correct(self) -> bool:
-        return (self.predicted_positive and self.actual_out) or (
-            (not self.predicted_positive) and (not self.actual_out)
+        if not self.actual_observed:
+            return False
+        return (self.predicted_positive and self.has_checkout) or (
+            (not self.predicted_positive) and (not self.has_checkout)
         )
 
 
@@ -257,8 +257,18 @@ def ensure_model_table(conn) -> None:
 
 
 def load_model_variables(conn) -> Dict[str, float]:
-    ensure_model_table(conn)
     values = DEFAULT_MODEL.copy()
+
+    with conn.cursor(dictionary=True) as cur:
+        cur.execute("SELECT name, value FROM work_fore_variable")
+        rows = cur.fetchall()
+    if rows:
+        for row in rows:
+            values[row["name"]] = float(row["value"])
+        logging.info("모델 변수 로딩 완료: %s", values)
+        return values
+
+    ensure_model_table(conn)
     with conn.cursor(dictionary=True) as cur:
         cur.execute("SELECT name, value FROM model_variable")
         for row in cur.fetchall():
@@ -268,12 +278,11 @@ def load_model_variables(conn) -> Dict[str, float]:
 
 
 def save_model_variables(conn, values: Dict[str, float]) -> None:
-    ensure_model_table(conn)
     with conn.cursor() as cur:
         for name, value in values.items():
             cur.execute(
                 """
-                INSERT INTO model_variable(name, value)
+                INSERT INTO work_fore_variable(name, value)
                 VALUES (%s, %s)
                 ON DUPLICATE KEY UPDATE value=VALUES(value)
                 """,
@@ -384,7 +393,7 @@ def fetch_sector_weights(
     for pred in predictions:
         if pred.target_date != target_date:
             continue
-        if not pred.actual_out:
+        if not pred.has_checkout:
             continue
         key = (pred.room.sector, pred.room.sector_value)
         totals[key] = totals.get(key, 0) + pred.room.weight
@@ -580,6 +589,7 @@ class BatchRunner:
                     label = "△"
                 else:
                     label = ""
+                has_checkout = out_time is not None
                 predictions.append(
                     Prediction(
                         room=room,
@@ -589,6 +599,8 @@ class BatchRunner:
                         p_out=p_out,
                         label=label,
                         has_checkin=checkin_flag,
+                        has_checkout=has_checkout,
+                        actual_observed=has_checkout and target_date == self.run_date,
                     )
                 )
         self._persist_predictions(predictions)
@@ -638,7 +650,7 @@ class BatchRunner:
                         pred.target_date,
                         pred.room.id,
                         round(pred.p_out, 3),
-                        int(pred.actual_out),
+                        int(pred.actual_observed),
                         int(pred.correct),
                     ),
                 )
@@ -711,7 +723,7 @@ class BatchRunner:
         for pred in predictions:
             if pred.target_date != target_date:
                 continue
-            if pred.actual_out:
+            if pred.has_checkout:
                 entries.append((pred, 0, 1))  # conditionCheckYn, cleaning_yn
             elif pred.has_checkin:
                 entries.append((pred, 1, 0))
@@ -734,8 +746,8 @@ class BatchRunner:
                         (%s, %s, NULL, NULL,
                          %s, %s, %s,
                          %s, %s, %s,
-                         NULL, NULL, NULL,
-                         NULL, NULL, NULL)
+                         0, 1, NULL,
+                         NULL, NULL, 0)
                     """,
                     (
                         pred.target_date,
@@ -753,6 +765,8 @@ class BatchRunner:
     def _persist_accuracy(self, predictions: Sequence[Prediction]) -> None:
         buckets: Dict[str, List[Prediction]] = {"D-1": [], "D-7": []}
         for pred in predictions:
+            if not pred.actual_observed:
+                continue
             if pred.horizon == 1:
                 buckets["D-1"].append(pred)
             elif pred.horizon == 7:
@@ -765,8 +779,10 @@ class BatchRunner:
                 total = len(preds)
                 correct = sum(1 for p in preds if p.correct)
                 predicted_positive = sum(1 for p in preds if p.predicted_positive)
-                true_positive = sum(1 for p in preds if p.predicted_positive and p.actual_out)
-                actual_positive = sum(1 for p in preds if p.actual_out)
+                true_positive = sum(
+                    1 for p in preds if p.predicted_positive and p.has_checkout
+                )
+                actual_positive = sum(1 for p in preds if p.has_checkout)
                 acc = correct / total if total else 0
                 prec = true_positive / predicted_positive if predicted_positive else 0
                 rec = true_positive / actual_positive if actual_positive else 0
@@ -790,13 +806,15 @@ class BatchRunner:
         self.conn.commit()
 
     def _adjust_threshold(self, predictions: Sequence[Prediction]) -> None:
-        d1_preds = [p for p in predictions if p.horizon == 1]
+        d1_preds = [p for p in predictions if p.horizon == 1 and p.actual_observed]
         if not d1_preds:
             return
         predicted_positive = sum(1 for p in d1_preds if p.predicted_positive)
         if not predicted_positive:
             return
-        true_positive = sum(1 for p in d1_preds if p.predicted_positive and p.actual_out)
+        true_positive = sum(
+            1 for p in d1_preds if p.predicted_positive and p.has_checkout
+        )
         precision = true_positive / predicted_positive
         before = self.model["d1_high"]
         after = before

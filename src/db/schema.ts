@@ -246,7 +246,7 @@ export const workForeTuning = mysqlTable('work_fore_tuning', {
 });
 
 export const workForeVariable = mysqlTable('work_fore_variable', {
-  id: bigintNumber('tinyint', { unsigned: true }).autoincrement().notNull(),
+  id: bigintNumber('id', { unsigned: true }).autoincrement().notNull(),
   name: varchar('name', { length: 15 }).notNull(),
   value: decimal('value', { precision: 5, scale: 4 }).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
