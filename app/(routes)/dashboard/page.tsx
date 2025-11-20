@@ -5,6 +5,7 @@ import DashboardClient from './DashboardClient';
 
 import { clientRooms, etcBuildings, etcNotice, workHeader, workerHeader } from '@/src/db/schema';
 import { getProfileSummary, type ProfileSummary } from '@/src/utils/profile';
+import { getApplyStartLabel, getTierLabel } from '@/src/utils/tier';
 
 export const metadata: Metadata = {
   title: '업무 현황 | TenaCierge Ops',
@@ -12,29 +13,6 @@ export const metadata: Metadata = {
 };
 
 const roleOrder = ['admin', 'host', 'butler', 'cleaner'] as const;
-const tierApplyWindows: Record<number, string> = {
-  99: '15:00',
-  7: '15:00',
-  6: '15:10',
-  5: '15:20',
-  4: '15:30',
-  3: '15:40',
-  2: '15:50',
-  1: '16:00'
-};
-const DEFAULT_APPLY_TIME = '16:00';
-
-const tierLabelMap: Record<number, string> = {
-  1: '블랙',
-  2: '대기',
-  3: '보류',
-  4: '비기너',
-  5: '숙련자',
-  6: '전문가',
-  7: '버틀러',
-  99: '관리자'
-};
-
 const butlerSectorOrder = ['신논현', '역삼', '논현'];
 
 type CleanerTimeSegment = 'preBatch' | 'batching' | 'applyWindow';
@@ -485,14 +463,6 @@ function resolveTimeSegment(minutes: number): CleanerTimeSegment {
   return 'applyWindow';
 }
 
-function getApplyStartLabel(tier: number | null) {
-  if (typeof tier === 'number' && tierApplyWindows[tier]) {
-    return tierApplyWindows[tier];
-  }
-
-  return DEFAULT_APPLY_TIME;
-}
-
 function parseTimeToMinutes(label: string) {
   const [hour = '0', minute = '0'] = label.split(':');
   return Number(hour) * 60 + Number(minute);
@@ -592,14 +562,6 @@ function formatApplicationDateLabel(dateString: string) {
     day: 'numeric',
     weekday: 'short'
   }).format(date);
-}
-
-function getTierLabel(tier: number | null) {
-  if (typeof tier === 'number' && tierLabelMap[tier]) {
-    return tierLabelMap[tier];
-  }
-
-  return '미정';
 }
 
 function normalizeDateValue(value: string | Date) {

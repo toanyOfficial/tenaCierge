@@ -3,7 +3,9 @@ import Link from 'next/link';
 
 import styles from './screens.module.css';
 import CleaningListClient from './CleaningListClient';
+import ApplyClient from './ApplyClient';
 import { getCleaningSnapshot } from './server/getCleaningSnapshot';
+import { getApplySnapshot } from './server/getApplySnapshot';
 import { getProfileSummary } from '@/src/utils/profile';
 
 type Props = {
@@ -21,7 +23,7 @@ export function generateMetadata({ params }: Props): Metadata {
 export default async function ScreenPage({ params }: Props) {
   const { screenId } = params;
 
-  if (screenId !== '002') {
+  if (screenId !== '002' && screenId !== '003') {
     return (
       <section className={styles.placeholder}>
         <div className={styles.card}>
@@ -36,6 +38,16 @@ export default async function ScreenPage({ params }: Props) {
   }
 
   const profile = getProfileSummary();
+
+  if (screenId === '003') {
+    const snapshot = await getApplySnapshot(profile);
+    return (
+      <div className={styles.screenWrapper}>
+        <ApplyClient profile={profile} snapshot={snapshot} />
+      </div>
+    );
+  }
+
   const snapshot = await getCleaningSnapshot(profile);
 
   return (
