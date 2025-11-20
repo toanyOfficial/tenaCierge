@@ -318,3 +318,27 @@ CREATE TABLE `worker_penaltyHistory` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Table: worker_schedule_exception
+CREATE TABLE `worker_schedule_exception` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'PK',
+  `worker_id` INT UNSIGNED NOT NULL COMMENT 'client_header 참조',
+  `excpt_date` DATE NOT NULL COMMENT '0:일요일 ~ 6:토요일',
+  `add_work_yn` BOOLEAN NOT NULL DEFAULT 0 COMMENT '0:규칙대로/1:무조건출근',
+  `cancel_work_yn` BOOLEAN NOT NULL DEFAULT 0 COMMENT '0:규칙대로/1:무조건휴일',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `ux_worker_schedule_exception` (`worker_id`, `excpt_date`),
+  KEY `ck_wse_logic` (`add_work_yn`, `cancel_work_yn`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table: worker_weekly_pattern
+CREATE TABLE `worker_weekly_pattern` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'PK',
+  `worker_id` INT UNSIGNED NOT NULL COMMENT 'client_header 참조',
+  `weekday` TINYINT NOT NULL COMMENT '0:일요일 ~ 6:토요일',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
