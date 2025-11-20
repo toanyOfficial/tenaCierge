@@ -9,7 +9,9 @@ import {
   time,
   date,
   bigint,
-  char
+  char,
+  datetime,
+  json
 } from 'drizzle-orm/mysql-core';
 
 export const clientHeader = mysqlTable('client_header', {
@@ -47,6 +49,34 @@ export const clientRooms = mysqlTable('client_rooms', {
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
 
+export const etcBuildings = mysqlTable('etc_buildings', {
+  id: tinyint('id', { unsigned: true }).autoincrement().notNull(),
+  sectorCode: varchar('basecode_sector', { length: 10 }).notNull(),
+  sectorLabel: varchar('basecode_code', { length: 255 }).notNull(),
+  buildingName: varchar('building_name', { length: 20 }).notNull(),
+  shortName: varchar('building_short_name', { length: 10 }).notNull()
+});
+
+export const workApply = mysqlTable('work_apply', {
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
+  workId: bigint('work_id', { mode: 'number', unsigned: true }),
+  workDate: date('work_date').notNull(),
+  sectorCode: varchar('basecode_sector', { length: 10 }).notNull(),
+  sectorValue: varchar('basecode_code', { length: 255 }).notNull(),
+  butlerYn: boolean('butler_yn').notNull(),
+  cancelYn: boolean('cancel_yn').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const etcNotice = mysqlTable('etc_notice', {
+  id: int('id', { unsigned: true }).autoincrement().notNull(),
+  noticeDate: date('notice_date').notNull(),
+  notice: varchar('notice', { length: 255 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
 export const workHeader = mysqlTable('work_header', {
   id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
   date: date('date').notNull(),
@@ -60,6 +90,8 @@ export const workHeader = mysqlTable('work_header', {
   checkinTime: time('checkin_time').notNull(),
   checkoutTime: time('ceckout_time').notNull(),
   supplyYn: boolean('supply_yn').default(true).notNull(),
+  cancelYn: boolean('cancel_yn').default(false).notNull(),
+  requirements: varchar('requirements', { length: 255 }),
   cleaningFlag: tinyint('clening_flag').default(1).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
@@ -77,6 +109,18 @@ export const workerHeader = mysqlTable('worker_header', {
   rank: tinyint('rank').notNull(),
   tier: tinyint('tier').default(3).notNull(),
   comments: varchar('comments', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const workerEvaluateHistory = mysqlTable('worker_evaluateHistory', {
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
+  workerId: int('worker_id', { unsigned: true }).notNull(),
+  evaluatedAt: datetime('evaluate_dttm').notNull(),
+  workId: bigint('work_id', { mode: 'number' }).notNull(),
+  checklistTitleArray: json('checklist_title_array').$type<Record<string, string>>().notNull(),
+  checklistPointSum: tinyint('checklist_point_sum').notNull(),
+  comment: varchar('comment', { length: 255 }).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
