@@ -278,13 +278,10 @@ def fetch_rooms(conn, reference_date: dt.date) -> List[Room]:
                eb.basecode_sector, eb.basecode_code, eb.building_name
         FROM client_rooms cr
         JOIN etc_buildings eb ON eb.id = cr.building_id
-        WHERE cr.start_date <= %s
-          AND (cr.end_date IS NULL OR cr.end_date >= %s)
-          AND cr.open_yn = 1
+        WHERE cr.open_yn = 1
     """
-    params = (reference_date, reference_date)
     with conn.cursor(dictionary=True) as cur:
-        cur.execute(sql, params)
+        cur.execute(sql)
         rows = cur.fetchall()
     rooms: List[Room] = []
     for row in rows:
@@ -335,14 +332,11 @@ def fetch_sector_weights(conn, target_date: dt.date) -> List[Tuple[str, str, int
         SELECT eb.basecode_sector, eb.basecode_code, SUM(COALESCE(cr.weight, 0)) AS total_weight
         FROM client_rooms cr
         JOIN etc_buildings eb ON eb.id = cr.building_id
-        WHERE cr.start_date <= %s
-          AND (cr.end_date IS NULL OR cr.end_date >= %s)
-          AND cr.open_yn = 1
+        WHERE cr.open_yn = 1
         GROUP BY eb.basecode_sector, eb.basecode_code
     """
-    params = (target_date, target_date)
     with conn.cursor(dictionary=True) as cur:
-        cur.execute(sql, params)
+        cur.execute(sql)
         rows = cur.fetchall()
     return [
         (row["basecode_sector"], row["basecode_code"], int(row["total_weight"]))
@@ -602,108 +596,112 @@ class BatchRunner:
                 )
         self.conn.commit()
 
-def _persist_work_apply_slots(self, target_date: dt.date) -> None:
-    rules = fetch_apply_rules(self.conn)
-    if not rules:
-        logging.info("work_apply_rules 데이터가 없어 apply 생성이 스킵됩니다.")
-        return
-    sector_weights = fetch_sector_weights(self.conn, target_date)
-    if not sector_weights:
-        logging.info("sector 가중치 합계가 없어 apply 생성이 스킵됩니다 (target=%s)", target_date)
-        return
-    workers = fetch_available_workers(self.conn, target_date)
+    def _persist_work_apply_slots(self, target_date: dt.date) -> None:
+        rules = fetch_apply_rules(self.conn)
+        if not rules:
+            logging.info("work_apply_rules 데이터가 없어 apply 생성이 스킵됩니다.")
+            return
+        sector_weights = fetch_sector_weights(self.conn, target_date)
+        if not sector_weights:
+            logging.info("sector 가중치 합계가 없어 apply 생성이 스킵됩니다 (target=%s)", target_date)
+            return
+        workers = fetch_available_workers(self.conn, target_date)
 
-    # 가용 인원이 없어도 apply 슬롯은 생성되어야 하므로, 후보는 비어있을 수 있다.
-    butler_candidates = sorted(
-        (w for w in workers if w.tier >= 7),
-        key=lambda w: (-int(w.is_regular), -int(w.add_override), -w.tier, w.id),
-    )
-    cleaner_candidates = sorted(
-        (w for w in workers if w.tier > 1),
-        key=lambda w: (-int(w.is_regular), -int(w.add_override), -w.tier, w.id),
-    )
-
-    def pop_candidate(pool: List[WorkerAvailability], used: set[int]) -> Optional[WorkerAvailability]:
-        while pool:
-            worker = pool.pop(0)
-            if worker.id in used:
-                continue
-            used.add(worker.id)
-            return worker
-        return None
-
-    used_workers: set[int] = set()
-    seq_map: Dict[str, int] = {}
-    existing_map: Dict[Tuple[str, int], List[Dict]] = {}
-    with self.conn.cursor(dictionary=True) as cur:
-        cur.execute(
-            """
-            SELECT id, basecode_sector, basecode_code, seq, position, worker_id
-            FROM work_apply
-            WHERE work_date=%s
-            ORDER BY seq ASC
-            """,
-            (target_date,),
+        # 가용 인원이 없어도 apply 슬롯은 생성되어야 하므로, 후보는 비어있을 수 있다.
+        butler_candidates = sorted(
+            (w for w in workers if w.tier >= 7),
+            key=lambda w: (-int(w.is_regular), -int(w.add_override), -w.tier, w.id),
         )
-        for row in cur.fetchall():
-            key = (row["basecode_sector"], int(row["position"]))
-            existing_map.setdefault(key, []).append(row)
-            if row["worker_id"] and int(row["worker_id"]) > 0:
-                used_workers.add(int(row["worker_id"]))
-        cur.execute(
-            "SELECT basecode_sector, MAX(seq) AS max_seq FROM work_apply WHERE work_date=%s GROUP BY basecode_sector",
-            (target_date,),
+        cleaner_candidates = sorted(
+            (w for w in workers if w.tier > 1),
+            key=lambda w: (-int(w.is_regular), -int(w.add_override), -w.tier, w.id),
         )
-        for row in cur.fetchall():
-            seq_map[row["basecode_sector"]] = int(row["max_seq"]) if row["max_seq"] is not None else 0
 
-    placeholder_worker_id = -1
+        def pop_candidate(pool: List[WorkerAvailability], used: set[int]) -> Optional[WorkerAvailability]:
+            while pool:
+                worker = pool.pop(0)
+                if worker.id in used:
+                    continue
+                used.add(worker.id)
+                return worker
+            return None
 
-    with self.conn.cursor() as cur:
-        for sector_code, sector_value, weight_sum in sector_weights:
-            rule = _match_rule(weight_sum, rules)
-            if not rule:
-                logging.info("해당 구간의 apply 규칙을 찾지 못해 건너뜁니다. sector=%s, weight=%s", sector_code, weight_sum)
-                continue
+        used_workers: set[int] = set()
+        seq_map: Dict[str, int] = {}
+        existing_map: Dict[Tuple[str, int], List[Dict]] = {}
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(
+                """
+                SELECT id, basecode_sector, basecode_code, seq, position, worker_id
+                FROM work_apply
+                WHERE work_date=%s
+                ORDER BY seq ASC
+                """,
+                (target_date,),
+            )
+            for row in cur.fetchall():
+                key = (row["basecode_sector"], int(row["position"]))
+                existing_map.setdefault(key, []).append(row)
+                if row["worker_id"] and int(row["worker_id"]) > 0:
+                    used_workers.add(int(row["worker_id"]))
+            cur.execute(
+                "SELECT basecode_sector, MAX(seq) AS max_seq FROM work_apply WHERE work_date=%s GROUP BY basecode_sector",
+                (target_date,),
+            )
+            for row in cur.fetchall():
+                seq_map[row["basecode_sector"]] = int(row["max_seq"]) if row["max_seq"] is not None else 0
 
-            seq = seq_map.get(sector_code, 0)
+        placeholder_worker_id = -1
 
-            for position, required in ((2, rule.butler_count), (1, rule.cleaner_count)):
-                key = (sector_code, position)
-                rows = existing_map.get(key, [])
-                pool = butler_candidates if position == 2 else cleaner_candidates
-
-                # 기존 슬롯 중 미배정(<=0)인 경우 가용 인원에 우선 배정
-                for row in rows:
-                    if row["worker_id"] is None or int(row["worker_id"]) <= 0:
-                        worker = pop_candidate(pool, used_workers)
-                        if not worker:
-                            continue
-                        cur.execute("UPDATE work_apply SET worker_id=%s WHERE id=%s", (worker.id, row["id"]))
-
-                current_count = len(rows)
-                missing = max(0, required - current_count)
-
-                for _ in range(missing):
-                    seq += 1
-                    worker = pop_candidate(pool, used_workers)
-                    worker_id = worker.id if worker else placeholder_worker_id
-                    cur.execute(
-                        """
-                        INSERT INTO work_apply
-                            (work_date, basecode_sector, basecode_code, seq, position, worker_id)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                        ON DUPLICATE KEY UPDATE worker_id=VALUES(worker_id)
-                        """,
-                        (target_date, sector_code, sector_value, seq, position, worker_id),
+        with self.conn.cursor() as cur:
+            for sector_code, sector_value, weight_sum in sector_weights:
+                rule = _match_rule(weight_sum, rules)
+                if not rule:
+                    logging.info(
+                        "해당 구간의 apply 규칙을 찾지 못해 건너뜁니다. sector=%s, weight=%s",
+                        sector_code,
+                        weight_sum,
                     )
-                    if worker:
-                        used_workers.add(worker.id)
-                    else:
-                        placeholder_worker_id -= 1
+                    continue
 
-            seq_map[sector_code] = seq
-    self.conn.commit()
+                seq = seq_map.get(sector_code, 0)
+
+                for position, required in ((2, rule.butler_count), (1, rule.cleaner_count)):
+                    key = (sector_code, position)
+                    rows = existing_map.get(key, [])
+                    pool = butler_candidates if position == 2 else cleaner_candidates
+
+                    # 기존 슬롯 중 미배정(<=0)인 경우 가용 인원에 우선 배정
+                    for row in rows:
+                        if row["worker_id"] is None or int(row["worker_id"]) <= 0:
+                            worker = pop_candidate(pool, used_workers)
+                            if not worker:
+                                continue
+                            cur.execute("UPDATE work_apply SET worker_id=%s WHERE id=%s", (worker.id, row["id"]))
+
+                    current_count = len(rows)
+                    missing = max(0, required - current_count)
+
+                    for _ in range(missing):
+                        seq += 1
+                        worker = pop_candidate(pool, used_workers)
+                        worker_id = worker.id if worker else placeholder_worker_id
+                        cur.execute(
+                            """
+                            INSERT INTO work_apply
+                                (work_date, basecode_sector, basecode_code, seq, position, worker_id)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                            ON DUPLICATE KEY UPDATE worker_id=VALUES(worker_id)
+                            """,
+                            (target_date, sector_code, sector_value, seq, position, worker_id),
+                        )
+                        if worker:
+                            used_workers.add(worker.id)
+                        else:
+                            placeholder_worker_id -= 1
+
+                seq_map[sector_code] = seq
+        self.conn.commit()
 
     def _persist_work_header(self, predictions: Sequence[Prediction]) -> None:
         target_date = self.run_date + dt.timedelta(days=1)
