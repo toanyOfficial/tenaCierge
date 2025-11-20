@@ -48,7 +48,7 @@ export async function PATCH(request: Request, { params }: { params: { applyId: s
   const now = getKstNow();
   const daysUntil = computeDaysUntil(slot.workDate, now);
   const isButlerSlot = slot.position === 2;
-  const occupantId = slot.workerId;
+  const occupantId = slot.workerId && slot.workerId > 0 ? slot.workerId : null;
 
   if (body.action === 'apply') {
     return handleApply({ profile, slot, now, daysUntil, isButlerSlot, occupantId, body });

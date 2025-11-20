@@ -144,15 +144,15 @@ function buildSlot(row: ApplyRow, context: SlotBuildContext) {
   }
 
   const isButlerSlot = row.position === 2;
-  const occupantId = row.workerId;
-  const occupantName = row.workerName;
-  const isMine = Boolean(occupantId) && context.workerId === occupantId;
+  const occupantId = row.workerId && row.workerId > 0 ? row.workerId : null;
+  const occupantName = occupantId ? row.workerName : null;
+  const isMine = occupantId !== null && context.workerId === occupantId;
   const roleAllowed = context.isAdmin
     ? true
     : isButlerSlot
       ? context.hasButlerRole
       : context.hasCleanerRole;
-  const available = !occupantId;
+  const available = occupantId === null;
   const disabledReason = computeDisabledReason({
     roleAllowed,
     withinWindow: context.isAdmin || daysUntil <= context.horizonDays,
