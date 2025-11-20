@@ -28,9 +28,11 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import json
 import logging
 import math
 import os
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
@@ -267,6 +269,42 @@ def save_model_variables(conn, values: Dict[str, float]) -> None:
                 (name, value),
             )
     conn.commit()
+
+
+def log_error(
+    conn: mysql.connector.MySQLConnection,
+    *,
+    message: str,
+    stacktrace: Optional[str] = None,
+    error_code: Optional[str] = None,
+    level: int = 2,
+    app_name: str = "db_forecasting",
+) -> None:
+    """etc_errorLogs 테이블에 오류 정보를 적재한다."""
+
+    try:
+        context_json = json.dumps({"run_date": str(dt.date.today())})
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO etc_errorLogs
+                    (level, app_name, error_code, message, stacktrace, request_id, user_id, context_json)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    level,
+                    app_name,
+                    error_code,
+                    message[:500],
+                    stacktrace,
+                    None,
+                    None,
+                    context_json,
+                ),
+            )
+        conn.commit()
+    except Exception as exc:  # pragma: no cover - 실패 시 로그만 남김
+        logging.error("에러로그 저장 실패: %s", exc)
 
 
 def fetch_rooms(conn, reference_date: dt.date) -> List[Room]:
@@ -764,7 +802,7 @@ class BatchRunner:
             cur.execute(
                 """
                 INSERT INTO work_fore_tuning
-                    (date, horizon, variable, before, after, delta, explanation)
+                    (`date`, `horizon`, `variable`, `before`, `after`, `delta`, `explanation`)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
@@ -793,6 +831,14 @@ def main() -> None:
             keep_days=args.ics_keep_days,
         )
         runner.run()
+    except Exception as exc:
+        stack = traceback.format_exc()
+        logging.error("배치 실행 실패", exc_info=exc)
+        try:
+            log_error(conn, message=str(exc), stacktrace=stack)
+        except Exception:
+            logging.error("에러로그 저장 중 추가 오류 발생", exc_info=True)
+        raise
     finally:
         conn.close()
 
