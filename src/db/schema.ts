@@ -242,6 +242,8 @@ export const workHeader = mysqlTable('work_header', {
   checkinTime: time('checkin_time').notNull(),
   checkoutTime: time('ceckout_time').notNull(),
   supplyYn: boolean('supply_yn').default(true).notNull(),
+  cancelYn: boolean('cancel_yn').default(false).notNull(),
+  requirements: varchar('requirements', { length: 255 }),
   cleaningFlag: tinyint('clening_flag').default(1).notNull(),
   cleaningEndTime: time('cleaning_end_time'),
   supervisingEndTime: time('supervising_end_time'),
