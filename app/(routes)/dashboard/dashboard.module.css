@@ -8,10 +8,10 @@
   border-radius: 14px;
   color: #0f172a;
   width: 100%;
-  max-width: 960px;
-  margin: 0 auto;
+  max-width: 100%;
+  margin: 0;
   box-sizing: border-box;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
 }
 
@@ -67,8 +67,8 @@
 
 .roleDropdown {
   position: relative;
-  min-width: 96px;
-  max-width: 128px;
+  min-width: 86px;
+  max-width: 120px;
   flex-shrink: 1;
 }
 
@@ -207,7 +207,7 @@
 
   @media (max-width: 768px) {
     .commonBar {
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
       gap: 6px;
     }
 
@@ -243,12 +243,13 @@
   margin: 0 auto;
   padding: 0 12px 24px;
   box-sizing: border-box;
+  align-items: center;
 }
 
 .rolePanels {
   width: 100%;
   max-width: 960px;
-  margin: 0 auto;
+  margin: 0;
 }
 
 .rolePlaceholder,
@@ -465,14 +466,6 @@
   align-items: flex-end;
   gap: 4px;
   font-size: 0.9rem;
-}
-
-.detailMeta span {
-  color: #94a3b8;
-}
-
-.detailMeta strong {
-  font-size: 1rem;
 }
 
 .applicationDate {

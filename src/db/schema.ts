@@ -144,7 +144,7 @@ export const etcNotice = mysqlTable('etc_notice', {
 export const workApply = mysqlTable('work_apply', {
   id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
   workerId: int('worker_id', { unsigned: true }),
-  workDate: date('work_date').notNull(),
+  workDate: date('date').notNull(),
   sectorCode: varchar('basecode_sector', { length: 10 }).notNull(),
   sectorValue: varchar('basecode_code', { length: 255 }).notNull(),
   butlerYn: boolean('butler_yn').notNull(),

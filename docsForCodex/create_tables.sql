@@ -134,27 +134,14 @@ CREATE TABLE `etc_notice` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Table: work_apply
 CREATE TABLE `work_apply` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'PK',
-  `work_date` DATE NOT NULL,
+  `worker_id` INT UNSIGNED NULL,
+  `date` DATE NOT NULL,
   `basecode_sector` VARCHAR(10) NOT NULL COMMENT '지역코드',
   `basecode_code` VARCHAR(255) NOT NULL COMMENT '지역값',
-  `seq` TINYINT NOT NULL,
-  `position` TINYINT NOT NULL COMMENT '1:클리너/2:버틀러',
-  `worker_id` INT NOT NULL,
-  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `ux_work_apply` (`work_date`, `worker_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Table: work_assignment
-CREATE TABLE `work_assignment` (
-  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'PK',
-  `work_id` BIGINT NOT NULL,
-  `worker_id` INT NOT NULL,
-  `assign_dttm` DATE NOT NULL,
+  `butler_yn` BOOLEAN NOT NULL COMMENT '0:클리닝/1:버틀러',
+  `cancel_yn` BOOLEAN NOT NULL COMMENT '0:취소안함/1:취소',
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
