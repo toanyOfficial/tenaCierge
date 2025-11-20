@@ -96,15 +96,13 @@ export const etcBaseCode = mysqlTable(
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
   },
-  (table) => ({
-    pk: primaryKey({ columns: [table.codeGroup, table.code] })
-  })
+  (table) => ({ pk: primaryKey({ columns: [table.codeGroup, table.code] }) })
 );
 
 export const etcBuildings = mysqlTable('etc_buildings', {
   id: tinyint('id', { unsigned: true }).autoincrement().notNull(),
   sectorCode: varchar('basecode_sector', { length: 10 }).notNull(),
-  sectorLabel: varchar('basecode_code', { length: 255 }).notNull(),
+  sectorValue: varchar('basecode_code', { length: 255 }).notNull(),
   buildingName: varchar('building_name', { length: 20 }).notNull(),
   shortName: varchar('building_short_name', { length: 10 }).notNull(),
   addressOld: varchar('building_address_old', { length: 255 }).notNull(),
@@ -142,20 +140,21 @@ export const etcNotice = mysqlTable('etc_notice', {
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
 
-export const workApply = mysqlTable('work_apply', {
-  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
-  workDate: date('work_date').notNull(),
-  sectorCode: varchar('basecode_sector', { length: 10 }).notNull(),
-  sectorValue: varchar('basecode_code', { length: 255 }).notNull(),
-  seq: tinyint('seq').notNull(),
-  position: tinyint('position').notNull(),
-  workerId: int('worker_id', { unsigned: true }).notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
-},
-table => ({
-  workApplyUniq: uniqueIndex('ux_work_apply').on(table.workDate, table.workerId)
-}));
+export const workApply = mysqlTable(
+  'work_apply',
+  {
+    id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
+    workDate: date('work_date').notNull(),
+    sectorCode: varchar('basecode_sector', { length: 10 }).notNull(),
+    sectorValue: varchar('basecode_code', { length: 255 }).notNull(),
+    seq: tinyint('seq').notNull(),
+    position: tinyint('position').notNull(),
+    workerId: int('worker_id').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  },
+  (table) => ({ workApplyUniq: uniqueIndex('ux_work_apply').on(table.workDate, table.workerId) })
+);
 
 export const workCheckList = mysqlTable('work_checkList', {
   id: int('id', { unsigned: true }).autoincrement().notNull(),
@@ -227,15 +226,6 @@ export const workForeVariable = mysqlTable('work_fore_variable', {
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
 
-export const workAssignment = mysqlTable('work_assignment', {
-  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
-  workId: bigint('work_id').notNull(),
-  workerId: int('worker_id').notNull(),
-  assignDate: date('assign_dttm').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
-});
-
 export const workHeader = mysqlTable('work_header', {
   id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
   date: date('date').notNull(),
@@ -270,6 +260,15 @@ export const workReports = mysqlTable('work_reports', {
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
 
+export const workAssignment = mysqlTable('work_assignment', {
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
+  workId: bigint('work_id', { mode: 'number' }).notNull(),
+  workerId: int('worker_id').notNull(),
+  assignDate: date('assign_dttm').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
 export const workerDetail = mysqlTable('worker_detail', {
   id: int('id', { unsigned: true }).autoincrement().notNull(),
   workerId: bigint('worker_id', { mode: 'number', unsigned: true }).notNull(),
@@ -294,7 +293,7 @@ export const workerHeader = mysqlTable('worker_header', {
   registerCode: varchar('register_no', { length: 6 }).notNull(),
   name: varchar('name', { length: 20 }).notNull(),
   phone: varchar('phone', { length: 11 }),
-  registrationNo: char('reg_no', { length: 13 }),
+  regNo: char('reg_no', { length: 13 }),
   bankCode: varchar('basecode_bank', { length: 10 }),
   bankValue: varchar('basecode_code', { length: 255 }),
   accountNo: varchar('account_no', { length: 50 }),
@@ -310,6 +309,30 @@ export const workerPenaltyHistory = mysqlTable('worker_penaltyHistory', {
   startDate: date('start_date').notNull(),
   interval: tinyint('interval').notNull(),
   comment: varchar('comment', { length: 255 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const workerScheduleException = mysqlTable(
+  'worker_schedule_exception',
+  {
+    id: int('id', { unsigned: true }).autoincrement().notNull(),
+    workerId: int('worker_id', { unsigned: true }).notNull(),
+    excptDate: date('excpt_date').notNull(),
+    addWorkYn: boolean('add_work_yn').default(false).notNull(),
+    cancelWorkYn: boolean('cancel_work_yn').default(false).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  },
+  (table) => ({
+    workerScheduleExceptionUniq: uniqueIndex('ux_worker_schedule_exception').on(table.workerId, table.excptDate)
+  })
+);
+
+export const workerWeeklyPattern = mysqlTable('worker_weekly_pattern', {
+  id: int('id', { unsigned: true }).autoincrement().notNull(),
+  workerId: int('worker_id', { unsigned: true }).notNull(),
+  weekday: tinyint('weekday').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
