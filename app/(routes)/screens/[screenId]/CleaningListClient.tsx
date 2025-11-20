@@ -88,7 +88,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
         return;
       }
       seen.add(key);
-      list.push({ key, label: buildBuildingLabel(room) });
+      list.push({ key, label: room.buildingShortName || '빌딩' });
     });
 
     return list;
@@ -331,8 +331,8 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
       <section className={styles.cleaningSection} data-screen-id="002">
         <header className={styles.sectionHeader}>
           <div>
-            <p className={styles.sectionLabel}>화면 002 · cleaning list</p>
-            <h1 className={styles.sectionTitle}>청소리스트</h1>
+            <p className={styles.sectionLabel}>화면 002 · 오더관리</p>
+            <h1 className={styles.sectionTitle}>오더관리</h1>
           </div>
           <div className={styles.windowMeta}>
             <span className={styles.windowBadge}>{snapshot.targetTag}</span>
@@ -380,7 +380,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
 
                     <div className={styles.workFields}>
                       <div className={styles.inlineFieldGroup}>
-                        <FieldRow label="체크아웃" description={`기준 ${checkoutBounds.min} ~ 최대 ${checkoutBounds.max}`}>
+                        <FieldRow label="체크아웃" description="L.C.최대2시간">
                           <input
                             type="time"
                             lang="en-GB"
@@ -395,7 +395,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                             }
                           />
                         </FieldRow>
-                        <FieldRow label="체크인" description={`최소 ${checkinBounds.min} ~ 기준 ${checkinBounds.max}`}>
+                        <FieldRow label="체크인" description="E.C.최대2시간">
                           <input
                             type="time"
                             lang="en-GB"
@@ -514,7 +514,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                       ) : (
                         roomChoices.map((room) => (
                           <option key={room.roomId} value={room.roomId}>
-                            {room.label}
+                            {room.roomNo}
                           </option>
                         ))
                       )}
@@ -522,7 +522,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                   </label>
                 </div>
                 <div className={styles.addGrid}>
-                  <AddField label="체크아웃" hint={`기준 ${addCheckoutBounds.min} ~ 최대 ${addCheckoutBounds.max}`}>
+                  <AddField label="체크아웃" hint="L.C.최대2시간">
                     <input
                       type="time"
                       lang="en-GB"
@@ -539,7 +539,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                       }
                     />
                   </AddField>
-                  <AddField label="체크인" hint={`최소 ${addCheckinBounds.min} ~ 기준 ${addCheckinBounds.max}`}>
+                  <AddField label="체크인" hint="E.C.최대2시간">
                     <input
                       type="time"
                       lang="en-GB"
@@ -786,10 +786,4 @@ function clampTime(value: string, min: string, max: string) {
 
 function buildBuildingKey(room: RoomOption) {
   return `${room.buildingName ?? ''}__${room.buildingShortName ?? ''}`;
-}
-
-function buildBuildingLabel(room: RoomOption) {
-  const shortName = room.buildingShortName ?? '빌딩';
-  const fullName = room.buildingName ?? '';
-  return fullName ? `${shortName} · ${fullName}` : shortName;
 }

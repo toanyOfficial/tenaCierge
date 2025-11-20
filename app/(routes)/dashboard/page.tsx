@@ -544,7 +544,7 @@ function buildCleanerMessage({
   }
 
   if (canApplyNow) {
-    return `${name} 님, 지금 업무 신청이 가능합니다. 화면 ID 003에서 희망 근무를 선택해 주세요.`;
+    return `${name} 님, 지금 업무 신청이 가능합니다. 업무신청 화면에서 희망 근무를 선택해 주세요.`;
   }
 
   return `${name} 님은 현재 '${tierText}' 단계의 클리너이십니다. ${applyAvailableAt}부터 업무 신청이 가능합니다.`;
