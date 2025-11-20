@@ -3,9 +3,9 @@ import Link from 'next/link';
 import styles from './dashboard.module.css';
 
 const hostLinks = [
-  { screenId: '002', label: '화면 002 바로가기' },
-  { screenId: '004', label: '화면 004 바로가기' },
-  { screenId: '008', label: '화면 008 바로가기' }
+  { screenId: '002', label: '청소리스트 (ID 002)' },
+  { screenId: '004', label: '과업지시서 (ID 004)' },
+  { screenId: '008', label: '정산관리 (ID 008)' }
 ];
 
 export default function HostPanel() {

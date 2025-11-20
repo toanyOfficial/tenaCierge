@@ -10,7 +10,15 @@ type Props = {
   notice: AdminNotice | null;
 };
 
-const adminLinks = ['002', '003', '004', '007', '008', '009', '010'];
+const adminLinks = [
+  { id: '002', label: '청소리스트 (ID 002)' },
+  { id: '003', label: '업무신청 (ID 003)' },
+  { id: '004', label: '과업지시서 (ID 004)' },
+  { id: '007', label: '평가이력 (ID 007)' },
+  { id: '008', label: '정산관리 (ID 008)' },
+  { id: '009', label: '인원관리 (ID 009)' },
+  { id: '010', label: '고객관리 (ID 010)' }
+];
 
 export default function AdminPanel({ notice }: Props) {
   const [currentNotice, setCurrentNotice] = useState<AdminNotice | null>(notice);
@@ -105,9 +113,9 @@ export default function AdminPanel({ notice }: Props) {
       </article>
 
       <div className={styles.quickLinkGrid}>
-        {adminLinks.map((screenId) => (
-          <Link key={screenId} href={`/screens/${screenId}`} className={styles.linkButton} prefetch={false}>
-            화면 {screenId} 바로가기
+        {adminLinks.map((screen) => (
+          <Link key={screen.id} href={`/screens/${screen.id}`} className={styles.linkButton} prefetch={false}>
+            {screen.label}
           </Link>
         ))}
       </div>

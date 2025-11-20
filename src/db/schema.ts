@@ -14,7 +14,8 @@ import {
   time,
   timestamp,
   tinyint,
-  varchar
+  varchar,
+  uniqueIndex
 } from 'drizzle-orm/mysql-core';
 
 export const clientAdditionalPrice = mysqlTable('client_additional_price', {
@@ -148,10 +149,13 @@ export const workApply = mysqlTable('work_apply', {
   sectorValue: varchar('basecode_code', { length: 255 }).notNull(),
   seq: tinyint('seq').notNull(),
   position: tinyint('position').notNull(),
-  workerId: int('worker_id', { unsigned: true }),
+  workerId: int('worker_id', { unsigned: true }).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
-});
+},
+table => ({
+  workApplyUniq: uniqueIndex('ux_work_apply').on(table.workDate, table.workerId)
+}));
 
 export const workCheckList = mysqlTable('work_checkList', {
   id: int('id', { unsigned: true }).autoincrement().notNull(),
@@ -216,9 +220,18 @@ export const workForeTuning = mysqlTable('work_fore_tuning', {
 });
 
 export const workForeVariable = mysqlTable('work_fore_variable', {
-  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
+  id: bigint('tinyint', { mode: 'number', unsigned: true }).autoincrement().notNull(),
   name: varchar('name', { length: 15 }).notNull(),
   value: decimal('value', { precision: 5, scale: 4 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const workAssignment = mysqlTable('work_assignment', {
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
+  workId: bigint('work_id').notNull(),
+  workerId: int('worker_id').notNull(),
+  assignDate: date('assign_dttm').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
