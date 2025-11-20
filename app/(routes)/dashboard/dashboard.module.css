@@ -1,16 +1,18 @@
 .commonBar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 16px;
+  gap: 8px;
+  padding: 10px 12px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  border-radius: 14px;
   color: #0f172a;
   width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
   box-sizing: border-box;
-  flex-wrap: wrap;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+  flex-wrap: nowrap;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
 }
 
 .profileCard {
@@ -34,7 +36,7 @@
   gap: 6px;
   font-size: 0.82rem;
   white-space: nowrap;
-  padding: 6px 10px;
+  padding: 4px 8px;
   border-radius: 999px;
   background: #f8fafc;
   border: 1px solid rgba(15, 23, 42, 0.08);
@@ -56,17 +58,17 @@
 .roleCluster {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin-left: auto;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
   min-width: 0;
 }
 
 .roleDropdown {
   position: relative;
-  min-width: 120px;
-  max-width: 160px;
+  min-width: 96px;
+  max-width: 128px;
   flex-shrink: 1;
 }
 
@@ -74,6 +76,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  flex: 0 0 auto;
 }
 
 .roleTrigger {
@@ -81,7 +84,7 @@
   background: #f8fafc;
   color: #0f172a;
   border-radius: 999px;
-  padding: 6px 8px;
+  padding: 6px 10px;
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -92,7 +95,7 @@
 }
 
 .roleTrigger span:first-child {
-  max-width: 90px;
+  max-width: 78px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -122,7 +125,7 @@
   padding: 8px;
   position: absolute;
   right: 0;
-  min-width: 160px;
+  min-width: 138px;
   background: #ffffff;
   border-radius: 12px;
   border: 1px solid rgba(15, 23, 42, 0.08);
@@ -204,28 +207,29 @@
 
   @media (max-width: 768px) {
     .commonBar {
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
+      gap: 6px;
     }
 
     .roleCluster {
       width: auto;
-      flex: 1 1 auto;
+      flex: 0 0 auto;
       justify-content: flex-end;
       gap: 6px;
     }
 
     .roleDropdown {
-      min-width: 0;
-      flex: 0 1 48%;
+      min-width: 92px;
+      flex: 0 0 auto;
     }
 
     .roleTrigger {
-      width: 100%;
+      width: auto;
       justify-content: space-between;
     }
 
     .globalButtons {
-      flex: 0 1 48%;
+      flex: 0 0 auto;
       justify-content: flex-end;
     }
   }
@@ -243,6 +247,8 @@
 
 .rolePanels {
   width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
 }
 
 .rolePlaceholder,
@@ -356,6 +362,9 @@
 
 .statusRow {
   display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
   flex-wrap: wrap;
   gap: 8px 16px;
   align-items: center;
@@ -455,36 +464,11 @@
 
 .applicationMeta {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, 0.05);
-}
-
-.applicationMeta {
-  display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, 0.05);
-}
-
-.applicationDate {
-  margin: 0;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.applicationArea {
-  margin: 0;
-  color: #64748b;
-  font-size: 0.9rem;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
 }
 
 .applicationDate {
@@ -612,6 +596,47 @@
 
 .butlerDetailList {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.panelTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.panelSubtitle {
+  margin: 4px 0 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.panelEmpty {
+  margin: 0;
+  padding: 24px;
+  border-radius: 20px;
+  border: 1px dashed rgba(148, 163, 184, 0.6);
+  text-align: center;
+  color: #94a3b8;
+}
+
+.cleanerTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.cleanerSubtitle {
+  margin: 4px 0 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.tierChip {
+  display: inline-flex;
   flex-direction: column;
   gap: 12px;
 }
@@ -662,6 +687,223 @@
   padding: 6px 14px;
   font-size: 0.85rem;
   font-weight: 600;
+}
+
+.noticeButton {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-weight: 600;
+  background: #0f172a;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.noticeCard {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  padding: 16px;
+  background: #f8fafc;
+  margin-bottom: 24px;
+}
+
+.noticeCard header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.noticeCard header p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.noticeCard header span {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.noticeBody {
+  margin: 0;
+  white-space: pre-line;
+  line-height: 1.6;
+  color: #0f172a;
+}
+
+.noticeOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 50;
+}
+
+.noticeModal {
+  width: min(480px, 100%);
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 20px;
+  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.applicationRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.05);
+}
+
+.applicationMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.05);
+}
+
+.applicationMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.05);
+}
+
+.applicationDate {
+  margin: 0;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.applicationArea {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.applicationDate {
+  margin: 0;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.applicationArea {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.applicationCancel {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: transparent;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.applicationEmpty {
+  padding: 32px 12px;
+  text-align: center;
+  color: #94a3b8;
+  border-radius: 18px;
+  border: 1px dashed rgba(148, 163, 184, 0.6);
+  background: #ffffff;
+}
+
+.secondaryCtas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quickLinkGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.noticeModal header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.noticeModal header p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.noticeModal header button {
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.noticeModal textarea {
+  min-height: 160px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 16px;
+  padding: 12px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.noticeActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.noticeActions div {
+  display: flex;
+  gap: 8px;
+}
+
+.noticeActions button {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: #f8fafc;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.noticeActions button[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.noticeFeedback {
+  margin: 0;
+  text-align: right;
+  font-size: 0.85rem;
+  color: #ef4444;
 }
 
 .noticeButton {

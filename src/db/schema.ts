@@ -226,7 +226,7 @@ export const workForeVariable = mysqlTable('work_fore_variable', {
 export const workHeader = mysqlTable('work_header', {
   id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
   date: date('date').notNull(),
-  room: int('room').notNull(),
+  roomId: int('room_id').notNull(),
   cleanerId: int('cleaner_id'),
   butlerId: int('butler_id'),
   amenitiesQty: tinyint('amenities_qty').notNull(),

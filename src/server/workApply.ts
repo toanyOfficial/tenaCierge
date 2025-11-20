@@ -52,7 +52,7 @@ function baseQuery() {
     .select(selection)
     .from(workApply)
     .leftJoin(workHeader, eq(workApply.workId, workHeader.id))
-    .leftJoin(clientRooms, eq(workHeader.room, clientRooms.id))
+    .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
     .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
     .leftJoin(cleanerWorker, eq(workHeader.cleanerId, cleanerWorker.id))
     .leftJoin(butlerWorker, eq(workHeader.butlerId, butlerWorker.id));

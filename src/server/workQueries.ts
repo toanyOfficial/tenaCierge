@@ -29,7 +29,7 @@ export async function fetchWorkRowsByDate(targetDate: string) {
     .select({
       id: workHeader.id,
       date: workHeader.date,
-      roomId: workHeader.room,
+      roomId: workHeader.roomId,
       cancelYn: workHeader.cancelYn,
       checkoutTime: workHeader.checkoutTime,
       checkinTime: workHeader.checkinTime,
@@ -45,7 +45,7 @@ export async function fetchWorkRowsByDate(targetDate: string) {
       buildingName: etcBuildings.buildingName
     })
     .from(workHeader)
-    .leftJoin(clientRooms, eq(workHeader.room, clientRooms.id))
+    .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
     .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
     .where(eq(workHeader.date, targetDate))
     .orderBy(asc(workHeader.id));
@@ -56,7 +56,7 @@ export async function fetchWorkRowById(workId: number) {
     .select({
       id: workHeader.id,
       date: workHeader.date,
-      roomId: workHeader.room,
+      roomId: workHeader.roomId,
       cancelYn: workHeader.cancelYn,
       checkoutTime: workHeader.checkoutTime,
       checkinTime: workHeader.checkinTime,
@@ -72,7 +72,7 @@ export async function fetchWorkRowById(workId: number) {
       buildingName: etcBuildings.buildingName
     })
     .from(workHeader)
-    .leftJoin(clientRooms, eq(workHeader.room, clientRooms.id))
+    .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
     .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
     .where(eq(workHeader.id, workId))
     .limit(1);

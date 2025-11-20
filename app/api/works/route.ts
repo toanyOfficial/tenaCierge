@@ -99,7 +99,7 @@ export async function POST(request: Request) {
 function buildInsertPayload(date: string, roomId: number, values: WorkMutationValues) {
   return {
     date,
-    room: roomId,
+    roomId,
     checkoutTime: values.checkoutTime,
     checkinTime: values.checkinTime,
     blanketQty: values.blanketQty,
