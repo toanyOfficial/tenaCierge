@@ -141,15 +141,17 @@ export default function CommonHeader({ profile, activeRole, onRoleChange }: Prop
           ) : null}
         </div>
 
-        <button type="button" aria-label="이전 화면" className={styles.iconButton} onClick={handleBack}>
-          <BackIcon />
-        </button>
-        <button type="button" aria-label="홈으로 이동" className={styles.iconButton} onClick={handleHome}>
-          <HomeIcon />
-        </button>
-        <button type="button" aria-label="로그아웃" className={styles.iconButton} onClick={handleLogout}>
-          <LogoutIcon />
-        </button>
+        <div className={styles.globalButtons}>
+          <button type="button" aria-label="이전 화면" className={styles.iconButton} onClick={handleBack}>
+            <BackIcon />
+          </button>
+          <button type="button" aria-label="홈으로 이동" className={styles.iconButton} onClick={handleHome}>
+            <HomeIcon />
+          </button>
+          <button type="button" aria-label="로그아웃" className={styles.iconButton} onClick={handleLogout}>
+            <LogoutIcon />
+          </button>
+        </div>
       </div>
     </section>
   );

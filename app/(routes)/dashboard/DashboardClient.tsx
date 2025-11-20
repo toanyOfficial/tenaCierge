@@ -32,6 +32,18 @@ export default function DashboardClient({ profile, cleanerSnapshot, butlerSnapsh
     return roles[0] ?? null;
   });
 
+  async function persistRole(role: string) {
+    try {
+      await fetch('/api/role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role })
+      });
+    } catch (error) {
+      console.error('역할 저장 중 오류', error);
+    }
+  }
+
   const roleContent = useMemo(() => {
     if (!activeRole) {
       return (
@@ -69,7 +81,14 @@ export default function DashboardClient({ profile, cleanerSnapshot, butlerSnapsh
 
   return (
     <div className={styles.dashboardStack}>
-      <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} />
+      <CommonHeader
+        profile={profile}
+        activeRole={activeRole}
+        onRoleChange={(role) => {
+          setActiveRole(role);
+          persistRole(role);
+        }}
+      />
       <div className={styles.rolePanels}>{roleContent}</div>
     </div>
   );

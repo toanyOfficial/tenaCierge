@@ -46,6 +46,18 @@ export default function ApplyClient({ profile, snapshot }: Props) {
   const disabledMessage = !snapshot.isAdmin && !snapshot.canApplyNow ? snapshot.applyStartLabel : null;
   const emptyMessage = snapshot.hasAccess && slots.length === 0 ? '표시할 신청 가능 업무가 없습니다.' : null;
 
+  async function persistRole(role: string) {
+    try {
+      await fetch('/api/role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role })
+      });
+    } catch (error) {
+      console.error('역할 저장 중 오류', error);
+    }
+  }
+
   async function handleAction(slot: ApplySlot, action: 'apply' | 'cancel', workerId?: number) {
     setPendingId(slot.id);
     setStatusMap((prev) => ({ ...prev, [slot.id]: '' }));
@@ -160,7 +172,14 @@ export default function ApplyClient({ profile, snapshot }: Props) {
 
   return (
     <div className={styles.screenShell}>
-      <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} />
+      <CommonHeader
+        profile={profile}
+        activeRole={activeRole}
+        onRoleChange={(role) => {
+          setActiveRole(role);
+          persistRole(role);
+        }}
+      />
 
       <section className={styles.applySection}>
         <header className={styles.applyHeader}>

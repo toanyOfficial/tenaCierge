@@ -225,9 +225,22 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
     }
   }
 
+  async function persistRole(role: string) {
+    try {
+      await fetch('/api/role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role })
+      });
+    } catch (error) {
+      console.error('역할 저장 중 오류', error);
+    }
+  }
+
   function handleRoleChange(nextRole: string) {
     if (profile.roles.includes(nextRole)) {
       setActiveRole(nextRole);
+      persistRole(nextRole);
     }
   }
 
