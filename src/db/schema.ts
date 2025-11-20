@@ -18,6 +18,9 @@ import {
   uniqueIndex
 } from 'drizzle-orm/mysql-core';
 
+const bigintNumber = (name: string, config?: { unsigned?: boolean }) =>
+  bigint(name, { mode: 'number', ...(config ?? {}) });
+
 export const clientAdditionalPrice = mysqlTable('client_additional_price', {
   id: int('id', { unsigned: true }).autoincrement().notNull(),
   roomId: int('room_id').notNull(),
@@ -119,14 +122,14 @@ export const etcBuildings = mysqlTable('etc_buildings', {
 });
 
 export const etcErrorLogs = mysqlTable('etc_errorLogs', {
-  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
+  id: bigintNumber('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
   level: tinyint('level', { unsigned: true }).notNull(),
   appName: varchar('app_name', { length: 50 }).notNull(),
   errorCode: varchar('error_code', { length: 50 }),
   message: varchar('message', { length: 500 }).notNull(),
   stacktrace: text('stacktrace'),
   requestId: varchar('request_id', { length: 100 }),
-  userId: bigint('user_id', { mode: 'number', unsigned: true }),
+  userId: bigintNumber('user_id', { mode: 'number', unsigned: true }),
   contextJson: json('context_json'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
@@ -143,7 +146,7 @@ export const etcNotice = mysqlTable('etc_notice', {
 export const workApply = mysqlTable(
   'work_apply',
   {
-    id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
+    id: bigintNumber('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
     workDate: date('work_date').notNull(),
     sectorCode: varchar('basecode_sector', { length: 10 }).notNull(),
     sectorValue: varchar('basecode_code', { length: 255 }).notNull(),
@@ -169,7 +172,7 @@ export const workCheckList = mysqlTable('work_checkList', {
 });
 
 export const workForeAccuracy = mysqlTable('work_fore_accuracy', {
-  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
+  id: bigintNumber('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
   date: date('date').notNull(),
   horizon: char('horizon', { length: 3 }).notNull(),
   acc: decimal('acc', { precision: 5, scale: 4 }).notNull(),
@@ -182,7 +185,7 @@ export const workForeAccuracy = mysqlTable('work_fore_accuracy', {
 });
 
 export const workForeD1 = mysqlTable('work_fore_d1', {
-  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
+  id: bigintNumber('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
   runDate: date('run_dttm').notNull(),
   targetDate: date('target_date').notNull(),
   roomId: int('room_id').notNull(),
@@ -194,7 +197,7 @@ export const workForeD1 = mysqlTable('work_fore_d1', {
 });
 
 export const workForeD7 = mysqlTable('work_fore_d7', {
-  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
+  id: bigintNumber('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
   runDate: date('run_dttm').notNull(),
   targetDate: date('target_date').notNull(),
   roomId: int('room_id').notNull(),
@@ -206,7 +209,7 @@ export const workForeD7 = mysqlTable('work_fore_d7', {
 });
 
 export const workForeTuning = mysqlTable('work_fore_tuning', {
-  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
+  id: bigintNumber('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
   date: date('date').notNull(),
   horizon: char('horizon', { length: 3 }).notNull(),
   variable: varchar('variable', { length: 15 }).notNull(),
@@ -219,7 +222,7 @@ export const workForeTuning = mysqlTable('work_fore_tuning', {
 });
 
 export const workForeVariable = mysqlTable('work_fore_variable', {
-  id: bigint('tinyint', { mode: 'number', unsigned: true }).autoincrement().notNull(),
+  id: bigintNumber('tinyint', { mode: 'number', unsigned: true }).autoincrement().notNull(),
   name: varchar('name', { length: 15 }).notNull(),
   value: decimal('value', { precision: 5, scale: 4 }).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -227,7 +230,7 @@ export const workForeVariable = mysqlTable('work_fore_variable', {
 });
 
 export const workHeader = mysqlTable('work_header', {
-  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
+  id: bigintNumber('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
   date: date('date').notNull(),
   roomId: int('room_id').notNull(),
   cleanerId: int('cleaner_id'),
@@ -251,8 +254,8 @@ export const workHeader = mysqlTable('work_header', {
 });
 
 export const workReports = mysqlTable('work_reports', {
-  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
-  workId: bigint('work_id', { mode: 'number' }).notNull(),
+  id: bigintNumber('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
+  workId: bigintNumber('work_id', { mode: 'number' }).notNull(),
   type: tinyint('type').notNull(),
   contents1: json('contents1').notNull(),
   contents2: json('contents2'),
@@ -261,8 +264,8 @@ export const workReports = mysqlTable('work_reports', {
 });
 
 export const workAssignment = mysqlTable('work_assignment', {
-  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
-  workId: bigint('work_id', { mode: 'number' }).notNull(),
+  id: bigintNumber('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
+  workId: bigintNumber('work_id', { mode: 'number' }).notNull(),
   workerId: int('worker_id').notNull(),
   assignDate: date('assign_dttm').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -271,16 +274,16 @@ export const workAssignment = mysqlTable('work_assignment', {
 
 export const workerDetail = mysqlTable('worker_detail', {
   id: int('id', { unsigned: true }).autoincrement().notNull(),
-  workerId: bigint('worker_id', { mode: 'number', unsigned: true }).notNull(),
+  workerId: bigintNumber('worker_id', { mode: 'number', unsigned: true }).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
 
 export const workerEvaluateHistory = mysqlTable('worker_evaluateHistory', {
-  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
+  id: bigintNumber('id', { mode: 'number', unsigned: true }).autoincrement().notNull(),
   workerId: int('worker_id', { unsigned: true }).notNull(),
   evaluatedAt: datetime('evaluate_dttm').notNull(),
-  workId: bigint('work_id', { mode: 'number' }).notNull(),
+  workId: bigintNumber('work_id', { mode: 'number' }).notNull(),
   checklistTitleArray: json('checklist_title_array').notNull(),
   checklistPointSum: tinyint('checklist_point_sum').notNull(),
   comment: varchar('comment', { length: 255 }).notNull(),

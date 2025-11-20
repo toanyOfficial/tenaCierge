@@ -94,10 +94,10 @@ export default function CleanerPanel({ snapshot }: Props) {
 
       <div className={styles.secondaryCtas}>
         <Link href="/screens/004" className={styles.linkButton} prefetch={false}>
-          과업지시서 (ID 004)
+          과업지시서 work list (ID 004)
         </Link>
         <Link href="/screens/007" className={styles.linkButton} prefetch={false}>
-          평가이력 (ID 007)
+          평가이력 evaluation history (ID 007)
         </Link>
       </div>
     </section>

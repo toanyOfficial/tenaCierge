@@ -11,13 +11,13 @@ type Props = {
 };
 
 const adminLinks = [
-  { id: '002', label: '청소리스트 (ID 002)' },
-  { id: '003', label: '업무신청 (ID 003)' },
-  { id: '004', label: '과업지시서 (ID 004)' },
-  { id: '007', label: '평가이력 (ID 007)' },
-  { id: '008', label: '정산관리 (ID 008)' },
-  { id: '009', label: '인원관리 (ID 009)' },
-  { id: '010', label: '고객관리 (ID 010)' }
+  { id: '002', label: '청소리스트 cleaning list (ID 002)' },
+  { id: '003', label: '업무신청 work apply (ID 003)' },
+  { id: '004', label: '과업지시서 work list (ID 004)' },
+  { id: '007', label: '평가이력 evaluation history (ID 007)' },
+  { id: '008', label: '정산관리 settlement (ID 008)' },
+  { id: '009', label: '인원관리 worker list (ID 009)' },
+  { id: '010', label: '고객관리 client list (ID 010)' }
 ];
 
 export default function AdminPanel({ notice }: Props) {

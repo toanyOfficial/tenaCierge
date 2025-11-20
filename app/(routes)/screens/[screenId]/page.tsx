@@ -4,8 +4,10 @@ import Link from 'next/link';
 import styles from './screens.module.css';
 import CleaningListClient from './CleaningListClient';
 import ApplyClient from './ApplyClient';
+import WorkListClient from './WorkListClient';
 import { getCleaningSnapshot } from './server/getCleaningSnapshot';
 import { getApplySnapshot } from './server/getApplySnapshot';
+import { getWorkListSnapshot } from './server/getWorkListSnapshot';
 import { getProfileSummary } from '@/src/utils/profile';
 
 type Props = {
@@ -20,10 +22,10 @@ export function generateMetadata({ params }: Props): Metadata {
   };
 }
 
-export default async function ScreenPage({ params }: Props) {
+export default async function ScreenPage({ params, searchParams }: Props & { searchParams?: { date?: string } }) {
   const { screenId } = params;
 
-  if (screenId !== '002' && screenId !== '003') {
+  if (!['002', '003', '004'].includes(screenId)) {
     return (
       <section className={styles.placeholder}>
         <div className={styles.card}>
@@ -44,6 +46,15 @@ export default async function ScreenPage({ params }: Props) {
     return (
       <div className={styles.screenWrapper}>
         <ApplyClient profile={profile} snapshot={snapshot} />
+      </div>
+    );
+  }
+
+  if (screenId === '004') {
+    const snapshot = await getWorkListSnapshot(profile, searchParams?.date);
+    return (
+      <div className={styles.screenWrapper}>
+        <WorkListClient profile={profile} snapshot={snapshot} />
       </div>
     );
   }
