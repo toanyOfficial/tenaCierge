@@ -184,6 +184,11 @@ def get_db_connection() -> mysql.connector.MySQLConnection:
         database=os.environ.get("DB_NAME", "tenaCierge"),
         autocommit=False,
     )
+    if not cfg["password"]:
+        raise SystemExit(
+            "DB_PASSWORD가 설정되지 않았습니다. /srv/tenaCierge/.env.batch 등을 로딩하거나 "
+            "환경 변수(DB_HOST/DB_USER/DB_PASSWORD/DB_NAME)를 직접 지정해주세요."
+        )
     logging.info("DB 접속 정보: %s:%s/%s", cfg["host"], cfg["port"], cfg["database"])
     return mysql.connector.connect(**cfg)
 
@@ -275,6 +280,7 @@ def fetch_rooms(conn, reference_date: dt.date) -> List[Room]:
         JOIN etc_buildings eb ON eb.id = cr.building_id
         WHERE cr.start_date <= %s
           AND (cr.end_date IS NULL OR cr.end_date >= %s)
+          AND cr.open_yn = 1
           AND (cr.ical_url_1 IS NOT NULL OR cr.ical_url_2 IS NOT NULL)
     """
     params = (reference_date, reference_date)
@@ -295,7 +301,7 @@ def fetch_rooms(conn, reference_date: dt.date) -> List[Room]:
                 building_name=row["building_name"],
                 room_no=row["room_no"],
                 bed_count=row["bed_count"],
-                weight=row.get("weight", 1) or 0,
+                weight=row.get("weight", 10) or 0,
                 checkin_time=row["checkin_time"],
                 checkout_time=row["checkout_time"],
                 ical_urls=urls,
@@ -334,6 +340,7 @@ def fetch_sector_weights(conn, target_date: dt.date) -> List[Tuple[str, str, int
         JOIN etc_buildings eb ON eb.id = cr.building_id
         WHERE cr.start_date <= %s
           AND (cr.end_date IS NULL OR cr.end_date >= %s)
+          AND cr.open_yn = 1
         GROUP BY eb.basecode_sector, eb.basecode_code
     """
     params = (target_date, target_date)

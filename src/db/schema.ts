@@ -78,6 +78,7 @@ export const clientRooms = mysqlTable('client_rooms', {
   doorPassword: varchar('door_password', { length: 15 }).notNull(),
   startDate: date('start_date').notNull(),
   endDate: date('end_date'),
+  openYn: boolean('open_yn').default(false).notNull(),
   roomCount: tinyint('room_count').default(1).notNull(),
   bedCount: tinyint('bed_count').default(1).notNull(),
   checkoutTime: time('checkout_time').notNull(),
@@ -86,7 +87,7 @@ export const clientRooms = mysqlTable('client_rooms', {
   icalUrl1: varchar('ical_url_1', { length: 2083 }),
   icalUrl2: varchar('ical_url_2', { length: 2083 }),
   settleFlag: tinyint('settle_flag').default(1).notNull(),
-  weight: tinyint('weight').default(1).notNull(),
+  weight: tinyint('weight').default(10).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
