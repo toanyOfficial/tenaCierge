@@ -137,12 +137,24 @@ CREATE TABLE `etc_notice` (
 -- Table: work_apply
 CREATE TABLE `work_apply` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'PK',
-  `work_id` BIGINT NULL,
-  `work_date` DATE NOT NULL,
+  `apply_date` DATE NOT NULL,
   `basecode_sector` VARCHAR(10) NOT NULL COMMENT '지역코드',
   `basecode_code` VARCHAR(255) NOT NULL COMMENT '지역값',
-  `butler_yn` BOOLEAN NOT NULL COMMENT '0:클리닝/1:버틀러',
-  `cancel_yn` BOOLEAN NOT NULL COMMENT '0:취소안함/1:취소',
+  `seq` TINYINT NOT NULL,
+  `position` TINYINT NOT NULL COMMENT '1:클리너/2:버틀러',
+  `worker_id` INT NOT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `ux_work_apply` (`apply_date`, `worker_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table: work_assignment
+CREATE TABLE `work_assignment` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'PK',
+  `work_id` BIGINT NOT NULL,
+  `worker_id` INT NOT NULL,
+  `assign_dttm` DATE NOT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
@@ -234,7 +246,7 @@ CREATE TABLE `work_fore_variable` (
 CREATE TABLE `work_header` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'PK',
   `date` DATE NOT NULL,
-  `room` INT NOT NULL,
+  `room_id` INT NOT NULL,
   `cleaner_id` INT NULL,
   `butler_id` INT NULL,
   `amenities_qty` TINYINT NOT NULL,
@@ -313,6 +325,30 @@ CREATE TABLE `worker_penaltyHistory` (
   `start_date` DATE NOT NULL,
   `interval` TINYINT NOT NULL,
   `comment` VARCHAR(255) NOT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table: worker_schedule_exception
+CREATE TABLE `worker_schedule_exception` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'PK',
+  `worker_id` INT UNSIGNED NOT NULL COMMENT 'client_header 참조',
+  `excpt_date` DATE NOT NULL COMMENT '0:일요일 ~ 6:토요일',
+  `add_work_yn` BOOLEAN NOT NULL DEFAULT 0 COMMENT '0:규칙대로/1:무조건출근',
+  `cancel_work_yn` BOOLEAN NOT NULL DEFAULT 0 COMMENT '0:규칙대로/1:무조건휴일',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `ux_worker_schedule_exception` (`worker_id`, `excpt_date`),
+  KEY `ck_wse_logic` (`add_work_yn`, `cancel_work_yn`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table: worker_weekly_pattern
+CREATE TABLE `worker_weekly_pattern` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'PK',
+  `worker_id` INT UNSIGNED NOT NULL COMMENT 'client_header 참조',
+  `weekday` TINYINT NOT NULL COMMENT '0:일요일 ~ 6:토요일',
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
