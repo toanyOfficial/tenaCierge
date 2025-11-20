@@ -80,11 +80,13 @@ class Room:
     id: int
     building_id: int
     sector: str
+    sector_value: str
     building_name: str
     room_no: str
     bed_count: int
     checkin_time: dt.time
     checkout_time: dt.time
+    weight: int
     ical_urls: List[str]
 
 
@@ -117,6 +119,23 @@ class Prediction:
         return (self.predicted_positive and self.actual_out) or (
             (not self.predicted_positive) and (not self.actual_out)
         )
+
+
+@dataclass
+class ApplyRule:
+    min_weight: int
+    max_weight: Optional[int]
+    cleaner_count: int
+    butler_count: int
+    level_flag: int
+
+
+@dataclass
+class WorkerAvailability:
+    id: int
+    tier: int
+    add_override: bool
+    is_regular: bool
 
 
 # ------------------------------ 유틸 ------------------------------
@@ -165,6 +184,11 @@ def get_db_connection() -> mysql.connector.MySQLConnection:
         database=os.environ.get("DB_NAME", "tenaCierge"),
         autocommit=False,
     )
+    if not cfg["password"]:
+        raise SystemExit(
+            "DB_PASSWORD가 설정되지 않았습니다. /srv/tenaCierge/.env.batch 등을 로딩하거나 "
+            "환경 변수(DB_HOST/DB_USER/DB_PASSWORD/DB_NAME)를 직접 지정해주세요."
+        )
     logging.info("DB 접속 정보: %s:%s/%s", cfg["host"], cfg["port"], cfg["database"])
     return mysql.connector.connect(**cfg)
 
@@ -248,33 +272,30 @@ def save_model_variables(conn, values: Dict[str, float]) -> None:
 def fetch_rooms(conn, reference_date: dt.date) -> List[Room]:
     sql = """
         SELECT cr.id, cr.building_id, cr.room_no,
-               cr.bed_count,
+               cr.bed_count, cr.weight,
                cr.checkin_time, cr.checkout_time,
                cr.ical_url_1, cr.ical_url_2,
-               eb.basecode_sector, eb.building_name
+               eb.basecode_sector, eb.basecode_code, eb.building_name
         FROM client_rooms cr
         JOIN etc_buildings eb ON eb.id = cr.building_id
-        WHERE cr.start_date <= %s
-          AND (cr.end_date IS NULL OR cr.end_date >= %s)
-          AND (cr.ical_url_1 IS NOT NULL OR cr.ical_url_2 IS NOT NULL)
+        WHERE cr.open_yn = 1
     """
-    params = (reference_date, reference_date)
     with conn.cursor(dictionary=True) as cur:
-        cur.execute(sql, params)
+        cur.execute(sql)
         rows = cur.fetchall()
     rooms: List[Room] = []
     for row in rows:
         urls = [u for u in (row["ical_url_1"], row["ical_url_2"]) if u]
-        if not urls:
-            continue
         rooms.append(
             Room(
                 id=row["id"],
                 building_id=row["building_id"],
                 sector=row["basecode_sector"],
+                sector_value=row["basecode_code"],
                 building_name=row["building_name"],
                 room_no=row["room_no"],
                 bed_count=row["bed_count"],
+                weight=row.get("weight", 10) or 0,
                 checkin_time=row["checkin_time"],
                 checkout_time=row["checkout_time"],
                 ical_urls=urls,
@@ -282,6 +303,113 @@ def fetch_rooms(conn, reference_date: dt.date) -> List[Room]:
         )
     logging.info("활성 객실 %s건 로딩", len(rooms))
     return rooms
+
+
+def fetch_apply_rules(conn) -> List[ApplyRule]:
+    with conn.cursor(dictionary=True) as cur:
+        cur.execute(
+            """
+            SELECT min_weight, max_weight, cleaner_count, butler_count, level_flag
+            FROM work_apply_rules
+            ORDER BY min_weight ASC
+            """
+        )
+        rows = cur.fetchall()
+    return [
+        ApplyRule(
+            min_weight=int(row["min_weight"]),
+            max_weight=(int(row["max_weight"]) if row["max_weight"] is not None else None),
+            cleaner_count=int(row["cleaner_count"]),
+            butler_count=int(row["butler_count"]),
+            level_flag=int(row["level_flag"]),
+        )
+        for row in rows
+    ]
+
+
+def fetch_sector_weights(conn, target_date: dt.date) -> List[Tuple[str, str, int]]:
+    sql = """
+        SELECT eb.basecode_sector, eb.basecode_code, SUM(COALESCE(cr.weight, 0)) AS total_weight
+        FROM client_rooms cr
+        JOIN etc_buildings eb ON eb.id = cr.building_id
+        WHERE cr.open_yn = 1
+        GROUP BY eb.basecode_sector, eb.basecode_code
+    """
+    with conn.cursor(dictionary=True) as cur:
+        cur.execute(sql)
+        rows = cur.fetchall()
+    return [
+        (row["basecode_sector"], row["basecode_code"], int(row["total_weight"]))
+        for row in rows
+    ]
+
+
+def fetch_available_workers(conn, target_date: dt.date) -> List[WorkerAvailability]:
+    weekday = (target_date.weekday() + 1) % 7  # Python Mon=0 → DB Sun=0
+    with conn.cursor(dictionary=True) as cur:
+        cur.execute(
+            """
+            SELECT w.id, w.tier,
+                   EXISTS(
+                       SELECT 1 FROM worker_schedule_exception e
+                       WHERE e.worker_id = w.id AND e.excpt_date = %s AND e.cancel_work_yn = 1
+                   ) AS has_cancel_exc,
+                   EXISTS(
+                       SELECT 1 FROM worker_schedule_exception e
+                       WHERE e.worker_id = w.id AND e.excpt_date = %s AND e.add_work_yn = 1
+                   ) AS has_add_exc,
+                   EXISTS(
+                       SELECT 1 FROM worker_weekly_pattern p
+                       WHERE p.worker_id = w.id AND p.weekday = %s
+                   ) AS has_weekly
+            FROM worker_header w
+            WHERE w.tier > 1
+        """,
+            (target_date, target_date, weekday),
+        )
+        rows = cur.fetchall()
+    avail: List[WorkerAvailability] = []
+    for row in rows:
+        if row["has_cancel_exc"]:
+            continue
+        if not (row["has_add_exc"] or row["has_weekly"]):
+            continue
+        avail.append(
+            WorkerAvailability(
+                id=int(row["id"]),
+                tier=int(row["tier"]),
+                add_override=bool(row["has_add_exc"]),
+                is_regular=bool(row["has_weekly"]),
+            )
+        )
+    return avail
+
+
+def _match_rule(weight: int, rules: List[ApplyRule]) -> Optional[ApplyRule]:
+    for rule in rules:
+        upper_ok = True if rule.max_weight is None else weight <= rule.max_weight
+        if weight > rule.min_weight and upper_ok:
+            return rule
+    return None
+
+
+def _pick_workers(candidates: List[WorkerAvailability], count: int, used: set[int]) -> List[WorkerAvailability]:
+    selected: List[WorkerAvailability] = []
+    for worker in sorted(
+        candidates,
+        key=lambda w: (
+            -int(w.is_regular),
+            -int(w.add_override),
+            -w.tier,
+            w.id,
+        ),
+    ):
+        if worker.id in used:
+            continue
+        selected.append(worker)
+        if len(selected) >= count:
+            break
+    return selected
 
 
 # ------------------------------ ICS 처리 ------------------------------
@@ -417,6 +545,7 @@ class BatchRunner:
                 )
         self._persist_predictions(predictions)
         self._persist_work_header(predictions)
+        self._persist_work_apply_slots(self.run_date + dt.timedelta(days=1))
         self._persist_accuracy(predictions)
         self._adjust_threshold(predictions)
 
@@ -467,6 +596,113 @@ class BatchRunner:
                 )
         self.conn.commit()
 
+    def _persist_work_apply_slots(self, target_date: dt.date) -> None:
+        rules = fetch_apply_rules(self.conn)
+        if not rules:
+            logging.info("work_apply_rules 데이터가 없어 apply 생성이 스킵됩니다.")
+            return
+        sector_weights = fetch_sector_weights(self.conn, target_date)
+        if not sector_weights:
+            logging.info("sector 가중치 합계가 없어 apply 생성이 스킵됩니다 (target=%s)", target_date)
+            return
+        workers = fetch_available_workers(self.conn, target_date)
+
+        # 가용 인원이 없어도 apply 슬롯은 생성되어야 하므로, 후보는 비어있을 수 있다.
+        butler_candidates = sorted(
+            (w for w in workers if w.tier >= 7),
+            key=lambda w: (-int(w.is_regular), -int(w.add_override), -w.tier, w.id),
+        )
+        cleaner_candidates = sorted(
+            (w for w in workers if w.tier > 1),
+            key=lambda w: (-int(w.is_regular), -int(w.add_override), -w.tier, w.id),
+        )
+
+        def pop_candidate(pool: List[WorkerAvailability], used: set[int]) -> Optional[WorkerAvailability]:
+            while pool:
+                worker = pool.pop(0)
+                if worker.id in used:
+                    continue
+                used.add(worker.id)
+                return worker
+            return None
+
+        used_workers: set[int] = set()
+        seq_map: Dict[str, int] = {}
+        existing_map: Dict[Tuple[str, int], List[Dict]] = {}
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(
+                """
+                SELECT id, basecode_sector, basecode_code, seq, position, worker_id
+                FROM work_apply
+                WHERE work_date=%s
+                ORDER BY seq ASC
+                """,
+                (target_date,),
+            )
+            for row in cur.fetchall():
+                key = (row["basecode_sector"], int(row["position"]))
+                existing_map.setdefault(key, []).append(row)
+                if row["worker_id"] and int(row["worker_id"]) > 0:
+                    used_workers.add(int(row["worker_id"]))
+            cur.execute(
+                "SELECT basecode_sector, MAX(seq) AS max_seq FROM work_apply WHERE work_date=%s GROUP BY basecode_sector",
+                (target_date,),
+            )
+            for row in cur.fetchall():
+                seq_map[row["basecode_sector"]] = int(row["max_seq"]) if row["max_seq"] is not None else 0
+
+        placeholder_worker_id = -1
+
+        with self.conn.cursor() as cur:
+            for sector_code, sector_value, weight_sum in sector_weights:
+                rule = _match_rule(weight_sum, rules)
+                if not rule:
+                    logging.info(
+                        "해당 구간의 apply 규칙을 찾지 못해 건너뜁니다. sector=%s, weight=%s",
+                        sector_code,
+                        weight_sum,
+                    )
+                    continue
+
+                seq = seq_map.get(sector_code, 0)
+
+                for position, required in ((2, rule.butler_count), (1, rule.cleaner_count)):
+                    key = (sector_code, position)
+                    rows = existing_map.get(key, [])
+                    pool = butler_candidates if position == 2 else cleaner_candidates
+
+                    # 기존 슬롯 중 미배정(<=0)인 경우 가용 인원에 우선 배정
+                    for row in rows:
+                        if row["worker_id"] is None or int(row["worker_id"]) <= 0:
+                            worker = pop_candidate(pool, used_workers)
+                            if not worker:
+                                continue
+                            cur.execute("UPDATE work_apply SET worker_id=%s WHERE id=%s", (worker.id, row["id"]))
+
+                    current_count = len(rows)
+                    missing = max(0, required - current_count)
+
+                    for _ in range(missing):
+                        seq += 1
+                        worker = pop_candidate(pool, used_workers)
+                        worker_id = worker.id if worker else placeholder_worker_id
+                        cur.execute(
+                            """
+                            INSERT INTO work_apply
+                                (work_date, basecode_sector, basecode_code, seq, position, worker_id)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                            ON DUPLICATE KEY UPDATE worker_id=VALUES(worker_id)
+                            """,
+                            (target_date, sector_code, sector_value, seq, position, worker_id),
+                        )
+                        if worker:
+                            used_workers.add(worker.id)
+                        else:
+                            placeholder_worker_id -= 1
+
+                seq_map[sector_code] = seq
+        self.conn.commit()
+
     def _persist_work_header(self, predictions: Sequence[Prediction]) -> None:
         target_date = self.run_date + dt.timedelta(days=1)
         entries: List[Tuple[Prediction, int, int]] = []
@@ -487,7 +723,7 @@ class BatchRunner:
                 cur.execute(
                     """
                     INSERT INTO work_header
-                        (date, room, cleaner_id, butler_id,
+                        (date, room_id, cleaner_id, butler_id,
                          amenities_qty, blanket_qty, conditionCheckYn,
                          cleaning_yn, checkin_time, ceckout_time,
                          supply_yn, clening_flag, cleaning_end_time,
