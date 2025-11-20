@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import { clientRooms, etcBuildings, workHeader } from '@/src/db/schema';
@@ -75,6 +75,36 @@ export async function fetchWorkRowById(workId: number) {
     .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
     .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
     .where(eq(workHeader.id, workId))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+export async function fetchLatestWorkByDateAndRoom(date: string, roomId: number) {
+  const rows = await db
+    .select({
+      id: workHeader.id,
+      date: workHeader.date,
+      roomId: workHeader.roomId,
+      cancelYn: workHeader.cancelYn,
+      checkoutTime: workHeader.checkoutTime,
+      checkinTime: workHeader.checkinTime,
+      blanketQty: workHeader.blanketQty,
+      amenitiesQty: workHeader.amenitiesQty,
+      requirements: workHeader.requirements,
+      roomNo: clientRooms.roomNo,
+      bedCount: clientRooms.bedCount,
+      defaultCheckout: clientRooms.checkoutTime,
+      defaultCheckin: clientRooms.checkinTime,
+      clientId: clientRooms.clientId,
+      buildingShortName: etcBuildings.shortName,
+      buildingName: etcBuildings.buildingName
+    })
+    .from(workHeader)
+    .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
+    .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
+    .where(and(eq(workHeader.roomId, roomId), eq(workHeader.date, date)))
+    .orderBy(desc(workHeader.id))
     .limit(1);
 
   return rows[0] ?? null;

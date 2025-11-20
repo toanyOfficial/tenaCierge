@@ -153,8 +153,6 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
     ? '화면 002는 Host, Butler, Admin 역할에게만 제공됩니다. 역할을 변경해 주세요.'
     : null;
 
-  const windowLabel = buildWindowLabel(snapshot.window);
-
   function handleFieldChange(id: number, field: WorkField, value: string | number | boolean) {
     setWorks((prev) => prev.map((work) => (work.id === id ? { ...work, [field]: value } : work)));
   }
@@ -337,7 +335,6 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
           <div className={styles.windowMeta}>
             <span className={styles.windowBadge}>{snapshot.targetTag}</span>
             <span className={styles.windowDate}>{snapshot.targetDateLabel}</span>
-            <span className={styles.windowState}>{windowLabel}</span>
           </div>
         </header>
 
@@ -361,14 +358,16 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                     <header className={styles.workCardHeader}>
                       <p className={styles.workTitle}>{work.roomName}</p>
                       <div className={styles.workMetaRow}>
-                        <span className={styles.workSubtitle}>{work.buildingName}</span>
+                        {work.cancelYn ? (
+                          <span className={styles.cancelNotice}>이 청소 건은 현재 취소상태입니다.</span>
+                        ) : null}
                         {canEdit ? (
                           <button
                             type="button"
                             className={styles.cancelToggle}
                             onClick={() => handleFieldChange(work.id, 'cancelYn', !work.cancelYn)}
                           >
-                            {work.cancelYn ? '예약 유지' : '취소하기'}
+                            {work.cancelYn ? '취소철회' : '취소하기'}
                           </button>
                         ) : (
                           <span className={work.cancelYn ? styles.badgeDanger : styles.badgeMuted}>
@@ -688,21 +687,6 @@ function isWorkDirty(work: CleaningWork, baseline: CleaningWork[]) {
     origin.cancelYn !== work.cancelYn ||
     origin.requirements !== work.requirements
   );
-}
-
-function buildWindowLabel(window: CleaningSnapshot['window']) {
-  switch (window) {
-    case 'today':
-      return 'D0 기준 편성 중';
-    case 'batching':
-      return '익일 과업지시서 준비 중';
-    case 'edit':
-      return '익일 편성 + 수정 가능 (15~16시)';
-    case 'locked':
-      return '익일 편성 고정';
-    default:
-      return '';
-  }
 }
 
 function FieldRow({ label, description, children }: { label: string; description?: string; children: ReactNode }) {

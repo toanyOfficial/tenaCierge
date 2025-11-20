@@ -487,18 +487,6 @@
   font-size: 0.9rem;
 }
 
-.applicationDate {
-  margin: 0;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.applicationArea {
-  margin: 0;
-  color: #64748b;
-  font-size: 0.9rem;
-}
-
 .applicationCancel {
   border: 1px solid rgba(15, 23, 42, 0.12);
   border-radius: 999px;

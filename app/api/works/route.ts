@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/src/db/client';
 import { workHeader } from '@/src/db/schema';
 import { findClientByProfile } from '@/src/server/clients';
-import { fetchRoomMeta, fetchWorkRowById, serializeWorkRow } from '@/src/server/workQueries';
+import { fetchLatestWorkByDateAndRoom, fetchRoomMeta, fetchWorkRowById, serializeWorkRow } from '@/src/server/workQueries';
 import type { CleaningWork } from '@/src/server/workTypes';
 import { validateWorkInput, type WorkMutationValues } from '@/src/server/workValidation';
 import { getProfileSummary } from '@/src/utils/profile';
@@ -84,16 +84,18 @@ export async function POST(request: Request) {
   const insertPayload = buildInsertPayload(insertDate, roomMeta.roomId, validation.values);
 
   const result = await db.insert(workHeader).values(insertPayload);
-  const newId = Number(result.insertId);
+  const insertIdValue = extractInsertId(result);
+  const newId = insertIdValue !== undefined ? Number(insertIdValue) : NaN;
 
-  if (!Number.isFinite(newId)) {
+  const refreshed = Number.isFinite(newId)
+    ? await fetchWorkRowById(newId)
+    : await fetchLatestWorkByDateAndRoom(insertDate, roomMeta.roomId);
+
+  if (!refreshed) {
     return NextResponse.json({ message: '작업 생성 결과를 확인하지 못했습니다.' }, { status: 500 });
   }
 
-  const refreshed = await fetchWorkRowById(newId);
-  const nextState: CleaningWork | null = refreshed ? serializeWorkRow(refreshed) : null;
-
-  return NextResponse.json({ work: nextState });
+  return NextResponse.json({ work: serializeWorkRow(refreshed) });
 }
 
 function buildInsertPayload(date: string, roomId: number, values: WorkMutationValues) {
@@ -122,4 +124,19 @@ function resolveAdminInsertDate(meta: WorkWindowMeta) {
   }
 
   return meta.targetDate;
+}
+
+function extractInsertId(result: unknown) {
+  if (result && typeof result === 'object' && 'insertId' in result) {
+    return (result as { insertId?: number | bigint }).insertId;
+  }
+
+  if (Array.isArray(result) && result.length > 0) {
+    const candidate = result[0];
+    if (candidate && typeof candidate === 'object' && 'insertId' in candidate) {
+      return (candidate as { insertId?: number | bigint }).insertId;
+    }
+  }
+
+  return undefined;
 }

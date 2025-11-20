@@ -141,15 +141,6 @@
   font-weight: 600;
 }
 
-.windowState {
-  padding: 2px 10px;
-  border-radius: 999px;
-  border: 1px solid #cbd5f5;
-  background: #eef2ff;
-  color: #4338ca;
-  font-size: 0.85rem;
-}
-
 .notice {
   margin: 0;
   padding: 14px 18px;
@@ -250,8 +241,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  flex-wrap: nowrap;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .workSubtitle {
@@ -281,6 +272,13 @@
 .badgeMuted {
   background: #e2e8f0;
   color: #475569;
+}
+
+.cancelNotice {
+  color: #b91c1c;
+  font-weight: 600;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .modalOverlay {
@@ -534,15 +532,16 @@
   align-items: center;
   gap: 8px;
   padding: 10px 18px;
-  font-weight: 600;
+  font-weight: 700;
   align-self: flex-start;
   cursor: pointer;
+  color: #0f172a;
 }
 
 .addForm {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   border: 1px solid #e2e8f0;
   border-radius: 16px;
   padding: 16px;
@@ -561,7 +560,7 @@
 .formControl {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   font-weight: 600;
   color: #0f172a;
   flex: 1 1 220px;
@@ -619,9 +618,10 @@
   border-radius: 12px;
   width: 36px;
   height: 36px;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   line-height: 1;
   color: #0f172a;
+  font-weight: 700;
   cursor: pointer;
 }
 
