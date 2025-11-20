@@ -127,7 +127,7 @@ class ApplyRule:
     max_weight: Optional[int]
     cleaner_count: int
     butler_count: int
-    level: str
+    level_flag: int
 
 
 @dataclass
@@ -309,7 +309,7 @@ def fetch_apply_rules(conn) -> List[ApplyRule]:
     with conn.cursor(dictionary=True) as cur:
         cur.execute(
             """
-            SELECT min_weight, max_weight, cleaner_count, butler_count, level
+            SELECT min_weight, max_weight, cleaner_count, butler_count, level_flag
             FROM work_apply_rules
             ORDER BY min_weight ASC
             """
@@ -321,7 +321,7 @@ def fetch_apply_rules(conn) -> List[ApplyRule]:
             max_weight=(int(row["max_weight"]) if row["max_weight"] is not None else None),
             cleaner_count=int(row["cleaner_count"]),
             butler_count=int(row["butler_count"]),
-            level=row["level"],
+            level_flag=int(row["level_flag"]),
         )
         for row in rows
     ]
