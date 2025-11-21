@@ -28,9 +28,11 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import json
 import logging
 import math
 import os
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
@@ -80,11 +82,13 @@ class Room:
     id: int
     building_id: int
     sector: str
+    sector_value: str
     building_name: str
     room_no: str
     bed_count: int
     checkin_time: dt.time
     checkout_time: dt.time
+    weight: int
     ical_urls: List[str]
 
 
@@ -103,10 +107,8 @@ class Prediction:
     p_out: float
     label: str  # "○", "△", ""
     has_checkin: bool
-
-    @property
-    def actual_out(self) -> bool:
-        return self.out_time is not None
+    has_checkout: bool
+    actual_observed: bool
 
     @property
     def predicted_positive(self) -> bool:
@@ -114,9 +116,28 @@ class Prediction:
 
     @property
     def correct(self) -> bool:
-        return (self.predicted_positive and self.actual_out) or (
-            (not self.predicted_positive) and (not self.actual_out)
+        if not self.actual_observed:
+            return False
+        return (self.predicted_positive and self.has_checkout) or (
+            (not self.predicted_positive) and (not self.has_checkout)
         )
+
+
+@dataclass
+class ApplyRule:
+    min_weight: int
+    max_weight: Optional[int]
+    cleaner_count: int
+    butler_count: int
+    level_flag: int
+
+
+@dataclass
+class WorkerAvailability:
+    id: int
+    tier: int
+    add_override: bool
+    is_regular: bool
 
 
 # ------------------------------ 유틸 ------------------------------
@@ -127,13 +148,19 @@ def configure_logging() -> None:
     )
 
 
+def seoul_today() -> dt.date:
+    """현재 서울(KST) 날짜를 반환한다."""
+
+    return dt.datetime.now(dt.timezone.utc).astimezone(SEOUL).date()
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="DB 기반 Forecasting 배치")
     parser.add_argument(
         "--run-date",
         type=lambda s: dt.datetime.strptime(s, "%Y-%m-%d").date(),
-        default=dt.datetime.now(SEOUL).date(),
-        help="배치 기준일 (기본: 오늘)",
+        default=None,
+        help="배치 기준일 (기본: 오늘 KST)",
     )
     parser.add_argument(
         "--start-offset",
@@ -153,6 +180,11 @@ def parse_args() -> argparse.Namespace:
         default=3,
         help="ics 폴더 보관 일수 (README 규칙: 3일)",
     )
+    parser.add_argument(
+        "--allow-backfill",
+        action="store_true",
+        help="지정된 run-date를 강제로 사용 (기본은 서울 오늘 날짜로 강제)",
+    )
     return parser.parse_args()
 
 
@@ -165,6 +197,11 @@ def get_db_connection() -> mysql.connector.MySQLConnection:
         database=os.environ.get("DB_NAME", "tenaCierge"),
         autocommit=False,
     )
+    if not cfg["password"]:
+        raise SystemExit(
+            "DB_PASSWORD가 설정되지 않았습니다. /srv/tenaCierge/.env.batch 등을 로딩하거나 "
+            "환경 변수(DB_HOST/DB_USER/DB_PASSWORD/DB_NAME)를 직접 지정해주세요."
+        )
     logging.info("DB 접속 정보: %s:%s/%s", cfg["host"], cfg["port"], cfg["database"])
     return mysql.connector.connect(**cfg)
 
@@ -220,8 +257,18 @@ def ensure_model_table(conn) -> None:
 
 
 def load_model_variables(conn) -> Dict[str, float]:
-    ensure_model_table(conn)
     values = DEFAULT_MODEL.copy()
+
+    with conn.cursor(dictionary=True) as cur:
+        cur.execute("SELECT name, value FROM work_fore_variable")
+        rows = cur.fetchall()
+    if rows:
+        for row in rows:
+            values[row["name"]] = float(row["value"])
+        logging.info("모델 변수 로딩 완료: %s", values)
+        return values
+
+    ensure_model_table(conn)
     with conn.cursor(dictionary=True) as cur:
         cur.execute("SELECT name, value FROM model_variable")
         for row in cur.fetchall():
@@ -231,12 +278,11 @@ def load_model_variables(conn) -> Dict[str, float]:
 
 
 def save_model_variables(conn, values: Dict[str, float]) -> None:
-    ensure_model_table(conn)
     with conn.cursor() as cur:
         for name, value in values.items():
             cur.execute(
                 """
-                INSERT INTO model_variable(name, value)
+                INSERT INTO work_fore_variable(name, value)
                 VALUES (%s, %s)
                 ON DUPLICATE KEY UPDATE value=VALUES(value)
                 """,
@@ -245,36 +291,70 @@ def save_model_variables(conn, values: Dict[str, float]) -> None:
     conn.commit()
 
 
+def log_error(
+    conn: mysql.connector.MySQLConnection,
+    *,
+    message: str,
+    stacktrace: Optional[str] = None,
+    error_code: Optional[str] = None,
+    level: int = 2,
+    app_name: str = "db_forecasting",
+    run_date: Optional[dt.date] = None,
+) -> None:
+    """etc_errorLogs 테이블에 오류 정보를 적재한다."""
+
+    try:
+        context_json = json.dumps({"run_date": str(run_date or seoul_today())})
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO etc_errorLogs
+                    (level, app_name, error_code, message, stacktrace, request_id, user_id, context_json)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    level,
+                    app_name,
+                    error_code,
+                    message[:500],
+                    stacktrace,
+                    None,
+                    None,
+                    context_json,
+                ),
+            )
+        conn.commit()
+    except Exception as exc:  # pragma: no cover - 실패 시 로그만 남김
+        logging.error("에러로그 저장 실패: %s", exc)
+
+
 def fetch_rooms(conn, reference_date: dt.date) -> List[Room]:
     sql = """
         SELECT cr.id, cr.building_id, cr.room_no,
-               cr.bed_count,
+               cr.bed_count, cr.weight,
                cr.checkin_time, cr.checkout_time,
                cr.ical_url_1, cr.ical_url_2,
-               eb.basecode_sector, eb.building_name
+               eb.basecode_sector, eb.basecode_code, eb.building_name
         FROM client_rooms cr
         JOIN etc_buildings eb ON eb.id = cr.building_id
-        WHERE cr.start_date <= %s
-          AND (cr.end_date IS NULL OR cr.end_date >= %s)
-          AND (cr.ical_url_1 IS NOT NULL OR cr.ical_url_2 IS NOT NULL)
+        WHERE cr.open_yn = 1
     """
-    params = (reference_date, reference_date)
     with conn.cursor(dictionary=True) as cur:
-        cur.execute(sql, params)
+        cur.execute(sql)
         rows = cur.fetchall()
     rooms: List[Room] = []
     for row in rows:
         urls = [u for u in (row["ical_url_1"], row["ical_url_2"]) if u]
-        if not urls:
-            continue
         rooms.append(
             Room(
                 id=row["id"],
                 building_id=row["building_id"],
                 sector=row["basecode_sector"],
+                sector_value=row["basecode_code"],
                 building_name=row["building_name"],
                 room_no=row["room_no"],
                 bed_count=row["bed_count"],
+                weight=row.get("weight", 10) or 0,
                 checkin_time=row["checkin_time"],
                 checkout_time=row["checkout_time"],
                 ical_urls=urls,
@@ -282,6 +362,111 @@ def fetch_rooms(conn, reference_date: dt.date) -> List[Room]:
         )
     logging.info("활성 객실 %s건 로딩", len(rooms))
     return rooms
+
+
+def fetch_apply_rules(conn) -> List[ApplyRule]:
+    with conn.cursor(dictionary=True) as cur:
+        cur.execute(
+            """
+            SELECT min_weight, max_weight, cleaner_count, butler_count, level_flag
+            FROM work_apply_rules
+            ORDER BY min_weight ASC
+            """
+        )
+        rows = cur.fetchall()
+    return [
+        ApplyRule(
+            min_weight=int(row["min_weight"]),
+            max_weight=(int(row["max_weight"]) if row["max_weight"] is not None else None),
+            cleaner_count=int(row["cleaner_count"]),
+            butler_count=int(row["butler_count"]),
+            level_flag=int(row["level_flag"]),
+        )
+        for row in rows
+    ]
+
+
+def fetch_sector_weights(
+    predictions: Sequence[Prediction], target_date: dt.date
+) -> List[Tuple[str, str, int]]:
+    totals: Dict[Tuple[str, str], int] = {}
+    for pred in predictions:
+        if pred.target_date != target_date:
+            continue
+        if not pred.has_checkout:
+            continue
+        key = (pred.room.sector, pred.room.sector_value)
+        totals[key] = totals.get(key, 0) + pred.room.weight
+
+    return [(sector, value, weight) for (sector, value), weight in totals.items()]
+
+
+def fetch_available_workers(conn, target_date: dt.date) -> List[WorkerAvailability]:
+    weekday = (target_date.weekday() + 1) % 7  # Python Mon=0 → DB Sun=0
+    with conn.cursor(dictionary=True) as cur:
+        cur.execute(
+            """
+            SELECT w.id, w.tier,
+                   EXISTS(
+                       SELECT 1 FROM worker_schedule_exception e
+                       WHERE e.worker_id = w.id AND e.excpt_date = %s AND e.cancel_work_yn = 1
+                   ) AS has_cancel_exc,
+                   EXISTS(
+                       SELECT 1 FROM worker_schedule_exception e
+                       WHERE e.worker_id = w.id AND e.excpt_date = %s AND e.add_work_yn = 1
+                   ) AS has_add_exc,
+                   EXISTS(
+                       SELECT 1 FROM worker_weekly_pattern p
+                       WHERE p.worker_id = w.id AND p.weekday = %s
+                   ) AS has_weekly
+            FROM worker_header w
+            WHERE w.tier > 1
+        """,
+            (target_date, target_date, weekday),
+        )
+        rows = cur.fetchall()
+    avail: List[WorkerAvailability] = []
+    for row in rows:
+        if row["has_cancel_exc"]:
+            continue
+        if not (row["has_add_exc"] or row["has_weekly"]):
+            continue
+        avail.append(
+            WorkerAvailability(
+                id=int(row["id"]),
+                tier=int(row["tier"]),
+                add_override=bool(row["has_add_exc"]),
+                is_regular=bool(row["has_weekly"]),
+            )
+        )
+    return avail
+
+
+def _match_rule(weight: int, rules: List[ApplyRule]) -> Optional[ApplyRule]:
+    for rule in rules:
+        upper_ok = True if rule.max_weight is None else weight <= rule.max_weight
+        if weight > rule.min_weight and upper_ok:
+            return rule
+    return None
+
+
+def _pick_workers(candidates: List[WorkerAvailability], count: int, used: set[int]) -> List[WorkerAvailability]:
+    selected: List[WorkerAvailability] = []
+    for worker in sorted(
+        candidates,
+        key=lambda w: (
+            -int(w.is_regular),
+            -int(w.add_override),
+            -w.tier,
+            w.id,
+        ),
+    ):
+        if worker.id in used:
+            continue
+        selected.append(worker)
+        if len(selected) >= count:
+            break
+    return selected
 
 
 # ------------------------------ ICS 처리 ------------------------------
@@ -392,7 +577,8 @@ class BatchRunner:
         predictions: List[Prediction] = []
         for room in rooms:
             events = self._collect_events(room, ics_dir)
-            for offset in range(self.start_offset, self.end_offset + 1):
+            offsets = sorted({0, *range(self.start_offset, self.end_offset + 1)})
+            for offset in offsets:
                 target_date = self.run_date + dt.timedelta(days=offset)
                 out_time = extract_out_time(events, target_date)
                 checkin_flag = has_checkin_on(events, target_date)
@@ -404,6 +590,7 @@ class BatchRunner:
                     label = "△"
                 else:
                     label = ""
+                has_checkout = out_time is not None
                 predictions.append(
                     Prediction(
                         room=room,
@@ -413,10 +600,13 @@ class BatchRunner:
                         p_out=p_out,
                         label=label,
                         has_checkin=checkin_flag,
+                        has_checkout=has_checkout,
+                        actual_observed=target_date == self.run_date,
                     )
                 )
         self._persist_predictions(predictions)
         self._persist_work_header(predictions)
+        self._persist_work_apply_slots(self.run_date + dt.timedelta(days=1), predictions)
         self._persist_accuracy(predictions)
         self._adjust_threshold(predictions)
 
@@ -427,14 +617,14 @@ class BatchRunner:
             if not path:
                 continue
             events.extend(parse_events(path))
-        events.sort(key=lambda e: e.end)
+        events.sort(key=lambda e: e.start)
         merged: List[Event] = []
         for event in events:
             if not merged:
                 merged.append(event)
                 continue
             last = merged[-1]
-            if event.start < last.end:  # overlap → 병합
+            if event.start < last.end:  # overlap → 병합 (back-to-back은 병합하지 않음)
                 merged[-1] = Event(start=last.start, end=max(last.end, event.end))
             else:
                 merged.append(event)
@@ -461,19 +651,80 @@ class BatchRunner:
                         pred.target_date,
                         pred.room.id,
                         round(pred.p_out, 3),
-                        int(pred.actual_out),
-                        int(pred.correct),
+                        int(pred.has_checkout) if pred.actual_observed else 0,
+                        int(pred.correct) if pred.actual_observed else 0,
                     ),
                 )
         self.conn.commit()
 
+    def _persist_work_apply_slots(
+        self, target_date: dt.date, predictions: Sequence[Prediction]
+    ) -> None:
+        rules = fetch_apply_rules(self.conn)
+        if not rules:
+            logging.info("work_apply_rules 데이터가 없어 apply 생성이 스킵됩니다.")
+            return
+        sector_weights = fetch_sector_weights(predictions, target_date)
+        if not sector_weights:
+            logging.info("sector 가중치 합계가 없어 apply 생성이 스킵됩니다 (target=%s)", target_date)
+            return
+
+        existing_counts: Dict[Tuple[str, int], Tuple[int, int]] = {}
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(
+                """
+                SELECT basecode_sector, position,
+                       COUNT(*) AS cnt, COALESCE(MAX(seq), 0) AS max_seq
+                FROM work_apply
+                WHERE work_date=%s
+                GROUP BY basecode_sector, position
+                """,
+                (target_date,),
+            )
+            for row in cur.fetchall():
+                key = (row["basecode_sector"], int(row["position"]))
+                existing_counts[key] = (int(row["cnt"]), int(row["max_seq"]))
+
+        with self.conn.cursor() as cur:
+            for sector_code, sector_value, weight_sum in sector_weights:
+                rule = _match_rule(weight_sum, rules)
+                if not rule:
+                    logging.info(
+                        "해당 구간의 apply 규칙을 찾지 못해 건너뜁니다. sector=%s, weight=%s",
+                        sector_code,
+                        weight_sum,
+                    )
+                    continue
+
+                for position, required in ((2, rule.butler_count), (1, rule.cleaner_count)):
+                    key = (sector_code, position)
+                    current_count, max_seq = existing_counts.get(key, (0, 0))
+                    if current_count >= required:
+                        continue
+
+                    seq = max_seq
+                    for _ in range(required - current_count):
+                        seq += 1
+                        if seq > 127:
+                            raise ValueError(f"apply seq overflow for sector {sector_code}: {seq}")
+
+                        cur.execute(
+                            """
+                            INSERT INTO work_apply
+                                (work_date, basecode_sector, basecode_code, seq, position, worker_id)
+                            VALUES (%s, %s, %s, %s, %s, NULL)
+                            """,
+                            (target_date, sector_code, sector_value, seq, position),
+                        )
+        self.conn.commit()
+
     def _persist_work_header(self, predictions: Sequence[Prediction]) -> None:
-        target_date = self.run_date + dt.timedelta(days=1)
+        target_date = self.run_date
         entries: List[Tuple[Prediction, int, int]] = []
         for pred in predictions:
             if pred.target_date != target_date:
                 continue
-            if pred.actual_out:
+            if pred.has_checkout:
                 entries.append((pred, 0, 1))  # conditionCheckYn, cleaning_yn
             elif pred.has_checkin:
                 entries.append((pred, 1, 0))
@@ -487,7 +738,7 @@ class BatchRunner:
                 cur.execute(
                     """
                     INSERT INTO work_header
-                        (date, room, cleaner_id, butler_id,
+                        (date, room_id, cleaner_id, butler_id,
                          amenities_qty, blanket_qty, conditionCheckYn,
                          cleaning_yn, checkin_time, ceckout_time,
                          supply_yn, clening_flag, cleaning_end_time,
@@ -496,8 +747,8 @@ class BatchRunner:
                         (%s, %s, NULL, NULL,
                          %s, %s, %s,
                          %s, %s, %s,
-                         NULL, NULL, NULL,
-                         NULL, NULL, NULL)
+                         0, 1, NULL,
+                         NULL, NULL, 0)
                     """,
                     (
                         pred.target_date,
@@ -515,6 +766,8 @@ class BatchRunner:
     def _persist_accuracy(self, predictions: Sequence[Prediction]) -> None:
         buckets: Dict[str, List[Prediction]] = {"D-1": [], "D-7": []}
         for pred in predictions:
+            if not pred.actual_observed:
+                continue
             if pred.horizon == 1:
                 buckets["D-1"].append(pred)
             elif pred.horizon == 7:
@@ -527,8 +780,10 @@ class BatchRunner:
                 total = len(preds)
                 correct = sum(1 for p in preds if p.correct)
                 predicted_positive = sum(1 for p in preds if p.predicted_positive)
-                true_positive = sum(1 for p in preds if p.predicted_positive and p.actual_out)
-                actual_positive = sum(1 for p in preds if p.actual_out)
+                true_positive = sum(
+                    1 for p in preds if p.predicted_positive and p.has_checkout
+                )
+                actual_positive = sum(1 for p in preds if p.has_checkout)
                 acc = correct / total if total else 0
                 prec = true_positive / predicted_positive if predicted_positive else 0
                 rec = true_positive / actual_positive if actual_positive else 0
@@ -552,13 +807,15 @@ class BatchRunner:
         self.conn.commit()
 
     def _adjust_threshold(self, predictions: Sequence[Prediction]) -> None:
-        d1_preds = [p for p in predictions if p.horizon == 1]
+        d1_preds = [p for p in predictions if p.horizon == 1 and p.actual_observed]
         if not d1_preds:
             return
         predicted_positive = sum(1 for p in d1_preds if p.predicted_positive)
         if not predicted_positive:
             return
-        true_positive = sum(1 for p in d1_preds if p.predicted_positive and p.actual_out)
+        true_positive = sum(
+            1 for p in d1_preds if p.predicted_positive and p.has_checkout
+        )
         precision = true_positive / predicted_positive
         before = self.model["d1_high"]
         after = before
@@ -576,7 +833,7 @@ class BatchRunner:
             cur.execute(
                 """
                 INSERT INTO work_fore_tuning
-                    (date, horizon, variable, before, after, delta, explanation)
+                    (`date`, `horizon`, `variable`, `before`, `after`, `delta`, `explanation`)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
@@ -595,16 +852,35 @@ class BatchRunner:
 def main() -> None:
     configure_logging()
     args = parse_args()
+    today_seoul = seoul_today()
+    run_date = args.run_date or today_seoul
+    if args.run_date and not args.allow_backfill and args.run_date != today_seoul:
+        logging.warning(
+            "입력 run-date %s가 현재 서울 날짜 %s와 달라 서울 날짜로 강제합니다. backfill 실행 시 --allow-backfill 사용",
+            args.run_date,
+            today_seoul,
+        )
+        run_date = today_seoul
+    now_seoul = dt.datetime.now(dt.timezone.utc).astimezone(SEOUL)
+    logging.info("기준일(KST): %s (현재 서울 시각 %s)", run_date, now_seoul.strftime("%Y-%m-%d %H:%M:%S"))
     conn = get_db_connection()
     try:
         runner = BatchRunner(
             conn=conn,
-            run_date=args.run_date,
+            run_date=run_date,
             start_offset=args.start_offset,
             end_offset=args.end_offset,
             keep_days=args.ics_keep_days,
         )
         runner.run()
+    except Exception as exc:
+        stack = traceback.format_exc()
+        logging.error("배치 실행 실패", exc_info=exc)
+        try:
+            log_error(conn, message=str(exc), stacktrace=stack, run_date=run_date)
+        except Exception:
+            logging.error("에러로그 저장 중 추가 오류 발생", exc_info=True)
+        raise
     finally:
         conn.close()
 
