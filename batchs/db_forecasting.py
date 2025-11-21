@@ -98,6 +98,7 @@ class Room:
 class Event:
     start: dt.datetime
     end: dt.datetime
+    url_no: int
 
 
 @dataclass
@@ -105,6 +106,7 @@ class Prediction:
     room: Room
     target_date: dt.date
     horizon: int
+    url_no: int
     out_time: Optional[dt.time]
     p_out: float
     label: str  # "○", "△", ""
@@ -872,7 +874,7 @@ class BatchRunner:
                          amenities_qty, blanket_qty, conditionCheckYn,
                          cleaning_yn, checkin_time, ceckout_time,
                          supply_yn, clening_flag, cleaning_end_time,
-                         supervising_end_time, requirements, cancel_yn)
+                         supervising_end_time, requirements, cancel_yn, url_no)
                     VALUES
                         (%s, %s, NULL, NULL,
                          %s, %s, %s,
@@ -889,6 +891,7 @@ class BatchRunner:
                         cleaning,
                         pred.room.checkin_time,
                         pred.room.checkout_time,
+                        pred.url_no,
                     ),
                 )
         self.conn.commit()
