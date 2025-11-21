@@ -7,7 +7,6 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import logging
-import math
 import os
 from typing import Dict, List, Optional, Sequence
 
@@ -53,7 +52,11 @@ class CleanerRankingBatch:
         if not workers:
             logging.info("worker_header 인원이 없어 종료합니다.")
             return
-        tier_updates = self._calculate_tiers(workers)
+        tier_rules = self._load_tier_rules()
+        if not tier_rules:
+            logging.warning("worker_tier_rules 테이블이 비어 있어 tier 계산을 건너뜁니다.")
+            return
+        tier_updates = self._calculate_tiers(workers, tier_rules)
         self._persist_tiers(tier_updates)
         self.conn.commit()
 
@@ -91,45 +94,46 @@ class CleanerRankingBatch:
                 workers.append(row)
         return workers
 
+    def _load_tier_rules(self) -> List[Dict[str, int]]:
+        sql = """
+            SELECT min_percentage, max_percentage, tier
+            FROM worker_tier_rules
+            ORDER BY min_percentage ASC
+        """
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(sql)
+            return [
+                dict(
+                    min_percentage=int(row["min_percentage"]),
+                    max_percentage=int(row["max_percentage"]),
+                    tier=int(row["tier"]),
+                )
+                for row in cur
+            ]
+
     def _calculate_tiers(
         self,
         workers: Sequence[Dict[str, Optional[float]]],
+        tier_rules: Sequence[Dict[str, int]],
     ) -> Dict[int, int]:
         assigned: Dict[int, int] = {}
-        population = [
-            w
-            for w in workers
-            if w["tier"] in (3, 4, 5, 6, 7)
-        ]
+        population = [w for w in workers if w["tier"] != 1]
         population.sort(key=lambda w: w["score"], reverse=True)
         n = len(population)
-        if n:
-            top5 = min(n, max(1, math.ceil(n * 0.05)))
-            top10 = min(n, max(top5, math.ceil(n * 0.10)))
-            top30 = min(n, max(top10, math.ceil(n * 0.30)))
-            for idx, worker in enumerate(population):
-                wid = worker["id"]
-                if idx < top5:
-                    assigned[wid] = 7
-                elif idx < top10:
-                    assigned[wid] = 6
-                elif idx < top30:
-                    assigned[wid] = 5
-        for worker in workers:
-            wid = worker["id"]
-            tier = worker["tier"]
-            score = worker["score"]
-            if tier == 1:
-                continue
-            if tier == 2:
-                if score > 0:
-                    assigned.setdefault(wid, 3)
-                continue
-            if tier not in (3, 4, 5, 6, 7):
-                continue
-            if wid in assigned:
-                continue
-            assigned[wid] = 4 if score >= 50 else 3
+        if not n:
+            return assigned
+        for idx, worker in enumerate(population):
+            percentile = ((idx + 1) / n) * 100
+            rule = next(
+                (
+                    r
+                    for r in tier_rules
+                    if percentile > r["min_percentage"] and percentile <= r["max_percentage"]
+                ),
+                None,
+            )
+            if rule:
+                assigned[worker["id"]] = rule["tier"]
         return assigned
 
     def _persist_tiers(self, updates: Dict[int, int]) -> None:
