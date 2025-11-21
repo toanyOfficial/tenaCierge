@@ -492,7 +492,8 @@ def build_ics_filename(
     room: Room, url: str, existing: set[str], idx: int
 ) -> str:
     platform = "airbnb" if "airbnb" in url.lower() else "booking" if "booking" in url.lower() else "ics"
-    base = f"{room.building_short_name}{room.room_no}_{platform}".replace(" ", "")
+    short = room.building_short_name or room.building_name or str(room.building_id)
+    base = f"{short}{room.room_no}_{platform}".replace(" ", "")
     safe = re.sub(r"[^A-Za-z0-9_-]", "", base) or f"room{room.id}_{platform}"
     name = safe
     counter = 2
@@ -613,7 +614,7 @@ class BatchRunner:
         if self.today_only:
             offsets = [0]
         else:
-            offsets = sorted({0, *range(self.start_offset, self.end_offset + 1)})
+            offsets = list(range(max(1, self.start_offset), self.end_offset + 1))
 
         for room in rooms:
             events = self._collect_events(room, ics_dir)
