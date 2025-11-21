@@ -577,7 +577,8 @@ class BatchRunner:
         predictions: List[Prediction] = []
         for room in rooms:
             events = self._collect_events(room, ics_dir)
-            for offset in range(self.start_offset, self.end_offset + 1):
+            offsets = sorted({0, *range(self.start_offset, self.end_offset + 1)})
+            for offset in offsets:
                 target_date = self.run_date + dt.timedelta(days=offset)
                 out_time = extract_out_time(events, target_date)
                 checkin_flag = has_checkin_on(events, target_date)
@@ -600,7 +601,7 @@ class BatchRunner:
                         label=label,
                         has_checkin=checkin_flag,
                         has_checkout=has_checkout,
-                        actual_observed=has_checkout and target_date == self.run_date,
+                        actual_observed=target_date == self.run_date,
                     )
                 )
         self._persist_predictions(predictions)
@@ -616,14 +617,14 @@ class BatchRunner:
             if not path:
                 continue
             events.extend(parse_events(path))
-        events.sort(key=lambda e: e.end)
+        events.sort(key=lambda e: e.start)
         merged: List[Event] = []
         for event in events:
             if not merged:
                 merged.append(event)
                 continue
             last = merged[-1]
-            if event.start < last.end:  # overlap → 병합
+            if event.start < last.end:  # overlap → 병합 (back-to-back은 병합하지 않음)
                 merged[-1] = Event(start=last.start, end=max(last.end, event.end))
             else:
                 merged.append(event)
@@ -650,8 +651,8 @@ class BatchRunner:
                         pred.target_date,
                         pred.room.id,
                         round(pred.p_out, 3),
-                        int(pred.actual_observed),
-                        int(pred.correct),
+                        int(pred.has_checkout) if pred.actual_observed else 0,
+                        int(pred.correct) if pred.actual_observed else 0,
                     ),
                 )
         self.conn.commit()
@@ -718,7 +719,7 @@ class BatchRunner:
         self.conn.commit()
 
     def _persist_work_header(self, predictions: Sequence[Prediction]) -> None:
-        target_date = self.run_date + dt.timedelta(days=1)
+        target_date = self.run_date
         entries: List[Tuple[Prediction, int, int]] = []
         for pred in predictions:
             if pred.target_date != target_date:
