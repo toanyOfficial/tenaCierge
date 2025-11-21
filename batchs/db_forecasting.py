@@ -698,21 +698,29 @@ class BatchRunner:
         return merged_all
 
     def _persist_predictions(self, predictions: Sequence[Prediction]) -> None:
+        """Persist forecast outputs without any url_no 컬럼을 참조하지 않는다."""
+
         logging.info("예측 결과 %s건 DB 저장", len(predictions))
+
+        # url_no는 work_header에만 필요하므로 예측 테이블에는 절대 넣지 않는다.
+        insert_sql = (
+            "INSERT INTO {table} "
+            "(run_dttm, target_date, room_id, p_out, actual_out, correct) "
+            "VALUES (%s, %s, %s, %s, %s, %s)"
+        )
+
         with self.conn.cursor() as cur:
             cur.execute("DELETE FROM work_fore_d1 WHERE run_dttm=%s", (self.run_date,))
             cur.execute("DELETE FROM work_fore_d7 WHERE run_dttm=%s", (self.run_date,))
+
             for pred in predictions:
+                # 1일/7일 외 구간은 가장 가까운 테이블에 저장한다.
                 table = "work_fore_d1" if pred.horizon <= 1 else "work_fore_d7"
                 if pred.horizon not in (1, 7):
-                    # 중간 horizon은 가장 가까운 테이블로 매핑
                     table = "work_fore_d1" if pred.horizon <= 3 else "work_fore_d7"
+
                 cur.execute(
-                    f"""
-                    INSERT INTO {table}
-                        (run_dttm, target_date, room_id, url_no, p_out, actual_out, correct)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """,
+                    insert_sql.format(table=table),
                     (
                         self.run_date,
                         pred.target_date,
@@ -723,6 +731,68 @@ class BatchRunner:
                         int(pred.correct) if pred.actual_observed else 0,
                     ),
                 )
+
+        self.conn.commit()
+
+    def _persist_work_apply_slots(
+        self, target_date: dt.date, predictions: Sequence[Prediction]
+    ) -> None:
+        rules = fetch_apply_rules(self.conn)
+        if not rules:
+            logging.info("work_apply_rules 데이터가 없어 apply 생성이 스킵됩니다.")
+            return
+        sector_weights = fetch_sector_weights(predictions, target_date)
+        if not sector_weights:
+            logging.info("sector 가중치 합계가 없어 apply 생성이 스킵됩니다 (target=%s)", target_date)
+            return
+
+        existing_counts: Dict[Tuple[str, int], Tuple[int, int]] = {}
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(
+                """
+                SELECT basecode_sector, position,
+                       COUNT(*) AS cnt, COALESCE(MAX(seq), 0) AS max_seq
+                FROM work_apply
+                WHERE work_date=%s
+                GROUP BY basecode_sector, position
+                """,
+                (target_date,),
+            )
+            for row in cur.fetchall():
+                key = (row["basecode_sector"], int(row["position"]))
+                existing_counts[key] = (int(row["cnt"]), int(row["max_seq"]))
+
+        with self.conn.cursor() as cur:
+            for sector_code, sector_value, weight_sum in sector_weights:
+                rule = _match_rule(weight_sum, rules)
+                if not rule:
+                    logging.info(
+                        "해당 구간의 apply 규칙을 찾지 못해 건너뜁니다. sector=%s, weight=%s",
+                        sector_code,
+                        weight_sum,
+                    )
+                    continue
+
+                for position, required in ((2, rule.butler_count), (1, rule.cleaner_count)):
+                    key = (sector_code, position)
+                    current_count, max_seq = existing_counts.get(key, (0, 0))
+                    if current_count >= required:
+                        continue
+
+                    seq = max_seq
+                    for _ in range(required - current_count):
+                        seq += 1
+                        if seq > 127:
+                            raise ValueError(f"apply seq overflow for sector {sector_code}: {seq}")
+
+                        cur.execute(
+                            """
+                            INSERT INTO work_apply
+                                (work_date, basecode_sector, basecode_code, seq, position, worker_id)
+                            VALUES (%s, %s, %s, %s, %s, NULL)
+                            """,
+                            (target_date, sector_code, sector_value, seq, position),
+                        )
         self.conn.commit()
 
     def _persist_work_apply_slots(
