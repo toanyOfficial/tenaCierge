@@ -257,7 +257,6 @@ export const workHeader = mysqlTable('work_header', {
   id: bigintNumber('id', { unsigned: true }).autoincrement().notNull(),
   date: date('date').notNull(),
   roomId: int('room_id').notNull(),
-  urlNo: tinyint('url_no'),
   cleanerId: int('cleaner_id'),
   butlerId: int('butler_id'),
   amenitiesQty: tinyint('amenities_qty').notNull(),

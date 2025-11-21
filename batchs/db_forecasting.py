@@ -522,7 +522,7 @@ def download_ics(url: str, dest_dir: Path, filename: str) -> Optional[Path]:
     return target
 
 
-def parse_events(path: Path, url_no: int) -> List[Event]:
+def parse_events(path: Path) -> List[Event]:
     events: List[Event] = []
     try:
         calendar = Calendar.from_ical(path.read_bytes())
@@ -620,39 +620,31 @@ class BatchRunner:
 
         for room in rooms:
             events = self._collect_events(room, ics_dir)
-            events_by_url: Dict[int, List[Event]] = {}
-            for ev in events:
-                events_by_url.setdefault(ev.url_no, []).append(ev)
-            for url_no, url_events in events_by_url.items():
-                for offset in offsets:
-                    target_date = self.run_date + dt.timedelta(days=offset)
-                    out_time = extract_out_time(url_events, target_date)
-                    checkin_flag = has_checkin_on(url_events, target_date)
-                    p_out, high = compute_p_out(
-                        self.model, offset, target_date.weekday()
-                    )
-                    borderline = self.model["borderline"]
-                    if p_out >= high:
-                        label = "○"
-                    elif p_out >= borderline:
-                        label = "△"
-                    else:
-                        label = ""
-                    has_checkout = out_time is not None
-                    actual_observed = (target_date == self.run_date) and (not self.today_only)
-                    predictions.append(
-                        Prediction(
-                            room=room,
-                            target_date=target_date,
-                            horizon=offset,
-                            url_no=url_no,
-                            out_time=out_time,
-                            p_out=p_out,
-                            label=label,
-                            has_checkin=checkin_flag,
-                            has_checkout=has_checkout,
-                            actual_observed=actual_observed,
-                        )
+            for offset in offsets:
+                target_date = self.run_date + dt.timedelta(days=offset)
+                out_time = extract_out_time(events, target_date)
+                checkin_flag = has_checkin_on(events, target_date)
+                p_out, high = compute_p_out(self.model, offset, target_date.weekday())
+                borderline = self.model["borderline"]
+                if p_out >= high:
+                    label = "○"
+                elif p_out >= borderline:
+                    label = "△"
+                else:
+                    label = ""
+                has_checkout = out_time is not None
+                actual_observed = (target_date == self.run_date) and (not self.today_only)
+                predictions.append(
+                    Prediction(
+                        room=room,
+                        target_date=target_date,
+                        horizon=offset,
+                        out_time=out_time,
+                        p_out=p_out,
+                        label=label,
+                        has_checkin=checkin_flag,
+                        has_checkout=has_checkout,
+                        actual_observed=actual_observed,
                     )
         self._persist_predictions(predictions)
         self._persist_work_header(predictions)
@@ -670,39 +662,37 @@ class BatchRunner:
         )
 
     def _collect_events(self, room: Room, ics_dir: Path) -> List[Event]:
-        merged_all: List[Event] = []
+        all_events: List[Event] = []
         for idx, url in enumerate(room.ical_urls, start=1):
             base_name = build_ics_filename(room, url, self._ics_names, idx)
             path = download_ics(url, ics_dir, base_name)
             if not path:
                 continue
             self.downloaded_ics += 1
-            raw_events = parse_events(path, url_no=idx)
+            raw_events = parse_events(path)
             raw_events.sort(key=lambda e: e.start)
-            merged: List[Event] = []
-            for event in raw_events:
-                if not merged:
-                    merged.append(event)
-                    continue
-                last = merged[-1]
-                if event.start < last.end:  # overlap → 병합 (back-to-back은 병합하지 않음)
-                    merged[-1] = Event(
-                        start=last.start,
-                        end=max(last.end, event.end),
-                        url_no=last.url_no,
-                    )
-                else:
-                    merged.append(event)
-            merged_all.extend(merged)
-        merged_all.sort(key=lambda e: (e.url_no, e.start))
-        return merged_all
+            all_events.extend(raw_events)
+
+        if not all_events:
+            return []
+
+        all_events.sort(key=lambda e: e.start)
+        merged: List[Event] = []
+        for event in all_events:
+            if not merged:
+                merged.append(event)
+                continue
+            last = merged[-1]
+            if event.start < last.end:  # overlap → 병합 (back-to-back은 병합하지 않음)
+                merged[-1] = Event(start=last.start, end=max(last.end, event.end))
+            else:
+                merged.append(event)
+        return merged
 
     def _persist_predictions(self, predictions: Sequence[Prediction]) -> None:
-        """Persist forecast outputs without any url_no 컬럼을 참조하지 않는다."""
+        """Persist forecast outputs."""
 
         logging.info("예측 결과 %s건 DB 저장", len(predictions))
-
-        # url_no는 work_header에만 필요하므로 예측 테이블에는 절대 넣지 않는다.
         d1_rows: List[Tuple[dt.date, dt.date, int, float, int, int]] = []
         d7_rows: List[Tuple[dt.date, dt.date, int, float, int, int]] = []
 
@@ -880,7 +870,7 @@ class BatchRunner:
                          %s, %s, %s,
                          %s, %s, %s,
                          0, 1, NULL,
-                         NULL, NULL, 0, %s)
+                         NULL, NULL, 0)
                     """,
                     (
                         pred.target_date,
