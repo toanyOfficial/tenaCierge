@@ -526,10 +526,7 @@ def download_ics(url: str, dest_dir: Path, filename: str) -> Optional[Path]:
 
 
 def parse_events(path: Path) -> List[Event]:
-    """Parse ICS and return merged VEVENT ranges.
-
-    url_no 등 과거 필드는 더 이상 사용하지 않으며, 시작/종료 시각만 보존한다.
-    """
+    """Parse ICS and return merged VEVENT ranges (start/end only)."""
 
     events: List[Event] = []
     try:
