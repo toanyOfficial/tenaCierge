@@ -498,11 +498,11 @@ def build_ics_filename(
     room: Room, url: str, existing: set[str], idx: int
 ) -> str:
     platform = "airbnb" if "airbnb" in url.lower() else "booking" if "booking" in url.lower() else "ics"
-    short = room.building_short_name or room.building_name or f"b{room.building_id}"
-    base = f"{short}{room.room_no}_{platform}".replace(" ", "")
-    safe = re.sub(r"[^A-Za-z0-9_-]", "", base)
-    if not safe:
-        safe = f"b{room.building_id}_{room.room_no}_{platform}"
+    raw_short = room.building_short_name or room.building_name or f"b{room.building_id}"
+    safe_short = re.sub(r"[^A-Za-z0-9_-]", "", raw_short)
+    if not safe_short:
+        safe_short = f"b{room.building_id}"
+    safe = f"{safe_short}_{room.room_no}_{platform}".replace(" ", "")
     name = safe
     counter = 2
     while name in existing:

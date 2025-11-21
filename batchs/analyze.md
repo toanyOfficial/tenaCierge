@@ -10,7 +10,7 @@
 
 ## ICS 다운로드·이벤트 병합
 - guideline: ICS 다운로드/파싱은 `parser.LoadData`/`ProcessData` 내부에 숨겨져 있으나, 결과 `processed` 리스트를 플랫폼별 중복 병합 규칙으로 정리한다. 같은 객실의 이벤트를 플랫폼별로 모은 뒤 겹치는 예약이 있으면 `IsOverBooking` 표시를 남기고 유지하며, 날짜 기준 필터링 이후에도 플랫폼 단위로 다시 병합한다.【F:batchs/guideline.go†L65-L103】【F:batchs/guideline.go†L105-L149】 파일명 규칙은 코드에 없고 `parser` 내부 로직에 의존한다.
-- python 배치: 실행 시 타임스탬프 하위 폴더를 만들고(예: `batchs/ics/20251121043737`) 기존 폴더를 보존 일수 기준으로 청소한다.【F:batchs/db_forecasting.py†L606-L618】【F:batchs/db_forecasting.py†L47-L69】 모든 open_yn=1 객실을 조회한 뒤(ical_url 0~2개), URL당 파일명을 `building_short_name+room_no+platform`으로 생성하고 중복 시 숫자를 붙인다. URL별 이벤트를 한데 모아 시작 시각 기준으로 재정렬·겹침 병합해 단일 타임라인을 만든다. 기대/실제 다운로드 개수를 로그로 남겨 47건 수집 여부를 바로 확인한다.【F:batchs/db_forecasting.py†L348-L382】【F:batchs/db_forecasting.py†L490-L516】【F:batchs/db_forecasting.py†L663-L686】
+- python 배치: 실행 시 타임스탬프 하위 폴더를 만들고(예: `batchs/ics/20251121043737`) 기존 폴더를 보존 일수 기준으로 청소한다.【F:batchs/db_forecasting.py†L606-L618】【F:batchs/db_forecasting.py†L47-L69】 모든 open_yn=1 객실을 조회한 뒤(ical_url 0~2개), URL당 파일명을 `building_short_name(or building_id)+room_no+platform`으로 생성하고 중복 시 숫자를 붙인다. URL별 이벤트를 한데 모아 시작 시각 기준으로 재정렬·겹침 병합해 단일 타임라인을 만든다. 기대/실제 다운로드 개수를 로그로 남겨 47건 수집 여부를 바로 확인한다.【F:batchs/db_forecasting.py†L348-L382】【F:batchs/db_forecasting.py†L490-L516】【F:batchs/db_forecasting.py†L663-L686】
 
 ## 체크인/체크아웃 판정
 - guideline: 특정 날짜의 체크아웃은 plan의 `DtEnd == date`, 체크인은 `DtStart == date`로 판정한다. 익일 체크인/체크아웃은 `CheckNextDay`로 따로 구분해 오늘/내일 목록을 만든 뒤 중복되는 객실은 제거한다.【F:batchs/guideline.go†L119-L149】
