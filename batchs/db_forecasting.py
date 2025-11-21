@@ -185,6 +185,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="지정된 run-date를 강제로 사용 (기본은 서울 오늘 날짜로 강제)",
     )
+    parser.add_argument(
+        "--today-only",
+        action="store_true",
+        help="당일(D0) work_header만 생성하고 apply/정확도 계산을 건너뜀",
+    )
     return parser.parse_args()
 
 
@@ -562,6 +567,7 @@ class BatchRunner:
         start_offset: int,
         end_offset: int,
         keep_days: int,
+        today_only: bool,
     ) -> None:
         self.conn = conn
         self.run_date = run_date
@@ -569,15 +575,21 @@ class BatchRunner:
         self.end_offset = end_offset
         self.keep_days = keep_days
         self.model = load_model_variables(conn)
+        self.today_only = today_only
 
     def run(self) -> None:
         rotate_ics_dirs(self.keep_days)
         ics_dir = ensure_ics_dir()
         rooms = fetch_rooms(self.conn, self.run_date)
         predictions: List[Prediction] = []
+        offsets: List[int]
+        if self.today_only:
+            offsets = [0]
+        else:
+            offsets = sorted({0, *range(self.start_offset, self.end_offset + 1)})
+
         for room in rooms:
             events = self._collect_events(room, ics_dir)
-            offsets = sorted({0, *range(self.start_offset, self.end_offset + 1)})
             for offset in offsets:
                 target_date = self.run_date + dt.timedelta(days=offset)
                 out_time = extract_out_time(events, target_date)
@@ -591,6 +603,7 @@ class BatchRunner:
                 else:
                     label = ""
                 has_checkout = out_time is not None
+                actual_observed = (target_date == self.run_date) and (not self.today_only)
                 predictions.append(
                     Prediction(
                         room=room,
@@ -601,17 +614,19 @@ class BatchRunner:
                         label=label,
                         has_checkin=checkin_flag,
                         has_checkout=has_checkout,
-                        actual_observed=target_date == self.run_date,
+                        actual_observed=actual_observed,
                     )
                 )
         self._persist_predictions(predictions)
         self._persist_work_header(predictions)
-        for offset in range(self.start_offset, self.end_offset + 1):
-            self._persist_work_apply_slots(
-                self.run_date + dt.timedelta(days=offset), predictions
-            )
-        self._persist_accuracy(predictions)
-        self._adjust_threshold(predictions)
+
+        if not self.today_only:
+            for offset in range(self.start_offset, self.end_offset + 1):
+                self._persist_work_apply_slots(
+                    self.run_date + dt.timedelta(days=offset), predictions
+                )
+            self._persist_accuracy(predictions)
+            self._adjust_threshold(predictions)
 
     def _collect_events(self, room: Room, ics_dir: Path) -> List[Event]:
         events: List[Event] = []
@@ -722,7 +737,7 @@ class BatchRunner:
         self.conn.commit()
 
     def _persist_work_header(self, predictions: Sequence[Prediction]) -> None:
-        target_date = self.run_date
+        target_date = self.run_date if self.today_only else self.run_date + dt.timedelta(days=1)
         entries: List[Tuple[Prediction, int, int]] = []
         for pred in predictions:
             if pred.target_date != target_date:
@@ -902,6 +917,7 @@ def main() -> None:
             start_offset=args.start_offset,
             end_offset=args.end_offset,
             keep_days=args.ics_keep_days,
+            today_only=args.today_only,
         )
         runner.run()
     except Exception as exc:
