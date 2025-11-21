@@ -606,7 +606,10 @@ class BatchRunner:
                 )
         self._persist_predictions(predictions)
         self._persist_work_header(predictions)
-        self._persist_work_apply_slots(self.run_date + dt.timedelta(days=1), predictions)
+        for offset in range(self.start_offset, self.end_offset + 1):
+            self._persist_work_apply_slots(
+                self.run_date + dt.timedelta(days=offset), predictions
+            )
         self._persist_accuracy(predictions)
         self._adjust_threshold(predictions)
 
@@ -728,13 +731,41 @@ class BatchRunner:
                 entries.append((pred, 0, 1))  # conditionCheckYn, cleaning_yn
             elif pred.has_checkin:
                 entries.append((pred, 1, 0))
+
         if not entries:
             logging.info("work_header 대상 없음 (target=%s)", target_date)
             return
-        logging.info("work_header 업데이트 (rows=%s)", len(entries))
+
+        existing_rooms: set[int] = set()
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute("SELECT room_id FROM work_header WHERE date=%s", (target_date,))
+            existing_rooms = {int(row["room_id"]) for row in cur.fetchall()}
+
+        seen: set[int] = set(existing_rooms)
+        to_insert: List[Tuple[Prediction, int, int]] = []
+        for entry in entries:
+            room_id = entry[0].room.id
+            if room_id in seen:
+                continue
+            seen.add(room_id)
+            to_insert.append(entry)
+
+        if not to_insert:
+            logging.info(
+                "work_header 신규 삽입 대상이 없습니다 (target=%s, 기존 %s건)",
+                target_date,
+                len(existing_rooms),
+            )
+            return
+
+        logging.info(
+            "work_header 신규 삽입 (target=%s, 추가 %s건, 기존 %s건)",
+            target_date,
+            len(to_insert),
+            len(existing_rooms),
+        )
         with self.conn.cursor() as cur:
-            cur.execute("DELETE FROM work_header WHERE date=%s", (target_date,))
-            for pred, condition_check, cleaning in entries:
+            for pred, condition_check, cleaning in to_insert:
                 cur.execute(
                     """
                     INSERT INTO work_header
