@@ -634,18 +634,18 @@ class BatchRunner:
                     label = ""
                 has_checkout = out_time is not None
                 actual_observed = (target_date == self.run_date) and (not self.today_only)
-                predictions.append(
-                    Prediction(
-                        room=room,
-                        target_date=target_date,
-                        horizon=offset,
-                        out_time=out_time,
-                        p_out=p_out,
-                        label=label,
-                        has_checkin=checkin_flag,
-                        has_checkout=has_checkout,
-                        actual_observed=actual_observed,
-                    )
+                prediction = Prediction(
+                    room=room,
+                    target_date=target_date,
+                    horizon=offset,
+                    out_time=out_time,
+                    p_out=p_out,
+                    label=label,
+                    has_checkin=checkin_flag,
+                    has_checkout=has_checkout,
+                    actual_observed=actual_observed,
+                )
+                predictions.append(prediction)
         self._persist_predictions(predictions)
         self._persist_work_header(predictions)
 
