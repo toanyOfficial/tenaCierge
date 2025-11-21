@@ -722,7 +722,7 @@ class BatchRunner:
         self.conn.commit()
 
     def _persist_work_header(self, predictions: Sequence[Prediction]) -> None:
-        target_date = self.run_date + dt.timedelta(days=1)
+        target_date = self.run_date
         entries: List[Tuple[Prediction, int, int]] = []
         for pred in predictions:
             if pred.target_date != target_date:
