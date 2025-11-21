@@ -725,12 +725,74 @@ class BatchRunner:
                         self.run_date,
                         pred.target_date,
                         pred.room.id,
+                        pred.url_no,
                         round(pred.p_out, 3),
                         int(pred.has_checkout) if pred.actual_observed else 0,
                         int(pred.correct) if pred.actual_observed else 0,
                     ),
                 )
 
+        self.conn.commit()
+
+    def _persist_work_apply_slots(
+        self, target_date: dt.date, predictions: Sequence[Prediction]
+    ) -> None:
+        rules = fetch_apply_rules(self.conn)
+        if not rules:
+            logging.info("work_apply_rules 데이터가 없어 apply 생성이 스킵됩니다.")
+            return
+        sector_weights = fetch_sector_weights(predictions, target_date)
+        if not sector_weights:
+            logging.info("sector 가중치 합계가 없어 apply 생성이 스킵됩니다 (target=%s)", target_date)
+            return
+
+        existing_counts: Dict[Tuple[str, int], Tuple[int, int]] = {}
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(
+                """
+                SELECT basecode_sector, position,
+                       COUNT(*) AS cnt, COALESCE(MAX(seq), 0) AS max_seq
+                FROM work_apply
+                WHERE work_date=%s
+                GROUP BY basecode_sector, position
+                """,
+                (target_date,),
+            )
+            for row in cur.fetchall():
+                key = (row["basecode_sector"], int(row["position"]))
+                existing_counts[key] = (int(row["cnt"]), int(row["max_seq"]))
+
+        with self.conn.cursor() as cur:
+            for sector_code, sector_value, weight_sum in sector_weights:
+                rule = _match_rule(weight_sum, rules)
+                if not rule:
+                    logging.info(
+                        "해당 구간의 apply 규칙을 찾지 못해 건너뜁니다. sector=%s, weight=%s",
+                        sector_code,
+                        weight_sum,
+                    )
+                    continue
+
+                for position, required in ((2, rule.butler_count), (1, rule.cleaner_count)):
+                    key = (sector_code, position)
+                    current_count, max_seq = existing_counts.get(key, (0, 0))
+                    if current_count >= required:
+                        continue
+
+                    seq = max_seq
+                    for _ in range(required - current_count):
+                        seq += 1
+                        if seq > 127:
+                            raise ValueError(f"apply seq overflow for sector {sector_code}: {seq}")
+
+                        cur.execute(
+                            """
+                            INSERT INTO work_apply
+                                (work_date, basecode_sector, basecode_code, seq, position, worker_id)
+                            VALUES (%s, %s, %s, %s, %s, NULL)
+                            """,
+                            (target_date, sector_code, sector_value, seq, position),
+                        )
         self.conn.commit()
 
     def _persist_work_apply_slots(
