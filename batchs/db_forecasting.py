@@ -499,7 +499,8 @@ def build_ics_filename(
 ) -> str:
     platform = "airbnb" if "airbnb" in url.lower() else "booking" if "booking" in url.lower() else "ics"
     raw_short = room.building_short_name or room.building_name or f"b{room.building_id}"
-    safe_short = re.sub(r"[^A-Za-z0-9_-]", "", raw_short)
+    # 한글 등 비ASCII 문자는 허용하고, 파일 시스템에 문제가 될 수 있는 최소한의 문자만 제거한다.
+    safe_short = re.sub(r"[^\w-]", "", raw_short, flags=re.UNICODE)
     if not safe_short:
         safe_short = f"b{room.building_id}"
     safe = f"{safe_short}_{room.room_no}_{platform}".replace(" ", "")
@@ -525,12 +526,18 @@ def download_ics(url: str, dest_dir: Path, filename: str) -> Optional[Path]:
 
 
 def parse_events(path: Path) -> List[Event]:
+    """Parse ICS and return merged VEVENT ranges.
+
+    url_no 등 과거 필드는 더 이상 사용하지 않으며, 시작/종료 시각만 보존한다.
+    """
+
     events: List[Event] = []
     try:
         calendar = Calendar.from_ical(path.read_bytes())
     except ValueError as exc:
         logging.warning("ICS 파싱 실패(%s): %s", path, exc)
         return events
+
     for component in calendar.walk("VEVENT"):
         try:
             start = to_aware(component.decoded("dtstart"))
@@ -538,7 +545,8 @@ def parse_events(path: Path) -> List[Event]:
         except Exception as exc:  # pylint: disable=broad-except
             logging.warning("VEVENT 파싱 실패(%s): %s", path, exc)
             continue
-        events.append(Event(start=start, end=end, url_no=url_no))
+        events.append(Event(start=start, end=end))
+
     return events
 
 
