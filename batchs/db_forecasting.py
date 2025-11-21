@@ -94,7 +94,7 @@ class Room:
     ical_urls: List[str]
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Event:
     start: dt.datetime
     end: dt.datetime
