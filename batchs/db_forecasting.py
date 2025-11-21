@@ -793,9 +793,19 @@ class BatchRunner:
         for pred in predictions:
             if pred.horizon != desired_offset or pred.target_date != target_date:
                 continue
-            has_checkout = pred.has_checkout or room_flags.get(pred.room.id, (pred, False, False))[1]
-            has_checkin = pred.has_checkin or room_flags.get(pred.room.id, (pred, False, False))[2]
-            room_flags[pred.room.id] = (pred, has_checkout, has_checkin)
+            base_pred, has_checkout, has_checkin = room_flags.get(
+                pred.room.id, (pred, False, False)
+            )
+
+            # checkout 이벤트가 우선, 없으면 최초 pred를 유지하면서 체크인 플래그만 합산
+            if pred.has_checkout:
+                base_pred = pred
+            elif has_checkout:
+                pred = base_pred
+
+            has_checkout = has_checkout or pred.has_checkout
+            has_checkin = has_checkin or pred.has_checkin
+            room_flags[pred.room.id] = (base_pred, has_checkout, has_checkin)
 
         entries: List[Tuple[Prediction, int, int]] = []
         for pred, has_checkout, has_checkin in room_flags.values():
@@ -845,13 +855,13 @@ class BatchRunner:
                          amenities_qty, blanket_qty, conditionCheckYn,
                          cleaning_yn, checkin_time, ceckout_time,
                          supply_yn, clening_flag, cleaning_end_time,
-                         supervising_end_time, requirements, cancel_yn)
+                         supervising_end_time, requirements, cancel_yn, url_no)
                     VALUES
                         (%s, %s, NULL, NULL,
                          %s, %s, %s,
                          %s, %s, %s,
                          0, 1, NULL,
-                         NULL, NULL, 0)
+                         NULL, NULL, 0, %s)
                     """,
                     (
                         pred.target_date,
@@ -862,6 +872,7 @@ class BatchRunner:
                         cleaning,
                         pred.room.checkin_time,
                         pred.room.checkout_time,
+                        pred.url_no,
                     ),
                 )
         self.conn.commit()
