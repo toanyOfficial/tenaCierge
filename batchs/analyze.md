@@ -10,18 +10,18 @@
 
 ## ICS 다운로드·이벤트 병합
 - guideline: ICS 다운로드/파싱은 `parser.LoadData`/`ProcessData` 내부에 숨겨져 있으나, 결과 `processed` 리스트를 플랫폼별 중복 병합 규칙으로 정리한다. 같은 객실의 이벤트를 플랫폼별로 모은 뒤 겹치는 예약이 있으면 `IsOverBooking` 표시를 남기고 유지하며, 날짜 기준 필터링 이후에도 플랫폼 단위로 다시 병합한다.【F:batchs/guideline.go†L65-L103】【F:batchs/guideline.go†L105-L149】 파일명 규칙은 코드에 없고 `parser` 내부 로직에 의존한다.
-- python 배치: 실행 시 타임스탬프 하위 폴더를 만들고(예: `batchs/ics/20251121043737`) 기존 폴더를 보존 일수 기준으로 청소한다.【F:batchs/db_forecasting.py†L606-L618】【F:batchs/db_forecasting.py†L47-L69】 모든 open_yn=1 객실을 조회한 뒤(ical_url 0~2개), URL당 파일명을 `building_short_name+room_no+_platform`으로 생성하고 중복 시 숫자를 붙인다.【F:batchs/db_forecasting.py†L348-L382】【F:batchs/db_forecasting.py†L490-L505】【F:batchs/db_forecasting.py†L663-L683】 다운로드 성공 시 바로 파싱하며, 모든 이벤트를 시작 시각 기준 정렬 후 `start < last.end`인 경우에만 병합한다(백투백은 분리).【F:batchs/db_forecasting.py†L663-L683】
+- python 배치: 실행 시 타임스탬프 하위 폴더를 만들고(예: `batchs/ics/20251121043737`) 기존 폴더를 보존 일수 기준으로 청소한다.【F:batchs/db_forecasting.py†L606-L618】【F:batchs/db_forecasting.py†L47-L69】 모든 open_yn=1 객실을 조회한 뒤(ical_url 0~2개), URL당 파일명을 `building_short_name+room_no+platform`으로 생성하고 중복 시 숫자를 붙인다. URL마다 `url_no`를 부여해 독립적으로 파싱·병합(같은 URL 내부만 overlap 병합)하며, 기대/실제 다운로드 개수를 로그로 남긴다.【F:batchs/db_forecasting.py†L348-L382】【F:batchs/db_forecasting.py†L490-L516】【F:batchs/db_forecasting.py†L663-L686】
 
 ## 체크인/체크아웃 판정
 - guideline: 특정 날짜의 체크아웃은 plan의 `DtEnd == date`, 체크인은 `DtStart == date`로 판정한다. 익일 체크인/체크아웃은 `CheckNextDay`로 따로 구분해 오늘/내일 목록을 만든 뒤 중복되는 객실은 제거한다.【F:batchs/guideline.go†L119-L149】
-- python 배치: 대상 날짜의 00:00~24:00 사이에 `event.end`가 있으면 checkout으로, `event.start`가 있으면 checkin으로 본다.【F:batchs/db_forecasting.py†L537-L552】 horizon 오프셋마다 판정해 `Prediction`을 만든다.【F:batchs/db_forecasting.py†L619-L647】
+- python 배치: 이벤트 시각을 무시하고 `event.end.date()==target_date`이면 checkout, `event.start.date()==target_date`이면 checkin으로 본다. 각 URL별로 판정해 `Prediction(url_no 포함)`을 만든다.【F:batchs/db_forecasting.py†L537-L552】【F:batchs/db_forecasting.py†L619-L647】
 
 ## work_header 생성 흐름
 - guideline: 내일(D+1) 일정만 별도 시트로 만들며, 체크아웃 존재 시 `(conditionCheckYn=0, cleaning_yn=1)`, 체크인만 존재 시 `(1,0)`을 설정한다. 기존 행을 지우지 않고 생성 결과를 그대로 활용한다(Excel 출력 기준).【F:batchs/guideline.go†L119-L149】【F:batchs/guideline.go†L179-L193】
-- python 배치: today-only가 아니면 `target_date = run_date + 1`만 바라보고 horizon=1 예측에서 checkout/ checkin 여부를 보고 동일한 플래그로 insert-only한다. 이미 같은 room_id가 있으면 건너뛰어 신규만 추가한다.【F:batchs/db_forecasting.py†L773-L845】
+- python 배치: today-only가 아니면 `target_date = run_date + 1`만 바라보고 horizon=1 예측에서 checkout/checkin 여부를 URL별 예측으로 집계해 동일한 플래그로 insert-only한다. 이미 같은 room_id가 있으면 건너뛰어 신규만 추가한다.【F:batchs/db_forecasting.py†L773-L845】
 
 ## 주요 차이 요약
 1) 기준일: guideline은 data.toml의 날짜를 직접 기준으로 오늘/내일을 함께 산출하지만, python은 run_date+1만 work_header 대상으로 삼아 run_date 자체의 이벤트는 무시한다.
-2) 이벤트 병합: guideline은 플랫폼 단위 중복 병합 후 날짜 필터를 적용하고 겹치는/백투백 예약을 모두 유지하는 반면, python은 모든 VEVENT를 시간 순으로 합친 뒤 `start < end`일 때만 병합하여 일부 케이스에서 예약 수가 달라질 수 있다.
+2) 이벤트 단위: guideline은 플랫폼별 병합 뒤 날짜 필터링을 하지만 URL 자체는 구분하지 않는다. python은 URL마다 `url_no`를 붙여 독립적으로 병합·판정해 예측을 만든다.
 3) 파일명/로그: guideline은 `application.log`로만 로깅하고 파일명 규칙이 외부(parser)에 있지만, python은 실행 시 ics 타임스탬프 폴더를 만들고 `건물단축명+호실+플랫폼` 파일명을 직접 만든다.
 
