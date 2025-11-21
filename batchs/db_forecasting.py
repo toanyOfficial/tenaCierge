@@ -107,6 +107,10 @@ class Event:
         object.__setattr__(self, "start", start)
         object.__setattr__(self, "end", end)
 
+    def __init__(self, start: dt.datetime, end: dt.datetime):
+        object.__setattr__(self, "start", start)
+        object.__setattr__(self, "end", end)
+
 
 @dataclass
 class Prediction:
