@@ -710,13 +710,14 @@ class BatchRunner:
                 cur.execute(
                     f"""
                     INSERT INTO {table}
-                        (run_dttm, target_date, room_id, p_out, actual_out, correct)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                        (run_dttm, target_date, room_id, url_no, p_out, actual_out, correct)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         self.run_date,
                         pred.target_date,
                         pred.room.id,
+                        pred.url_no,
                         round(pred.p_out, 3),
                         int(pred.has_checkout) if pred.actual_observed else 0,
                         int(pred.correct) if pred.actual_observed else 0,
