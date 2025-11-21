@@ -94,11 +94,18 @@ class Room:
     ical_urls: List[str]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class Event:
+    """ICS 이벤트 구간(start/end)만을 표현하는 최소 모델."""
+
     start: dt.datetime
     end: dt.datetime
     url_no: int
+
+    def __init__(self, start: dt.datetime, end: dt.datetime):
+        # url_no 등 과거 필드를 모두 제거하고 순수하게 구간만 보존한다.
+        object.__setattr__(self, "start", start)
+        object.__setattr__(self, "end", end)
 
 
 @dataclass
