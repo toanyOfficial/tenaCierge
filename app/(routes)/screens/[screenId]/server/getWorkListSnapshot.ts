@@ -1,0 +1,228 @@
+import { and, desc, eq, inArray } from 'drizzle-orm';
+
+import { db } from '@/src/db/client';
+import {
+  clientRooms,
+  etcBuildings,
+  etcNotice,
+  workApply,
+  workAssignment,
+  workHeader,
+  workerHeader
+} from '@/src/db/schema';
+import type { ProfileSummary } from '@/src/utils/profile';
+import { findClientByProfile } from '@/src/server/clients';
+import { findWorkerByProfile } from '@/src/server/workers';
+import { getKstNow, formatDateKey } from '@/src/utils/workWindow';
+
+export type WorkListEntry = {
+  id: number;
+  roomName: string;
+  buildingShortName: string;
+  roomNo: string;
+  checkoutTime: string;
+  checkinTime: string;
+  blanketQty: number;
+  amenitiesQty: number;
+  requirements: string;
+  supplyYn: boolean;
+  cleaningFlag: number;
+  cleaningYn: boolean;
+  conditionCheckYn: boolean;
+  supervisingEndTime: string | null;
+  cleanerName: string;
+  buildingId: number;
+  sectorCode: string;
+  sectorValue: string;
+};
+
+export type WorkListSnapshot = {
+  notice: string;
+  targetDate: string;
+  windowLabel: string;
+  works: WorkListEntry[];
+};
+
+export async function getWorkListSnapshot(profile: ProfileSummary, dateParam?: string): Promise<WorkListSnapshot> {
+  const now = getKstNow();
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  const defaultDate = resolveDefaultDate(now, minutes);
+  const targetDate = normalizeDate(dateParam) || defaultDate;
+
+  const notice = await fetchLatestNotice();
+
+  const worker = await findWorkerByProfile(profile);
+  const client = await findClientByProfile(profile);
+
+  const baseQuery = db
+    .select({
+      id: workHeader.id,
+      date: workHeader.date,
+      roomId: workHeader.roomId,
+      checkoutTime: workHeader.checkoutTime,
+      checkinTime: workHeader.checkinTime,
+      blanketQty: workHeader.blanketQty,
+      amenitiesQty: workHeader.amenitiesQty,
+      requirements: workHeader.requirements,
+      supplyYn: workHeader.supplyYn,
+      cleaningFlag: workHeader.cleaningFlag,
+      cleaningYn: workHeader.cleaningYn,
+      conditionCheckYn: workHeader.conditionCheckYn,
+      supervisingEndTime: workHeader.supervisingEndTime,
+      cleanerId: workHeader.cleanerId,
+      roomNo: clientRooms.roomNo,
+      buildingId: clientRooms.buildingId,
+      sectorCode: etcBuildings.sectorCode,
+      sectorValue: etcBuildings.sectorValue,
+      buildingShortName: etcBuildings.shortName,
+      cleanerName: workerHeader.name
+    })
+    .from(workHeader)
+    .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
+    .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
+    .leftJoin(workerHeader, eq(workHeader.cleanerId, workerHeader.id))
+    .where(eq(workHeader.date, targetDate));
+
+  let rows:
+    | Array<ReturnType<typeof baseQuery>[number] & { assignWorkerId?: number | null }>
+    | undefined = undefined;
+
+  if (profile.primaryRole === 'admin' || profile.roles.includes('admin') || profile.roles.includes('butler')) {
+    rows = await baseQuery;
+  } else if (profile.roles.includes('host')) {
+    if (!client) {
+      rows = [];
+    } else {
+      rows = await baseQuery.where(and(eq(workHeader.date, targetDate), eq(clientRooms.clientId, client.id)));
+    }
+  } else if (profile.roles.includes('cleaner')) {
+    if (!worker) {
+      rows = [];
+    } else {
+      const assignedWorkIds = await fetchAssignedWorkIds(worker.id, targetDate);
+      if (!assignedWorkIds.length) {
+        rows = [];
+      } else {
+        rows = await baseQuery.where(and(eq(workHeader.date, targetDate), inArray(workHeader.id, assignedWorkIds)));
+      }
+    }
+  }
+
+  const appliedSectors = worker ? await fetchAppliedSectors(worker.id, targetDate) : new Set<string>();
+  const normalized = (rows ?? []).map((row) => normalizeRow(row));
+  const buildingCounts = normalized.reduce<Record<number, number>>((acc, row) => {
+    acc[row.buildingId] = (acc[row.buildingId] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const works = normalized.sort((a, b) => sortRows(a, b, appliedSectors, buildingCounts));
+
+  return {
+    notice,
+    targetDate,
+    windowLabel: targetDate === formatDateKey(now) && minutes >= 9 * 60 ? 'D0' : targetDate,
+    works
+  };
+}
+
+async function fetchLatestNotice() {
+  const rows = await db.select().from(etcNotice).orderBy(desc(etcNotice.noticeDate)).limit(1);
+  return rows[0]?.notice ?? '공지사항이 없습니다.';
+}
+
+async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
+  const rows = await db
+    .select({ workId: workAssignment.workId })
+    .from(workAssignment)
+    .where(and(eq(workAssignment.workerId, workerId), eq(workAssignment.assignDate, targetDate)));
+
+  if (rows.length) {
+    return rows.map((row) => Number(row.workId));
+  }
+
+  const directRows = await db
+    .select({ id: workHeader.id })
+    .from(workHeader)
+    .where(and(eq(workHeader.date, targetDate), eq(workHeader.cleanerId, workerId)));
+
+  return directRows.map((row) => Number(row.id));
+}
+
+async function fetchAppliedSectors(workerId: number, targetDate: string) {
+  const rows = await db
+    .select({ sector: workApply.sectorValue })
+    .from(workApply)
+    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDate)));
+
+  return new Set(rows.map((row) => row.sector));
+}
+
+function normalizeRow(row: any): WorkListEntry {
+  return {
+    id: Number(row.id),
+    roomName: `${row.buildingShortName ?? ''}${row.roomNo ?? ''}`.trim() || '미지정 객실',
+    buildingShortName: row.buildingShortName ?? '',
+    roomNo: row.roomNo ?? '',
+    checkoutTime: toTime(row.checkoutTime),
+    checkinTime: toTime(row.checkinTime),
+    blanketQty: Number(row.blanketQty ?? 0),
+    amenitiesQty: Number(row.amenitiesQty ?? 0),
+    requirements: row.requirements ?? '',
+    supplyYn: Boolean(row.supplyYn),
+    cleaningFlag: Number(row.cleaningFlag ?? 1),
+    cleaningYn: Boolean(row.cleaningYn),
+    conditionCheckYn: Boolean(row.conditionCheckYn),
+    supervisingEndTime: row.supervisingEndTime ? toTime(row.supervisingEndTime) : null,
+    cleanerName: row.cleanerName ?? '-',
+    buildingId: Number(row.buildingId ?? 0),
+    sectorCode: row.sectorCode ?? '',
+    sectorValue: row.sectorValue ?? ''
+  };
+}
+
+function sortRows(
+  a: WorkListEntry,
+  b: WorkListEntry,
+  applied: Set<string>,
+  buildingCounts: Record<number, number>
+) {
+  const aApplied = applied.has(a.sectorValue);
+  const bApplied = applied.has(b.sectorValue);
+  if (aApplied !== bApplied) return aApplied ? -1 : 1;
+
+  if (a.sectorCode !== b.sectorCode) return a.sectorCode.localeCompare(b.sectorCode);
+
+  const countDiff = (buildingCounts[b.buildingId] ?? 0) - (buildingCounts[a.buildingId] ?? 0);
+  if (countDiff !== 0) return countDiff;
+
+  if (a.cleaningYn !== b.cleaningYn) return a.cleaningYn ? 1 : -1;
+
+  if (a.checkoutTime !== b.checkoutTime) return a.checkoutTime.localeCompare(b.checkoutTime);
+
+  return b.roomNo.localeCompare(a.roomNo);
+}
+
+function toTime(value: string | Date | null | undefined) {
+  if (!value) return '00:00';
+  if (value instanceof Date) {
+    return `${`${value.getHours()}`.padStart(2, '0')}:${`${value.getMinutes()}`.padStart(2, '0')}`;
+  }
+  const [h = '00', m = '00'] = value.split(':');
+  return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
+}
+
+function normalizeDate(input?: string) {
+  if (!input) return '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input)) return '';
+  return input;
+}
+
+function resolveDefaultDate(now: Date, minutes: number) {
+  if (minutes < 9 * 60) {
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    return formatDateKey(yesterday);
+  }
+
+  return formatDateKey(now);
+}
