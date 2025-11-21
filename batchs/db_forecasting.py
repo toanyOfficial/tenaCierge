@@ -34,6 +34,7 @@ import math
 import os
 import traceback
 from dataclasses import dataclass
+import re
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -83,6 +84,7 @@ class Room:
     building_id: int
     sector: str
     sector_value: str
+    building_short_name: str
     building_name: str
     room_no: str
     bed_count: int
@@ -142,9 +144,19 @@ class WorkerAvailability:
 
 # ------------------------------ 유틸 ------------------------------
 def configure_logging() -> None:
+    log_path = BASE_DIR / "application.log"
+    handlers = [logging.StreamHandler()]
+    try:
+        file_handler = logging.FileHandler(log_path, encoding="utf-8")
+        handlers.append(file_handler)
+    except Exception:  # pylint: disable=broad-except
+        # 파일 핸들 생성 실패 시 콘솔 로깅만 진행한다.
+        pass
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=handlers,
     )
 
 
@@ -339,7 +351,7 @@ def fetch_rooms(conn, reference_date: dt.date) -> List[Room]:
                cr.bed_count, cr.weight,
                cr.checkin_time, cr.checkout_time,
                cr.ical_url_1, cr.ical_url_2,
-               eb.basecode_sector, eb.basecode_code, eb.building_name
+               eb.basecode_sector, eb.basecode_code, eb.building_name, eb.building_short_name
         FROM client_rooms cr
         JOIN etc_buildings eb ON eb.id = cr.building_id
         WHERE cr.open_yn = 1
@@ -356,6 +368,7 @@ def fetch_rooms(conn, reference_date: dt.date) -> List[Room]:
                 building_id=row["building_id"],
                 sector=row["basecode_sector"],
                 sector_value=row["basecode_code"],
+                building_short_name=row.get("building_short_name", ""),
                 building_name=row["building_name"],
                 room_no=row["room_no"],
                 bed_count=row["bed_count"],
@@ -475,22 +488,31 @@ def _pick_workers(candidates: List[WorkerAvailability], count: int, used: set[in
 
 
 # ------------------------------ ICS 처리 ------------------------------
-def download_ics(url: str, dest_dir: Path) -> Optional[Path]:
+def build_ics_filename(
+    room: Room, url: str, existing: set[str], idx: int
+) -> str:
+    platform = "airbnb" if "airbnb" in url.lower() else "booking" if "booking" in url.lower() else "ics"
+    base = f"{room.building_short_name}{room.room_no}_{platform}".replace(" ", "")
+    safe = re.sub(r"[^A-Za-z0-9_-]", "", base) or f"room{room.id}_{platform}"
+    name = safe
+    counter = 2
+    while name in existing:
+        name = f"{safe}_{counter}"
+        counter += 1
+    existing.add(name)
+    return name
+
+
+def download_ics(url: str, dest_dir: Path, filename: str) -> Optional[Path]:
     try:
         response = requests.get(url, timeout=20)
         response.raise_for_status()
     except requests.RequestException as exc:
         logging.warning("ICS 다운로드 실패(%s): %s", url, exc)
         return None
-    filename = sanitize_filename(url)
     target = dest_dir / f"{filename}.ics"
     target.write_bytes(response.content)
     return target
-
-
-def sanitize_filename(url: str) -> str:
-    name = url.split("//")[-1].split("?")[0].replace("/", "_")
-    return name[:100]
 
 
 def parse_events(path: Path) -> List[Event]:
@@ -576,11 +598,16 @@ class BatchRunner:
         self.keep_days = keep_days
         self.model = load_model_variables(conn)
         self.today_only = today_only
+        self.expected_ics = 0
+        self.downloaded_ics = 0
+        self._ics_names: set[str] = set()
 
     def run(self) -> None:
         rotate_ics_dirs(self.keep_days)
         ics_dir = ensure_ics_dir()
         rooms = fetch_rooms(self.conn, self.run_date)
+        self.expected_ics = sum(len(r.ical_urls) for r in rooms)
+        logging.info("ICS 기대 다운로드 수: %s", self.expected_ics)
         predictions: List[Prediction] = []
         offsets: List[int]
         if self.today_only:
@@ -628,12 +655,18 @@ class BatchRunner:
             self._persist_accuracy(predictions)
             self._adjust_threshold(predictions)
 
+        logging.info(
+            "ICS 다운로드 결과: 기대 %s건 중 %s건", self.expected_ics, self.downloaded_ics
+        )
+
     def _collect_events(self, room: Room, ics_dir: Path) -> List[Event]:
         events: List[Event] = []
-        for url in room.ical_urls:
-            path = download_ics(url, ics_dir)
+        for idx, url in enumerate(room.ical_urls, start=1):
+            base_name = build_ics_filename(room, url, self._ics_names, idx)
+            path = download_ics(url, ics_dir, base_name)
             if not path:
                 continue
+            self.downloaded_ics += 1
             events.extend(parse_events(path))
         events.sort(key=lambda e: e.start)
         merged: List[Event] = []
@@ -738,9 +771,10 @@ class BatchRunner:
 
     def _persist_work_header(self, predictions: Sequence[Prediction]) -> None:
         target_date = self.run_date if self.today_only else self.run_date + dt.timedelta(days=1)
+        desired_offset = 0 if self.today_only else 1
         entries: List[Tuple[Prediction, int, int]] = []
         for pred in predictions:
-            if pred.target_date != target_date:
+            if pred.horizon != desired_offset or pred.target_date != target_date:
                 continue
             if pred.has_checkout:
                 entries.append((pred, 0, 1))  # conditionCheckYn, cleaning_yn
