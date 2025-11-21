@@ -100,7 +100,6 @@ class Event:
 
     start: dt.datetime
     end: dt.datetime
-    url_no: int
 
     def __init__(self, start: dt.datetime, end: dt.datetime):
         # url_no 등 과거 필드를 모두 제거하고 순수하게 구간만 보존한다.
@@ -117,7 +116,6 @@ class Prediction:
     room: Room
     target_date: dt.date
     horizon: int
-    url_no: int
     out_time: Optional[dt.time]
     p_out: float
     label: str  # "○", "△", ""
@@ -882,7 +880,7 @@ class BatchRunner:
                          amenities_qty, blanket_qty, conditionCheckYn,
                          cleaning_yn, checkin_time, ceckout_time,
                          supply_yn, clening_flag, cleaning_end_time,
-                         supervising_end_time, requirements, cancel_yn, url_no)
+                         supervising_end_time, requirements, cancel_yn)
                     VALUES
                         (%s, %s, NULL, NULL,
                          %s, %s, %s,
@@ -898,8 +896,7 @@ class BatchRunner:
                         condition_check,
                         cleaning,
                         pred.room.checkin_time,
-                        pred.room.checkout_time,
-                        pred.url_no,
+                        pred.room.checkout_time
                     ),
                 )
         self.conn.commit()
