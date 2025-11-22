@@ -32,6 +32,12 @@ export async function findWorkerByProfile(profile: ProfileSummary) {
   }
 
   const whereClause = conditions.length === 1 ? conditions[0] : or(...conditions);
+  const clauses = [
+    phonePattern ? like(workerHeader.phone, phonePattern) : null,
+    phonePattern ? like(workerHeader.registerCode, phonePattern) : null,
+    like(workerHeader.name, namePattern)
+  ].filter(Boolean) as ReturnType<typeof like>[];
+
   const rows = await db
     .select({
       id: workerHeader.id,
@@ -64,13 +70,20 @@ export async function findWorkerById(workerId: number) {
 }
 
 export async function searchWorkersByTerm(term: string, limit = 10) {
-  const normalized = term.replace(/[^0-9a-zA-Z]/g, '').trim();
+  const trimmed = term.trim();
 
-  if (!normalized) {
+  if (!trimmed) {
     return [];
   }
 
-  const pattern = `%${normalized}%`;
+  const normalized = trimmed.replace(/[^0-9a-zA-Z]/g, '');
+  const phonePattern = normalized ? `%${normalized}%` : null;
+  const namePattern = `%${trimmed}%`;
+  const clauses = [
+    phonePattern ? like(workerHeader.phone, phonePattern) : null,
+    phonePattern ? like(workerHeader.registerCode, phonePattern) : null,
+    like(workerHeader.name, namePattern)
+  ].filter(Boolean) as ReturnType<typeof like>[];
   const rows = await db
     .select({
       id: workerHeader.id,
@@ -80,7 +93,7 @@ export async function searchWorkersByTerm(term: string, limit = 10) {
       tier: workerHeader.tier
     })
     .from(workerHeader)
-    .where(or(like(workerHeader.phone, pattern), like(workerHeader.registerCode, pattern)))
+    .where(or(...clauses))
     .orderBy(desc(workerHeader.tier), asc(workerHeader.name))
     .limit(limit);
 

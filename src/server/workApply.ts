@@ -2,7 +2,7 @@ import { and, asc, eq, gte, lte } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 
 import { db } from '@/src/db/client';
-import { workApply, workerHeader } from '@/src/db/schema';
+import { etcBaseCode, workApply, workerHeader } from '@/src/db/schema';
 
 const applicantWorker = alias(workerHeader, 'applyWorker');
 
@@ -11,6 +11,7 @@ const selection = {
   workDate: workApply.workDate,
   sectorCode: workApply.sectorCode,
   sectorValue: workApply.sectorValue,
+  sectorName: etcBaseCode.value,
   seq: workApply.seq,
   position: workApply.position,
   workerId: workApply.workerId,
@@ -36,5 +37,9 @@ function baseQuery() {
   return db
     .select(selection)
     .from(workApply)
-    .leftJoin(applicantWorker, eq(workApply.workerId, applicantWorker.id));
+    .leftJoin(applicantWorker, eq(workApply.workerId, applicantWorker.id))
+    .leftJoin(
+      etcBaseCode,
+      and(eq(etcBaseCode.codeGroup, workApply.sectorCode), eq(etcBaseCode.code, workApply.sectorValue))
+    );
 }

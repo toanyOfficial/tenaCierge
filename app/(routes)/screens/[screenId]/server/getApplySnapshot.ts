@@ -177,7 +177,7 @@ function buildSlot(row: ApplyRow, context: SlotBuildContext) {
     roleAllowed &&
     available &&
     (context.isAdmin || (context.canApplyNow && daysUntil <= context.horizonDays));
-  const sectorLabel = row.sectorValue || row.sectorCode || '미지정 섹터';
+  const sectorLabel = row.sectorName || row.sectorValue || row.sectorCode || '미지정 섹터';
   const positionLabel = isButlerSlot ? '버틀러' : '클리너';
 
   return {

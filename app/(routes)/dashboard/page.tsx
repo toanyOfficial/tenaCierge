@@ -3,7 +3,7 @@ import { and, asc, desc, eq, gte, or } from 'drizzle-orm';
 
 import DashboardClient from './DashboardClient';
 
-import { clientRooms, etcBuildings, etcNotice, workApply, workHeader, workerHeader } from '@/src/db/schema';
+import { clientRooms, etcBaseCode, etcBuildings, etcNotice, workApply, workHeader, workerHeader } from '@/src/db/schema';
 import { getProfileSummary, type ProfileSummary } from '@/src/utils/profile';
 import { getApplyStartLabel, getTierLabel } from '@/src/utils/tier';
 
@@ -258,7 +258,7 @@ async function getButlerSnapshot(profile: ProfileSummary): Promise<ButlerSnapsho
         id: workHeader.id,
         checkoutTime: workHeader.checkoutTime,
         buildingName: etcBuildings.shortName,
-        sectorLabel: etcBuildings.sectorValue,
+        sectorLabel: etcBaseCode.value,
         roomNo: clientRooms.roomNo,
         cleaningYn: workHeader.cleaningYn,
         conditionCheckYn: workHeader.conditionCheckYn,
@@ -267,6 +267,10 @@ async function getButlerSnapshot(profile: ProfileSummary): Promise<ButlerSnapsho
       .from(workHeader)
       .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
       .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
+      .leftJoin(
+        etcBaseCode,
+        and(eq(etcBaseCode.codeGroup, etcBuildings.sectorCode), eq(etcBaseCode.code, etcBuildings.sectorValue))
+      )
       .where(eq(workHeader.date, targetDateKey));
 
     const normalizedWorks = works.map((work) => {
