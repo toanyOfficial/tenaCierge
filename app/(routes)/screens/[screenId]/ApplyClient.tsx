@@ -1,11 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import type { FormEvent } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { FormEvent, MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
 import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
-import type { ApplySnapshot, ApplySlot } from './server/getApplySnapshot';
+import type { ApplySnapshot, ApplySlot, TierRuleDisplay } from './server/getApplySnapshot';
 import styles from './screens.module.css';
 import type { ProfileSummary } from '@/src/utils/profile';
 
@@ -23,6 +23,18 @@ type Props = {
   snapshot: ApplySnapshot;
 };
 
+type SectorGroup = {
+  label: string;
+  slots: ApplySlot[];
+};
+
+type DateGroup = {
+  key: string;
+  label: string;
+  dayLabel: string;
+  sectors: SectorGroup[];
+};
+
 export default function ApplyClient({ profile, snapshot }: Props) {
   const router = useRouter();
   const [activeRole, setActiveRole] = useState(profile.primaryRole ?? profile.roles[0] ?? null);
@@ -31,6 +43,7 @@ export default function ApplyClient({ profile, snapshot }: Props) {
   const [pendingId, setPendingId] = useState<number | null>(null);
   const [statusMap, setStatusMap] = useState<Record<number, string>>({});
   const [errorMap, setErrorMap] = useState<Record<number, string>>({});
+  const [openDates, setOpenDates] = useState<Set<string>>(new Set());
 
   const slots = useMemo(() => {
     return [...snapshot.slots].sort((a, b) => {
@@ -41,6 +54,48 @@ export default function ApplyClient({ profile, snapshot }: Props) {
       return Number(a.isButlerSlot) - Number(b.isButlerSlot);
     });
   }, [snapshot.slots]);
+
+  const dateGroups = useMemo<DateGroup[]>(() => {
+    const byDate = new Map<string, ApplySlot[]>();
+
+    slots.forEach((slot) => {
+      if (!byDate.has(slot.workDate)) {
+        byDate.set(slot.workDate, []);
+      }
+      byDate.get(slot.workDate)!.push(slot);
+    });
+
+    return Array.from(byDate.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([dateKey, dateSlots]) => {
+        const sectors = Array.from(
+          dateSlots.reduce((acc, slot) => {
+            const key = slot.sectorLabel || '미지정 섹터';
+            if (!acc.has(key)) {
+              acc.set(key, [] as ApplySlot[]);
+            }
+            acc.get(key)!.push(slot);
+            return acc;
+          }, new Map<string, ApplySlot[]>())
+        )
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .map(([label, sectorSlots]) => ({ label, slots: sectorSlots })) as SectorGroup[];
+
+        const refSlot = dateSlots[0];
+        const dayLabel = refSlot?.daysUntil === 0 ? 'D0' : `D+${refSlot?.daysUntil ?? ''}`;
+
+        return {
+          key: dateKey,
+          label: refSlot?.workDateLabel ?? dateKey,
+          dayLabel,
+          sectors
+        } satisfies DateGroup;
+      });
+  }, [slots]);
+
+  useEffect(() => {
+    setOpenDates(new Set(dateGroups.map((group) => group.key)));
+  }, [dateGroups]);
 
   const guard = snapshot.guardMessage;
   const disabledMessage = !snapshot.isAdmin && !snapshot.canApplyNow ? snapshot.applyStartLabel : null;
@@ -170,6 +225,18 @@ export default function ApplyClient({ profile, snapshot }: Props) {
     return null;
   }
 
+  function toggleDate(key: string) {
+    setOpenDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
   return (
     <div className={styles.screenShell}>
       <CommonHeader
@@ -188,7 +255,6 @@ export default function ApplyClient({ profile, snapshot }: Props) {
             <h1 className={styles.applyTitle}>{snapshot.tierMessage}</h1>
           </div>
           <div className={styles.applyActions}>
-            <span className={styles.applyBadge}>{snapshot.applyStartLabel}</span>
             <button type="button" className={styles.infoButton} onClick={() => setInfoOpen(true)}>
               설명보기
             </button>
@@ -200,37 +266,68 @@ export default function ApplyClient({ profile, snapshot }: Props) {
         {disabledMessage && !guard ? <p className={styles.guardNotice}>현재 시각에는 신청 버튼이 비활성화됩니다. ({disabledMessage})</p> : null}
 
         {snapshot.hasAccess && !guard ? (
-          <div className={styles.applyGrid}>
-            <div className={styles.applyGridHead}>
-              <span>일자</span>
-              <span>섹터</span>
-              <span>포지션</span>
-              <span>신청</span>
+          dateGroups.length ? (
+            <div className={styles.applyCardStack}>
+              {dateGroups.map((group) => {
+                const isOpen = openDates.has(group.key);
+                return (
+                  <article key={group.key} className={styles.applyCard}>
+                    <header className={styles.applyCardHead}>
+                      <div>
+                        <p className={styles.applyDate}>{group.label}</p>
+                        <span className={styles.applyDay}>{group.dayLabel}</span>
+                      </div>
+                      <button type="button" className={styles.collapseButton} onClick={() => toggleDate(group.key)}>
+                        {isOpen ? '접기' : '펼치기'}
+                      </button>
+                    </header>
+                    {isOpen ? (
+                      <div className={styles.applyCardBody}>
+                        {group.sectors.map((sector) => (
+                          <div key={`${group.key}-${sector.label}`} className={styles.applySectorGroup}>
+                            <header className={styles.applySectorHead}>
+                              <p className={styles.applySector}>{sector.label}</p>
+                              <span className={styles.applySlotCount}>{sector.slots.length}건</span>
+                            </header>
+                            <ul className={styles.applySlotList}>
+                              {sector.slots.map((slot) => {
+                                const takenByOther = slot.isTaken && !slot.isMine;
+                                return (
+                                  <li
+                                    key={slot.id}
+                                    className={`${styles.applySlot} ${takenByOther ? styles.applySlotTaken : ''}`}
+                                  >
+                                    <div className={styles.applySlotMeta}>
+                                      <span className={slot.isButlerSlot ? styles.positionButler : styles.positionCleaner}>
+                                        {slot.positionLabel}
+                                      </span>
+                                      {slot.isTaken ? (
+                                        <span className={styles.applyAssignee}>
+                                          {slot.isMine ? '내 신청' : slot.assignedWorkerName || '신청완료'}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    <div className={styles.applySlotAction}>{renderButton(slot)}</div>
+                                    <div className={styles.applySlotHelper}>{renderHelper(slot)}</div>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
             </div>
-            {slots.map((slot) => (
-              <article key={slot.id} className={styles.applyRow}>
-                <div className={styles.applyCell}>
-                  <p className={styles.applyDate}>{slot.workDateLabel}</p>
-                  <span className={styles.applyDay}>{slot.daysUntil === 0 ? 'D0' : `D+${slot.daysUntil}`}</span>
-                </div>
-                <div className={styles.applyCell}>
-                  <p className={styles.applySector}>{slot.sectorLabel}</p>
-                </div>
-                <div className={styles.applyCell}>
-                  <span className={slot.isButlerSlot ? styles.positionButler : styles.positionCleaner}>{slot.positionLabel}</span>
-                </div>
-                <div className={styles.applyCell}>
-                  {renderButton(slot)}
-                  {renderHelper(slot)}
-                </div>
-              </article>
-            ))}
-            {emptyMessage ? <p className={styles.emptyMessage}>{emptyMessage}</p> : null}
-          </div>
+          ) : (
+            <p className={styles.emptyMessage}>{emptyMessage ?? '표시할 신청 가능 업무가 없습니다.'}</p>
+          )
         ) : null}
       </section>
 
-      {infoOpen ? <InfoModal text={snapshot.infoText} onClose={() => setInfoOpen(false)} /> : null}
+      {infoOpen ? <InfoModal rules={snapshot.tierRules} onClose={() => setInfoOpen(false)} /> : null}
       {assignSlot ? (
         <WorkerAssignModal
           slot={assignSlot}
@@ -245,9 +342,15 @@ export default function ApplyClient({ profile, snapshot }: Props) {
   );
 }
 
-function InfoModal({ text, onClose }: { text: string; onClose: () => void }) {
+function InfoModal({ rules, onClose }: { rules: TierRuleDisplay[]; onClose: () => void }) {
+  function handleBackdropClick(event: MouseEvent<HTMLDivElement>) {
+    if (event.target === event.currentTarget) {
+      onClose();
+    }
+  }
+
   return (
-    <div className={styles.modalBackdrop} role="dialog" aria-modal="true">
+    <div className={styles.modalBackdrop} role="dialog" aria-modal="true" onClick={handleBackdropClick}>
       <div className={styles.modalCard}>
         <header className={styles.modalHead}>
           <h2>랭크 안내</h2>
@@ -255,7 +358,44 @@ function InfoModal({ text, onClose }: { text: string; onClose: () => void }) {
             ×
           </button>
         </header>
-        <pre className={styles.modalBody}>{text}</pre>
+        <div className={`${styles.modalBody} ${styles.modalScrollable}`}>
+          <p className={styles.modalIntro}>
+            최근 20일간 업무평가 점수를 합산해 매일 16:30에 랭크를 재조정합니다. 신청 후 취소 시 ((7-남은날짜) X 2)점
+            감점이 부과됩니다.
+          </p>
+          <ul className={styles.ruleList}>
+            {rules.map((rule) => (
+              <li key={rule.tier} className={styles.ruleItem}>
+                <div className={styles.ruleHead}>
+                  <strong>{rule.tierLabel}</strong>
+                  <span>{rule.rangeLabel}</span>
+                </div>
+                <dl className={styles.ruleFacts}>
+                  <div>
+                    <dt>신청 가능 시간</dt>
+                    <dd>{rule.applyStartLabel} 이후</dd>
+                  </div>
+                  <div>
+                    <dt>신청 가능 범위</dt>
+                    <dd>D+{rule.horizonDays}</dd>
+                  </div>
+                  {rule.hourlyWage ? (
+                    <div>
+                      <dt>시급</dt>
+                      <dd>{rule.hourlyWage.toLocaleString()}원</dd>
+                    </div>
+                  ) : null}
+                  {rule.comment ? (
+                    <div>
+                      <dt>비고</dt>
+                      <dd>{rule.comment}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+              </li>
+            ))}
+          </ul>
+        </div>
         <div className={styles.modalFoot}>
           <button type="button" onClick={onClose} className={styles.infoButton}>
             닫기

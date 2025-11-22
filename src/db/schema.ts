@@ -178,6 +178,9 @@ export const workerTierRules = mysqlTable('worker_tier_rules', {
   minPercentage: tinyint('min_percentage', { unsigned: true }).notNull(),
   maxPercentage: tinyint('max_percentage').notNull(),
   tier: tinyint('tier').notNull(),
+  hourlyWage: smallint('hourly_wage'),
+  applyStartTime: time('apply_start_time'),
+  applyHorizon: tinyint('apply_horizon').default(0),
   comment: varchar('comment', { length: 100 }).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()

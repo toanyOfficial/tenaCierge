@@ -689,17 +689,6 @@
   gap: 10px;
 }
 
-.applyBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 12px;
-  border-radius: 999px;
-  background: #0f172a;
-  color: #fff;
-  font-weight: 600;
-}
-
 .infoButton {
   border: 1px solid #0f172a;
   background: transparent;
@@ -734,6 +723,112 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.applyCardStack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.applyCard {
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 16px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.applyCardHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.collapseButton {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+  border-radius: 12px;
+  padding: 6px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.applyCardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.applySectorGroup {
+  border: 1px dashed #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.applySectorHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.applySlotCount {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.applySlotList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.applySlot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.applySlotTaken {
+  opacity: 0.65;
+}
+
+.applySlotMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.applyAssignee {
+  color: #475569;
+  font-weight: 600;
+}
+
+.applySlotAction {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.applySlotHelper {
+  flex-basis: 100%;
 }
 
 .applyGridHead {
@@ -901,6 +996,71 @@
   line-height: 1.5;
   color: #0f172a;
   margin: 0;
+}
+
+.modalScrollable {
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.modalIntro {
+  margin: 0 0 8px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.ruleList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ruleItem {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.ruleHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.ruleHead strong {
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.ruleHead span {
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.ruleFacts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px 14px;
+  margin: 0;
+}
+
+.ruleFacts dt {
+  margin: 0;
+  font-weight: 600;
+  color: #475569;
+}
+
+.ruleFacts dd {
+  margin: 0;
+  color: #0f172a;
+  font-weight: 500;
 }
 
 .modalFoot {
