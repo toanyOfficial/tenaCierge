@@ -34,6 +34,13 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const canToggleSupervising = activeRole === 'admin' || activeRole === 'butler';
   const canAssignCleaner = canToggleSupervising;
 
+  function cleaningTone(flag: number) {
+    if (flag >= 4) return styles.cleaningDone;
+    if (flag === 3) return styles.cleaningNearDone;
+    if (flag === 2) return styles.cleaningProgress;
+    return styles.cleaningIdle;
+  }
+
   function handleDateChange(next: string) {
     const search = new URLSearchParams(params?.toString() ?? '');
     if (next) {
@@ -130,19 +137,11 @@ export default function WorkListClient({ profile, snapshot }: Props) {
 
                   <div className={styles.workRowCompact}>
                     <button
-                      className={canToggleSupply ? styles.toggleButton : styles.toggleButtonDisabled}
+                      className={`${styles.toggleButton} ${work.supplyYn ? styles.supplyOn : styles.supplyOff}`}
                       disabled={!canToggleSupply}
                       onClick={() => updateWork(work.id, { supplyYn: !work.supplyYn })}
                     >
                       배급 {work.supplyYn ? '완료' : '대기'}
-                    </button>
-
-                    <button
-                      className={canToggleCleaning ? styles.toggleButton : styles.toggleButtonDisabled}
-                      disabled={!canToggleCleaning}
-                      onClick={() => updateWork(work.id, { cleaningFlag: cycleCleaning(work.cleaningFlag) })}
-                    >
-                      {cleaningLabel}
                     </button>
 
                     <button
@@ -154,13 +153,43 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                         updateWork(work.id, { assignTerm: term });
                       }}
                     >
-                      담당자 {work.cleanerName || '미지정'}
+                      {work.cleanerName ? `담당자 ${work.cleanerName}` : '배정하기'}
                     </button>
 
                     <button
-                      className={canToggleSupervising ? styles.toggleButton : styles.toggleButtonDisabled}
+                      className={`${styles.toggleButton} ${cleaningTone(work.cleaningFlag)}`}
+                      disabled={!canToggleCleaning}
+                      onClick={() => {
+                        if (work.cleaningFlag === 3) {
+                          const ok = window.confirm(
+                            `${work.buildingShortName}${work.roomNo} 호실에 대하여 클리닝 완료 보고를 진행하시겠습니까?`
+                          );
+                          if (ok) {
+                            router.push('/screens/005');
+                          }
+                          return;
+                        }
+                        updateWork(work.id, { cleaningFlag: cycleCleaning(work.cleaningFlag) });
+                      }}
+                    >
+                      {cleaningLabel}
+                    </button>
+
+                    <button
+                      className={`${styles.toggleButton} ${work.supervisingEndTime ? styles.superviseOn : styles.superviseOff}`}
                       disabled={!canToggleSupervising}
-                      onClick={() => updateWork(work.id, { supervisingDone: !work.supervisingEndTime })}
+                      onClick={() => {
+                        if (!work.supervisingEndTime && work.cleaningFlag === 3) {
+                          const ok = window.confirm(
+                            `${work.buildingShortName}${work.roomNo} 호실에 대하여 수퍼바이징 완료 보고를 진행하시겠습니까?`
+                          );
+                          if (ok) {
+                            router.push('/screens/005');
+                          }
+                          return;
+                        }
+                        updateWork(work.id, { supervisingDone: !work.supervisingEndTime });
+                      }}
                     >
                       {supervisingLabel}
                     </button>

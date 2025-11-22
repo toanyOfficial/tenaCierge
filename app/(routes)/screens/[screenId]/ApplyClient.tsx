@@ -433,8 +433,14 @@ function WorkerAssignModal({ slot, onClose, onSelect }: { slot: ApplySlot; onClo
     }
   }
 
+  function handleBackdropClick(event: MouseEvent<HTMLDivElement>) {
+    if (event.target === event.currentTarget) {
+      onClose();
+    }
+  }
+
   return (
-    <div className={styles.modalBackdrop} role="dialog" aria-modal="true">
+    <div className={styles.modalBackdrop} role="dialog" aria-modal="true" onClick={handleBackdropClick}>
       <div className={styles.modalCard}>
         <header className={styles.modalHead}>
           <h2>배정할 작업자 선택</h2>
@@ -446,7 +452,7 @@ function WorkerAssignModal({ slot, onClose, onSelect }: { slot: ApplySlot; onClo
         <form className={styles.workerSearch} onSubmit={handleSearch}>
           <input
             type="text"
-            placeholder="휴대전화 또는 관리코드를 입력하세요"
+            placeholder="이름 · 휴대전화 · 관리코드를 입력하세요"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />

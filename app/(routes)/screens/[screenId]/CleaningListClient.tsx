@@ -375,9 +375,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                       <div className={styles.workHeaderRow}>
                         <p className={styles.workTitle}>{work.roomName}</p>
                         <div className={styles.workMetaRow}>
-                          {work.cancelYn ? (
-                            <span className={styles.cancelNotice}>이 청소 건은 현재 취소상태입니다.</span>
-                          ) : null}
+                          <span className={styles.cancelComment}>{work.cancelYn ? '취소 상태' : '예약 유지'}</span>
                           {canEdit ? (
                             <button
                               type="button"

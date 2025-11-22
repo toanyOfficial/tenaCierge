@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 
-import type { AdminNotice, ButlerSnapshot, CleanerSnapshot } from './page';
+import type { AdminNotice, ButlerSnapshotOption, CleanerSnapshot } from './page';
 import type { ProfileSummary } from '@/src/utils/profile';
 import CommonHeader from './CommonHeader';
 import CleanerPanel from './CleanerPanel';
@@ -14,11 +14,11 @@ import styles from './dashboard.module.css';
 type Props = {
   profile: ProfileSummary;
   cleanerSnapshot: CleanerSnapshot | null;
-  butlerSnapshot: ButlerSnapshot | null;
+  butlerSnapshots: ButlerSnapshotOption[];
   adminNotice: AdminNotice | null;
 };
 
-export default function DashboardClient({ profile, cleanerSnapshot, butlerSnapshot, adminNotice }: Props) {
+export default function DashboardClient({ profile, cleanerSnapshot, butlerSnapshots, adminNotice }: Props) {
   const roles = profile.roles;
   const [activeRole, setActiveRole] = useState<string | null>(() => {
     if (profile.primaryRole && roles.includes(profile.primaryRole)) {
@@ -31,6 +31,8 @@ export default function DashboardClient({ profile, cleanerSnapshot, butlerSnapsh
 
     return roles[0] ?? null;
   });
+
+  const [activeButlerKey, setActiveButlerKey] = useState<string | null>(butlerSnapshots[0]?.key ?? null);
 
   async function persistRole(role: string) {
     try {
@@ -62,7 +64,13 @@ export default function DashboardClient({ profile, cleanerSnapshot, butlerSnapsh
     }
 
     if (activeRole === 'butler') {
-      return <ButlerPanel snapshot={butlerSnapshot} />;
+      return (
+        <ButlerPanel
+          snapshots={butlerSnapshots}
+          activeKey={activeButlerKey}
+          onChangeDate={(key) => setActiveButlerKey(key)}
+        />
+      );
     }
 
     if (activeRole === 'admin') {
@@ -77,7 +85,7 @@ export default function DashboardClient({ profile, cleanerSnapshot, butlerSnapsh
         </header>
       </article>
     );
-  }, [activeRole, adminNotice, butlerSnapshot, cleanerSnapshot]);
+  }, [activeRole, adminNotice, activeButlerKey, butlerSnapshots, cleanerSnapshot]);
 
   return (
     <div className={styles.dashboardStack}>

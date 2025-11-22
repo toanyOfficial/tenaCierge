@@ -542,6 +542,12 @@
   background: #f8fafc;
 }
 
+.sectorTotal {
+  background: linear-gradient(180deg, #e2e8f0 0%, #ffffff 100%);
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 6px 14px rgba(15, 23, 42, 0.08);
+}
+
 .sectorCard header {
   display: flex;
   align-items: center;
@@ -721,6 +727,26 @@
   padding: 6px 14px;
   font-size: 0.85rem;
   font-weight: 600;
+}
+
+.dateSelector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 4px;
+}
+
+.selectorLabel {
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.selectorControl {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.95rem;
+  background: #ffffff;
 }
 
 .noticeButton {

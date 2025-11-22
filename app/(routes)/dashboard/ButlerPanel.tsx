@@ -1,15 +1,25 @@
 import { useMemo, useState } from 'react';
 
 import styles from './dashboard.module.css';
-import type { ButlerDetailEntry, ButlerSnapshot } from './page';
+import type { ButlerDetailEntry, ButlerSnapshotOption } from './page';
 
 const SECTOR_ORDER = ['신논현', '역삼', '논현'];
 
 type Props = {
-  snapshot: ButlerSnapshot | null;
+  snapshots: ButlerSnapshotOption[];
+  activeKey: string | null;
+  onChangeDate: (key: string) => void;
 };
 
-export default function ButlerPanel({ snapshot }: Props) {
+export default function ButlerPanel({ snapshots, activeKey, onChangeDate }: Props) {
+  const snapshot = useMemo(() => {
+    if (!snapshots.length) return null;
+    if (activeKey) {
+      return snapshots.find((option) => option.key === activeKey) ?? snapshots[0];
+    }
+    return snapshots[0];
+  }, [activeKey, snapshots]);
+
   if (!snapshot) {
     return (
       <section className={styles.butlerPanel} data-child-id="7">
@@ -36,6 +46,24 @@ export default function ButlerPanel({ snapshot }: Props) {
         <span className={styles.countBadge}>{snapshot.totalWorks}건</span>
       </header>
 
+      <div className={styles.dateSelector}>
+        <label className={styles.selectorLabel} htmlFor="butler-date-select">
+          날짜 선택
+        </label>
+        <select
+          id="butler-date-select"
+          value={snapshot.key}
+          onChange={(event) => onChangeDate(event.target.value)}
+          className={styles.selectorControl}
+        >
+          {snapshots.map((option) => (
+            <option key={option.key} value={option.key}>
+              {option.targetDateLabel}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <section className={styles.butlerSection} aria-label="합계표">
         <header className={styles.sectionHeader}>
           <h3>합계표</h3>
@@ -44,7 +72,7 @@ export default function ButlerPanel({ snapshot }: Props) {
         {snapshot.sectorSummaries.length ? (
           <div className={styles.butlerSummaryGrid}>
             {snapshot.sectorSummaries.map((sector) => (
-              <article key={sector.sectorLabel} className={styles.sectorCard}>
+              <article key={sector.sectorLabel} className={`${styles.sectorCard} ${styles.sectorTotal}`}>
                 <header>
                   <p>{sector.sectorLabel}</p>
                   <span>{sector.totalWorkers}개</span>

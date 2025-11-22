@@ -32,11 +32,6 @@ export async function findWorkerByProfile(profile: ProfileSummary) {
   }
 
   const whereClause = conditions.length === 1 ? conditions[0] : or(...conditions);
-  const clauses = [
-    phonePattern ? like(workerHeader.phone, phonePattern) : null,
-    phonePattern ? like(workerHeader.registerCode, phonePattern) : null,
-    like(workerHeader.name, namePattern)
-  ].filter(Boolean) as ReturnType<typeof like>[];
 
   const rows = await db
     .select({

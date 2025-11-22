@@ -66,7 +66,7 @@ export async function getCleaningSnapshot(profile: ProfileSummary): Promise<Clea
     hostRoomOptions: hostRooms,
     adminRoomOptions: adminRooms,
     hostRoomIds: hostRooms.map((room) => room.roomId),
-    message: null
+    message: '16:00이 되면 오더수정이 마감됩니다. 반드시 16:00 이전에 수정사항을 반영해주세요.'
   };
 }
 

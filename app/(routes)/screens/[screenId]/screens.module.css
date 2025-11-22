@@ -228,6 +228,44 @@
   cursor: not-allowed;
 }
 
+.supplyOff {
+  background: #e2e8f0;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.supplyOn {
+  background: #2563eb;
+  border-color: #1d4ed8;
+}
+
+.cleaningIdle {
+  background: linear-gradient(90deg, #e2e8f0, #cbd5e1);
+  color: #0f172a;
+}
+
+.cleaningProgress {
+  background: linear-gradient(90deg, #cbd5e1, #94a3b8);
+  color: #0f172a;
+}
+
+.cleaningNearDone {
+  background: linear-gradient(90deg, #94a3b8, #60a5fa);
+}
+
+.cleaningDone {
+  background: #2563eb;
+}
+
+.superviseOff {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.superviseOn {
+  background: #3b82f6;
+}
+
 .dateInput {
   display: block;
   margin-top: 6px;
@@ -243,6 +281,11 @@
   justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.cancelComment {
+  color: #475569;
+  font-size: 0.95rem;
 }
 
 .workSubtitle {
@@ -540,6 +583,10 @@
   background: #f8fafc;
   width: 100%;
   box-sizing: border-box;
+}
+
+.addForm > label {
+  margin-bottom: 6px;
 }
 
 .addForm button[type='submit'] {

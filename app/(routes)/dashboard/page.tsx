@@ -71,6 +71,7 @@ export type ButlerDetailEntry = {
 };
 
 export type ButlerSnapshot = {
+  targetDateKey: string;
   targetDateLabel: string;
   isToday: boolean;
   sectorSummaries: ButlerSectorSummary[];
@@ -78,6 +79,8 @@ export type ButlerSnapshot = {
   totalWorks: number;
   preferredSectors: string[];
 };
+
+export type ButlerSnapshotOption = ButlerSnapshot & { key: string };
 
 export type AdminNotice = {
   id: number | null;
@@ -89,10 +92,10 @@ export type AdminNotice = {
 export default async function DashboardPage() {
   const profile = getProfileSummary();
   const cleanerPromise = profile.roles.includes('cleaner') ? getCleanerSnapshot(profile) : Promise.resolve(null);
-  const butlerPromise = profile.roles.includes('butler') ? getButlerSnapshot(profile) : Promise.resolve(null);
+  const butlerPromise = profile.roles.includes('butler') ? getButlerSnapshots(profile) : Promise.resolve([]);
   const adminNoticePromise = profile.roles.includes('admin') ? getLatestNotice() : Promise.resolve(null);
 
-  const [cleanerSnapshot, butlerSnapshot, adminNotice] = await Promise.all([
+  const [cleanerSnapshot, butlerSnapshots, adminNotice] = await Promise.all([
     cleanerPromise,
     butlerPromise,
     adminNoticePromise
@@ -102,7 +105,7 @@ export default async function DashboardPage() {
     <DashboardClient
       profile={profile}
       cleanerSnapshot={cleanerSnapshot}
-      butlerSnapshot={butlerSnapshot}
+      butlerSnapshots={butlerSnapshots}
       adminNotice={adminNotice}
     />
   );
@@ -254,182 +257,200 @@ async function getCleanerSnapshot(profile: ProfileSummary): Promise<CleanerSnaps
   }
 }
 
-async function getButlerSnapshot(profile: ProfileSummary): Promise<ButlerSnapshot | null> {
+async function getButlerSnapshots(profile: ProfileSummary): Promise<ButlerSnapshotOption[]> {
   try {
-    const { db } = await import('@/src/db/client');
     const nowKst = getKstNow();
-    const isTodayWindow = nowKst.getHours() < 15;
-    const targetDate = new Date(nowKst);
-
-    if (!isTodayWindow) {
-      targetDate.setDate(targetDate.getDate() + 1);
-    }
-
-    const targetDateKey = formatDateKey(targetDate);
-
-    const works = await db
-      .select({
-        id: workHeader.id,
-        checkoutTime: workHeader.checkoutTime,
-        buildingName: etcBuildings.shortName,
-        sectorLabel: etcBaseCode.value,
-        roomNo: clientRooms.roomNo,
-        cleaningYn: workHeader.cleaningYn,
-        conditionCheckYn: workHeader.conditionCheckYn,
-        comment: workHeader.requirements
-      })
-      .from(workHeader)
-      .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
-      .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
-      .leftJoin(
-        etcBaseCode,
-        and(eq(etcBaseCode.codeGroup, etcBuildings.sectorCode), eq(etcBaseCode.code, etcBuildings.sectorValue))
-      )
-      .where(eq(workHeader.date, targetDateKey));
-
-    const normalizedWorks = works.map((work) => {
-      const sectorLabel = work.sectorLabel ?? '미지정 섹터';
-      const buildingName = work.buildingName ?? '미지정 빌딩';
-      const checkoutTimeLabel = formatCheckoutTimeLabel(work.checkoutTime);
-      const checkoutMinutes = checkoutTimeToMinutes(work.checkoutTime);
-      const workTypeLabel = work.cleaningYn === 1 ? '청소' : '점검';
-
-      return {
-        id: work.id,
-        sectorLabel,
-        buildingName,
-        checkoutTimeLabel,
-        checkoutMinutes,
-        roomNo: work.roomNo ?? '-',
-        workTypeLabel,
-        comment: work.comment ?? ''
-      };
-    });
-
-    const sectorGroups = new Map<
-      string,
-      {
-        label: string;
-        totalWorkers: number;
-        buildings: Map<
-          string,
-          {
-            label: string;
-            totalWorkers: number;
-            checkoutGroups: Map<number, { label: string; count: number }>;
-          }
-        >;
-      }
-    >();
-
-    const buildingTotals = new Map<string, number>();
-
-    normalizedWorks.forEach((work) => {
-      const sectorKey = work.sectorLabel;
-      if (!sectorGroups.has(sectorKey)) {
-        sectorGroups.set(sectorKey, {
-          label: work.sectorLabel,
-          totalWorkers: 0,
-          buildings: new Map()
-        });
-      }
-
-      const sectorGroup = sectorGroups.get(sectorKey)!;
-      sectorGroup.totalWorkers += 1;
-
-      const buildingKey = `${work.sectorLabel}::${work.buildingName}`;
-      buildingTotals.set(buildingKey, (buildingTotals.get(buildingKey) ?? 0) + 1);
-
-      if (!sectorGroup.buildings.has(work.buildingName)) {
-        sectorGroup.buildings.set(work.buildingName, {
-          label: work.buildingName,
-          totalWorkers: 0,
-          checkoutGroups: new Map()
-        });
-      }
-
-      const buildingGroup = sectorGroup.buildings.get(work.buildingName)!;
-      buildingGroup.totalWorkers += 1;
-
-      const minutesKey = work.checkoutMinutes;
-      const existingGroup = buildingGroup.checkoutGroups.get(minutesKey);
-      if (existingGroup) {
-        existingGroup.count += 1;
-      } else {
-        buildingGroup.checkoutGroups.set(minutesKey, { label: work.checkoutTimeLabel, count: 1 });
-      }
-    });
+    const today = new Date(nowKst);
+    const tomorrow = new Date(nowKst);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
     const preferredSectors: string[] = await resolvePreferredSectors(profile);
 
-    const sectorSummaries: ButlerSectorSummary[] = Array.from(sectorGroups.values())
-      .sort((a, b) => sortSectorWithPreference(a.label, b.label, preferredSectors))
-      .map((sector) => ({
-        sectorLabel: sector.label,
-        totalWorkers: sector.totalWorkers,
-        buildings: Array.from(sector.buildings.values())
-          .sort((a, b) => {
-            if (a.totalWorkers === b.totalWorkers) {
-              return a.label.localeCompare(b.label, 'ko');
-            }
-            return b.totalWorkers - a.totalWorkers;
-          })
-          .map((building) => ({
-            buildingName: building.label,
-            totalWorkers: building.totalWorkers,
-            checkoutGroups: Array.from(building.checkoutGroups.entries())
-              .sort(([minutesA], [minutesB]) => minutesA - minutesB)
-              .map(([, meta]) => ({
-                checkoutTimeLabel: meta.label,
-                count: meta.count
-              }))
-          }))
-      }));
+    const snapshots = await Promise.all([
+      buildButlerSnapshot(today, true, preferredSectors),
+      buildButlerSnapshot(tomorrow, false, preferredSectors)
+    ]);
 
-    const sortedWorks = [...normalizedWorks].sort((a, b) => {
-      const sectorDiff = sortSectorWithPreference(a.sectorLabel, b.sectorLabel, preferredSectors);
-      if (sectorDiff !== 0) {
-        return sectorDiff;
-      }
+    const defaultKey = nowKst.getHours() < 15 ? formatDateKey(today) : formatDateKey(tomorrow);
 
-      const buildingKeyA = `${a.sectorLabel}::${a.buildingName}`;
-      const buildingKeyB = `${b.sectorLabel}::${b.buildingName}`;
-      const buildingTotalA = buildingTotals.get(buildingKeyA) ?? 0;
-      const buildingTotalB = buildingTotals.get(buildingKeyB) ?? 0;
-      if (buildingTotalA !== buildingTotalB) {
-        return buildingTotalB - buildingTotalA;
-      }
-
-      if (a.checkoutMinutes !== b.checkoutMinutes) {
-        return a.checkoutMinutes - b.checkoutMinutes;
-      }
-
-      return b.roomNo.localeCompare(a.roomNo, 'ko', { numeric: true, sensitivity: 'base' });
-    });
-
-    const details: ButlerDetailEntry[] = sortedWorks.map((work) => ({
-      id: work.id,
-      sectorLabel: work.sectorLabel,
-      buildingName: work.buildingName,
-      checkoutTimeLabel: work.checkoutTimeLabel,
-      roomNo: work.roomNo,
-      workTypeLabel: work.workTypeLabel,
-      isCleaning: work.workTypeLabel === '청소',
-      comment: work.comment
-    }));
-
-    return {
-      targetDateLabel: formatDateLabel(targetDate),
-      isToday: isTodayWindow,
-      sectorSummaries,
-      details,
-      totalWorks: normalizedWorks.length,
-      preferredSectors
-    };
+    return snapshots
+      .filter(Boolean)
+      .map((snapshot) => ({ ...snapshot!, key: snapshot!.targetDateKey }))
+      .sort((a, b) => (a.targetDateKey === defaultKey ? -1 : b.targetDateKey === defaultKey ? 1 : 0));
   } catch (error) {
     console.error('버틀러 현황 조회 실패', error);
-    return null;
+    return [];
   }
+}
+
+async function buildButlerSnapshot(
+  targetDate: Date,
+  isToday: boolean,
+  preferredSectors: string[]
+): Promise<ButlerSnapshot | null> {
+  const { db } = await import('@/src/db/client');
+  const targetDateKey = formatDateKey(targetDate);
+
+  const works = await db
+    .select({
+      id: workHeader.id,
+      checkoutTime: workHeader.checkoutTime,
+      buildingName: etcBuildings.shortName,
+      sectorLabel: etcBaseCode.value,
+      sectorCode: etcBuildings.sectorCode,
+      sectorValue: etcBuildings.sectorValue,
+      roomNo: clientRooms.roomNo,
+      cleaningYn: workHeader.cleaningYn,
+      conditionCheckYn: workHeader.conditionCheckYn,
+      comment: workHeader.requirements
+    })
+    .from(workHeader)
+    .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
+    .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
+    .leftJoin(
+      etcBaseCode,
+      and(eq(etcBaseCode.codeGroup, etcBuildings.sectorCode), eq(etcBaseCode.code, etcBuildings.sectorValue))
+    )
+    .where(eq(workHeader.date, targetDateKey));
+
+  const normalizedWorks = works.map((work) => {
+    const sectorLabel = work.sectorLabel ?? work.sectorValue ?? work.sectorCode ?? '미지정 섹터';
+    const buildingName = work.buildingName ?? '미지정 빌딩';
+    const checkoutTimeLabel = formatCheckoutTimeLabel(work.checkoutTime);
+    const checkoutMinutes = checkoutTimeToMinutes(work.checkoutTime);
+    const workTypeLabel = work.cleaningYn === 1 ? '청소' : '점검';
+
+    return {
+      id: work.id,
+      sectorLabel,
+      buildingName,
+      checkoutTimeLabel,
+      checkoutMinutes,
+      roomNo: work.roomNo ?? '-',
+      workTypeLabel,
+      comment: work.comment ?? ''
+    };
+  });
+
+  const sectorGroups = new Map<
+    string,
+    {
+      label: string;
+      totalWorkers: number;
+      buildings: Map<
+        string,
+        {
+          label: string;
+          totalWorkers: number;
+          checkoutGroups: Map<number, { label: string; count: number }>;
+        }
+      >;
+    }
+  >();
+
+  const buildingTotals = new Map<string, number>();
+
+  normalizedWorks.forEach((work) => {
+    const sectorKey = work.sectorLabel;
+    if (!sectorGroups.has(sectorKey)) {
+      sectorGroups.set(sectorKey, {
+        label: work.sectorLabel,
+        totalWorkers: 0,
+        buildings: new Map()
+      });
+    }
+
+    const sectorGroup = sectorGroups.get(sectorKey)!;
+    sectorGroup.totalWorkers += 1;
+
+    const buildingKey = `${work.sectorLabel}::${work.buildingName}`;
+    buildingTotals.set(buildingKey, (buildingTotals.get(buildingKey) ?? 0) + 1);
+
+    if (!sectorGroup.buildings.has(work.buildingName)) {
+      sectorGroup.buildings.set(work.buildingName, {
+        label: work.buildingName,
+        totalWorkers: 0,
+        checkoutGroups: new Map()
+      });
+    }
+
+    const buildingGroup = sectorGroup.buildings.get(work.buildingName)!;
+    buildingGroup.totalWorkers += 1;
+
+    const minutesKey = work.checkoutMinutes;
+    const existingGroup = buildingGroup.checkoutGroups.get(minutesKey);
+    if (existingGroup) {
+      existingGroup.count += 1;
+    } else {
+      buildingGroup.checkoutGroups.set(minutesKey, { label: work.checkoutTimeLabel, count: 1 });
+    }
+  });
+
+  const sectorSummaries: ButlerSectorSummary[] = Array.from(sectorGroups.values())
+    .sort((a, b) => sortSectorWithPreference(a.label, b.label, preferredSectors))
+    .map((sector) => ({
+      sectorLabel: sector.label,
+      totalWorkers: sector.totalWorkers,
+      buildings: Array.from(sector.buildings.values())
+        .sort((a, b) => {
+          if (a.totalWorkers === b.totalWorkers) {
+            return a.label.localeCompare(b.label, 'ko');
+          }
+          return b.totalWorkers - a.totalWorkers;
+        })
+        .map((building) => ({
+          buildingName: building.label,
+          totalWorkers: building.totalWorkers,
+          checkoutGroups: Array.from(building.checkoutGroups.entries())
+            .sort(([minutesA], [minutesB]) => minutesA - minutesB)
+            .map(([, meta]) => ({
+              checkoutTimeLabel: meta.label,
+              count: meta.count
+            }))
+        }))
+    }));
+
+  const sortedWorks = [...normalizedWorks].sort((a, b) => {
+    const sectorDiff = sortSectorWithPreference(a.sectorLabel, b.sectorLabel, preferredSectors);
+    if (sectorDiff !== 0) {
+      return sectorDiff;
+    }
+
+    const buildingKeyA = `${a.sectorLabel}::${a.buildingName}`;
+    const buildingKeyB = `${b.sectorLabel}::${b.buildingName}`;
+    const buildingTotalA = buildingTotals.get(buildingKeyA) ?? 0;
+    const buildingTotalB = buildingTotals.get(buildingKeyB) ?? 0;
+    if (buildingTotalA !== buildingTotalB) {
+      return buildingTotalB - buildingTotalA;
+    }
+
+    if (a.checkoutMinutes !== b.checkoutMinutes) {
+      return a.checkoutMinutes - b.checkoutMinutes;
+    }
+
+    return b.roomNo.localeCompare(a.roomNo, 'ko', { numeric: true, sensitivity: 'base' });
+  });
+
+  const details: ButlerDetailEntry[] = sortedWorks.map((work) => ({
+    id: work.id,
+    sectorLabel: work.sectorLabel,
+    buildingName: work.buildingName,
+    checkoutTimeLabel: work.checkoutTimeLabel,
+    roomNo: work.roomNo,
+    workTypeLabel: work.workTypeLabel,
+    isCleaning: work.workTypeLabel === '청소',
+    comment: work.comment
+  }));
+
+  return {
+    targetDateKey: targetDateKey,
+    targetDateLabel: formatDateLabel(targetDate),
+    isToday,
+    sectorSummaries,
+    details,
+    totalWorks: normalizedWorks.length,
+    preferredSectors
+  };
 }
 
 async function getLatestNotice(): Promise<AdminNotice | null> {
@@ -737,9 +758,15 @@ async function resolvePreferredSectors(profile: ProfileSummary): Promise<string[
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowKey = formatDateKey(tomorrow);
 
+    const applySector = alias(etcBaseCode, 'applySector');
+
     const applyRows = await db
-      .select({ sectorLabel: workApply.sectorValue, workDate: workApply.workDate })
+      .select({
+        sectorLabel: applySector.value,
+        workDate: workApply.workDate
+      })
       .from(workApply)
+      .leftJoin(applySector, and(eq(applySector.codeGroup, workApply.sectorCode), eq(applySector.code, workApply.sectorValue)))
       .where(and(eq(workApply.workerId, worker.id), gte(workApply.workDate, todayKey)))
       .orderBy(asc(workApply.workDate))
       .limit(6);
