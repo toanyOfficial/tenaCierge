@@ -325,7 +325,7 @@ async function buildButlerSnapshot(
     const buildingName = work.buildingName ?? '미지정 빌딩';
     const checkoutTimeLabel = formatCheckoutTimeLabel(work.checkoutTime);
     const checkoutMinutes = checkoutTimeToMinutes(work.checkoutTime);
-    const isCleaning = work.cleaningYn === 1;
+    const isCleaning = work.cleaningYn === true || work.cleaningYn === 1;
     const workTypeLabel = isCleaning ? '청소' : '점검';
 
     return {
@@ -449,7 +449,7 @@ async function buildButlerSnapshot(
     checkoutTimeLabel: work.checkoutTimeLabel,
     roomNo: work.roomNo,
     workTypeLabel: work.workTypeLabel,
-    isCleaning: work.workTypeLabel === '청소',
+    isCleaning: work.workTypeLabel === '청소' || work.cleaningYn === true || work.cleaningYn === 1,
     comment: work.comment
   }));
 
