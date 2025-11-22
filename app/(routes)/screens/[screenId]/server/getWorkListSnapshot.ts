@@ -1,4 +1,5 @@
-import { and, desc, eq, inArray, alias } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/mysql-core';
 
 import { db } from '@/src/db/client';
 import {
@@ -14,6 +15,7 @@ import type { ProfileSummary } from '@/src/utils/profile';
 import { findClientByProfile } from '@/src/server/clients';
 import { findWorkerByProfile } from '@/src/server/workers';
 import { getKstNow, formatDateKey } from '@/src/utils/workWindow';
+import { logServerError } from '@/src/server/errorLogger';
 
 export type WorkListEntry = {
   id: number;
@@ -50,91 +52,102 @@ export async function getWorkListSnapshot(
   dateParam?: string,
   windowParam?: 'd0' | 'd1'
 ): Promise<WorkListSnapshot> {
-  const now = getKstNow();
-  const minutes = now.getHours() * 60 + now.getMinutes();
-  const { targetDate, window, windowDates } = resolveWindow(now, minutes, dateParam, windowParam);
+  try {
+    const now = getKstNow();
+    const minutes = now.getHours() * 60 + now.getMinutes();
+    const { targetDate, window, windowDates } = resolveWindow(now, minutes, dateParam, windowParam);
 
-  const notice = await fetchLatestNotice();
+    const notice = await fetchLatestNotice();
 
-  const worker = await findWorkerByProfile(profile);
-  const client = await findClientByProfile(profile);
+    const worker = await findWorkerByProfile(profile);
+    const client = await findClientByProfile(profile);
 
-  const buildingSector = alias(etcBaseCode, 'buildingSector');
+    const buildingSector = alias(etcBaseCode, 'buildingSector');
 
-  const baseQuery = db
-    .select({
-      id: workHeader.id,
-      date: workHeader.date,
-      roomId: workHeader.roomId,
-      checkoutTime: workHeader.checkoutTime,
-      checkinTime: workHeader.checkinTime,
-      blanketQty: workHeader.blanketQty,
-      amenitiesQty: workHeader.amenitiesQty,
-      requirements: workHeader.requirements,
-      supplyYn: workHeader.supplyYn,
-      cleaningFlag: workHeader.cleaningFlag,
-      cleaningYn: workHeader.cleaningYn,
-      conditionCheckYn: workHeader.conditionCheckYn,
-      supervisingEndTime: workHeader.supervisingEndTime,
-      cleanerId: workHeader.cleanerId,
-      roomNo: clientRooms.roomNo,
-      buildingId: clientRooms.buildingId,
-      sectorCode: etcBuildings.sectorCode,
-      sectorValue: buildingSector.value,
-      buildingShortName: etcBuildings.shortName,
-      cleanerName: workerHeader.name
-    })
-    .from(workHeader)
-    .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
-    .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
-    .leftJoin(
-      buildingSector,
-      and(eq(buildingSector.codeGroup, etcBuildings.sectorCode), eq(buildingSector.code, etcBuildings.sectorValue))
-    )
-    .leftJoin(workerHeader, eq(workHeader.cleanerId, workerHeader.id))
-    .where(eq(workHeader.date, targetDate));
+    const baseQuery = db
+      .select({
+        id: workHeader.id,
+        date: workHeader.date,
+        roomId: workHeader.roomId,
+        checkoutTime: workHeader.checkoutTime,
+        checkinTime: workHeader.checkinTime,
+        blanketQty: workHeader.blanketQty,
+        amenitiesQty: workHeader.amenitiesQty,
+        requirements: workHeader.requirements,
+        supplyYn: workHeader.supplyYn,
+        cleaningFlag: workHeader.cleaningFlag,
+        cleaningYn: workHeader.cleaningYn,
+        conditionCheckYn: workHeader.conditionCheckYn,
+        supervisingEndTime: workHeader.supervisingEndTime,
+        cleanerId: workHeader.cleanerId,
+        roomNo: clientRooms.roomNo,
+        buildingId: clientRooms.buildingId,
+        sectorCode: etcBuildings.sectorCode,
+        sectorValue: buildingSector.value,
+        buildingShortName: etcBuildings.shortName,
+        cleanerName: workerHeader.name
+      })
+      .from(workHeader)
+      .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
+      .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
+      .leftJoin(
+        buildingSector,
+        and(eq(buildingSector.codeGroup, etcBuildings.sectorCode), eq(buildingSector.code, etcBuildings.sectorValue))
+      )
+      .leftJoin(workerHeader, eq(workHeader.cleanerId, workerHeader.id))
+      .where(eq(workHeader.date, targetDate));
 
-  let rows:
-    | Array<ReturnType<typeof baseQuery>[number] & { assignWorkerId?: number | null }>
-    | undefined = undefined;
+    let rows:
+      | Array<ReturnType<typeof baseQuery>[number] & { assignWorkerId?: number | null }>
+      | undefined = undefined;
 
-  if (profile.primaryRole === 'admin' || profile.roles.includes('admin') || profile.roles.includes('butler')) {
-    rows = await baseQuery;
-  } else if (profile.roles.includes('host')) {
-    if (!client) {
-      rows = [];
-    } else {
-      rows = await baseQuery.where(and(eq(workHeader.date, targetDate), eq(clientRooms.clientId, client.id)));
-    }
-  } else if (profile.roles.includes('cleaner')) {
-    if (!worker) {
-      rows = [];
-    } else {
-      const assignedWorkIds = await fetchAssignedWorkIds(worker.id, targetDate);
-      if (!assignedWorkIds.length) {
+    if (profile.primaryRole === 'admin' || profile.roles.includes('admin') || profile.roles.includes('butler')) {
+      rows = await baseQuery;
+    } else if (profile.roles.includes('host')) {
+      if (!client) {
         rows = [];
       } else {
-        rows = await baseQuery.where(and(eq(workHeader.date, targetDate), inArray(workHeader.id, assignedWorkIds)));
+        rows = await baseQuery.where(and(eq(workHeader.date, targetDate), eq(clientRooms.clientId, client.id)));
+      }
+    } else if (profile.roles.includes('cleaner')) {
+      if (!worker) {
+        rows = [];
+      } else {
+        const assignedWorkIds = await fetchAssignedWorkIds(worker.id, targetDate);
+        if (!assignedWorkIds.length) {
+          rows = [];
+        } else {
+          rows = await baseQuery.where(and(eq(workHeader.date, targetDate), inArray(workHeader.id, assignedWorkIds)));
+        }
       }
     }
+
+    const normalized = (rows ?? []).map((row) => normalizeRow(row));
+    const buildingCounts = normalized.reduce<Record<number, number>>((acc, row) => {
+      acc[row.buildingId] = (acc[row.buildingId] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    const works = normalized.sort((a, b) => sortRows(a, b, buildingCounts));
+
+    return {
+      notice,
+      targetDate,
+      window,
+      windowDates,
+      windowLabel:
+        window === 'd0' ? `D0 (${windowDates.d0})` : window === 'd1' ? `D+1 (${windowDates.d1})` : targetDate,
+      works
+    };
+  } catch (error) {
+    await logServerError({
+      appName: 'work-list',
+      errorCode: 'SNAPSHOT_FAIL',
+      message: 'getWorkListSnapshot 실패',
+      error
+    });
+    throw error;
   }
-
-  const normalized = (rows ?? []).map((row) => normalizeRow(row));
-  const buildingCounts = normalized.reduce<Record<number, number>>((acc, row) => {
-    acc[row.buildingId] = (acc[row.buildingId] ?? 0) + 1;
-    return acc;
-  }, {});
-
-  const works = normalized.sort((a, b) => sortRows(a, b, buildingCounts));
-
-  return {
-    notice,
-    targetDate,
-    window,
-    windowDates,
-    windowLabel: window === 'd0' ? `D0 (${windowDates.d0})` : window === 'd1' ? `D+1 (${windowDates.d1})` : targetDate,
-    works
-  };
 }
 
 async function fetchLatestNotice() {
