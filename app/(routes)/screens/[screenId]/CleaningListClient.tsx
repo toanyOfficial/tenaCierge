@@ -356,24 +356,26 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                 return (
                   <article key={work.id} className={styles.workCard}>
                     <header className={styles.workCardHeader}>
-                      <p className={styles.workTitle}>{work.roomName}</p>
-                      <div className={styles.workMetaRow}>
-                        {work.cancelYn ? (
-                          <span className={styles.cancelNotice}>이 청소 건은 현재 취소상태입니다.</span>
-                        ) : null}
-                        {canEdit ? (
-                          <button
-                            type="button"
-                            className={styles.cancelToggle}
-                            onClick={() => handleFieldChange(work.id, 'cancelYn', !work.cancelYn)}
-                          >
-                            {work.cancelYn ? '취소철회' : '취소하기'}
-                          </button>
-                        ) : (
-                          <span className={work.cancelYn ? styles.badgeDanger : styles.badgeMuted}>
-                            {work.cancelYn ? '취소됨' : '예약 유지'}
-                          </span>
-                        )}
+                      <div className={styles.workHeaderRow}>
+                        <p className={styles.workTitle}>{work.roomName}</p>
+                        <div className={styles.workMetaRow}>
+                          {work.cancelYn ? (
+                            <span className={styles.cancelNotice}>이 청소 건은 현재 취소상태입니다.</span>
+                          ) : null}
+                          {canEdit ? (
+                            <button
+                              type="button"
+                              className={styles.cancelToggle}
+                              onClick={() => handleFieldChange(work.id, 'cancelYn', !work.cancelYn)}
+                            >
+                              {work.cancelYn ? '취소철회' : '취소하기'}
+                            </button>
+                          ) : (
+                            <span className={work.cancelYn ? styles.badgeDanger : styles.badgeMuted}>
+                              {work.cancelYn ? '취소됨' : '예약 유지'}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </header>
 
@@ -483,9 +485,6 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
             </button>
             {isAddOpen ? (
               <form className={styles.addForm} onSubmit={handleAddSubmit}>
-                <p className={styles.subtle}>
-                  {viewingAsHost ? '본인이 운영 중인 객실만 선택할 수 있습니다.' : '빌딩을 먼저 고른 뒤 객실과 시간을 설정해 주세요.'}
-                </p>
                 <div className={styles.addSelectors}>
                   <label className={styles.formControl}>
                     <span>빌딩</span>
@@ -727,9 +726,23 @@ function QuantityStepper({
 }) {
   return (
     <div className={styles.stepper}>
-      <button type="button" onClick={() => onChange(value - 1)} disabled={disabled || value <= min}>
+      <span
+        role="button"
+        tabIndex={0}
+        className={styles.stepperControl}
+        aria-label="감소"
+        aria-disabled={disabled || value <= min}
+        onClick={() => !disabled && value > min && onChange(value - 1)}
+        onKeyDown={(event) => {
+          if (disabled) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            if (value > min) onChange(value - 1);
+          }
+        }}
+      >
         -
-      </button>
+      </span>
       <input
         type="number"
         value={value}
@@ -744,9 +757,23 @@ function QuantityStepper({
           onChange(parsed);
         }}
       />
-      <button type="button" onClick={() => onChange(value + 1)} disabled={disabled || value >= max}>
+      <span
+        role="button"
+        tabIndex={0}
+        className={styles.stepperControl}
+        aria-label="증가"
+        aria-disabled={disabled || value >= max}
+        onClick={() => !disabled && value < max && onChange(value + 1)}
+        onKeyDown={(event) => {
+          if (disabled) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            if (value < max) onChange(value + 1);
+          }
+        }}
+      >
         +
-      </button>
+      </span>
     </div>
   );
 }

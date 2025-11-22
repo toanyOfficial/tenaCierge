@@ -3,7 +3,7 @@ import { and, asc, desc, eq, gte, or } from 'drizzle-orm';
 
 import DashboardClient from './DashboardClient';
 
-import { clientRooms, etcBuildings, etcNotice, workHeader, workerHeader } from '@/src/db/schema';
+import { clientRooms, etcBuildings, etcNotice, workApply, workHeader, workerHeader } from '@/src/db/schema';
 import { getProfileSummary, type ProfileSummary } from '@/src/utils/profile';
 import { getApplyStartLabel, getTierLabel } from '@/src/utils/tier';
 
@@ -64,6 +64,8 @@ export type ButlerDetailEntry = {
   buildingName: string;
   checkoutTimeLabel: string;
   roomNo: string;
+  workTypeLabel: string;
+  comment: string;
 };
 
 export type ButlerSnapshot = {
@@ -72,6 +74,7 @@ export type ButlerSnapshot = {
   sectorSummaries: ButlerSectorSummary[];
   details: ButlerDetailEntry[];
   totalWorks: number;
+  preferredSectors: string[];
 };
 
 export type AdminNotice = {
@@ -84,7 +87,7 @@ export type AdminNotice = {
 export default async function DashboardPage() {
   const profile = getProfileSummary();
   const cleanerPromise = profile.roles.includes('cleaner') ? getCleanerSnapshot(profile) : Promise.resolve(null);
-  const butlerPromise = profile.roles.includes('butler') ? getButlerSnapshot() : Promise.resolve(null);
+  const butlerPromise = profile.roles.includes('butler') ? getButlerSnapshot(profile) : Promise.resolve(null);
   const adminNoticePromise = profile.roles.includes('admin') ? getLatestNotice() : Promise.resolve(null);
 
   const [cleanerSnapshot, butlerSnapshot, adminNotice] = await Promise.all([
@@ -163,25 +166,46 @@ async function getCleanerSnapshot(profile: ProfileSummary): Promise<CleanerSnaps
     const todayAssignment = assignments.find((entry) => entry.date === targetDateStr);
     const tomorrowAssignment = assignments.find((entry) => entry.date === tomorrowDateStr);
 
+    const applicationsRaw = await db
+      .select({
+        id: workApply.id,
+        date: workApply.workDate,
+        sectorLabel: workApply.sectorValue
+      })
+      .from(workApply)
+      .where(and(eq(workApply.workerId, worker.id), gte(workApply.workDate, targetDateStr)))
+      .orderBy(asc(workApply.workDate), asc(workApply.seq))
+      .limit(10);
+
+    const applications = applicationsRaw.map((entry) => ({
+      id: entry.id,
+      date: normalizeDateValue(entry.date),
+      dateLabel: formatApplicationDateLabel(normalizeDateValue(entry.date)),
+      sectorLabel: entry.sectorLabel ?? worker.sectorName ?? '미정'
+    }));
+
     const applyAvailableAt = getApplyStartLabel(worker.tier);
     const nowMinutes = getMinutesFromDate(nowKst);
     const timeSegment = resolveTimeSegment(nowMinutes);
     const canApplyNow = timeSegment === 'applyWindow' && nowMinutes >= parseTimeToMinutes(applyAvailableAt);
-    const workApplied = Boolean(todayAssignment);
-    const tomorrowWorkApplied = Boolean(tomorrowAssignment);
-    const sectorName = todayAssignment?.sectorLabel ?? todayAssignment?.buildingName ?? worker.sectorName ?? null;
-    const tomorrowSectorName = tomorrowAssignment?.sectorLabel ?? tomorrowAssignment?.buildingName ?? worker.sectorName ?? null;
+    const workApplied = Boolean(applications.find((app) => app.date === targetDateStr) ?? todayAssignment);
+    const tomorrowWorkApplied = Boolean(applications.find((app) => app.date === tomorrowDateStr) ?? tomorrowAssignment);
+    const sectorName =
+      applications.find((app) => app.date === targetDateStr)?.sectorLabel ??
+      todayAssignment?.sectorLabel ??
+      todayAssignment?.buildingName ??
+      worker.sectorName ??
+      null;
+    const tomorrowSectorName =
+      applications.find((app) => app.date === tomorrowDateStr)?.sectorLabel ??
+      tomorrowAssignment?.sectorLabel ??
+      tomorrowAssignment?.buildingName ??
+      worker.sectorName ??
+      null;
     const tierLabel = getTierLabel(worker.tier);
     const assignmentSummary = todayAssignment?.buildingName
       ? `${todayAssignment.buildingName}${todayAssignment.roomNo ? ` · ${todayAssignment.roomNo}` : ''}`
       : null;
-    const applications: CleanerApplication[] = assignments.map((assignmentEntry) => ({
-      id: assignmentEntry.id,
-      date: assignmentEntry.date,
-      dateLabel: formatApplicationDateLabel(assignmentEntry.date),
-      sectorLabel: assignmentEntry.sectorLabel ?? assignmentEntry.buildingName ?? worker.sectorName ?? '미정'
-    }));
-
     const message = buildCleanerMessage({
       segment: timeSegment,
       workAppliedToday: workApplied,
@@ -216,7 +240,7 @@ async function getCleanerSnapshot(profile: ProfileSummary): Promise<CleanerSnaps
   }
 }
 
-async function getButlerSnapshot(): Promise<ButlerSnapshot | null> {
+async function getButlerSnapshot(profile: ProfileSummary): Promise<ButlerSnapshot | null> {
   try {
     const { db } = await import('@/src/db/client');
     const nowKst = getKstNow();
@@ -235,7 +259,10 @@ async function getButlerSnapshot(): Promise<ButlerSnapshot | null> {
         checkoutTime: workHeader.checkoutTime,
         buildingName: etcBuildings.shortName,
         sectorLabel: etcBuildings.sectorValue,
-        roomNo: clientRooms.roomNo
+        roomNo: clientRooms.roomNo,
+        cleaningYn: workHeader.cleaningYn,
+        conditionCheckYn: workHeader.conditionCheckYn,
+        comment: workHeader.requirements
       })
       .from(workHeader)
       .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
@@ -247,6 +274,7 @@ async function getButlerSnapshot(): Promise<ButlerSnapshot | null> {
       const buildingName = work.buildingName ?? '미지정 빌딩';
       const checkoutTimeLabel = formatCheckoutTimeLabel(work.checkoutTime);
       const checkoutMinutes = checkoutTimeToMinutes(work.checkoutTime);
+      const workTypeLabel = work.cleaningYn === 1 ? '청소' : '점검';
 
       return {
         id: work.id,
@@ -254,7 +282,9 @@ async function getButlerSnapshot(): Promise<ButlerSnapshot | null> {
         buildingName,
         checkoutTimeLabel,
         checkoutMinutes,
-        roomNo: work.roomNo ?? '-'
+        roomNo: work.roomNo ?? '-',
+        workTypeLabel,
+        comment: work.comment ?? ''
       };
     });
 
@@ -312,8 +342,10 @@ async function getButlerSnapshot(): Promise<ButlerSnapshot | null> {
       }
     });
 
+    const preferredSectors: string[] = await resolvePreferredSectors(profile);
+
     const sectorSummaries: ButlerSectorSummary[] = Array.from(sectorGroups.values())
-      .sort((a, b) => compareSectorLabel(a.label, b.label))
+      .sort((a, b) => sortSectorWithPreference(a.label, b.label, preferredSectors))
       .map((sector) => ({
         sectorLabel: sector.label,
         totalWorkers: sector.totalWorkers,
@@ -337,7 +369,7 @@ async function getButlerSnapshot(): Promise<ButlerSnapshot | null> {
       }));
 
     const sortedWorks = [...normalizedWorks].sort((a, b) => {
-      const sectorDiff = compareSectorLabel(a.sectorLabel, b.sectorLabel);
+      const sectorDiff = sortSectorWithPreference(a.sectorLabel, b.sectorLabel, preferredSectors);
       if (sectorDiff !== 0) {
         return sectorDiff;
       }
@@ -362,7 +394,9 @@ async function getButlerSnapshot(): Promise<ButlerSnapshot | null> {
       sectorLabel: work.sectorLabel,
       buildingName: work.buildingName,
       checkoutTimeLabel: work.checkoutTimeLabel,
-      roomNo: work.roomNo
+      roomNo: work.roomNo,
+      workTypeLabel: work.workTypeLabel,
+      comment: work.comment
     }));
 
     return {
@@ -370,7 +404,8 @@ async function getButlerSnapshot(): Promise<ButlerSnapshot | null> {
       isToday: isTodayWindow,
       sectorSummaries,
       details,
-      totalWorks: normalizedWorks.length
+      totalWorks: normalizedWorks.length,
+      preferredSectors
     };
   } catch (error) {
     console.error('버틀러 현황 조회 실패', error);
@@ -643,4 +678,78 @@ function compareSectorLabel(a: string, b: string) {
   }
 
   return a.localeCompare(b, 'ko');
+}
+
+async function resolvePreferredSectors(profile: ProfileSummary): Promise<string[]> {
+  const phone = sanitize(profile.phone);
+  const registerNo = sanitize(profile.registerNo);
+
+  if (!phone && !registerNo) {
+    return [];
+  }
+
+  const whereClause = buildWorkerWhereClause(phone, registerNo);
+
+  if (!whereClause) {
+    return [];
+  }
+
+  try {
+    const { db } = await import('@/src/db/client');
+    const [worker] = await db
+      .select({ id: workerHeader.id, sectorName: workerHeader.bankValue })
+      .from(workerHeader)
+      .where(whereClause)
+      .limit(1);
+
+    if (!worker) {
+      return [];
+    }
+
+    const nowKst = getKstNow();
+    const targetDate = new Date(nowKst);
+    const todayKey = formatDateKey(targetDate);
+    const tomorrow = new Date(nowKst);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowKey = formatDateKey(tomorrow);
+
+    const applyRows = await db
+      .select({ sectorLabel: workApply.sectorValue, workDate: workApply.workDate })
+      .from(workApply)
+      .where(and(eq(workApply.workerId, worker.id), gte(workApply.workDate, todayKey)))
+      .orderBy(asc(workApply.workDate))
+      .limit(6);
+
+    const sectors = applyRows
+      .filter((row) => {
+        const normalized = normalizeDateValue(row.workDate);
+        return normalized === todayKey || normalized === tomorrowKey;
+      })
+      .map((row) => row.sectorLabel)
+      .filter(Boolean) as string[];
+
+    if (worker.sectorName) {
+      sectors.unshift(worker.sectorName);
+    }
+
+    return Array.from(new Set(sectors));
+  } catch (error) {
+    console.error('버틀러 선호 섹터 계산 실패', error);
+    return [];
+  }
+}
+
+function sortSectorWithPreference(a: string, b: string, preferred: string[]) {
+  const aPreferred = preferred.includes(a);
+  const bPreferred = preferred.includes(b);
+
+  if (aPreferred && !bPreferred) {
+    return -1;
+  }
+
+  if (!aPreferred && bPreferred) {
+    return 1;
+  }
+
+  return compareSectorLabel(a, b);
 }
