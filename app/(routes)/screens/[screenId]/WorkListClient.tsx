@@ -138,14 +138,18 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                   className={`${styles.windowToggle} ${activeWindow === 'd0' ? styles.windowToggleActive : ''}`}
                   onClick={() => handleWindowChange('d0')}
                 >
-                  D0 {snapshot.windowDates?.d0 ? `(${snapshot.windowDates.d0})` : ''}
+                  {activeWindow === 'd0'
+                    ? `D0${snapshot.windowDates?.d0 ? ` (${snapshot.windowDates.d0})` : ''}`
+                    : 'D0 보기'}
                 </button>
                 <button
                   type="button"
                   className={`${styles.windowToggle} ${activeWindow === 'd1' ? styles.windowToggleActive : ''}`}
                   onClick={() => handleWindowChange('d1')}
                 >
-                  D+1 {snapshot.windowDates?.d1 ? `(${snapshot.windowDates.d1})` : ''}
+                  {activeWindow === 'd1'
+                    ? `D+1${snapshot.windowDates?.d1 ? ` (${snapshot.windowDates.d1})` : ''}`
+                    : 'D+1 보기'}
                 </button>
               </div>
             ) : (
