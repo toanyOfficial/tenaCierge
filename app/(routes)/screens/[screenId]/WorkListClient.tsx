@@ -238,17 +238,10 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                           <div key={work.id} className={styles.workCard}>
                             <div className={styles.workCardHeader}>
                               <p className={styles.workTitle}>{work.roomName}</p>
-                              <div className={styles.workMetaRow}>
-                                <p className={styles.workSubtitle}>
-                                  체크아웃 {work.checkoutTime} · 체크인 {work.checkinTime}
-                                </p>
-                                <span className={styles.badgePositive}>청소</span>
-                              </div>
-                            </div>
-
-                            <div className={styles.workRowCompact}>
-                              <span>침구 {work.blanketQty}</span>
-                              <span>어메니티 {work.amenitiesQty}</span>
+                              <p className={styles.workSubtitle}>
+                                체크아웃 {work.checkoutTime} · 체크인 {work.checkinTime} · 침구 {work.blanketQty} · 어메니티
+                                {` ${work.amenitiesQty}`}
+                              </p>
                             </div>
 
                             <p className={styles.requirementsText}>{work.requirements || '요청사항 없음'}</p>

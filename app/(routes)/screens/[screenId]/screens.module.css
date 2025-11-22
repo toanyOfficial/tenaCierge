@@ -206,9 +206,17 @@
 
 .workCardMutedRow {
   flex-direction: row;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.workCardMutedRow .requirementsText {
+  padding: 0;
+  background: transparent;
+  min-height: unset;
+  align-items: center;
+  display: flex;
 }
 
 .workCardHeader {

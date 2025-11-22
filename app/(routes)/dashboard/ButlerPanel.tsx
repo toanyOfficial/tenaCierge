@@ -86,29 +86,31 @@ export default function ButlerPanel({ snapshots, activeKey, onChangeDate }: Prop
         {snapshot.sectorSummaries.length ? (
           <div className={styles.butlerSummaryGrid}>
             {snapshot.sectorSummaries.map((sector) => (
-              <article key={sector.sectorLabel} className={`${styles.sectorCard} ${styles.sectorTotal}`}>
-                <header>
+              <div key={sector.sectorLabel} className={styles.sectorBlock}>
+                <div className={styles.sectorHeading}>
                   <p>{sector.sectorLabel}</p>
                   <span>{sector.totalWorkers}개</span>
-                </header>
-                <ul>
-                  {sector.buildings.map((building) => (
-                    <li key={`${sector.sectorLabel}-${building.buildingName}`}>
-                      <div className={styles.buildingRow}>
-                        <strong>{building.buildingName}</strong>
-                        <span>{building.totalWorkers}개</span>
-                      </div>
-                      <div className={styles.checkoutRow}>
-                        {building.checkoutGroups.map((group) => (
-                          <span key={`${building.buildingName}-${group.checkoutTimeLabel}`}>
-                            {group.checkoutTimeLabel} · {group.count}개
-                          </span>
-                        ))}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </article>
+                </div>
+                <article className={`${styles.sectorCard} ${styles.sectorTotal}`}>
+                  <ul>
+                    {sector.buildings.map((building) => (
+                      <li key={`${sector.sectorLabel}-${building.buildingName}`}>
+                        <div className={styles.buildingRow}>
+                          <strong>{building.buildingName}</strong>
+                          <span>{building.totalWorkers}개</span>
+                        </div>
+                        <div className={styles.checkoutRow}>
+                          {building.checkoutGroups.map((group) => (
+                            <span key={`${building.buildingName}-${group.checkoutTimeLabel}`}>
+                              {group.checkoutTimeLabel} · {group.count}개
+                            </span>
+                          ))}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              </div>
             ))}
           </div>
         ) : (
