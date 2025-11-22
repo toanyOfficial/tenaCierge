@@ -1,27 +1,40 @@
-# guideline.go vs db_forecasting.py 비교 메모
+# work_apply 생성 절차 (step-by-step)
 
-## 전제
-- `guideline.go`가 읽는 `data.toml`의 `date`는 `20251122`로 설정되어 있어 이 값을 기준일로 삼는다.【F:batchs/guideline.go†L179-L193】
-- `db_forecasting.py`는 실행 인자로 `--run-date 2025-11-21`을 받았다고 가정한다. 기본 오프셋은 D+1~D+7이며 today-only 모드는 꺼져 있다.【F:batchs/db_forecasting.py†L169-L205】【F:batchs/db_forecasting.py†L606-L618】
+## 1) 실행 범위 설정
+1. `run_date`는 기본적으로 서울(KST) 오늘 날짜이며, `--allow-backfill`을 쓰지 않는 한 과거 입력은 무시된다.【F:batchs/db_forecasting.py†L169-L205】
+2. today-only가 아니면 오프셋 리스트를 `max(1, start_offset)`부터 `end_offset`까지 생성해 D+1~D+N 대상 날짜를 잡는다(기본 1~7일).【F:batchs/db_forecasting.py†L611-L640】
+3. 각 오프셋마다 `target_date = run_date + offset`으로 계산하며, work_apply는 모든 타깃 날짜에 대해 반복 수행한다.【F:batchs/db_forecasting.py†L632-L667】
 
-## 기준일/타깃일 결정
-- guideline: `ProcessData`가 반환한 `date`(20251122)를 오늘로 간주하고, 동일 날짜와 다음날에 걸친 체크인·체크아웃을 동시에 계산한다. 오늘/내일 두 세트를 한 번에 만든 뒤 `excel.Generate`에 넘긴다.【F:batchs/guideline.go†L179-L193】【F:batchs/guideline.go†L119-L149】
-- python 배치: run_date를 오늘로 취급하지만 backfill 플래그가 꺼져 있으면 서울 오늘로 강제 덮어쓴다. 오프셋 리스트는 D+1부터 D+7까지라 run_date+1(2025-11-22)이 유일한 work_header 대상 D0이 된다.【F:batchs/db_forecasting.py†L933-L957】【F:batchs/db_forecasting.py†L606-L655】【F:batchs/db_forecasting.py†L773-L784】
+## 2) 예측 입력 준비
+1. `client_rooms`에서 `open_yn=1`인 객실을 모두 불러오고, `weight`는 값이 없으면 10으로 세팅된다.【F:batchs/db_forecasting.py†L367-L392】
+2. 각 객실의 ical URL(최대 2개)을 각각 다운로드하여 이벤트를 파싱한 뒤, 시작 시각 기준으로 정렬·겹침 병합(back-to-back 제외)해 하나의 이벤트 타임라인을 만든다.【F:batchs/db_forecasting.py†L641-L686】
+3. 각 타깃 날짜/객실별로 `Prediction`을 만들 때 체크아웃/체크인 여부는 이벤트의 `end.date()==target_date` 혹은 `start.date()==target_date`로 판정한다. 체크아웃만 가중치 합산에 사용된다.【F:batchs/db_forecasting.py†L641-L655】【F:batchs/db_forecasting.py†L619-L647】
 
-## ICS 다운로드·이벤트 병합
-- guideline: ICS 다운로드/파싱은 `parser.LoadData`/`ProcessData` 내부에 숨겨져 있으나, 결과 `processed` 리스트를 플랫폼별 중복 병합 규칙으로 정리한다. 같은 객실의 이벤트를 플랫폼별로 모은 뒤 겹치는 예약이 있으면 `IsOverBooking` 표시를 남기고 유지하며, 날짜 기준 필터링 이후에도 플랫폼 단위로 다시 병합한다.【F:batchs/guideline.go†L65-L103】【F:batchs/guideline.go†L105-L149】 파일명 규칙은 코드에 없고 `parser` 내부 로직에 의존한다.
-- python 배치: 실행 시 타임스탬프 하위 폴더를 만들고(예: `batchs/ics/20251121043737`) 기존 폴더를 보존 일수 기준으로 청소한다.【F:batchs/db_forecasting.py†L606-L618】【F:batchs/db_forecasting.py†L47-L69】 모든 open_yn=1 객실을 조회한 뒤(ical_url 0~2개), URL당 파일명을 `building_short_name(or building_id)+room_no+platform`으로 생성하고 중복 시 숫자를 붙인다. URL별 이벤트를 한데 모아 시작 시각 기준으로 재정렬·겹침 병합해 단일 타임라인을 만든다. 기대/실제 다운로드 개수를 로그로 남겨 47건 수집 여부를 바로 확인한다.【F:batchs/db_forecasting.py†L348-L382】【F:batchs/db_forecasting.py†L490-L516】【F:batchs/db_forecasting.py†L663-L686】
+## 3) 섹터별 가중치 합산
+1. 모든 `Prediction` 중 `target_date`가 일치하고 `has_checkout=True`인 건만 뽑는다.【F:batchs/db_forecasting.py†L414-L437】
+2. 객실별 중복을 제거한 뒤, `(sector, sector_value)` 키로 `room.weight`를 누적해 섹터 가중치 리스트를 만든다.【F:batchs/db_forecasting.py†L414-L437】
+3. 가중치가 없는 섹터는 이후 단계가 스킵된다.【F:batchs/db_forecasting.py†L749-L761】
 
-## 체크인/체크아웃 판정
-- guideline: 특정 날짜의 체크아웃은 plan의 `DtEnd == date`, 체크인은 `DtStart == date`로 판정한다. 익일 체크인/체크아웃은 `CheckNextDay`로 따로 구분해 오늘/내일 목록을 만든 뒤 중복되는 객실은 제거한다.【F:batchs/guideline.go†L119-L149】
-- python 배치: 이벤트 시각을 무시하고 `event.end.date()==target_date`이면 checkout, `event.start.date()==target_date`이면 checkin으로 본다. URL을 구분하지 않고 병합된 이벤트 목록으로 판정해 `Prediction`을 만든다.【F:batchs/db_forecasting.py†L537-L552】【F:batchs/db_forecasting.py†L619-L647】
+## 4) 규칙 매칭
+1. `work_apply_rules`를 `min_weight` 오름차순으로 로드한다.【F:batchs/db_forecasting.py†L396-L412】
+2. 각 섹터 가중치에 대해 `min_weight < weight_sum ≤ max_weight`를 만족하는 첫 규칙을 찾는다(상한이 없으면 `max_weight`는 무시).【F:batchs/db_forecasting.py†L473-L481】
+3. 규칙이 없으면 해당 섹터는 건너뛴다.【F:batchs/db_forecasting.py†L779-L787】
 
-## work_header 생성 흐름
-- guideline: 내일(D+1) 일정만 별도 시트로 만들며, 체크아웃 존재 시 `(conditionCheckYn=0, cleaning_yn=1)`, 체크인만 존재 시 `(1,0)`을 설정한다. 기존 행을 지우지 않고 생성 결과를 그대로 활용한다(Excel 출력 기준).【F:batchs/guideline.go†L119-L149】【F:batchs/guideline.go†L179-L193】
-- python 배치: today-only가 아니면 `target_date = run_date + 1`만 바라보고 horizon=1 예측에서 checkout/checkin 여부를 합쳐 insert-only한다. 이미 같은 room_id가 있으면 건너뛰어 신규만 추가한다.【F:batchs/db_forecasting.py†L773-L845】
+## 5) 기존 슬롯 현황 파악
+1. 대상 `target_date`에 이미 존재하는 work_apply를 섹터/포지션별로 집계해 `cnt`(현재 슬롯 수)와 `max_seq`(해당 조합에서 가장 큰 seq)를 가져온다.【F:batchs/db_forecasting.py†L763-L777】
 
-## 주요 차이 요약
-1) 기준일: guideline은 data.toml의 날짜를 직접 기준으로 오늘/내일을 함께 산출하지만, python은 run_date+1만 work_header 대상으로 삼아 run_date 자체의 이벤트는 무시한다.
-2) 이벤트 단위: guideline은 플랫폼별 병합 뒤 날짜 필터링을 하지만 URL 자체는 구분하지 않는다. python도 URL을 구분하지 않고 병합한 뒤 날짜만 비교한다.
-3) 파일명/로그: guideline은 `application.log`로만 로깅하고 파일명 규칙이 외부(parser)에 있지만, python은 실행 시 ics 타임스탬프 폴더를 만들고 `건물단축명+호실+플랫폼` 파일명을 직접 만든다.
+## 6) 필요 수량 계산 및 삽입
+1. 규칙이 지정한 `butler_count`와 `cleaner_count`를 순서대로 처리한다 (position 2 → 1).【F:batchs/db_forecasting.py†L789-L806】
+2. `required - current_count`가 양수인 경우에만 부족한 슬롯을 추가한다; 이미 충분하면 아무 작업도 하지 않는다.【F:batchs/db_forecasting.py†L789-L806】
+3. 새 슬롯의 `seq`는 직전 `max_seq`부터 1씩 증가시켜 부여하며, `seq>127`이면 에러를 발생시켜 중단한다.【F:batchs/db_forecasting.py†L806-L815】
+4. 삽입 시 필드는 `(work_date, basecode_sector, basecode_code, seq, position, worker_id=NULL)`이며, 기존 레코드는 삭제하거나 덮어쓰지 않는다(append-only).【F:batchs/db_forecasting.py†L806-L820】
 
+## 7) 커밋 및 반복
+1. 한 `target_date`에 대한 삽입이 끝나면 트랜잭션을 커밋한다.【F:batchs/db_forecasting.py†L807-L807】
+2. 이후 다음 타깃 날짜로 이동해 3~6단계를 반복한다.【F:batchs/db_forecasting.py†L663-L667】
+
+## 요약 포인트
+- 가중치 합산은 “해당 날짜에 체크아웃이 있는 객실”만 반영한다.
+- 규칙은 `min_weight < 합계 ≤ max_weight` 첫 매칭만 적용된다.
+- 기존 work_apply는 유지되며, 부족한 수량만 `seq`를 이어 붙여 추가한다.
+- 한 실행에서 D+1~D+N 모든 날짜를 처리한다.

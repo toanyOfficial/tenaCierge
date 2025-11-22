@@ -382,7 +382,7 @@
   grid-template-columns: 120px minmax(0, 1fr);
   gap: 8px 16px;
   width: 100%;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .fieldMeta {
@@ -397,6 +397,8 @@
 
 .fieldMeta small {
   color: #94a3b8;
+  display: block;
+  line-height: 1.35;
 }
 
 .fieldControl {
@@ -550,11 +552,16 @@
   box-sizing: border-box;
 }
 
+.addForm button[type='submit'] {
+  align-self: flex-start;
+}
+
 .addSelectors {
   display: flex;
   gap: 12px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   width: 100%;
+  align-items: flex-start;
 }
 
 .formControl {
@@ -594,25 +601,7 @@
   text-align: center;
 }
 
-@media (max-width: 640px) {
-  .fieldRow {
-    grid-template-columns: 1fr;
-  }
-
-  .inlineFieldGroup {
-    grid-template-columns: 1fr;
-  }
-
-  .workMetaRow {
-    flex-wrap: wrap;
-  }
-
-  .addSelectors {
-    flex-direction: column;
-  }
-}
-
-.stepper button {
+.stepperControl {
   border: 1px solid #cbd5f5;
   background: #fff;
   border-radius: 12px;
@@ -622,12 +611,27 @@
   line-height: 1;
   color: #0f172a;
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  user-select: none;
 }
 
-.stepper button:disabled {
+.stepperControl:focus-visible {
+  outline: 2px solid #475569;
+  outline-offset: 2px;
+}
+
+.stepperControl[aria-disabled='true'] {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .workMetaRow {
+    flex-wrap: wrap;
+  }
 }
 
 @media (max-width: 720px) {
