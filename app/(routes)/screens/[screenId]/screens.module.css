@@ -378,11 +378,10 @@
 }
 
 .fieldRow {
-  display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
-  gap: 8px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   width: 100%;
-  align-items: flex-start;
 }
 
 .fieldMeta {
@@ -395,6 +394,12 @@
   color: #0f172a;
 }
 
+.fieldHint {
+  color: #94a3b8;
+  display: block;
+  line-height: 1.35;
+}
+
 .fieldMeta small {
   color: #94a3b8;
   display: block;
@@ -404,7 +409,7 @@
 .fieldControl {
   display: flex;
   justify-content: flex-start;
-  align-items: center;
+  align-items: flex-start;
   min-width: 0;
   width: 100%;
   gap: 8px;
@@ -413,9 +418,7 @@
 .fieldControl input,
 .fieldControl textarea,
 .formControl select,
-.formControl textarea,
-.formControl input[type='time'],
-.formControl input[type='number'] {
+.formControl textarea {
   width: 100%;
   border-radius: 12px;
   border: 1px solid #cbd5f5;
@@ -426,22 +429,9 @@
   box-sizing: border-box;
 }
 
-.fieldControl input[type='time'],
-.fieldControl input[type='number'] {
-  max-width: 150px;
-}
-
-.timeInput {
-  max-width: 140px;
-  text-align: center;
-}
-
-.timeInput::-webkit-datetime-edit-ampm-field {
-  display: none;
-}
-
-.timeInput::-webkit-calendar-picker-indicator {
-  margin-left: 4px;
+.timeSelect {
+  max-width: 180px;
+  min-width: 140px;
 }
 
 .fieldControl textarea {
@@ -596,11 +586,6 @@
   width: auto;
 }
 
-.stepper input {
-  width: 64px;
-  text-align: center;
-}
-
 .stepperControl {
   border: 1px solid #cbd5f5;
   background: #fff;
@@ -616,6 +601,13 @@
   justify-content: center;
   cursor: pointer;
   user-select: none;
+}
+
+.stepperValue {
+  min-width: 48px;
+  text-align: center;
+  font-weight: 700;
+  color: #0f172a;
 }
 
 .stepperControl:focus-visible {

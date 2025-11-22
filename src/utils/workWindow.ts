@@ -1,4 +1,4 @@
-export type WorkWindowState = 'today' | 'batching' | 'edit' | 'locked';
+export type WorkWindowState = 'today' | 'edit' | 'locked';
 export type WorkWindowTag = 'D0' | 'D+1';
 
 export type WorkWindowMeta = {
@@ -26,14 +26,10 @@ export function resolveWorkWindow(baseDate?: Date): WorkWindowMeta {
   let hostCanEdit = false;
   let hostCanAdd = false;
 
-  if (minutes <= 14 * 60) {
+  if (minutes < 15 * 60) {
     window = 'today';
     tag = 'D0';
-  } else if (minutes <= 15 * 60) {
-    window = 'batching';
-    tag = 'D+1';
-    targetDate.setDate(targetDate.getDate() + 1);
-  } else if (minutes <= 16 * 60) {
+  } else if (minutes < 16 * 60) {
     window = 'edit';
     tag = 'D+1';
     targetDate.setDate(targetDate.getDate() + 1);

@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm';
+import { asc, and, eq } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import { clientRooms, etcBuildings, workHeader } from '@/src/db/schema';
@@ -66,7 +66,7 @@ export async function getCleaningSnapshot(profile: ProfileSummary): Promise<Clea
     hostRoomOptions: hostRooms,
     adminRoomOptions: adminRooms,
     hostRoomIds: hostRooms.map((room) => room.roomId),
-    message: meta.window === 'batching' ? '익일 과업지시서를 작성중입니다.' : null
+    message: null
   };
 }
 
@@ -91,7 +91,9 @@ async function getRoomOptions(clientId?: number): Promise<RoomOption[]> {
     .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id));
 
   if (typeof clientId === 'number') {
-    query.where(eq(clientRooms.clientId, clientId));
+    query.where(and(eq(clientRooms.clientId, clientId), eq(clientRooms.openYn, true)));
+  } else {
+    query.where(eq(clientRooms.openYn, true));
   }
 
   const rows = await query.orderBy(asc(etcBuildings.shortName), asc(clientRooms.roomNo));

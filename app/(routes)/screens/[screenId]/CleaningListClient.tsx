@@ -31,6 +31,22 @@ type AddFormState = {
   requirements: string;
 };
 
+function buildTimeOptions(min: string, max: string, stepMinutes = 5) {
+  const minVal = parseTimeString(min);
+  const maxVal = parseTimeString(max);
+
+  if (minVal === null || maxVal === null) {
+    return [] as string[];
+  }
+
+  const options: string[] = [];
+  for (let cursor = minVal; cursor <= maxVal; cursor += stepMinutes) {
+    options.push(minutesToTimeString(cursor));
+  }
+
+  return options;
+}
+
 export default function CleaningListClient({ profile, snapshot }: Props) {
   const initialRole = profile.primaryRole ?? profile.roles[0] ?? null;
   const [activeRole, setActiveRole] = useState(initialRole);
@@ -379,39 +395,41 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                       </div>
                     </header>
 
-                    <div className={styles.workFields}>
-                      <div className={styles.inlineFieldGroup}>
-                        <FieldRow label="체크아웃" description="L.C.최대2시간">
-                          <input
-                            type="time"
-                            lang="en-GB"
-                            step={300}
-                            className={styles.timeInput}
-                            value={work.checkoutTime}
-                            min={checkoutBounds.min}
-                            max={checkoutBounds.max}
-                            disabled={!canEdit}
-                            onChange={(event) =>
-                              handleTimeChange(work.id, 'checkoutTime', event.target.value, checkoutBounds)
-                            }
-                          />
-                        </FieldRow>
-                        <FieldRow label="체크인" description="E.C.최대2시간">
-                          <input
-                            type="time"
-                            lang="en-GB"
-                            step={300}
-                            className={styles.timeInput}
-                            value={work.checkinTime}
-                            min={checkinBounds.min}
-                            max={checkinBounds.max}
-                            disabled={!canEdit}
-                            onChange={(event) =>
-                              handleTimeChange(work.id, 'checkinTime', event.target.value, checkinBounds)
-                            }
-                          />
-                        </FieldRow>
-                      </div>
+                      <div className={styles.workFields}>
+                        <div className={styles.inlineFieldGroup}>
+                          <FieldRow label="체크아웃" description="L.C.최대2시간">
+                            <select
+                              className={styles.timeSelect}
+                              value={work.checkoutTime}
+                              disabled={!canEdit}
+                              onChange={(event) =>
+                                handleTimeChange(work.id, 'checkoutTime', event.target.value, checkoutBounds)
+                              }
+                            >
+                              {buildTimeOptions(checkoutBounds.min, checkoutBounds.max).map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                          </FieldRow>
+                          <FieldRow label="체크인" description="E.C.최대2시간">
+                            <select
+                              className={styles.timeSelect}
+                              value={work.checkinTime}
+                              disabled={!canEdit}
+                              onChange={(event) =>
+                                handleTimeChange(work.id, 'checkinTime', event.target.value, checkinBounds)
+                              }
+                            >
+                              {buildTimeOptions(checkinBounds.min, checkinBounds.max).map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                          </FieldRow>
+                        </div>
 
                       <div className={styles.inlineFieldGroup}>
                         <FieldRow label="침구 수량" description={`${blanketBounds.min}~${blanketBounds.max}세트`}>
@@ -519,42 +537,44 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                     </select>
                   </label>
                 </div>
-                <div className={styles.addGrid}>
-                  <AddField label="체크아웃" hint="L.C.최대2시간">
-                    <input
-                      type="time"
-                      lang="en-GB"
-                      step={300}
-                      className={styles.timeInput}
-                      value={addForm.checkoutTime}
-                      min={addCheckoutBounds.min}
-                      max={addCheckoutBounds.max}
-                      onChange={(event) =>
-                        setAddForm((prev) => ({
-                          ...prev,
-                          checkoutTime: clampTime(event.target.value, addCheckoutBounds.min, addCheckoutBounds.max)
-                        }))
-                      }
-                    />
-                  </AddField>
-                  <AddField label="체크인" hint="E.C.최대2시간">
-                    <input
-                      type="time"
-                      lang="en-GB"
-                      step={300}
-                      className={styles.timeInput}
-                      value={addForm.checkinTime}
-                      min={addCheckinBounds.min}
-                      max={addCheckinBounds.max}
-                      onChange={(event) =>
-                        setAddForm((prev) => ({
-                          ...prev,
-                          checkinTime: clampTime(event.target.value, addCheckinBounds.min, addCheckinBounds.max)
-                        }))
-                      }
-                    />
-                  </AddField>
-                </div>
+                  <div className={styles.addGrid}>
+                    <AddField label="체크아웃" hint="L.C.최대2시간">
+                      <select
+                        className={styles.timeSelect}
+                        value={addForm.checkoutTime}
+                        onChange={(event) =>
+                          setAddForm((prev) => ({
+                            ...prev,
+                            checkoutTime: clampTime(event.target.value, addCheckoutBounds.min, addCheckoutBounds.max)
+                          }))
+                        }
+                      >
+                        {buildTimeOptions(addCheckoutBounds.min, addCheckoutBounds.max).map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </AddField>
+                    <AddField label="체크인" hint="E.C.최대2시간">
+                      <select
+                        className={styles.timeSelect}
+                        value={addForm.checkinTime}
+                        onChange={(event) =>
+                          setAddForm((prev) => ({
+                            ...prev,
+                            checkinTime: clampTime(event.target.value, addCheckinBounds.min, addCheckinBounds.max)
+                          }))
+                        }
+                      >
+                        {buildTimeOptions(addCheckinBounds.min, addCheckinBounds.max).map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </AddField>
+                  </div>
                 <div className={styles.addGrid}>
                   <AddField label="침구 수량" hint={`${addBlanketBounds.min}~${addBlanketBounds.max}세트`}>
                     <QuantityStepper
@@ -693,7 +713,7 @@ function FieldRow({ label, description, children }: { label: string; description
     <div className={styles.fieldRow}>
       <div className={styles.fieldMeta}>
         <span className={styles.fieldLabel}>{label}</span>
-        {description ? <small>{description}</small> : null}
+        {description ? <small className={styles.fieldHint}>{description}</small> : null}
       </div>
       <div className={styles.fieldControl}>{children}</div>
     </div>
@@ -703,10 +723,13 @@ function FieldRow({ label, description, children }: { label: string; description
 function AddField({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <label className={styles.formControl}>
-      <span>
-        {label} {hint ? <em>{hint}</em> : null}
-      </span>
-      {children}
+      <span className={styles.fieldLabel}>{label}</span>
+      {hint ? (
+        <small className={styles.fieldHint}>
+          <em>{hint}</em>
+        </small>
+      ) : null}
+      <div className={styles.fieldControl}>{children}</div>
     </label>
   );
 }
@@ -743,20 +766,9 @@ function QuantityStepper({
       >
         -
       </span>
-      <input
-        type="number"
-        value={value}
-        min={min}
-        max={max}
-        disabled={disabled}
-        onChange={(event) => {
-          const parsed = Number(event.target.value);
-          if (Number.isNaN(parsed)) {
-            return;
-          }
-          onChange(parsed);
-        }}
-      />
+      <span className={styles.stepperValue} aria-live="polite">
+        {value}
+      </span>
       <span
         role="button"
         tabIndex={0}
