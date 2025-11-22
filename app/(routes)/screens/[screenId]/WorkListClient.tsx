@@ -210,11 +210,8 @@ export default function WorkListClient({ profile, snapshot }: Props) {
 
                         if (disabledLine) {
                           return (
-                            <div key={work.id} className={styles.workCardMuted}>
-                              <div className={styles.workCardHeader}>
-                                <p className={styles.workTitle}>{work.roomName}</p>
-                                <span className={styles.badgeMuted}>점검</span>
-                              </div>
+                            <div key={work.id} className={`${styles.workCardMuted} ${styles.workCardMutedRow}`}>
+                              <p className={styles.workTitle}>{work.roomName}</p>
                               <p className={styles.requirementsText}>{work.requirements || '요청사항 없음'}</p>
                             </div>
                           );

@@ -204,6 +204,13 @@
   gap: 6px;
 }
 
+.workCardMutedRow {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .workCardHeader {
   display: flex;
   flex-direction: column;
@@ -308,12 +315,13 @@
 }
 
 .cleaningNearDone {
-  background: #fb923c;
+  background: #bfdbfe;
   color: #0f172a;
 }
 
 .cleaningDone {
-  background: #ef4444;
+  background: linear-gradient(135deg, #0f172a, #1d4ed8);
+  color: #ffffff;
 }
 
 .superviseOff {

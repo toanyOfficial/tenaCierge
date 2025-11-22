@@ -1,7 +1,15 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, alias } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
-import { clientRooms, etcBuildings, etcNotice, workAssignment, workHeader, workerHeader } from '@/src/db/schema';
+import {
+  clientRooms,
+  etcBaseCode,
+  etcBuildings,
+  etcNotice,
+  workAssignment,
+  workHeader,
+  workerHeader
+} from '@/src/db/schema';
 import type { ProfileSummary } from '@/src/utils/profile';
 import { findClientByProfile } from '@/src/server/clients';
 import { findWorkerByProfile } from '@/src/server/workers';
@@ -51,6 +59,8 @@ export async function getWorkListSnapshot(
   const worker = await findWorkerByProfile(profile);
   const client = await findClientByProfile(profile);
 
+  const buildingSector = alias(etcBaseCode, 'buildingSector');
+
   const baseQuery = db
     .select({
       id: workHeader.id,
@@ -70,13 +80,17 @@ export async function getWorkListSnapshot(
       roomNo: clientRooms.roomNo,
       buildingId: clientRooms.buildingId,
       sectorCode: etcBuildings.sectorCode,
-      sectorValue: etcBuildings.sectorValue,
+      sectorValue: buildingSector.value,
       buildingShortName: etcBuildings.shortName,
       cleanerName: workerHeader.name
     })
     .from(workHeader)
     .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
     .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
+    .leftJoin(
+      buildingSector,
+      and(eq(buildingSector.codeGroup, etcBuildings.sectorCode), eq(buildingSector.code, etcBuildings.sectorValue))
+    )
     .leftJoin(workerHeader, eq(workHeader.cleanerId, workerHeader.id))
     .where(eq(workHeader.date, targetDate));
 
@@ -165,7 +179,7 @@ function normalizeRow(row: any): WorkListEntry {
     cleanerName: row.cleanerName ?? '-',
     buildingId: Number(row.buildingId ?? 0),
     sectorCode: row.sectorCode ?? '',
-    sectorValue: row.sectorValue ?? ''
+    sectorValue: row.sectorValue ?? row.sectorCode ?? ''
   };
 }
 
