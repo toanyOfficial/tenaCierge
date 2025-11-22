@@ -1,39 +1,82 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { eq, or } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
-import { workerHeader } from '@/src/db/schema';
+import { clientHeader, workerHeader } from '@/src/db/schema';
 
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30일
+const COOKIE_MAX_AGE = 60 * 60 * 24; // 1일
 
-function buildWhereClause(phone?: string, registerNo?: string) {
-  const conditions = [];
+type WorkerRecord = {
+  id: number;
+  name: string;
+  phone: string | null;
+  registerNo: string;
+  tier: number;
+};
 
-  if (phone) {
-    conditions.push(eq(workerHeader.phone, phone));
-  }
+type ClientRecord = {
+  id: number;
+  name: string;
+  phone: string;
+  registerNo: string;
+};
 
-  if (registerNo) {
-    conditions.push(eq(workerHeader.registerCode, registerNo));
-  }
+type SearchIdentifier =
+  | { type: 'register'; value: string }
+  | { type: 'phone'; value: string };
 
-  if (conditions.length === 0) {
-    return undefined;
-  }
+const ROLE_PRIORITY: Array<'admin' | 'host' | 'butler' | 'cleaner'> = ['admin', 'host', 'butler', 'cleaner'];
 
-  if (conditions.length === 1) {
-    return conditions[0];
-  }
-
-  return or(...conditions);
+function buildWorkerClause(identifier: SearchIdentifier) {
+  return identifier.type === 'register'
+    ? eq(workerHeader.registerCode, identifier.value)
+    : eq(workerHeader.phone, identifier.value);
 }
 
-function resolveRoleFromTier(tier: number) {
-  if (tier === 99) return 'admin';
-  if (tier === 7) return 'butler';
-  if (tier <= 6) return 'cleaner';
-  return 'guest';
+function buildClientClause(identifier: SearchIdentifier) {
+  return identifier.type === 'register'
+    ? eq(clientHeader.registerCode, identifier.value)
+    : eq(clientHeader.phone, identifier.value);
+}
+
+function appendRole(list: string[], role: 'admin' | 'host' | 'butler' | 'cleaner') {
+  if (!list.includes(role)) {
+    list.push(role);
+  }
+}
+
+function resolveRoleArrange(worker: WorkerRecord | null, client: ClientRecord | null) {
+  const roles: string[] = [];
+
+  if (client) {
+    appendRole(roles, 'host');
+  }
+
+  if (worker) {
+    appendRole(roles, 'cleaner');
+
+    if (worker.tier === 7) {
+      appendRole(roles, 'butler');
+    }
+
+    if (worker.tier === 99) {
+      appendRole(roles, 'butler');
+      appendRole(roles, 'admin');
+    }
+  }
+
+  return roles;
+}
+
+function resolvePrimaryRole(roleArrange: string[]) {
+  for (const role of ROLE_PRIORITY) {
+    if (roleArrange.includes(role)) {
+      return role;
+    }
+  }
+
+  return null;
 }
 
 export async function POST(request: Request) {
@@ -52,33 +95,76 @@ export async function POST(request: Request) {
     );
   }
 
-  const whereClause = buildWhereClause(normalizedPhone || undefined, normalizedRegister || undefined);
+  const identifiers: SearchIdentifier[] = [];
 
-  if (!whereClause) {
-    return NextResponse.json({ message: '유효한 로그인 정보가 필요합니다.' }, { status: 400 });
+  if (normalizedRegister) {
+    identifiers.push({ type: 'register', value: normalizedRegister });
   }
 
-  const [worker] = await db
-    .select({
-      id: workerHeader.id,
-      name: workerHeader.name,
-      phone: workerHeader.phone,
-      registerNo: workerHeader.registerCode,
-      tier: workerHeader.tier
-    })
-    .from(workerHeader)
-    .where(whereClause)
-    .limit(1);
+  if (normalizedPhone) {
+    identifiers.push({ type: 'phone', value: normalizedPhone });
+  }
 
-  if (!worker) {
+  let worker: WorkerRecord | null = null;
+  let client: ClientRecord | null = null;
+
+  for (const identifier of identifiers) {
+    const [workerResult] = await db
+      .select({
+        id: workerHeader.id,
+        name: workerHeader.name,
+        phone: workerHeader.phone,
+        registerNo: workerHeader.registerCode,
+        tier: workerHeader.tier
+      })
+      .from(workerHeader)
+      .where(buildWorkerClause(identifier))
+      .limit(1);
+
+    if (workerResult?.tier === 1) {
+      return NextResponse.json({ message: '로그인이 제한된 유저입니다.' }, { status: 403 });
+    }
+
+    const [clientResult] = await db
+      .select({
+        id: clientHeader.id,
+        name: clientHeader.name,
+        phone: clientHeader.phone,
+        registerNo: clientHeader.registerCode
+      })
+      .from(clientHeader)
+      .where(buildClientClause(identifier))
+      .limit(1);
+
+    if (workerResult || clientResult) {
+      worker = workerResult ?? null;
+      client = clientResult ?? null;
+      break;
+    }
+  }
+
+  if (!worker && !client) {
     return NextResponse.json({ message: '일치하는 구성원을 찾지 못했습니다.' }, { status: 404 });
   }
 
-  if (worker.tier === 1) {
-    return NextResponse.json({ message: '해당 계정은 현재 로그인할 수 없습니다.' }, { status: 403 });
+  const roleArrange = resolveRoleArrange(worker, client);
+
+  if (roleArrange.length === 0) {
+    return NextResponse.json({ message: '해당 계정에 부여할 역할이 없습니다.' }, { status: 403 });
   }
 
-  const role = resolveRoleFromTier(worker.tier);
+  const primaryRole = resolvePrimaryRole(roleArrange);
+
+  if (!primaryRole) {
+    return NextResponse.json({ message: '역할 우선순위를 계산하지 못했습니다.' }, { status: 500 });
+  }
+
+  const profile = {
+    name: worker?.name ?? client?.name ?? '이름 미지정',
+    phone: worker?.phone ?? client?.phone ?? normalizedPhone,
+    registerNo: worker?.registerNo ?? client?.registerNo ?? normalizedRegister
+  };
+
   const cookieStore = cookies();
   const secure = process.env.NODE_ENV === 'production';
 
@@ -90,15 +176,11 @@ export async function POST(request: Request) {
     maxAge: COOKIE_MAX_AGE
   };
 
-  cookieStore.set('tc_name', worker.name, sharedOptions);
-  cookieStore.set('tc_phone', worker.phone ?? '', sharedOptions);
-  cookieStore.set('tc_register', worker.registerNo, sharedOptions);
-  cookieStore.set('tc_role', role, sharedOptions);
+  cookieStore.set('name', profile.name ?? '', sharedOptions);
+  cookieStore.set('phone', profile.phone ?? '', sharedOptions);
+  cookieStore.set('register_no', profile.registerNo ?? '', sharedOptions);
+  cookieStore.set('role_arrange', JSON.stringify(roleArrange), sharedOptions);
+  cookieStore.set('role', primaryRole, sharedOptions);
 
-  return NextResponse.json({
-    id: worker.id,
-    name: worker.name,
-    tier: worker.tier,
-    role
-  });
+  return NextResponse.json({ profile, roleArrange, role: primaryRole });
 }
