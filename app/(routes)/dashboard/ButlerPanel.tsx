@@ -50,9 +50,6 @@ export default function ButlerPanel({ snapshots, activeKey, onChangeDate }: Prop
       </header>
 
       <div className={styles.cleanerCtas}>
-        <Link href="/screens/002" className={`${styles.linkButton} ${styles.ctaNeutral}`} prefetch={false}>
-          오더관리
-        </Link>
         <Link href="/screens/003" className={`${styles.linkButton} ${styles.ctaNeutral}`} prefetch={false}>
           업무신청
         </Link>

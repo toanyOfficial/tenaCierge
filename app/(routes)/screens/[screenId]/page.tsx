@@ -44,6 +44,25 @@ export default async function ScreenPage({
 
   const profile = getProfileSummary();
 
+  const isButlerOnlyView =
+    screenId === '002' &&
+    profile.roles.includes('butler') &&
+    !profile.roles.includes('admin') &&
+    !profile.roles.includes('host');
+
+  if (isButlerOnlyView) {
+    return (
+      <section className={styles.placeholder}>
+        <div className={styles.card}>
+          <p className={styles.lead}>오더관리 화면은 버틀러용으로 제공되지 않습니다.</p>
+          <Link className={styles.backLink} href="/dashboard">
+            대시보드로 돌아가기
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
   if (screenId === '003') {
     const snapshot = await getApplySnapshot(profile);
     return (

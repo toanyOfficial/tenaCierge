@@ -206,7 +206,7 @@
 
 .workCardMutedRow {
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   flex-wrap: wrap;
 }
@@ -484,6 +484,21 @@
 .stateOff {
   color: #0f172a;
   font-weight: 600;
+}
+
+.detailCleanIdle {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.detailCleanNearDone {
+  color: #f97316;
+  font-weight: 700;
+}
+
+.detailCleanDone {
+  color: #ef4444;
+  font-weight: 700;
 }
 
 .mutedText {

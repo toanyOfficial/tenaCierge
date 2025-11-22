@@ -73,11 +73,15 @@ export default function WorkListClient({ profile, snapshot }: Props) {
     });
   }, [groupedBySector]);
 
+  const modalWorks = useMemo(() => works.filter((w) => w.cleaningYn), [works]);
   const finishedWorks = useMemo(
-    () => works.filter((w) => w.supplyYn && w.cleaningFlag === 4 && Boolean(w.supervisingEndTime)),
-    [works]
+    () => modalWorks.filter((w) => w.supplyYn && w.cleaningFlag === 4 && Boolean(w.supervisingEndTime)),
+    [modalWorks]
   );
-  const inProgressWorks = useMemo(() => works.filter((w) => !finishedWorks.includes(w)), [works, finishedWorks]);
+  const inProgressWorks = useMemo(
+    () => modalWorks.filter((w) => !finishedWorks.includes(w)),
+    [modalWorks, finishedWorks]
+  );
 
   function cleaningTone(flag: number) {
     if (flag >= 4) return styles.cleaningDone;
@@ -110,7 +114,16 @@ export default function WorkListClient({ profile, snapshot }: Props) {
     }
 
     const body = await res.json();
-    setWorks((prev) => prev.map((w) => (w.id === workId ? { ...w, ...body.work } : w)));
+    setWorks((prev) =>
+      prev.map((w) => {
+        if (w.id !== workId) return w;
+        const next = { ...w, ...body.work } as WorkListEntry;
+        if (!next.cleanerName) {
+          next.cleanerName = '';
+        }
+        return next;
+      })
+    );
     setStatus('저장되었습니다.');
   }
 
@@ -335,10 +348,12 @@ export default function WorkListClient({ profile, snapshot }: Props) {
               </div>
               <div className={styles.detailGridBody}>
                 {inProgressWorks.map((work) => {
-                  const cleaningLabel = work.cleaningYn
-                    ? cleaningLabels[(work.cleaningFlag || 1) - 1] ?? cleaningLabels[0]
-                    : '점검';
-                  const cleaningClass = work.cleaningYn ? cleaningTone(work.cleaningFlag) : styles.inspectText;
+                  const cleaningLabel = cleaningLabels[(work.cleaningFlag || 1) - 1] ?? cleaningLabels[0];
+                  const cleaningClass = (() => {
+                    if (work.cleaningFlag >= 4) return styles.detailCleanDone;
+                    if (work.cleaningFlag === 3) return styles.detailCleanNearDone;
+                    return styles.detailCleanIdle;
+                  })();
 
                   return (
                     <div key={work.id} className={styles.detailGridRow}>

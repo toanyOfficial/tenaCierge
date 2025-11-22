@@ -21,7 +21,6 @@ const navLinksByRole: Record<string, { href: string; label: string }[]> = {
     { href: '/screens/007', label: '평가이력' }
   ],
   butler: [
-    { href: '/screens/002', label: '오더관리' },
     { href: '/screens/003', label: '업무신청' },
     { href: '/screens/004', label: '과업지시서' },
     { href: '/screens/005', label: '업무보고' }

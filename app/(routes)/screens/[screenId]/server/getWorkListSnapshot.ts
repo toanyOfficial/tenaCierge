@@ -189,7 +189,7 @@ function normalizeRow(row: any): WorkListEntry {
     cleaningYn: Boolean(row.cleaningYn),
     conditionCheckYn: Boolean(row.conditionCheckYn),
     supervisingEndTime: row.supervisingEndTime ? toTime(row.supervisingEndTime) : null,
-    cleanerName: row.cleanerName ?? '-',
+    cleanerName: row.cleanerName ?? '',
     buildingId: Number(row.buildingId ?? 0),
     sectorCode: row.sectorCode ?? '',
     sectorValue: row.sectorValue ?? row.sectorCode ?? ''
