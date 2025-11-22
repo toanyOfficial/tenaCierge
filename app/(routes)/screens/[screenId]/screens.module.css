@@ -1153,12 +1153,17 @@
   padding: 12px;
   background: #f8fafc;
   cursor: pointer;
+  color: #0f172a;
 }
 
 .workerList li button div {
   display: flex;
   gap: 6px;
   align-items: baseline;
+}
+
+.workerList li button strong {
+  color: #0f172a;
 }
 
 .workerList li button p {

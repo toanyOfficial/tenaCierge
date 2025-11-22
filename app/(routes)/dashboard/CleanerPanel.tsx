@@ -39,6 +39,8 @@ export default function CleanerPanel({ snapshot }: Props) {
   }
 
   const statusLabel = getStatusLabel(snapshot);
+  const highlightWorklist = snapshot.highlightWorklist;
+  const highlightApply = snapshot.highlightApply;
 
   return (
     <section className={styles.cleanerPanel} data-child-id="5">
@@ -60,13 +62,29 @@ export default function CleanerPanel({ snapshot }: Props) {
         <span className={styles.statusTime}>현재 시각 (KST) · {snapshot.currentTimeLabel}</span>
       </div>
 
-      {snapshot.canApplyNow ? (
-        <div className={styles.primaryCtaWrap}>
-          <Link href="/screens/003" className={`${styles.linkButton} ${styles.primaryCta}`} prefetch={false}>
-            업무 신청하기
-          </Link>
-        </div>
-      ) : null}
+      <div className={styles.cleanerCtas}>
+        <Link
+          href="/screens/003"
+          className={`${styles.linkButton} ${highlightApply ? styles.ctaHighlight : styles.ctaDisabled}`}
+          aria-disabled={!snapshot.canApplyNow}
+          prefetch={false}
+          tabIndex={snapshot.canApplyNow ? 0 : -1}
+        >
+          업무 신청하기
+        </Link>
+        <Link
+          href="/screens/004"
+          className={`${styles.linkButton} ${highlightWorklist ? styles.ctaHighlight : styles.ctaDisabled}`}
+          aria-disabled={!highlightWorklist}
+          prefetch={false}
+          tabIndex={highlightWorklist ? 0 : -1}
+        >
+          과업지시서
+        </Link>
+        <Link href="/screens/007" className={`${styles.linkButton} ${styles.ctaNeutral}`} prefetch={false}>
+          평가이력
+        </Link>
+      </div>
 
       <section className={styles.applicationPanel} aria-label="신청현황">
         <header>
@@ -89,14 +107,6 @@ export default function CleanerPanel({ snapshot }: Props) {
         </ul>
       </section>
 
-      <div className={styles.secondaryCtas}>
-        <Link href="/screens/004" className={styles.linkButton} prefetch={false}>
-          과업지시서
-        </Link>
-        <Link href="/screens/007" className={styles.linkButton} prefetch={false}>
-          평가이력
-        </Link>
-      </div>
     </section>
   );
 }

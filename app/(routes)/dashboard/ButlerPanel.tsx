@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import styles from './dashboard.module.css';
@@ -45,6 +46,21 @@ export default function ButlerPanel({ snapshots, activeKey, onChangeDate }: Prop
         </div>
         <span className={styles.countBadge}>{snapshot.totalWorks}건</span>
       </header>
+
+      <div className={styles.cleanerCtas}>
+        <Link href="/screens/002" className={`${styles.linkButton} ${styles.ctaNeutral}`} prefetch={false}>
+          오더관리
+        </Link>
+        <Link href="/screens/003" className={`${styles.linkButton} ${styles.ctaNeutral}`} prefetch={false}>
+          업무신청
+        </Link>
+        <Link href="/screens/004" className={`${styles.linkButton} ${styles.ctaNeutral}`} prefetch={false}>
+          과업지시서
+        </Link>
+        <Link href="/screens/005" className={`${styles.linkButton} ${styles.ctaNeutral}`} prefetch={false}>
+          평가이력
+        </Link>
+      </div>
 
       <div className={styles.dateSelector}>
         <label className={styles.selectorLabel} htmlFor="butler-date-select">
@@ -186,12 +202,12 @@ function DetailList({ details, preferred }: { details: ButlerDetailEntry[]; pref
                       {detail.buildingName} · {detail.roomNo}
                     </strong>
                     <div className={styles.detailChips}>
-                      <span className={styles.detailBadge}>{detail.checkoutTimeLabel}</span>
                       <span
                         className={`${styles.detailBadge} ${detail.isCleaning ? styles.cleanBadge : styles.inspectBadge}`}
                       >
                         {detail.workTypeLabel}
                       </span>
+                      <span className={styles.detailBadge}>{detail.checkoutTimeLabel}</span>
                       <span className={styles.detailComment}>{detail.comment || '메모 없음'}</span>
                     </div>
                   </div>

@@ -40,6 +40,8 @@ export type CleanerSnapshot = {
   timeSegment: CleanerTimeSegment;
   assignmentSummary: string | null;
   applications: CleanerApplication[];
+  highlightApply: boolean;
+  highlightWorklist: boolean;
 };
 
 export type ButlerCheckoutGroup = {
@@ -223,6 +225,9 @@ async function getCleanerSnapshot(profile: ProfileSummary): Promise<CleanerSnaps
     const assignmentSummary = todayAssignment?.buildingName
       ? `${todayAssignment.buildingName}${todayAssignment.roomNo ? ` · ${todayAssignment.roomNo}` : ''}`
       : null;
+    const highlightWorklist = Boolean(workApplied && nowMinutes < parseTimeToMinutes('16:30'));
+    const highlightApply = Boolean(canApplyNow);
+
     const message = buildCleanerMessage({
       segment: timeSegment,
       workAppliedToday: workApplied,
@@ -249,7 +254,9 @@ async function getCleanerSnapshot(profile: ProfileSummary): Promise<CleanerSnaps
       currentTimeLabel: formatTimeLabel(nowKst),
       timeSegment,
       assignmentSummary,
-      applications
+      applications,
+      highlightApply,
+      highlightWorklist
     };
   } catch (error) {
     console.error('클리너 상태 조회 실패', error);
@@ -318,7 +325,8 @@ async function buildButlerSnapshot(
     const buildingName = work.buildingName ?? '미지정 빌딩';
     const checkoutTimeLabel = formatCheckoutTimeLabel(work.checkoutTime);
     const checkoutMinutes = checkoutTimeToMinutes(work.checkoutTime);
-    const workTypeLabel = work.cleaningYn === 1 ? '청소' : '점검';
+    const isCleaning = work.cleaningYn === 1;
+    const workTypeLabel = isCleaning ? '청소' : '점검';
 
     return {
       id: work.id,
@@ -328,9 +336,12 @@ async function buildButlerSnapshot(
       checkoutMinutes,
       roomNo: work.roomNo ?? '-',
       workTypeLabel,
+      isCleaning,
       comment: work.comment ?? ''
     };
   });
+
+  const cleaningWorks = normalizedWorks.filter((work) => work.isCleaning);
 
   const sectorGroups = new Map<
     string,
@@ -350,7 +361,7 @@ async function buildButlerSnapshot(
 
   const buildingTotals = new Map<string, number>();
 
-  normalizedWorks.forEach((work) => {
+  cleaningWorks.forEach((work) => {
     const sectorKey = work.sectorLabel;
     if (!sectorGroups.has(sectorKey)) {
       sectorGroups.set(sectorKey, {
