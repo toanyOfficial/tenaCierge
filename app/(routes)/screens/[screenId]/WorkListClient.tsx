@@ -144,7 +144,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
             <p className={styles.subtle}>현재 {snapshot.windowLabel} 업무 리스트</p>
           </div>
           <div className={styles.windowMeta}>
-            {activeRole === 'butler' ? (
+            {activeRole === 'butler' || activeRole === 'admin' ? (
               <div className={styles.windowToggleRow}>
                 <button
                   type="button"
@@ -357,7 +357,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
 
                   return (
                     <div key={work.id} className={styles.detailGridRow}>
-                      <span className={!work.conditionCheckYn ? styles.mutedText : ''}>{work.roomName}</span>
+                      <span>{work.roomName}</span>
                       <span>{work.checkoutTime}</span>
                       <span>{work.checkinTime}</span>
                       <span className={work.supplyYn ? styles.stateOn : styles.stateOff}>{work.supplyYn ? '완료' : '대기'}</span>
