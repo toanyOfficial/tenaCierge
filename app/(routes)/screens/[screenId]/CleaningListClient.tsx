@@ -340,7 +340,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
 
   return (
     <div className={styles.screenShell}>
-      <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={handleRoleChange} />
+      <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={handleRoleChange} compact />
 
       <section className={styles.cleaningSection} data-screen-id="002">
         <header className={styles.sectionHeader}>

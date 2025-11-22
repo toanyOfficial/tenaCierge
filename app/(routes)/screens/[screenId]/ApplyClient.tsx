@@ -246,6 +246,7 @@ export default function ApplyClient({ profile, snapshot }: Props) {
           setActiveRole(role);
           persistRole(role);
         }}
+        compact
       />
 
       <section className={styles.applySection}>

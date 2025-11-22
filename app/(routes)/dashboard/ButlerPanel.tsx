@@ -72,7 +72,11 @@ export default function ButlerPanel({ snapshots, activeKey, onChangeDate }: Prop
             className={`${styles.linkButton} ${option.key === snapshot.key ? styles.ctaHighlight : styles.ctaNeutral}`}
             onClick={() => onChangeDate(option.key)}
           >
-            {option.isToday ? 'D0' : 'D+1'} · {option.targetDateLabel}
+            {option.key === snapshot.key
+              ? `${option.isToday ? 'D0' : 'D+1'} · ${option.targetDateLabel}`
+              : option.isToday
+              ? 'D0보기'
+              : 'D+1보기'}
           </button>
         ))}
       </div>
