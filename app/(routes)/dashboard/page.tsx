@@ -1,191 +1,817 @@
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
+import { and, asc, desc, eq, gte, or } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/mysql-core';
 
-import styles from './dashboard.module.css';
+import DashboardClient from './DashboardClient';
+
+import { clientRooms, etcBaseCode, etcBuildings, etcNotice, workApply, workHeader, workerHeader } from '@/src/db/schema';
+import { getProfileSummary, type ProfileSummary } from '@/src/utils/profile';
+import { getApplyStartLabel, getTierLabel } from '@/src/utils/tier';
 
 export const metadata: Metadata = {
   title: '업무 현황 | TenaCierge Ops',
-  description: 'D+1 일정 기반 공용 대시보드'
+  description: '모든 역할에 공통으로 노출되는 프로필 및 제어 영역'
 };
 
-const overviewMetrics = [
-  { label: '당일 퇴실', value: '18건', tone: 'accent' },
-  { label: '상태확인 전환', value: '7건', tone: 'neutral' },
-  { label: '주의 알림', value: '3건', tone: 'warning' }
-];
+const roleOrder = ['admin', 'host', 'butler', 'cleaner'] as const;
+const butlerSectorOrder = ['신논현', '역삼', '논현'];
 
-const adminQueue = [
-  { building: '한강뷰 스위트', room: 'A-701', task: '클리닝', checkout: '11:00', checkin: '15:00', owner: '김서하', status: '대기' },
-  { building: '씨티프라임', room: '1203', task: '상태확인', checkout: '-', checkin: '16:00', owner: '이은우', status: '확인 예정' },
-  { building: '하이츠 M', room: '505', task: '클리닝', checkout: '10:00', checkin: '14:00', owner: '박세린', status: '배정 완료' },
-  { building: '리버파크', room: 'B-903', task: '클리닝 + 상태확인', checkout: '09:30', checkin: '15:30', owner: '정도윤', status: '지연' }
-];
+type CleanerTimeSegment = 'preBatch' | 'batching' | 'applyWindow';
 
-const adminAlerts = [
-  { label: '지연', message: '리버파크 B-903 퇴실 미확인, 정오까지 재확인 필요' },
-  { label: '재배정', message: '씨티프라임 809호 2인 침구 추가 요청' },
-  { label: '노쇼', message: '하이츠 M 1802 체크인 미도착 – 상태확인 전환' }
-];
+export type CleanerApplication = {
+  id: number;
+  date: string;
+  dateLabel: string;
+  sectorLabel: string;
+};
 
-const butlerBoard = [
-  { name: '유가람', window: '09:00-18:00', zone: '강남권', note: '긴급콜 가능' },
-  { name: '차정후', window: '12:00-21:00', zone: '마포·용산', note: '점검 1건 대기' }
-];
+export type CleanerSnapshot = {
+  tier: number | null;
+  tierLabel: string;
+  applyAvailableAt: string;
+  canApplyNow: boolean;
+  workApplied: boolean;
+  tomorrowWorkApplied: boolean;
+  sectorName: string | null;
+  tomorrowSectorName: string | null;
+  message: string;
+  workDateLabel: string;
+  currentTimeLabel: string;
+  timeSegment: CleanerTimeSegment;
+  assignmentSummary: string | null;
+  applications: CleanerApplication[];
+  highlightApply: boolean;
+  highlightWorklist: boolean;
+};
 
-const cleanerTasks = [
-  { room: 'A-701', building: '한강뷰 스위트', start: '11:00', end: '15:00', status: '대기', memo: '퇴실 후 바로 청소' },
-  { room: '1203', building: '씨티프라임', start: '16:00', end: '17:00', status: '상태확인', memo: '체크인만 존재' },
-  { room: 'B-903', building: '리버파크', start: '15:30', end: '17:30', status: '지연', memo: '퇴실 미확인' }
-];
+export type ButlerCheckoutGroup = {
+  checkoutTimeLabel: string;
+  count: number;
+};
 
-function formatDPlusOneLabel() {
-  const target = new Date();
-  target.setDate(target.getDate() + 1);
+export type ButlerBuildingSummary = {
+  buildingName: string;
+  totalWorkers: number;
+  checkoutGroups: ButlerCheckoutGroup[];
+};
+
+export type ButlerSectorSummary = {
+  sectorLabel: string;
+  totalWorkers: number;
+  buildings: ButlerBuildingSummary[];
+};
+
+export type ButlerDetailEntry = {
+  id: number;
+  sectorLabel: string;
+  buildingName: string;
+  checkoutTimeLabel: string;
+  roomNo: string;
+  workTypeLabel: string;
+  isCleaning: boolean;
+  comment: string;
+};
+
+export type ButlerSnapshot = {
+  targetDateKey: string;
+  targetDateLabel: string;
+  isToday: boolean;
+  sectorSummaries: ButlerSectorSummary[];
+  details: ButlerDetailEntry[];
+  totalWorks: number;
+  preferredSectors: string[];
+};
+
+export type ButlerSnapshotOption = ButlerSnapshot & { key: string };
+
+export type AdminNotice = {
+  id: number | null;
+  text: string;
+  dateLabel: string | null;
+  updatedAtLabel: string | null;
+};
+
+export default async function DashboardPage() {
+  const profile = getProfileSummary();
+  const cleanerPromise = profile.roles.includes('cleaner') ? getCleanerSnapshot(profile) : Promise.resolve(null);
+  const butlerPromise = profile.roles.includes('butler') ? getButlerSnapshots(profile) : Promise.resolve([]);
+  const adminNoticePromise = profile.roles.includes('admin') ? getLatestNotice() : Promise.resolve(null);
+
+  const [cleanerSnapshot, butlerSnapshots, adminNotice] = await Promise.all([
+    cleanerPromise,
+    butlerPromise,
+    adminNoticePromise
+  ]);
+
+  return (
+    <DashboardClient
+      profile={profile}
+      cleanerSnapshot={cleanerSnapshot}
+      butlerSnapshots={butlerSnapshots}
+      adminNotice={adminNotice}
+    />
+  );
+}
+
+async function getCleanerSnapshot(profile: ProfileSummary): Promise<CleanerSnapshot | null> {
+  const phone = sanitize(profile.phone);
+  const registerNo = sanitize(profile.registerNo);
+
+  if (!phone && !registerNo) {
+    return null;
+  }
+
+  const whereClause = buildWorkerWhereClause(phone, registerNo);
+
+  if (!whereClause) {
+    return null;
+  }
+
+  try {
+    const { db } = await import('@/src/db/client');
+
+    const workerSector = alias(etcBaseCode, 'workerSector');
+
+    const [worker] = await db
+      .select({
+        id: workerHeader.id,
+        tier: workerHeader.tier,
+        sectorName: workerSector.value
+      })
+      .from(workerHeader)
+      .leftJoin(workerSector, and(eq(workerSector.codeGroup, workerHeader.bankCode), eq(workerSector.code, workerHeader.bankValue)))
+      .where(whereClause)
+      .limit(1);
+
+    if (!worker) {
+      return null;
+    }
+
+    const nowKst = getKstNow();
+    const targetDateStr = formatDateKey(nowKst);
+    const tomorrow = new Date(nowKst);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowDateStr = formatDateKey(tomorrow);
+
+    const buildingSector = alias(etcBaseCode, 'buildingSector');
+
+    const assignmentsRaw = await db
+      .select({
+        id: workHeader.id,
+        date: workHeader.date,
+        sectorLabel: buildingSector.value,
+        buildingName: etcBuildings.shortName,
+        roomNo: clientRooms.roomNo
+      })
+      .from(workHeader)
+      .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
+      .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
+      .leftJoin(
+        buildingSector,
+        and(eq(buildingSector.codeGroup, etcBuildings.sectorCode), eq(buildingSector.code, etcBuildings.sectorValue))
+      )
+      .where(and(eq(workHeader.cleanerId, worker.id), gte(workHeader.date, targetDateStr)))
+      .orderBy(asc(workHeader.date))
+      .limit(6);
+
+    const assignments = assignmentsRaw.map((entry) => ({
+      ...entry,
+      date: normalizeDateValue(entry.date)
+    }));
+
+    const todayAssignment = assignments.find((entry) => entry.date === targetDateStr);
+    const tomorrowAssignment = assignments.find((entry) => entry.date === tomorrowDateStr);
+
+    const applySector = alias(etcBaseCode, 'applySector');
+
+    const applicationsRaw = await db
+      .select({
+        id: workApply.id,
+        date: workApply.workDate,
+        sectorLabel: applySector.value
+      })
+      .from(workApply)
+      .leftJoin(applySector, and(eq(applySector.codeGroup, workApply.sectorCode), eq(applySector.code, workApply.sectorValue)))
+      .where(and(eq(workApply.workerId, worker.id), gte(workApply.workDate, targetDateStr)))
+      .orderBy(asc(workApply.workDate), asc(workApply.seq))
+      .limit(10);
+
+    const applications = applicationsRaw.map((entry) => ({
+      id: entry.id,
+      date: normalizeDateValue(entry.date),
+      dateLabel: formatApplicationDateLabel(normalizeDateValue(entry.date)),
+      sectorLabel: entry.sectorLabel ?? worker.sectorName ?? '미정'
+    }));
+
+    const applyAvailableAt = getApplyStartLabel(worker.tier);
+    const nowMinutes = getMinutesFromDate(nowKst);
+    const timeSegment = resolveTimeSegment(nowMinutes);
+    const canApplyNow = timeSegment === 'applyWindow' && nowMinutes >= parseTimeToMinutes(applyAvailableAt);
+    const workApplied = Boolean(applications.find((app) => app.date === targetDateStr) ?? todayAssignment);
+    const tomorrowWorkApplied = Boolean(applications.find((app) => app.date === tomorrowDateStr) ?? tomorrowAssignment);
+    const sectorName =
+      applications.find((app) => app.date === targetDateStr)?.sectorLabel ??
+      todayAssignment?.sectorLabel ??
+      todayAssignment?.buildingName ??
+      worker.sectorName ??
+      null;
+    const tomorrowSectorName =
+      applications.find((app) => app.date === tomorrowDateStr)?.sectorLabel ??
+      tomorrowAssignment?.sectorLabel ??
+      tomorrowAssignment?.buildingName ??
+      worker.sectorName ??
+      null;
+    const tierLabel = getTierLabel(worker.tier);
+    const assignmentSummary = todayAssignment?.buildingName
+      ? `${todayAssignment.buildingName}${todayAssignment.roomNo ? ` · ${todayAssignment.roomNo}` : ''}`
+      : null;
+    const highlightWorklist = Boolean(workApplied && nowMinutes < parseTimeToMinutes('16:30'));
+    const highlightApply = Boolean(canApplyNow);
+
+    const message = buildCleanerMessage({
+      segment: timeSegment,
+      workAppliedToday: workApplied,
+      tomorrowWorkApplied,
+      canApplyNow,
+      name: profile.name,
+      tierLabel,
+      applyAvailableAt,
+      sectorName,
+      tomorrowSectorName
+    });
+
+    return {
+      tier: worker.tier,
+      tierLabel,
+      applyAvailableAt,
+      canApplyNow,
+      workApplied,
+      tomorrowWorkApplied,
+      sectorName,
+      tomorrowSectorName,
+      message,
+      workDateLabel: formatDateLabel(nowKst),
+      currentTimeLabel: formatTimeLabel(nowKst),
+      timeSegment,
+      assignmentSummary,
+      applications,
+      highlightApply,
+      highlightWorklist
+    };
+  } catch (error) {
+    console.error('클리너 상태 조회 실패', error);
+    return null;
+  }
+}
+
+async function getButlerSnapshots(profile: ProfileSummary): Promise<ButlerSnapshotOption[]> {
+  try {
+    const nowKst = getKstNow();
+    const today = new Date(nowKst);
+    const tomorrow = new Date(nowKst);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const preferredSectors: string[] = await resolvePreferredSectors(profile);
+
+    const snapshots = await Promise.all([
+      buildButlerSnapshot(today, true, preferredSectors),
+      buildButlerSnapshot(tomorrow, false, preferredSectors)
+    ]);
+
+    const defaultKey = nowKst.getHours() < 15 ? formatDateKey(today) : formatDateKey(tomorrow);
+
+    return snapshots
+      .filter(Boolean)
+      .map((snapshot) => ({ ...snapshot!, key: snapshot!.targetDateKey }))
+      .sort((a, b) => (a.targetDateKey === defaultKey ? -1 : b.targetDateKey === defaultKey ? 1 : 0));
+  } catch (error) {
+    console.error('버틀러 현황 조회 실패', error);
+    return [];
+  }
+}
+
+async function buildButlerSnapshot(
+  targetDate: Date,
+  isToday: boolean,
+  preferredSectors: string[]
+): Promise<ButlerSnapshot | null> {
+  const { db } = await import('@/src/db/client');
+  const targetDateKey = formatDateKey(targetDate);
+
+  const works = await db
+    .select({
+      id: workHeader.id,
+      checkoutTime: workHeader.checkoutTime,
+      buildingName: etcBuildings.shortName,
+      sectorLabel: etcBaseCode.value,
+      sectorCode: etcBuildings.sectorCode,
+      sectorValue: etcBuildings.sectorValue,
+      roomNo: clientRooms.roomNo,
+      cleaningYn: workHeader.cleaningYn,
+      conditionCheckYn: workHeader.conditionCheckYn,
+      comment: workHeader.requirements
+    })
+    .from(workHeader)
+    .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
+    .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
+    .leftJoin(
+      etcBaseCode,
+      and(eq(etcBaseCode.codeGroup, etcBuildings.sectorCode), eq(etcBaseCode.code, etcBuildings.sectorValue))
+    )
+    .where(eq(workHeader.date, targetDateKey));
+
+  const normalizedWorks = works.map((work) => {
+    const sectorLabel = work.sectorLabel ?? work.sectorValue ?? work.sectorCode ?? '미지정 섹터';
+    const buildingName = work.buildingName ?? '미지정 빌딩';
+    const checkoutTimeLabel = formatCheckoutTimeLabel(work.checkoutTime);
+    const checkoutMinutes = checkoutTimeToMinutes(work.checkoutTime);
+    const isCleaning = work.cleaningYn === 1;
+    const workTypeLabel = isCleaning ? '청소' : '점검';
+
+    return {
+      id: work.id,
+      sectorLabel,
+      buildingName,
+      checkoutTimeLabel,
+      checkoutMinutes,
+      roomNo: work.roomNo ?? '-',
+      workTypeLabel,
+      isCleaning,
+      comment: work.comment ?? ''
+    };
+  });
+
+  const cleaningWorks = normalizedWorks.filter((work) => work.isCleaning);
+
+  const sectorGroups = new Map<
+    string,
+    {
+      label: string;
+      totalWorkers: number;
+      buildings: Map<
+        string,
+        {
+          label: string;
+          totalWorkers: number;
+          checkoutGroups: Map<number, { label: string; count: number }>;
+        }
+      >;
+    }
+  >();
+
+  const buildingTotals = new Map<string, number>();
+
+  cleaningWorks.forEach((work) => {
+    const sectorKey = work.sectorLabel;
+    if (!sectorGroups.has(sectorKey)) {
+      sectorGroups.set(sectorKey, {
+        label: work.sectorLabel,
+        totalWorkers: 0,
+        buildings: new Map()
+      });
+    }
+
+    const sectorGroup = sectorGroups.get(sectorKey)!;
+    sectorGroup.totalWorkers += 1;
+
+    const buildingKey = `${work.sectorLabel}::${work.buildingName}`;
+    buildingTotals.set(buildingKey, (buildingTotals.get(buildingKey) ?? 0) + 1);
+
+    if (!sectorGroup.buildings.has(work.buildingName)) {
+      sectorGroup.buildings.set(work.buildingName, {
+        label: work.buildingName,
+        totalWorkers: 0,
+        checkoutGroups: new Map()
+      });
+    }
+
+    const buildingGroup = sectorGroup.buildings.get(work.buildingName)!;
+    buildingGroup.totalWorkers += 1;
+
+    const minutesKey = work.checkoutMinutes;
+    const existingGroup = buildingGroup.checkoutGroups.get(minutesKey);
+    if (existingGroup) {
+      existingGroup.count += 1;
+    } else {
+      buildingGroup.checkoutGroups.set(minutesKey, { label: work.checkoutTimeLabel, count: 1 });
+    }
+  });
+
+  const sectorSummaries: ButlerSectorSummary[] = Array.from(sectorGroups.values())
+    .sort((a, b) => sortSectorWithPreference(a.label, b.label, preferredSectors))
+    .map((sector) => ({
+      sectorLabel: sector.label,
+      totalWorkers: sector.totalWorkers,
+      buildings: Array.from(sector.buildings.values())
+        .sort((a, b) => {
+          if (a.totalWorkers === b.totalWorkers) {
+            return a.label.localeCompare(b.label, 'ko');
+          }
+          return b.totalWorkers - a.totalWorkers;
+        })
+        .map((building) => ({
+          buildingName: building.label,
+          totalWorkers: building.totalWorkers,
+          checkoutGroups: Array.from(building.checkoutGroups.entries())
+            .sort(([minutesA], [minutesB]) => minutesA - minutesB)
+            .map(([, meta]) => ({
+              checkoutTimeLabel: meta.label,
+              count: meta.count
+            }))
+        }))
+    }));
+
+  const sortedWorks = [...normalizedWorks].sort((a, b) => {
+    const sectorDiff = sortSectorWithPreference(a.sectorLabel, b.sectorLabel, preferredSectors);
+    if (sectorDiff !== 0) {
+      return sectorDiff;
+    }
+
+    const buildingKeyA = `${a.sectorLabel}::${a.buildingName}`;
+    const buildingKeyB = `${b.sectorLabel}::${b.buildingName}`;
+    const buildingTotalA = buildingTotals.get(buildingKeyA) ?? 0;
+    const buildingTotalB = buildingTotals.get(buildingKeyB) ?? 0;
+    if (buildingTotalA !== buildingTotalB) {
+      return buildingTotalB - buildingTotalA;
+    }
+
+    if (a.checkoutMinutes !== b.checkoutMinutes) {
+      return a.checkoutMinutes - b.checkoutMinutes;
+    }
+
+    return b.roomNo.localeCompare(a.roomNo, 'ko', { numeric: true, sensitivity: 'base' });
+  });
+
+  const details: ButlerDetailEntry[] = sortedWorks.map((work) => ({
+    id: work.id,
+    sectorLabel: work.sectorLabel,
+    buildingName: work.buildingName,
+    checkoutTimeLabel: work.checkoutTimeLabel,
+    roomNo: work.roomNo,
+    workTypeLabel: work.workTypeLabel,
+    isCleaning: work.workTypeLabel === '청소',
+    comment: work.comment
+  }));
+
+  return {
+    targetDateKey: targetDateKey,
+    targetDateLabel: formatDateLabel(targetDate),
+    isToday,
+    sectorSummaries,
+    details,
+    totalWorks: normalizedWorks.length,
+    preferredSectors
+  };
+}
+
+async function getLatestNotice(): Promise<AdminNotice | null> {
+  try {
+    const { db } = await import('@/src/db/client');
+    const [latest] = await db
+      .select({
+        id: etcNotice.id,
+        notice: etcNotice.notice,
+        noticeDate: etcNotice.noticeDate,
+        updatedAt: etcNotice.updatedAt
+      })
+      .from(etcNotice)
+      .orderBy(desc(etcNotice.updatedAt))
+      .limit(1);
+
+    if (!latest) {
+      return null;
+    }
+
+    const noticeDate = parseDateValue(latest.noticeDate);
+    const updatedAt = parseDateValue(latest.updatedAt);
+
+    return {
+      id: latest.id,
+      text: latest.notice ?? '',
+      dateLabel: noticeDate ? formatDateLabel(noticeDate) : null,
+      updatedAtLabel: updatedAt ? formatTimestampLabel(updatedAt) : null
+    };
+  } catch (error) {
+    console.error('공지 조회 실패', error);
+    return null;
+  }
+}
+
+function buildWorkerWhereClause(phone?: string, registerNo?: string) {
+  const conditions = [];
+
+  if (registerNo) {
+    conditions.push(eq(workerHeader.registerCode, registerNo));
+  }
+
+  if (phone) {
+    conditions.push(eq(workerHeader.phone, phone));
+  }
+
+  if (conditions.length === 0) {
+    return null;
+  }
+
+  if (conditions.length === 1) {
+    return conditions[0];
+  }
+
+  return or(...conditions);
+}
+
+function sanitize(value: string | undefined) {
+  if (!value || value === '-') {
+    return undefined;
+  }
+
+  return value;
+}
+
+function getKstNow() {
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  return new Date(utc + 9 * 60 * 60000);
+}
+
+function getMinutesFromDate(date: Date) {
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+function resolveTimeSegment(minutes: number): CleanerTimeSegment {
+  if (minutes <= 14 * 60) {
+    return 'preBatch';
+  }
+
+  if (minutes <= 15 * 60) {
+    return 'batching';
+  }
+
+  return 'applyWindow';
+}
+
+function parseTimeToMinutes(label: string) {
+  const [hour = '0', minute = '0'] = label.split(':');
+  return Number(hour) * 60 + Number(minute);
+}
+
+function formatDateLabel(date: Date) {
   return new Intl.DateTimeFormat('ko-KR', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
     weekday: 'short'
-  }).format(target);
+  }).format(date);
 }
 
-function getRoleFromCookies(): 'admin' | 'butler' | 'cleaner' {
-  const cookieStore = cookies();
-  const storedRole = cookieStore.get('tc_role')?.value;
+function formatTimeLabel(date: Date) {
+  return new Intl.DateTimeFormat('ko-KR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(date);
+}
 
-  if (storedRole === 'admin' || storedRole === 'butler' || storedRole === 'cleaner') {
-    return storedRole;
+function formatTimestampLabel(date: Date) {
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(date);
+}
+
+type CleanerMessageOptions = {
+  segment: CleanerTimeSegment;
+  workAppliedToday: boolean;
+  tomorrowWorkApplied: boolean;
+  canApplyNow: boolean;
+  name: string;
+  tierLabel: string;
+  applyAvailableAt: string;
+  sectorName: string | null;
+  tomorrowSectorName: string | null;
+};
+
+function buildCleanerMessage({
+  segment,
+  workAppliedToday,
+  tomorrowWorkApplied,
+  canApplyNow,
+  name,
+  tierLabel,
+  applyAvailableAt,
+  sectorName,
+  tomorrowSectorName
+}: CleanerMessageOptions) {
+  const tierText = tierLabel || '-';
+  const sector = sectorName ?? '지정 구역';
+  const tomorrowSector = tomorrowSectorName ?? '지정 구역';
+
+  if (segment === 'preBatch') {
+    if (workAppliedToday) {
+      return `${name}님은 오늘 ${sector} 근무를 신청해주셨습니다. 11:30까지 출근 부탁드립니다.`;
+    }
+
+    return `${name} 님은 현재 '${tierText}' 단계의 클리너이십니다. ${applyAvailableAt}부터 업무 신청이 가능합니다.`;
   }
 
-  return 'cleaner';
+  if (segment === 'batching') {
+    return `내일 과업지시서가 생성중입니다. ${name} 님은 현재 '${tierText}' 단계의 클리너이십니다. ${applyAvailableAt}부터 업무 신청이 가능합니다.`;
+  }
+
+  if (tomorrowWorkApplied) {
+    return `${name}님은 내일 ${tomorrowSector} 근무를 신청해주셨습니다. 11:30까지 출근 부탁드립니다.`;
+  }
+
+  if (workAppliedToday) {
+    return `${name}님은 오늘 ${sector} 근무를 신청해주셨습니다. 11:30까지 출근 부탁드립니다.`;
+  }
+
+  if (canApplyNow) {
+    return `${name} 님, 지금 업무 신청이 가능합니다. 업무신청 화면에서 희망 근무를 선택해 주세요.`;
+  }
+
+  return `${name} 님은 현재 '${tierText}' 단계의 클리너이십니다. ${applyAvailableAt}부터 업무 신청이 가능합니다.`;
 }
 
-export default function DashboardPage() {
-  const role = getRoleFromCookies();
-  const dPlusOne = formatDPlusOneLabel();
+function formatDateKey(date: Date) {
+  return date.toISOString().split('T')[0];
+}
 
-  return (
-    <section className={styles.wrapper}>
-      <section className={styles.overview} data-child-id="1">
-        <header>
-          <h1>당일 업무 현황</h1>
-          <p>매일 15:00 배치로 생성된 D+1 work_header를 한눈에 확인하세요.</p>
-        </header>
-        <div className={styles.datePanel}>
-          <span>D+1</span>
-          <strong>{dPlusOne}</strong>
-        </div>
-        <ul className={styles.metricList}>
-          {overviewMetrics.map((metric) => (
-            <li key={metric.label} className={`${styles.metric} ${styles[metric.tone]}`}>
-              <span>{metric.label}</span>
-              <strong>{metric.value}</strong>
-            </li>
-          ))}
-        </ul>
-      </section>
+function formatApplicationDateLabel(dateString: string) {
+  const date = new Date(`${dateString}T00:00:00+09:00`);
 
-      {role === 'admin' && (
-        <>
-          <section className={styles.card} data-child-id="2">
-            <header>
-              <h2>D+1 업무 테이블</h2>
-              <span>room / checkin / checkout 기준</span>
-            </header>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>객실</th>
-                  <th>업무</th>
-                  <th>퇴실</th>
-                  <th>입실</th>
-                  <th>담당</th>
-                  <th>상태</th>
-                </tr>
-              </thead>
-              <tbody>
-                {adminQueue.map((row) => (
-                  <tr key={`${row.building}-${row.room}`}>
-                    <td>
-                      <strong>{row.room}</strong>
-                      <div className={styles.helper}>{row.building}</div>
-                    </td>
-                    <td>{row.task}</td>
-                    <td>{row.checkout}</td>
-                    <td>{row.checkin}</td>
-                    <td>{row.owner}</td>
-                    <td>{row.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short'
+  }).format(date);
+}
 
-          <section className={styles.card} data-child-id="3">
-            <header>
-              <h2>특이사항</h2>
-              <span>work_reports 기반</span>
-            </header>
-            <ul className={styles.list}>
-              {adminAlerts.map((alert) => (
-                <li key={alert.message}>
-                  <span className={styles.pill}>{alert.label}</span>
-                  <p>{alert.message}</p>
-                </li>
-              ))}
-            </ul>
-          </section>
-        </>
-      )}
+function normalizeDateValue(value: string | Date) {
+  if (value instanceof Date) {
+    return formatDateKey(value);
+  }
 
-      {role === 'butler' && (
-        <section className={styles.card} data-child-id="4">
-          <header>
-            <h2>버틀러 배치</h2>
-            <span>tier 7 배정 현황</span>
-          </header>
-          <ul className={styles.list}>
-            {butlerBoard.map((item) => (
-              <li key={item.name}>
-                <div>
-                  <strong>{item.name}</strong>
-                  <div className={styles.helper}>{item.window}</div>
-                </div>
-                <div>
-                  <div>{item.zone}</div>
-                  <div className={styles.helper}>{item.note}</div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+  return value;
+}
 
-      {role === 'cleaner' && (
-        <section className={styles.card} data-child-id="5">
-          <header>
-            <h2>내 작업 리스트</h2>
-            <span>D+1 개인 배정</span>
-          </header>
-          <ul className={styles.list}>
-            {cleanerTasks.map((task) => (
-              <li key={`${task.building}-${task.room}`}>
-                <div>
-                  <strong>{task.room}</strong>
-                  <div className={styles.helper}>{task.building}</div>
-                </div>
-                <div>
-                  <div>
-                    {task.start} - {task.end}
-                  </div>
-                  <div className={styles.helper}>{task.status}</div>
-                </div>
-                <p>{task.memo}</p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-    </section>
-  );
+function parseDateValue(value: string | Date | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value;
+  }
+
+  const normalized = value.includes('T') ? value : `${value}T00:00:00+09:00`;
+  const parsed = new Date(normalized);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function formatCheckoutTimeLabel(value: string | Date | null | undefined) {
+  if (!value) {
+    return '--:--';
+  }
+
+  if (value instanceof Date) {
+    const hours = `${value.getHours()}`.padStart(2, '0');
+    const minutes = `${value.getMinutes()}`.padStart(2, '0');
+    return `${hours}:${minutes}`;
+  }
+
+  const parts = value.split(':');
+  const hour = (parts[0] ?? '00').padStart(2, '0');
+  const minute = (parts[1] ?? '00').padStart(2, '0');
+  return `${hour}:${minute}`;
+}
+
+function checkoutTimeToMinutes(value: string | Date | null | undefined) {
+  if (value instanceof Date) {
+    return value.getHours() * 60 + value.getMinutes();
+  }
+
+  if (typeof value === 'string' && value.length) {
+    const parts = value.split(':');
+    const hour = Number(parts[0] ?? '0');
+    const minute = Number(parts[1] ?? '0');
+
+    if (!Number.isNaN(hour) && !Number.isNaN(minute)) {
+      return hour * 60 + minute;
+    }
+  }
+
+  return Number.MAX_SAFE_INTEGER;
+}
+
+function compareSectorLabel(a: string, b: string) {
+  const indexA = butlerSectorOrder.indexOf(a);
+  const indexB = butlerSectorOrder.indexOf(b);
+
+  if (indexA !== -1 && indexB !== -1) {
+    return indexA - indexB;
+  }
+
+  if (indexA !== -1) {
+    return -1;
+  }
+
+  if (indexB !== -1) {
+    return 1;
+  }
+
+  return a.localeCompare(b, 'ko');
+}
+
+async function resolvePreferredSectors(profile: ProfileSummary): Promise<string[]> {
+  const phone = sanitize(profile.phone);
+  const registerNo = sanitize(profile.registerNo);
+
+  if (!phone && !registerNo) {
+    return [];
+  }
+
+  const whereClause = buildWorkerWhereClause(phone, registerNo);
+
+  if (!whereClause) {
+    return [];
+  }
+
+  try {
+    const { db } = await import('@/src/db/client');
+    const workerSector = alias(etcBaseCode, 'preferredSector');
+    const [worker] = await db
+      .select({ id: workerHeader.id, sectorName: workerSector.value })
+      .from(workerHeader)
+      .leftJoin(
+        workerSector,
+        and(eq(workerSector.codeGroup, workerHeader.bankCode), eq(workerSector.code, workerHeader.bankValue))
+      )
+      .where(whereClause)
+      .limit(1);
+
+    if (!worker) {
+      return [];
+    }
+
+    const nowKst = getKstNow();
+    const targetDate = new Date(nowKst);
+    const todayKey = formatDateKey(targetDate);
+    const tomorrow = new Date(nowKst);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowKey = formatDateKey(tomorrow);
+
+    const applySector = alias(etcBaseCode, 'applySector');
+
+    const applyRows = await db
+      .select({
+        sectorLabel: applySector.value,
+        workDate: workApply.workDate
+      })
+      .from(workApply)
+      .leftJoin(applySector, and(eq(applySector.codeGroup, workApply.sectorCode), eq(applySector.code, workApply.sectorValue)))
+      .where(and(eq(workApply.workerId, worker.id), gte(workApply.workDate, todayKey)))
+      .orderBy(asc(workApply.workDate))
+      .limit(6);
+
+    const sectors = applyRows
+      .filter((row) => {
+        const normalized = normalizeDateValue(row.workDate);
+        return normalized === todayKey || normalized === tomorrowKey;
+      })
+      .map((row) => row.sectorLabel)
+      .filter(Boolean) as string[];
+
+    if (worker.sectorName) {
+      sectors.unshift(worker.sectorName);
+    }
+
+    return Array.from(new Set(sectors));
+  } catch (error) {
+    console.error('버틀러 선호 섹터 계산 실패', error);
+    return [];
+  }
+}
+
+function sortSectorWithPreference(a: string, b: string, preferred: string[]) {
+  const aPreferred = preferred.includes(a);
+  const bPreferred = preferred.includes(b);
+
+  if (aPreferred && !bPreferred) {
+    return -1;
+  }
+
+  if (!aPreferred && bPreferred) {
+    return 1;
+  }
+
+  return compareSectorLabel(a, b);
 }
