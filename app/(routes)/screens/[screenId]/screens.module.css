@@ -126,6 +126,27 @@
   justify-content: flex-end;
 }
 
+.windowToggleRow {
+  display: flex;
+  gap: 8px;
+}
+
+.windowToggle {
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.windowToggleActive {
+  background: #0f172a;
+  color: #fff;
+  border-color: #0f172a;
+}
+
 .windowBadge {
   display: inline-flex;
   align-items: center;
@@ -173,6 +194,16 @@
   min-width: 0;
 }
 
+.workCardMuted {
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  padding: 12px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .workCardHeader {
   display: flex;
   flex-direction: column;
@@ -209,6 +240,33 @@
   width: 100%;
 }
 
+.groupCard {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.groupTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.groupBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .toggleButton,
 .toggleButtonDisabled {
   flex: 1;
@@ -240,21 +298,22 @@
 }
 
 .cleaningIdle {
-  background: linear-gradient(90deg, #e2e8f0, #cbd5e1);
+  background: #e2e8f0;
   color: #0f172a;
 }
 
 .cleaningProgress {
-  background: linear-gradient(90deg, #cbd5e1, #94a3b8);
+  background: #cbd5e1;
   color: #0f172a;
 }
 
 .cleaningNearDone {
-  background: linear-gradient(90deg, #94a3b8, #60a5fa);
+  background: #fb923c;
+  color: #0f172a;
 }
 
 .cleaningDone {
-  background: #2563eb;
+  background: #ef4444;
 }
 
 .superviseOff {
@@ -317,6 +376,14 @@
   color: #475569;
 }
 
+.badgePositive {
+  background: #22c55e1a;
+  color: #15803d;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
 .cancelNotice {
   color: #b91c1c;
   font-weight: 600;
@@ -352,13 +419,15 @@
 }
 
 .iconButton {
-  border: 1px solid #cbd5e1;
+  border: 1px solid #0f172a;
   border-radius: 50%;
   width: 32px;
   height: 32px;
   display: grid;
   place-items: center;
-  background: #f8fafc;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -369,6 +438,13 @@
   gap: 8px;
   padding: 8px 0;
   font-size: 0.95rem;
+}
+
+.detailSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
 }
 
 .detailGridHeader {
@@ -385,6 +461,21 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.inspectText {
+  color: #475569;
+  font-weight: 700;
+}
+
+.stateOn {
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.stateOff {
+  color: #0f172a;
+  font-weight: 600;
 }
 
 .mutedText {

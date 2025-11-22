@@ -1,15 +1,7 @@
 import { and, desc, eq, inArray } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
-import {
-  clientRooms,
-  etcBuildings,
-  etcNotice,
-  workApply,
-  workAssignment,
-  workHeader,
-  workerHeader
-} from '@/src/db/schema';
+import { clientRooms, etcBuildings, etcNotice, workAssignment, workHeader, workerHeader } from '@/src/db/schema';
 import type { ProfileSummary } from '@/src/utils/profile';
 import { findClientByProfile } from '@/src/server/clients';
 import { findWorkerByProfile } from '@/src/server/workers';
@@ -40,14 +32,19 @@ export type WorkListSnapshot = {
   notice: string;
   targetDate: string;
   windowLabel: string;
+  window?: 'd0' | 'd1';
+  windowDates: { d0: string; d1: string };
   works: WorkListEntry[];
 };
 
-export async function getWorkListSnapshot(profile: ProfileSummary, dateParam?: string): Promise<WorkListSnapshot> {
+export async function getWorkListSnapshot(
+  profile: ProfileSummary,
+  dateParam?: string,
+  windowParam?: 'd0' | 'd1'
+): Promise<WorkListSnapshot> {
   const now = getKstNow();
   const minutes = now.getHours() * 60 + now.getMinutes();
-  const defaultDate = resolveDefaultDate(now, minutes);
-  const targetDate = normalizeDate(dateParam) || defaultDate;
+  const { targetDate, window, windowDates } = resolveWindow(now, minutes, dateParam, windowParam);
 
   const notice = await fetchLatestNotice();
 
@@ -108,19 +105,20 @@ export async function getWorkListSnapshot(profile: ProfileSummary, dateParam?: s
     }
   }
 
-  const appliedSectors = worker ? await fetchAppliedSectors(worker.id, targetDate) : new Set<string>();
   const normalized = (rows ?? []).map((row) => normalizeRow(row));
   const buildingCounts = normalized.reduce<Record<number, number>>((acc, row) => {
     acc[row.buildingId] = (acc[row.buildingId] ?? 0) + 1;
     return acc;
   }, {});
 
-  const works = normalized.sort((a, b) => sortRows(a, b, appliedSectors, buildingCounts));
+  const works = normalized.sort((a, b) => sortRows(a, b, buildingCounts));
 
   return {
     notice,
     targetDate,
-    windowLabel: targetDate === formatDateKey(now) && minutes >= 9 * 60 ? 'D0' : targetDate,
+    window,
+    windowDates,
+    windowLabel: window === 'd0' ? `D0 (${windowDates.d0})` : window === 'd1' ? `D+1 (${windowDates.d1})` : targetDate,
     works
   };
 }
@@ -148,15 +146,6 @@ async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
   return directRows.map((row) => Number(row.id));
 }
 
-async function fetchAppliedSectors(workerId: number, targetDate: string) {
-  const rows = await db
-    .select({ sector: workApply.sectorValue })
-    .from(workApply)
-    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDate)));
-
-  return new Set(rows.map((row) => row.sector));
-}
-
 function normalizeRow(row: any): WorkListEntry {
   return {
     id: Number(row.id),
@@ -180,24 +169,17 @@ function normalizeRow(row: any): WorkListEntry {
   };
 }
 
-function sortRows(
-  a: WorkListEntry,
-  b: WorkListEntry,
-  applied: Set<string>,
-  buildingCounts: Record<number, number>
-) {
-  const aApplied = applied.has(a.sectorValue);
-  const bApplied = applied.has(b.sectorValue);
-  if (aApplied !== bApplied) return aApplied ? -1 : 1;
+function sortRows(a: WorkListEntry, b: WorkListEntry, buildingCounts: Record<number, number>) {
+  if (a.cleaningYn !== b.cleaningYn) {
+    return a.cleaningYn ? 1 : -1; // cleaning 없는 건 먼저
+  }
 
-  if (a.sectorCode !== b.sectorCode) return a.sectorCode.localeCompare(b.sectorCode);
+  const aSector = a.sectorValue || a.sectorCode;
+  const bSector = b.sectorValue || b.sectorCode;
+  if (aSector !== bSector) return aSector.localeCompare(bSector);
 
   const countDiff = (buildingCounts[b.buildingId] ?? 0) - (buildingCounts[a.buildingId] ?? 0);
   if (countDiff !== 0) return countDiff;
-
-  if (a.cleaningYn !== b.cleaningYn) return a.cleaningYn ? 1 : -1;
-
-  if (a.checkoutTime !== b.checkoutTime) return a.checkoutTime.localeCompare(b.checkoutTime);
 
   return b.roomNo.localeCompare(a.roomNo);
 }
@@ -217,12 +199,18 @@ function normalizeDate(input?: string) {
   return input;
 }
 
-function resolveDefaultDate(now: Date, minutes: number) {
-  if (minutes < 9 * 60) {
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    return formatDateKey(yesterday);
+function resolveWindow(now: Date, minutes: number, dateParam?: string, windowParam?: 'd0' | 'd1') {
+  const today = formatDateKey(now);
+  const tomorrow = formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+
+  if (dateParam) {
+    const normalized = normalizeDate(dateParam);
+    return { targetDate: normalized || today, window: normalized === tomorrow ? 'd1' : 'd0', windowDates: { d0: today, d1: tomorrow } };
   }
 
-  return formatDateKey(now);
+  const defaultWindow: 'd0' | 'd1' = minutes < 16 * 60 + 30 ? 'd0' : 'd1';
+  const chosen: 'd0' | 'd1' = windowParam && ['d0', 'd1'].includes(windowParam) ? windowParam : defaultWindow;
+  const targetDate = chosen === 'd0' ? today : tomorrow;
+
+  return { targetDate, window: chosen, windowDates: { d0: today, d1: tomorrow } };
 }

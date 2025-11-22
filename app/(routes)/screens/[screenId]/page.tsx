@@ -22,7 +22,10 @@ export function generateMetadata({ params }: Props): Metadata {
   };
 }
 
-export default async function ScreenPage({ params, searchParams }: Props & { searchParams?: { date?: string } }) {
+export default async function ScreenPage({
+  params,
+  searchParams
+}: Props & { searchParams?: { date?: string; window?: 'd0' | 'd1' } }) {
   const { screenId } = params;
 
   if (!['002', '003', '004'].includes(screenId)) {
@@ -51,7 +54,7 @@ export default async function ScreenPage({ params, searchParams }: Props & { sea
   }
 
   if (screenId === '004') {
-    const snapshot = await getWorkListSnapshot(profile, searchParams?.date);
+    const snapshot = await getWorkListSnapshot(profile, searchParams?.date, searchParams?.window);
     return (
       <div className={styles.screenWrapper}>
         <WorkListClient profile={profile} snapshot={snapshot} />
