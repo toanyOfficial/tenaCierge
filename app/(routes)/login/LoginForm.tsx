@@ -75,7 +75,13 @@ export default function LoginForm() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({ message: '로그인에 실패했습니다.' }));
-        setErrors({ global: data?.message ?? '로그인에 실패했습니다.' });
+        const message = data?.message ?? '로그인에 실패했습니다.';
+
+        if (message === '로그인이 제한된 유저입니다.') {
+          alert(message);
+        }
+
+        setErrors({ global: message });
         return;
       }
 
