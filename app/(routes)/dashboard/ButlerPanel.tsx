@@ -159,11 +159,13 @@ function DetailList({ details, preferred }: { details: ButlerDetailEntry[]; pref
                     </strong>
                     <div className={styles.detailChips}>
                       <span className={styles.detailBadge}>{detail.checkoutTimeLabel}</span>
-                      <span className={styles.detailBadge}>{detail.workTypeLabel}</span>
+                      <span
+                        className={`${styles.detailBadge} ${detail.isCleaning ? styles.cleanBadge : styles.inspectBadge}`}
+                      >
+                        {detail.workTypeLabel}
+                      </span>
+                      <span className={styles.detailComment}>{detail.comment || '메모 없음'}</span>
                     </div>
-                  </div>
-                  <div className={styles.detailSecondary}>
-                    <span className={styles.detailComment}>{detail.comment || '메모 없음'}</span>
                   </div>
                 </div>
               ))}

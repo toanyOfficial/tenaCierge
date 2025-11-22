@@ -459,8 +459,7 @@
 .applicationRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   padding: 12px 14px;
   border-radius: 18px;
   background: #ffffff;
@@ -483,16 +482,6 @@
   margin: 0;
   color: #64748b;
   font-size: 0.9rem;
-}
-
-.applicationCancel {
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: 999px;
-  padding: 6px 14px;
-  background: transparent;
-  font-weight: 600;
-  font-size: 0.85rem;
-  cursor: pointer;
 }
 
 .applicationEmpty {
@@ -702,14 +691,27 @@
   font-weight: 700;
 }
 
+.cleanBadge {
+  background: #e8f5e9;
+  color: #1b5e20;
+}
+
+.inspectBadge {
+  background: #f1f5f9;
+  color: #475569;
+}
+
 .detailSecondary {
   color: #475569;
   font-size: 0.9rem;
 }
 
 .detailComment {
-  display: block;
+  display: inline-flex;
+  gap: 4px;
   word-break: keep-all;
+  color: #475569;
+  font-weight: 500;
 }
 
 .countBadge {

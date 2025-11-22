@@ -81,9 +81,6 @@ export default function CleanerPanel({ snapshot }: Props) {
                   <p className={styles.applicationDate}>{application.dateLabel}</p>
                   <p className={styles.applicationArea}>{application.sectorLabel}</p>
                 </div>
-                <button type="button" className={styles.applicationCancel} aria-label={`${application.dateLabel} 신청 취소`}>
-                  취소하기
-                </button>
               </li>
             ))
           ) : (

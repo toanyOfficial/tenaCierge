@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { and, asc, desc, eq, gte, or } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/mysql-core';
 
 import DashboardClient from './DashboardClient';
 
@@ -65,6 +66,7 @@ export type ButlerDetailEntry = {
   checkoutTimeLabel: string;
   roomNo: string;
   workTypeLabel: string;
+  isCleaning: boolean;
   comment: string;
 };
 
@@ -123,13 +125,16 @@ async function getCleanerSnapshot(profile: ProfileSummary): Promise<CleanerSnaps
   try {
     const { db } = await import('@/src/db/client');
 
+    const workerSector = alias(etcBaseCode, 'workerSector');
+
     const [worker] = await db
       .select({
         id: workerHeader.id,
         tier: workerHeader.tier,
-        sectorName: workerHeader.bankValue
+        sectorName: workerSector.value
       })
       .from(workerHeader)
+      .leftJoin(workerSector, and(eq(workerSector.codeGroup, workerHeader.bankCode), eq(workerSector.code, workerHeader.bankValue)))
       .where(whereClause)
       .limit(1);
 
@@ -143,17 +148,23 @@ async function getCleanerSnapshot(profile: ProfileSummary): Promise<CleanerSnaps
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowDateStr = formatDateKey(tomorrow);
 
+    const buildingSector = alias(etcBaseCode, 'buildingSector');
+
     const assignmentsRaw = await db
       .select({
         id: workHeader.id,
         date: workHeader.date,
-        sectorLabel: etcBuildings.sectorValue,
+        sectorLabel: buildingSector.value,
         buildingName: etcBuildings.shortName,
         roomNo: clientRooms.roomNo
       })
       .from(workHeader)
       .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
       .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
+      .leftJoin(
+        buildingSector,
+        and(eq(buildingSector.codeGroup, etcBuildings.sectorCode), eq(buildingSector.code, etcBuildings.sectorValue))
+      )
       .where(and(eq(workHeader.cleanerId, worker.id), gte(workHeader.date, targetDateStr)))
       .orderBy(asc(workHeader.date))
       .limit(6);
@@ -166,13 +177,16 @@ async function getCleanerSnapshot(profile: ProfileSummary): Promise<CleanerSnaps
     const todayAssignment = assignments.find((entry) => entry.date === targetDateStr);
     const tomorrowAssignment = assignments.find((entry) => entry.date === tomorrowDateStr);
 
+    const applySector = alias(etcBaseCode, 'applySector');
+
     const applicationsRaw = await db
       .select({
         id: workApply.id,
         date: workApply.workDate,
-        sectorLabel: workApply.sectorValue
+        sectorLabel: applySector.value
       })
       .from(workApply)
+      .leftJoin(applySector, and(eq(applySector.codeGroup, workApply.sectorCode), eq(applySector.code, workApply.sectorValue)))
       .where(and(eq(workApply.workerId, worker.id), gte(workApply.workDate, targetDateStr)))
       .orderBy(asc(workApply.workDate), asc(workApply.seq))
       .limit(10);
@@ -400,6 +414,7 @@ async function getButlerSnapshot(profile: ProfileSummary): Promise<ButlerSnapsho
       checkoutTimeLabel: work.checkoutTimeLabel,
       roomNo: work.roomNo,
       workTypeLabel: work.workTypeLabel,
+      isCleaning: work.workTypeLabel === '청소',
       comment: work.comment
     }));
 
@@ -700,9 +715,14 @@ async function resolvePreferredSectors(profile: ProfileSummary): Promise<string[
 
   try {
     const { db } = await import('@/src/db/client');
+    const workerSector = alias(etcBaseCode, 'preferredSector');
     const [worker] = await db
-      .select({ id: workerHeader.id, sectorName: workerHeader.bankValue })
+      .select({ id: workerHeader.id, sectorName: workerSector.value })
       .from(workerHeader)
+      .leftJoin(
+        workerSector,
+        and(eq(workerSector.codeGroup, workerHeader.bankCode), eq(workerSector.code, workerHeader.bankValue))
+      )
       .where(whereClause)
       .limit(1);
 
