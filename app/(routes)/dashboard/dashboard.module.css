@@ -86,8 +86,8 @@
 
 .roleDropdown {
   position: relative;
-  min-width: 86px;
-  max-width: 120px;
+  min-width: 120px;
+  max-width: 180px;
   flex-shrink: 1;
 }
 
@@ -124,7 +124,7 @@
 }
 
 .roleTrigger span:first-child {
-  max-width: 78px;
+  max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -153,7 +153,7 @@
   margin: 6px 0 0;
   padding: 8px;
   position: absolute;
-  right: 0;
+  left: 0;
   min-width: 138px;
   background: #ffffff;
   border-radius: 12px;
@@ -166,7 +166,7 @@
   margin: 6px 0 0;
   padding: 12px;
   position: absolute;
-  right: 0;
+  left: 0;
   min-width: 160px;
   background: #ffffff;
   border-radius: 12px;
@@ -202,6 +202,45 @@
   font-size: inherit;
   color: inherit;
   cursor: pointer;
+}
+
+.globalNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
+  margin-top: 8px;
+}
+
+.globalNavCompact {
+  width: 100%;
+  margin-left: 0;
+}
+
+.navButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  border-radius: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #f8fafc;
+  color: #0f172a;
+  text-decoration: none;
+  min-width: 92px;
+}
+
+.navButtonEnabled:hover {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+.navButtonDisabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  cursor: not-allowed;
 }
 
 .roleStatus {

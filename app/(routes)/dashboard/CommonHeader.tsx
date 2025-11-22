@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import type { ProfileSummary } from '@/src/utils/profile';
@@ -11,6 +12,34 @@ const roleLabels: Record<string, string> = {
   host: 'Host',
   butler: 'Butler',
   cleaner: 'Cleaner'
+};
+
+const navLinksByRole: Record<string, { href: string; label: string }[]> = {
+  cleaner: [
+    { href: '/screens/003', label: '업무신청' },
+    { href: '/screens/004', label: '과업지시서' },
+    { href: '/screens/007', label: '평가이력' }
+  ],
+  butler: [
+    { href: '/screens/002', label: '오더관리' },
+    { href: '/screens/003', label: '업무신청' },
+    { href: '/screens/004', label: '과업지시서' },
+    { href: '/screens/005', label: '업무보고' }
+  ],
+  host: [
+    { href: '/screens/002', label: '오더관리' },
+    { href: '/screens/004', label: '과업지시서' },
+    { href: '/screens/008', label: '정산관리' }
+  ],
+  admin: [
+    { href: '/screens/002', label: '오더관리' },
+    { href: '/screens/003', label: '업무신청' },
+    { href: '/screens/004', label: '과업지시서' },
+    { href: '/screens/007', label: '평가이력' },
+    { href: '/screens/008', label: '정산관리' },
+    { href: '/screens/009', label: '인원관리' },
+    { href: '/screens/010', label: '고객관리' }
+  ]
 };
 
 const roleOrder = ['admin', 'host', 'butler', 'cleaner'] satisfies Array<keyof typeof roleLabels>;
@@ -36,6 +65,12 @@ export default function CommonHeader({ profile, activeRole, onRoleChange, compac
   const roles = useMemo(() => sortRoles(profile.roles), [profile.roles]);
   const roleSummary = roles.length ? roles.map((role) => roleLabels[role] ?? role).join(', ') : 'Role 없음';
   const triggerLabel = activeRole ? roleLabels[activeRole] ?? activeRole : roleSummary;
+
+  const navLinks = useMemo(() => {
+    const primary = activeRole && navLinksByRole[activeRole] ? activeRole : roles[0];
+    if (!primary) return [] as { href: string; label: string }[];
+    return navLinksByRole[primary] ?? [];
+  }, [activeRole, roles]);
 
   const handleHome = useCallback(() => {
     router.push('/dashboard');
@@ -175,6 +210,16 @@ export default function CommonHeader({ profile, activeRole, onRoleChange, compac
           </button>
         </div>
       </div>
+
+      {navLinks.length ? (
+        <nav className={`${styles.globalNav} ${compact ? styles.globalNavCompact : ''}`} aria-label="화면 이동">
+          {navLinks.map((link) => (
+            <Link key={link.href} href={link.href} className={`${styles.navButton} ${styles.navButtonEnabled}`}>
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+      ) : null}
     </section>
   );
 }
