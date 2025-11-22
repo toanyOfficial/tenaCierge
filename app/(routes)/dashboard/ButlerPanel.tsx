@@ -172,7 +172,7 @@ function DetailList({ details, preferred }: { details: ButlerDetailEntry[]; pref
 
     return groups.map(([sectorLabel, entries]) => ({
       sectorLabel,
-      entries: entries.sort((a, b) => a.checkoutTimeLabel.localeCompare(b.checkoutTimeLabel, 'ko'))
+      entries
     }));
   }, [details, preferred]);
 

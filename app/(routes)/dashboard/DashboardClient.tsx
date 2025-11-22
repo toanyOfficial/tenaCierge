@@ -32,7 +32,11 @@ export default function DashboardClient({ profile, cleanerSnapshot, butlerSnapsh
     return roles[0] ?? null;
   });
 
-  const [activeButlerKey, setActiveButlerKey] = useState<string | null>(butlerSnapshots[0]?.key ?? null);
+  const [activeButlerKey, setActiveButlerKey] = useState<string | null>(() => {
+    const preferred = butlerSnapshots.find((snap) => snap.preferredDefault)?.key;
+    const todayKey = butlerSnapshots.find((snap) => snap.isToday)?.key;
+    return preferred ?? todayKey ?? butlerSnapshots[0]?.key ?? null;
+  });
 
   async function persistRole(role: string) {
     try {

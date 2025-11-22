@@ -82,7 +82,7 @@ export type ButlerSnapshot = {
   preferredSectors: string[];
 };
 
-export type ButlerSnapshotOption = ButlerSnapshot & { key: string };
+export type ButlerSnapshotOption = ButlerSnapshot & { key: string; preferredDefault?: boolean };
 
 export type AdminNotice = {
   id: number | null;
@@ -278,12 +278,17 @@ async function getButlerSnapshots(profile: ProfileSummary): Promise<ButlerSnapsh
       buildButlerSnapshot(tomorrow, false, preferredSectors)
     ]);
 
-    const defaultKey = nowKst.getHours() < 16 ? formatDateKey(today) : formatDateKey(tomorrow);
+    const nowMinutes = getMinutesFromDate(nowKst);
+    const defaultKey = nowMinutes < 990 ? formatDateKey(today) : formatDateKey(tomorrow);
 
     return snapshots
       .filter(Boolean)
-      .map((snapshot) => ({ ...snapshot!, key: snapshot!.targetDateKey }))
-      .sort((a, b) => (a.targetDateKey === defaultKey ? -1 : b.targetDateKey === defaultKey ? 1 : 0));
+      .map((snapshot) => ({
+        ...snapshot!,
+        key: snapshot!.targetDateKey,
+        preferredDefault: snapshot!.targetDateKey === defaultKey
+      }))
+      .sort((a, b) => (a.isToday === b.isToday ? 0 : a.isToday ? -1 : 1));
   } catch (error) {
     console.error('버틀러 현황 조회 실패', error);
     return [];
@@ -341,6 +346,12 @@ async function buildButlerSnapshot(
     };
   });
 
+  const buildingTotals = new Map<string, number>();
+  normalizedWorks.forEach((work) => {
+    const buildingKey = `${work.sectorLabel}::${work.buildingName}`;
+    buildingTotals.set(buildingKey, (buildingTotals.get(buildingKey) ?? 0) + 1);
+  });
+
   const cleaningWorks = normalizedWorks.filter((work) => work.isCleaning);
 
   const sectorGroups = new Map<
@@ -359,8 +370,6 @@ async function buildButlerSnapshot(
     }
   >();
 
-  const buildingTotals = new Map<string, number>();
-
   cleaningWorks.forEach((work) => {
     const sectorKey = work.sectorLabel;
     if (!sectorGroups.has(sectorKey)) {
@@ -373,9 +382,6 @@ async function buildButlerSnapshot(
 
     const sectorGroup = sectorGroups.get(sectorKey)!;
     sectorGroup.totalWorkers += 1;
-
-    const buildingKey = `${work.sectorLabel}::${work.buildingName}`;
-    buildingTotals.set(buildingKey, (buildingTotals.get(buildingKey) ?? 0) + 1);
 
     if (!sectorGroup.buildings.has(work.buildingName)) {
       sectorGroup.buildings.set(work.buildingName, {
@@ -435,8 +441,9 @@ async function buildButlerSnapshot(
       return buildingTotalB - buildingTotalA;
     }
 
-    if (a.checkoutMinutes !== b.checkoutMinutes) {
-      return a.checkoutMinutes - b.checkoutMinutes;
+    const buildingNameDiff = a.buildingName.localeCompare(b.buildingName, 'ko');
+    if (buildingNameDiff !== 0) {
+      return buildingNameDiff;
     }
 
     return b.roomNo.localeCompare(a.roomNo, 'ko', { numeric: true, sensitivity: 'base' });

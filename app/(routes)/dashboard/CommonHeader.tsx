@@ -130,84 +130,86 @@ export default function CommonHeader({ profile, activeRole, onRoleChange, compac
       className={`${styles.commonBar} ${compact ? styles.commonBarCompact : styles.commonBarFull}`}
       data-child-id="1"
     >
-      <article
-        className={`${styles.profileCard} ${compact ? styles.profileCardCompact : ''}`}
-        aria-label="profiles"
-      >
-        <dl>
-          <div className={styles.profileRow}>
-            <dt>휴대전화</dt>
-            <dd>{profile.phone || '-'}</dd>
-          </div>
-          <div className={styles.profileRow}>
-            <dt>관리번호</dt>
-            <dd>{profile.registerNo || '-'}</dd>
-          </div>
-          <div className={styles.profileRow}>
-            <dt>이름</dt>
-            <dd>{profile.name || '이름 미지정'}</dd>
-          </div>
-        </dl>
-      </article>
+      <div className={styles.barTop}>
+        <article
+          className={`${styles.profileCard} ${compact ? styles.profileCardCompact : ''}`}
+          aria-label="profiles"
+        >
+          <dl>
+            <div className={styles.profileRow}>
+              <dt>휴대전화</dt>
+              <dd>{profile.phone || '-'}</dd>
+            </div>
+            <div className={styles.profileRow}>
+              <dt>관리번호</dt>
+              <dd>{profile.registerNo || '-'}</dd>
+            </div>
+            <div className={styles.profileRow}>
+              <dt>이름</dt>
+              <dd>{profile.name || '이름 미지정'}</dd>
+            </div>
+          </dl>
+        </article>
 
-      <div className={`${styles.roleCluster} ${compact ? styles.roleClusterCompact : ''}`} aria-label="역할 선택 및 글로벌 조작">
-        <div className={styles.roleDropdown} ref={dropdownRef} aria-label="사용자 역할">
-          <button
-            type="button"
-            className={`${styles.roleTrigger} ${compact ? styles.roleTriggerCompact : ''}`}
-            onClick={toggleDropdown}
-            aria-haspopup="listbox"
-            aria-expanded={isOpen}
-            title={roleSummary}
-          >
-            <span>{triggerLabel}</span>
-            <ChevronIcon isOpen={isOpen} />
-          </button>
-          {isOpen ? (
-            roles.length > 0 ? (
-              <ul className={styles.roleMenu} role="listbox">
-                {roles.map((role) => (
-                  <li key={role} role="option" aria-selected={role === activeRole} className={styles.roleMenuItem}>
-                    <button type="button" onClick={() => handleRoleSelect(role)}>
-                      <span>{roleLabels[role] ?? role}</span>
-                      <span className={role === activeRole ? styles.roleStatus : styles.roleStatusMuted}>
-                        {role === activeRole ? 'ON' : '선택'}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className={styles.roleMenuEmpty}>할당된 역할이 없습니다.</div>
-            )
-          ) : null}
-        </div>
+        <div className={`${styles.roleCluster} ${compact ? styles.roleClusterCompact : ''}`} aria-label="역할 선택 및 글로벌 조작">
+          <div className={styles.roleDropdown} ref={dropdownRef} aria-label="사용자 역할">
+            <button
+              type="button"
+              className={`${styles.roleTrigger} ${compact ? styles.roleTriggerCompact : ''}`}
+              onClick={toggleDropdown}
+              aria-haspopup="listbox"
+              aria-expanded={isOpen}
+              title={roleSummary}
+            >
+              <span>{triggerLabel}</span>
+              <ChevronIcon isOpen={isOpen} />
+            </button>
+            {isOpen ? (
+              roles.length > 0 ? (
+                <ul className={styles.roleMenu} role="listbox">
+                  {roles.map((role) => (
+                    <li key={role} role="option" aria-selected={role === activeRole} className={styles.roleMenuItem}>
+                      <button type="button" onClick={() => handleRoleSelect(role)}>
+                        <span>{roleLabels[role] ?? role}</span>
+                        <span className={role === activeRole ? styles.roleStatus : styles.roleStatusMuted}>
+                          {role === activeRole ? 'ON' : '선택'}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className={styles.roleMenuEmpty}>할당된 역할이 없습니다.</div>
+              )
+            ) : null}
+          </div>
 
-        <div className={`${styles.globalButtons} ${compact ? styles.globalButtonsCompact : ''}`}>
-          <button
-            type="button"
-            aria-label="이전 화면"
-            className={`${styles.iconButton} ${compact ? styles.iconButtonCompact : ''}`}
-            onClick={handleBack}
-          >
-            <BackIcon />
-          </button>
-          <button
-            type="button"
-            aria-label="홈으로 이동"
-            className={`${styles.iconButton} ${compact ? styles.iconButtonCompact : ''}`}
-            onClick={handleHome}
-          >
-            <HomeIcon />
-          </button>
-          <button
-            type="button"
-            aria-label="로그아웃"
-            className={`${styles.iconButton} ${compact ? styles.iconButtonCompact : ''}`}
-            onClick={handleLogout}
-          >
-            <LogoutIcon />
-          </button>
+          <div className={`${styles.globalButtons} ${compact ? styles.globalButtonsCompact : ''}`}>
+            <button
+              type="button"
+              aria-label="이전 화면"
+              className={`${styles.iconButton} ${compact ? styles.iconButtonCompact : ''}`}
+              onClick={handleBack}
+            >
+              <BackIcon />
+            </button>
+            <button
+              type="button"
+              aria-label="홈으로 이동"
+              className={`${styles.iconButton} ${compact ? styles.iconButtonCompact : ''}`}
+              onClick={handleHome}
+            >
+              <HomeIcon />
+            </button>
+            <button
+              type="button"
+              aria-label="로그아웃"
+              className={`${styles.iconButton} ${compact ? styles.iconButtonCompact : ''}`}
+              onClick={handleLogout}
+            >
+              <LogoutIcon />
+            </button>
+          </div>
         </div>
       </div>
 
