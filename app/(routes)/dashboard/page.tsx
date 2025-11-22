@@ -278,7 +278,7 @@ async function getButlerSnapshots(profile: ProfileSummary): Promise<ButlerSnapsh
       buildButlerSnapshot(tomorrow, false, preferredSectors)
     ]);
 
-    const defaultKey = nowKst.getHours() < 15 ? formatDateKey(today) : formatDateKey(tomorrow);
+    const defaultKey = nowKst.getHours() < 16 ? formatDateKey(today) : formatDateKey(tomorrow);
 
     return snapshots
       .filter(Boolean)

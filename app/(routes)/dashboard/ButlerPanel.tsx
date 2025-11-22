@@ -35,6 +35,8 @@ export default function ButlerPanel({ snapshots, activeKey, onChangeDate }: Prop
     );
   }
 
+  const toggles = snapshots.slice(0, 2);
+
   return (
     <section className={styles.butlerPanel} data-child-id="7">
       <header className={styles.panelHeader}>
@@ -62,22 +64,17 @@ export default function ButlerPanel({ snapshots, activeKey, onChangeDate }: Prop
         </Link>
       </div>
 
-      <div className={styles.dateSelector}>
-        <label className={styles.selectorLabel} htmlFor="butler-date-select">
-          날짜 선택
-        </label>
-        <select
-          id="butler-date-select"
-          value={snapshot.key}
-          onChange={(event) => onChangeDate(event.target.value)}
-          className={styles.selectorControl}
-        >
-          {snapshots.map((option) => (
-            <option key={option.key} value={option.key}>
-              {option.targetDateLabel}
-            </option>
-          ))}
-        </select>
+      <div className={styles.toggleRow}>
+        {toggles.map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            className={`${styles.linkButton} ${option.key === snapshot.key ? styles.ctaHighlight : styles.ctaNeutral}`}
+            onClick={() => onChangeDate(option.key)}
+          >
+            {option.isToday ? 'D0' : 'D+1'} · {option.targetDateLabel}
+          </button>
+        ))}
       </div>
 
       <section className={styles.butlerSection} aria-label="합계표">
