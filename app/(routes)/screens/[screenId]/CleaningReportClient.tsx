@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 
 import styles from './screens.module.css';
+import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
 import type { CleaningReportSnapshot } from './server/getCleaningReportSnapshot';
 
 type Props = {
@@ -18,6 +19,7 @@ const requiredImageSlots = [
 
 export default function CleaningReportClient({ snapshot }: Props) {
   const { work, cleaningChecklist, suppliesChecklist } = snapshot;
+  const [activeRole, setActiveRole] = useState(profile.primaryRole ?? profile.roles[0] ?? null);
   const [cleaningChecks, setCleaningChecks] = useState<Set<number>>(new Set());
   const [supplyChecks, setSupplyChecks] = useState<Set<number>>(new Set());
   const [imageSelections, setImageSelections] = useState<Record<string, File | null>>(
