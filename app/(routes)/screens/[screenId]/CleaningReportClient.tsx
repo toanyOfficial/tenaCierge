@@ -5,19 +5,26 @@ import { useMemo, useState } from 'react';
 import styles from './screens.module.css';
 import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
 import type { CleaningReportSnapshot } from './server/getCleaningReportSnapshot';
-import type { ProfileSummary } from '@/src/utils/profile';
 
 type Props = {
   snapshot: CleaningReportSnapshot;
-  profile: ProfileSummary;
 };
 
-export default function CleaningReportClient({ snapshot, profile }: Props) {
+const requiredImageSlots = [
+  { key: 'entrance', title: '현관', icon: '🚪' },
+  { key: 'bathroom', title: '욕실', icon: '🛁' },
+  { key: 'bed', title: '침구', icon: '🛏️' },
+  { key: 'amenities', title: '어메니티', icon: '🧴' }
+];
+
+export default function CleaningReportClient({ snapshot }: Props) {
   const { work, cleaningChecklist, suppliesChecklist } = snapshot;
   const [activeRole, setActiveRole] = useState(profile.primaryRole ?? profile.roles[0] ?? null);
   const [cleaningChecks, setCleaningChecks] = useState<Set<number>>(new Set());
   const [supplyChecks, setSupplyChecks] = useState<Set<number>>(new Set());
-  const [images, setImages] = useState<File[]>([]);
+  const [imageSelections, setImageSelections] = useState<Record<string, File | null>>(
+    () => Object.fromEntries(requiredImageSlots.map(({ key }) => [key, null])) as Record<string, File | null>
+  );
   const [status, setStatus] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
@@ -34,9 +41,9 @@ export default function CleaningReportClient({ snapshot, profile }: Props) {
     setter(next);
   };
 
-  const handleImages = (files: FileList | null) => {
-    if (!files) return;
-    setImages(Array.from(files));
+  const handleImageChange = (slotKey: string, files: FileList | null) => {
+    if (!files || !files[0]) return;
+    setImageSelections((prev) => ({ ...prev, [slotKey]: files[0] }));
   };
 
   const handleSubmit = async () => {
@@ -46,10 +53,12 @@ export default function CleaningReportClient({ snapshot, profile }: Props) {
 
     try {
       const formData = new FormData();
+      const selectedImages = Object.values(imageSelections).filter(Boolean) as File[];
+
       formData.append('workId', String(work.id));
       formData.append('cleaningChecks', JSON.stringify(Array.from(cleaningChecks)));
       formData.append('supplyChecks', JSON.stringify(Array.from(supplyChecks)));
-      images.forEach((file) => formData.append('images', file));
+      selectedImages.forEach((file) => formData.append('images', file));
 
       const res = await fetch('/api/work-reports', {
         method: 'POST',
@@ -64,7 +73,7 @@ export default function CleaningReportClient({ snapshot, profile }: Props) {
       setStatus('청소 완료 보고가 저장되었습니다.');
       setCleaningChecks(new Set());
       setSupplyChecks(new Set());
-      setImages([]);
+      setImageSelections(Object.fromEntries(requiredImageSlots.map(({ key }) => [key, null])) as Record<string, File | null>);
     } catch (err) {
       const message = err instanceof Error ? err.message : '저장 중 오류가 발생했습니다.';
       setError(message);
@@ -75,57 +84,40 @@ export default function CleaningReportClient({ snapshot, profile }: Props) {
 
   return (
     <div className={styles.screenShell}>
-      <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} compact />
-
       <section className={styles.cleaningSection}>
-        <div className={styles.sectionHeader}>
+        <div className={styles.sectionHeaderSolo}>
           <div>
-            <p className={styles.sectionLabel}>ID 005 · work report</p>
             <p className={styles.sectionTitle}>청소완료보고</p>
-            <p className={styles.subtle}>작업 정보를 확인한 뒤 체크리스트와 사진을 제출하세요.</p>
+            <p className={styles.subtle}>호실 정보를 확인하고 체크리스트 및 사진을 제출하세요.</p>
           </div>
-          <div className={styles.windowMeta}>
-            <span className={styles.windowBadge}>작업일 {work.date}</span>
-            <span className={styles.badgeMuted}>총 침대 {work.bedCount}개</span>
-          </div>
+          <p className={styles.windowBadge}>작업일 {work.date}</p>
         </div>
 
-        <div className={styles.reportSummaryGrid}>
-          <article className={styles.workCard}>
-            <header className={styles.workCardHeader}>
-              <p className={styles.workTitle}>{roomTitle}</p>
-              <p className={styles.workSubtitle}>{work.buildingName}</p>
-            </header>
-            <div className={styles.workMetaRow}>
-              <span className={styles.badgeMuted}>Work #{work.id}</span>
-              <span className={styles.badgePositive}>{work.sectorValue || '섹터 미지정'}</span>
-            </div>
-            <div className={styles.workMetaRow}>
-              <span className={styles.windowBadge}>체크아웃 {work.checkoutTime}</span>
-              <span className={styles.windowBadge}>체크인 {work.checkinTime}</span>
-            </div>
+        <div className={styles.reportGridSimple}>
+          <article className={styles.reportCard}>
+            <header className={styles.reportCardHeader}>호실 정보</header>
+            <dl className={styles.roomInfoGrid}>
+              <div>
+                <dt>호실</dt>
+                <dd>{roomTitle}</dd>
+              </div>
+              <div>
+                <dt>건물명</dt>
+                <dd>{work.buildingName}</dd>
+              </div>
+              <div>
+                <dt>체크인</dt>
+                <dd>{work.checkinTime}</dd>
+              </div>
+              <div>
+                <dt>체크아웃</dt>
+                <dd>{work.checkoutTime}</dd>
+              </div>
+            </dl>
           </article>
 
-          <article className={styles.workCard}>
-            <header className={styles.workCardHeader}>
-              <p className={styles.workTitle}>요청 사항</p>
-              <p className={styles.workSubtitle}>담요 {work.blanketQty}개 · 어메니티 {work.amenitiesQty}개</p>
-            </header>
-            <p className={styles.requirementsText}>{work.requirements || '추가 요청 사항이 없습니다.'}</p>
-            {work.cancelYn ? (
-              <p className={styles.badgeDanger}>취소된 작업</p>
-            ) : (
-              <p className={styles.badgeMuted}>진행 예정</p>
-            )}
-          </article>
-        </div>
-
-        <div className={styles.reportGrid}>
           <div className={styles.reportCard}>
-            <header className={styles.reportCardHeader}>
-              <h2>청소 체크리스트</h2>
-              <p className={styles.reportHint}>청소 결과를 선택해 주세요.</p>
-            </header>
+            <header className={styles.reportCardHeader}>청소 체크리스트</header>
             {cleaningChecklist.length === 0 ? (
               <p className={styles.reportEmpty}>청소 체크리스트가 없습니다.</p>
             ) : (
@@ -147,10 +139,7 @@ export default function CleaningReportClient({ snapshot, profile }: Props) {
           </div>
 
           <div className={styles.reportCard}>
-            <header className={styles.reportCardHeader}>
-              <h2>소모품 체크</h2>
-              <p className={styles.reportHint}>필요한 소모품을 선택해 주세요.</p>
-            </header>
+            <header className={styles.reportCardHeader}>소모품 체크</header>
             {suppliesChecklist.length === 0 ? (
               <p className={styles.reportEmpty}>소모품 체크리스트가 없습니다.</p>
             ) : (
@@ -172,21 +161,24 @@ export default function CleaningReportClient({ snapshot, profile }: Props) {
           </div>
 
           <div className={styles.reportCard}>
-            <header className={styles.reportCardHeader}>
-              <h2>사진 업로드</h2>
-              <p className={styles.reportHint}>필요한 사진을 업로드해 주세요.</p>
-            </header>
-            <label className={styles.uploadBox}>
-              <input type="file" accept="image/*" multiple onChange={(e) => handleImages(e.target.files)} />
-              <span>이미지 선택</span>
-            </label>
-            {images.length ? (
-              <ul className={styles.fileList}>
-                {images.map((file) => (
-                  <li key={file.name}>{file.name}</li>
-                ))}
-              </ul>
-            ) : null}
+            <header className={styles.reportCardHeader}>이미지 업로드</header>
+            <div className={styles.imageGrid}>
+              {requiredImageSlots.map((slot) => (
+                <label key={slot.key} className={styles.imageTile}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleImageChange(slot.key, e.target.files)}
+                    className={styles.imageInput}
+                  />
+                  <span className={styles.imageIcon}>{slot.icon}</span>
+                  <span className={styles.imageLabel}>{slot.title}</span>
+                  <span className={styles.imageHint}>
+                    {imageSelections[slot.key]?.name ? imageSelections[slot.key]?.name : '이미지 선택'}
+                  </span>
+                </label>
+              ))}
+            </div>
           </div>
         </div>
 
