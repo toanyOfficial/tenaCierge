@@ -4,12 +4,12 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@/src/db/client';
 import { workApply } from '@/src/db/schema';
 import { findWorkerByProfile } from '@/src/server/workers';
-import { getProfileSummary } from '@/src/utils/profile';
+import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { formatDateKey, getKstNow } from '@/src/utils/workWindow';
 import { logServerError } from '@/src/server/errorLogger';
 
 export async function GET(request: Request) {
-  const profile = getProfileSummary();
+  const profile = await getProfileWithDynamicRoles();
   const url = new URL(request.url);
   const role = url.searchParams.get('role') ?? profile.primaryRole ?? '';
 

@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 
 import { searchWorkersByTerm } from '@/src/server/workers';
-import { getProfileSummary } from '@/src/utils/profile';
+import { getProfileWithDynamicRoles } from '@/src/server/profile';
 
 export async function GET(request: Request) {
-  const profile = getProfileSummary();
+  const profile = await getProfileWithDynamicRoles();
 
   if (!profile.roles.includes('admin')) {
     return NextResponse.json({ message: '관리자만 검색할 수 있습니다.' }, { status: 403 });

@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
-const COOKIE_MAX_AGE = 60 * 60 * 24; // 1일
+import { getSeoul1630Expiry } from '@/src/utils/cookie';
 const roleOrder = ['admin', 'host', 'butler', 'cleaner'] as const;
 
 function normalizeRoleList(list: string[]) {
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     sameSite: 'lax' as const,
     secure,
     path: '/',
-    maxAge: COOKIE_MAX_AGE
+    expires: getSeoul1630Expiry()
   };
 
   cookieStore.set('role', role, options);

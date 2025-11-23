@@ -4,8 +4,7 @@ import { eq } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import { clientHeader, workerHeader } from '@/src/db/schema';
-
-const COOKIE_MAX_AGE = 60 * 60 * 24; // 1일
+import { getSeoul1630Expiry } from '@/src/utils/cookie';
 
 type WorkerRecord = {
   id: number;
@@ -173,7 +172,7 @@ export async function POST(request: Request) {
     sameSite: 'lax' as const,
     secure,
     path: '/',
-    maxAge: COOKIE_MAX_AGE
+    expires: getSeoul1630Expiry()
   };
 
   cookieStore.set('name', profile.name ?? '', sharedOptions);

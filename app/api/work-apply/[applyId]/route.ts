@@ -7,7 +7,7 @@ import { getApplyRowById } from '@/src/server/workApply';
 import { findWorkerById, findWorkerByProfile } from '@/src/server/workers';
 import { getApplyHorizonDays, getApplyStartLabel } from '@/src/utils/tier';
 import { parseTimeString } from '@/src/utils/time';
-import { getProfileSummary } from '@/src/utils/profile';
+import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { getKstNow } from '@/src/utils/workWindow';
 
 const ALLOWED_ROLES = ['admin', 'butler', 'cleaner'] as const;
@@ -26,7 +26,7 @@ export async function PATCH(request: Request, { params }: { params: { applyId: s
     return NextResponse.json({ message: '잘못된 요청입니다.' }, { status: 400 });
   }
 
-  const profile = getProfileSummary();
+  const profile = await getProfileWithDynamicRoles();
   const hasAccess = profile.roles.some((role) => ALLOWED_ROLES.includes(role as (typeof ALLOWED_ROLES)[number]));
 
   if (!hasAccess) {

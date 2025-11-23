@@ -4,7 +4,7 @@ import { eq, or } from 'drizzle-orm';
 import { db } from '@/src/db/client';
 import { workHeader, workerHeader } from '@/src/db/schema';
 import { findWorkerByProfile } from '@/src/server/workers';
-import { getProfileSummary } from '@/src/utils/profile';
+import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { getKstNow } from '@/src/utils/workWindow';
 
 export async function PATCH(request: Request, { params }: { params: { workId: string } }) {
@@ -14,7 +14,7 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
   }
 
   const body = (await request.json().catch(() => null)) ?? {};
-  const profile = getProfileSummary();
+  const profile = await getProfileWithDynamicRoles();
   const isAdmin = profile.roles.includes('admin');
   const isButler = profile.roles.includes('butler');
   const isCleaner = profile.roles.includes('cleaner');

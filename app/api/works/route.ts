@@ -6,7 +6,7 @@ import { findClientByProfile } from '@/src/server/clients';
 import { fetchLatestWorkByDateAndRoom, fetchRoomMeta, fetchWorkRowById, serializeWorkRow } from '@/src/server/workQueries';
 import type { CleaningWork } from '@/src/server/workTypes';
 import { validateWorkInput, type WorkMutationValues } from '@/src/server/workValidation';
-import { getProfileSummary } from '@/src/utils/profile';
+import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { getKstNow, resolveWorkWindow, formatDateKey, type WorkWindowMeta } from '@/src/utils/workWindow';
 
 export async function POST(request: Request) {
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: '객실 정보가 필요합니다.' }, { status: 400 });
   }
 
-  const profile = getProfileSummary();
+  const profile = await getProfileWithDynamicRoles();
   const isAdmin = profile.roles.includes('admin');
   const isHost = profile.roles.includes('host');
 

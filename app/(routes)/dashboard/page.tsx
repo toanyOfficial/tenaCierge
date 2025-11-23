@@ -5,7 +5,8 @@ import { alias } from 'drizzle-orm/mysql-core';
 import DashboardClient from './DashboardClient';
 
 import { clientRooms, etcBaseCode, etcBuildings, etcNotice, workApply, workHeader, workerHeader } from '@/src/db/schema';
-import { getProfileSummary, type ProfileSummary } from '@/src/utils/profile';
+import type { ProfileSummary } from '@/src/utils/profile';
+import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { getApplyStartLabel, getTierLabel } from '@/src/utils/tier';
 
 export const metadata: Metadata = {
@@ -92,7 +93,7 @@ export type AdminNotice = {
 };
 
 export default async function DashboardPage() {
-  const profile = getProfileSummary();
+  const profile = await getProfileWithDynamicRoles();
   const cleanerPromise = profile.roles.includes('cleaner') ? getCleanerSnapshot(profile) : Promise.resolve(null);
   const butlerPromise = profile.roles.includes('butler') ? getButlerSnapshots(profile) : Promise.resolve([]);
   const adminNoticePromise = profile.roles.includes('admin') ? getLatestNotice() : Promise.resolve(null);

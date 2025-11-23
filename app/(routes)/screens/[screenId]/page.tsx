@@ -8,7 +8,7 @@ import WorkListClient from './WorkListClient';
 import { getCleaningSnapshot } from './server/getCleaningSnapshot';
 import { getApplySnapshot } from './server/getApplySnapshot';
 import { getWorkListSnapshot } from './server/getWorkListSnapshot';
-import { getProfileSummary } from '@/src/utils/profile';
+import { getProfileWithDynamicRoles } from '@/src/server/profile';
 
 type Props = {
   params: {
@@ -42,7 +42,7 @@ export default async function ScreenPage({
     );
   }
 
-  const profile = getProfileSummary();
+  const profile = await getProfileWithDynamicRoles();
 
   const isButlerOnlyView =
     screenId === '002' &&

@@ -7,7 +7,7 @@ import { findClientByProfile } from '@/src/server/clients';
 import { fetchWorkRowById, serializeWorkRow } from '@/src/server/workQueries';
 import type { CleaningWork } from '@/src/server/workTypes';
 import { validateWorkInput, type WorkMutationValues } from '@/src/server/workValidation';
-import { getProfileSummary } from '@/src/utils/profile';
+import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { resolveWorkWindow } from '@/src/utils/workWindow';
 
 export async function PATCH(request: Request, { params }: { params: { workId: string } }) {
@@ -18,7 +18,7 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
   }
 
   const body = (await request.json().catch(() => null)) ?? {};
-  const profile = getProfileSummary();
+  const profile = await getProfileWithDynamicRoles();
   const isAdmin = profile.roles.includes('admin');
   const isHost = profile.roles.includes('host');
 
