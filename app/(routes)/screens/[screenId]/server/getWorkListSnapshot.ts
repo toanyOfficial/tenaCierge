@@ -138,17 +138,18 @@ export async function getWorkListSnapshot(
       }
     }
 
-    const normalized = (rows ?? []).map((row) => normalizeRow(row));
-    const assignableWorkers =
-      profile.roles.includes('admin') || profile.roles.includes('butler')
-        ? await fetchAssignableWorkers(targetDate)
-        : [];
-    const buildingCounts = normalized.reduce<Record<number, number>>((acc, row) => {
-      acc[row.buildingId] = (acc[row.buildingId] ?? 0) + 1;
-      return acc;
-    }, {});
+  const normalized = (rows ?? []).map((row) => normalizeRow(row));
+  const assignableWorkers =
+    profile.roles.includes('admin') || profile.roles.includes('butler')
+      ? await fetchAssignableWorkers(targetDate)
+      : [];
+  const buildingCounts = normalized.reduce<Record<number, number>>((acc, row) => {
+    if (!row.cleaningYn) return acc;
+    acc[row.buildingId] = (acc[row.buildingId] ?? 0) + 1;
+    return acc;
+  }, {});
 
-    const works = normalized.sort((a, b) => sortRows(a, b, buildingCounts));
+  const works = normalized.sort((a, b) => sortRows(a, b, buildingCounts));
 
     return {
       notice,
