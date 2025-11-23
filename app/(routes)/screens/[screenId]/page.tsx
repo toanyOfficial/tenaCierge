@@ -105,7 +105,7 @@ export default async function ScreenPage({
 
       return (
         <div className={styles.screenWrapper}>
-          <CleaningReportClient snapshot={snapshot} />
+          <CleaningReportClient profile={profile} snapshot={snapshot} />
         </div>
       );
     } catch (error) {

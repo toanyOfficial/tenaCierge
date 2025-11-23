@@ -15,10 +15,13 @@ import {
   faSprayCanSparkles
 } from '@/src/vendor/fontawesome/free-solid-svg-icons';
 
+import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
 import styles from './screens.module.css';
 import type { CleaningReportSnapshot, ImageSlot } from './server/getCleaningReportSnapshot';
+import type { ProfileSummary } from '@/src/utils/profile';
 
 type Props = {
+  profile: ProfileSummary;
   snapshot: CleaningReportSnapshot;
 };
 
@@ -32,6 +35,7 @@ type ImageTileProps = {
 
 function ImageTile({ slot, selectedFile, previewUrl, onChange, required }: ImageTileProps) {
   const slotKey = String(slot.id);
+  const hintText = selectedFile?.name ?? (previewUrl ? '기존 이미지' : '파일을 선택하세요');
 
   return (
     <label
@@ -49,22 +53,15 @@ function ImageTile({ slot, selectedFile, previewUrl, onChange, required }: Image
         <span className={styles.imageLabel}>{slot.title}</span>
         {slot.comment ? <span className={styles.imageComment}>{slot.comment}</span> : null}
         {previewUrl ? <img src={previewUrl} alt={`${slot.title} 미리보기`} className={styles.imagePreview} /> : null}
-        <span className={styles.imageHint}>
-          {selectedFile?.name
-            ? selectedFile.name
-            : previewUrl
-              ? '기존 이미지'
-              : required
-                ? '필수 이미지 선택'
-                : '선택 이미지'}
-        </span>
+        <span className={styles.imageHint}>{hintText}</span>
       </div>
     </label>
   );
 }
 
-export default function CleaningReportClient({ snapshot }: Props) {
+export default function CleaningReportClient({ profile, snapshot }: Props) {
   const { work, cleaningChecklist, suppliesChecklist, imageSlots, existingCleaningChecks, existingSupplyChecks, savedImages } = snapshot;
+  const [activeRole, setActiveRole] = useState(profile.primaryRole ?? profile.roles[0] ?? null);
   const requiredImageSlots = useMemo(() => imageSlots.filter((slot) => slot.required), [imageSlots]);
   const optionalImageSlots = useMemo(() => imageSlots.filter((slot) => !slot.required), [imageSlots]);
   const imageSlotKeys = useMemo(() => imageSlots.map((slot) => String(slot.id)), [imageSlots]);
@@ -202,6 +199,7 @@ export default function CleaningReportClient({ snapshot }: Props) {
 
   return (
     <div className={styles.screenShell}>
+      <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} compact />
       <section className={styles.cleaningSection}>
         <header className={styles.roomHero}>
           <p className={styles.heroLabel}>호실</p>
