@@ -219,7 +219,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
             <p className={styles.subtle}>현재 {snapshot.windowLabel} 업무 리스트</p>
           </div>
           <div className={styles.windowMeta}>
-            {activeRole === 'butler' || activeRole === 'admin' ? (
+            {activeRole === 'butler' || activeRole === 'admin' || activeRole === 'cleaner' ? (
               <div className={styles.windowToggleRow}>
                 <button
                   type="button"
