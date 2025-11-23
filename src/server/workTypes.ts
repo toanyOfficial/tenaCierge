@@ -1,0 +1,23 @@
+export type CleaningWork = {
+  id: number;
+  roomId: number;
+  roomName: string;
+  buildingName: string;
+  buildingShortName: string;
+  buildingId: number;
+  sectorCode: string;
+  sectorValue: string;
+  roomNo: string;
+  cancelYn: boolean;
+  checkoutTime: string;
+  checkinTime: string;
+  blanketQty: number;
+  amenitiesQty: number;
+  requirements: string;
+  bedCount: number;
+  defaultCheckout: string;
+  defaultCheckin: string;
+  clientId: number | null;
+  cleanerId: number | null;
+  date: string;
+};

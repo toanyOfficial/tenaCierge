@@ -1,0 +1,55 @@
+# work_header 생성 흐름 요약
+
+이 문서는 `batchs/db_forecasting.py`가 work_header를 생성하는 전체 단계를 정리한 것이다. 현재 코드 기준의 실제 동작 순서이며, 왜 예상보다 많은 work가 만들어질 수 있는지 추적할 때 참고한다.
+
+## 1) 실행 기준일 및 대상 범위 결정
+- 기준일(run_date)은 서울 시간으로 계산한다. `--run-date`가 없으면 오늘(KST)을 쓰고, 값을 줬다면 `--allow-backfill` 없이 전달된 경우 서울 오늘로 강제된다.
+- 15:00 배치는 D0을 `run_date + 1`로 간주하며 D0~D+7 범위를 예측한다. **work_header는 D0에 대해서만 생성**한다.
+- 09:00 배치는 `--today-only`로 실행해 run_date = target_date(D0)만 work_header로 추가한다(예측·튜닝·work_apply는 생략).
+
+## 2) 활성 객실 로딩
+- `client_rooms`에서 `open_yn = 1`인 모든 객실을 가져오고, 건물·섹터 정보(`etc_buildings`), 체크인/아웃 기본 시각, 가중치(weight), iCal URL 목록을 묶어 Room 객체로 만든다.
+- iCal URL은 1~2개까지 존재할 수 있으며 비어 있으면 제외한다.
+
+## 3) ICS 다운로드 및 이벤트 병합
+- 각 Room의 모든 iCal URL을 다운로드한다. 파일명: `[sector]_[building]_[room]_[timestamp]_[platform].ics`.
+- 플랫폼(airbnb/booking)은 자동 감지된다.
+- iCal 파싱 후 VEVENT를 start 시각 기준으로 정렬한 뒤 다음 규칙으로 병합한다:
+  - 완전히 또는 부분적으로 겹치는 구간은 하나의 이벤트로 합친다.
+  - **Back-to-back(끝==시작)은 병합하지 않는다.**
+  - 연박은 애초에 단일 이벤트이므로 그대로 유지된다.
+  - Airbnb/Booking 두 소스가 겹치면 더 넓은 구간으로 합쳐진다.
+
+## 4) D0~D7 이벤트 라벨링
+- 각 이벤트는 대상 날짜별로 `has_checkout`/`has_checkin` 여부와 `out_time`을 계산한다.
+- **Out 판정:** CSV에 기록되는 Ends 컬럼이 해당 이벤트의 checkout(date)이다.
+- P_out(퇴실 확률)을 모델 파라미터(`work_fore_variable` 또는 기본값)와 요일 가중치를 사용해 산출하고, 임계치(borderline) 비교로 라벨(○/△/공백)을 붙인다.
+
+## 5) 예측값 저장
+- 모든 Horizon 예측을 `work_fore_d1`/`work_fore_d7`에 저장한다.
+  - `actual_out`과 `correct`는 **실제 관측된 날짜(=run_date)만** 기록되고, 나머지는 0으로 들어간다.
+- 정확도 테이블(`work_fore_accuracy`)과 임계치 튜닝(`work_fore_tuning`)은 관측 데이터가 있는 날에만 갱신된다.
+
+## 6) D0 work_header 생성 (문제 발생 가능 구간)
+- 15:00 배치는 항상 `run_date + 1`(D0)에 대해서만 work_header를 만든다.
+- 09:00 배치는 `--today-only`로 실행하며 run_date=target_date(D0) 기준으로만 work_header를 추가한다.
+- insert-only: 기존 행을 delete/update 하지 않고, 동일 날짜·객실이 이미 있으면 건너뛴다.
+- 대상 날짜 기준 checkout이 있는 방 → `(conditionCheckYn=0, cleaning_yn=1)`으로 work_header 엔트리 추가.
+- 대상 날짜 기준 checkout이 없고 checkin만 있는 방 → `(conditionCheckYn=1, cleaning_yn=0)`으로 엔트리 추가.
+- 둘 다 없으면 해당 날짜에 work_header를 만들지 않는다.
+
+## 7) work_apply 생성(참고)
+- 매 실행마다 run_date로부터 D+1~D+7까지 모든 target_date에 대해 수행한다.
+- 날짜별로 해당 날짜에 checkout이 있는 방만 합산해 섹터별 가중치를 계산한다.
+- `work_apply_rules`에서 `min_weight < 합계 ≤ max_weight` 규칙을 찾아 필요한 슬롯 수를 계산한다(섹터·포지션별).
+- 현재 DB에 존재하는 개수보다 부족한 경우에만 부족분만큼 seq를 이어서 insert한다. worker_id는 신청 시점까지 NULL이다.
+
+## 8) 담당자/상태 배정(별도 프로세스)
+- 배치에서는 정직원 스케줄 정보를 참고해 이미 만들어진 apply 슬롯에 우선 배정한다(있을 경우).
+- 이후 화면/신청 API에서 사용자가 worker_id, supply_yn, cleaning 상태 등을 갱신한다.
+
+## 예상 대비 과다 생성 시 체크 리스트
+1) ICS 병합 단계에서 Back-to-back이 아닌데 겹침으로 처리되는지 확인 (start/end 값 기록 필요).
+2) D0에 체크인만 있는 이벤트가 몇 개인지 카운트 → cleaning_yn=0 이라도 work_header에 추가됨.
+3) 병합 후에도 동일 날짜에 다중 이벤트가 남아 각 방이 여러 번 카운트되는지 검증.
+4) run_date 강제(today KST)와 입력 run-date가 일치하는지 확인.
