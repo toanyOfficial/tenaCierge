@@ -249,6 +249,10 @@ async function fetchAssignableWorkers(targetDate: string): Promise<AssignableWor
 }
 
 function sortRows(a: WorkListEntry, b: WorkListEntry, buildingCounts: Record<number, number>) {
+  if (a.cleaningYn !== b.cleaningYn) {
+    return Number(a.cleaningYn) - Number(b.cleaningYn);
+  }
+
   const aSector = a.sectorValue || a.sectorCode;
   const bSector = b.sectorValue || b.sectorCode;
   if (aSector !== bSector) return aSector.localeCompare(bSector);
