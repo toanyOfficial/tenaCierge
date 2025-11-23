@@ -144,7 +144,6 @@ export async function getWorkListSnapshot(
       ? await fetchAssignableWorkers(targetDate)
       : [];
   const buildingCounts = normalized.reduce<Record<number, number>>((acc, row) => {
-    if (!row.cleaningYn) return acc;
     acc[row.buildingId] = (acc[row.buildingId] ?? 0) + 1;
     return acc;
   }, {});
@@ -256,6 +255,13 @@ function sortRows(a: WorkListEntry, b: WorkListEntry, buildingCounts: Record<num
 
   const countDiff = (buildingCounts[b.buildingId] ?? 0) - (buildingCounts[a.buildingId] ?? 0);
   if (countDiff !== 0) return countDiff;
+
+  const aRoom = parseInt(a.roomNo ?? '', 10);
+  const bRoom = parseInt(b.roomNo ?? '', 10);
+
+  if (!Number.isNaN(aRoom) && !Number.isNaN(bRoom) && aRoom !== bRoom) {
+    return bRoom - aRoom;
+  }
 
   return b.roomNo.localeCompare(a.roomNo);
 }
