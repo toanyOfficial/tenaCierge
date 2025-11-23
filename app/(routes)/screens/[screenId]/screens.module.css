@@ -1647,9 +1647,59 @@
   display: none;
 }
 
+.imageGroupStack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.imageGroup {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 14px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.imageGroupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.imageGroupTitle {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.imageBadgeRequired,
+.imageBadgeOptional {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.imageBadgeRequired {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.imageBadgeOptional {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
 .imageGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.75rem;
 }
 
@@ -1658,20 +1708,31 @@
   border: 1px dashed var(--gray-300);
   border-radius: 14px;
   padding: 16px;
-  min-height: 160px;
+  min-height: 170px;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  gap: 8px;
-  background: #f8fafc;
+  gap: 10px;
+  background: #ffffff;
   cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.imageTileRequired {
+  border-color: #fca5a5;
+  background: #fff7ed;
+}
+
+.imageTileOptional {
+  border-color: #cbd5e1;
+  background: #f8fafc;
 }
 
 .imageTile:hover {
   border-color: #0f172a;
-  background: #eef2ff;
+  background: #f8fafc;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
 }
 
 .imageInput {
@@ -1681,19 +1742,38 @@
   cursor: pointer;
 }
 
-.imageIcon {
-  font-size: 1.8rem;
+.imageIconCircle {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #0f172a;
+  color: #fff;
+}
+
+.imageTextBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .imageLabel {
-  font-weight: 700;
+  font-weight: 800;
   color: #0f172a;
+}
+
+.imageComment {
+  color: #475569;
+  font-size: 0.9rem;
 }
 
 .imageHint {
   font-size: 0.9rem;
-  color: #475569;
-  text-align: center;
+  color: #1d4ed8;
+  font-weight: 700;
+  text-align: left;
   word-break: break-all;
 }
 

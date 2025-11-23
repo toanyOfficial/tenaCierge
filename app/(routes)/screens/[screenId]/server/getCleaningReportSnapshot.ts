@@ -25,6 +25,7 @@ export type ImageSlot = {
   id: number;
   title: string;
   required: boolean;
+  comment?: string | null;
 };
 
 export async function getCleaningReportSnapshot(
@@ -84,6 +85,8 @@ export async function getCleaningReportSnapshot(
           id: workImagesSetDetail.id,
           title: workImagesSetDetail.title,
           fallbackTitle: workImagesList.title,
+          comment: workImagesSetDetail.comment,
+          fallbackComment: workImagesList.comment,
           required: workImagesSetDetail.required,
           sortOrder: workImagesSetDetail.sortOrder
         })
@@ -92,10 +95,11 @@ export async function getCleaningReportSnapshot(
         .where(eq(workImagesSetDetail.imagesSetId, workRow.imagesSetId))
         .orderBy(asc(workImagesSetDetail.sortOrder), asc(workImagesSetDetail.id));
 
-      return rows.map(({ id, title, fallbackTitle, required }) => ({
+      return rows.map(({ id, title, fallbackTitle, required, comment, fallbackComment }) => ({
         id,
         title: title ?? fallbackTitle ?? '',
-        required: Boolean(required)
+        required: Boolean(required),
+        comment: comment ?? fallbackComment ?? null
       }));
     })();
 
