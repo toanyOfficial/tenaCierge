@@ -4,6 +4,9 @@ export type CleaningWork = {
   roomName: string;
   buildingName: string;
   buildingShortName: string;
+  buildingId: number;
+  sectorCode: string;
+  sectorValue: string;
   roomNo: string;
   cancelYn: boolean;
   checkoutTime: string;
@@ -15,5 +18,6 @@ export type CleaningWork = {
   defaultCheckout: string;
   defaultCheckin: string;
   clientId: number | null;
+  cleanerId: number | null;
   date: string;
 };

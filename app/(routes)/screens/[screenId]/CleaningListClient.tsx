@@ -63,7 +63,8 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
   const viewingAsHost = activeRole === 'host';
   const viewingAsAdmin = activeRole === 'admin';
   const viewingAsButler = activeRole === 'butler';
-  const canSeeList = viewingAsHost || viewingAsAdmin || viewingAsButler;
+  const viewingAsCleaner = activeRole === 'cleaner';
+  const canSeeList = viewingAsHost || viewingAsAdmin || viewingAsButler || viewingAsCleaner;
   const canEdit = viewingAsAdmin || (viewingAsHost && snapshot.hostCanEdit);
   const canEditRequirements = viewingAsAdmin;
   const canAdd = viewingAsAdmin || (viewingAsHost && snapshot.hostCanAdd);
@@ -155,8 +156,21 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
       return works;
     }
 
+    if (viewingAsCleaner) {
+      if (!snapshot.currentWorkerId) return [];
+      return works.filter((work) => work.cleanerId === snapshot.currentWorkerId);
+    }
+
     return [];
-  }, [viewingAsHost, viewingAsAdmin, viewingAsButler, works, snapshot.hostRoomIds]);
+  }, [
+    viewingAsHost,
+    viewingAsAdmin,
+    viewingAsButler,
+    viewingAsCleaner,
+    works,
+    snapshot.hostRoomIds,
+    snapshot.currentWorkerId
+  ]);
 
   const batchingOnly = snapshot.window === 'batching' && !viewingAsAdmin;
   const hostRestrictionMessage = viewingAsHost
@@ -327,8 +341,8 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
       }
 
       const created = payload.work as CleaningWork;
-      setWorks((prev) => [...prev, created]);
-      setBaseline((prev) => [...prev, created]);
+      setWorks((prev) => sortWorks([...prev, created]));
+      setBaseline((prev) => sortWorks([...prev, created]));
       setAddStatus('새 작업이 생성되었습니다.');
       setAddForm(createAddFormState(addRoom));
     } catch (error) {
@@ -368,9 +382,13 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                 const amenitiesBounds = getAmenitiesBounds(work);
                 const isSaving = savingIds.includes(work.id);
                 const hasChanges = isWorkDirty(work, baseline);
+                const isMine = snapshot.currentWorkerId && work.cleanerId === snapshot.currentWorkerId;
 
                 return (
-                  <article key={work.id} className={styles.workCard}>
+                  <article
+                    key={work.id}
+                    className={`${styles.workCard} ${isMine ? styles.workCardOwned : ''}`.trim()}
+                  >
                     <header className={styles.workCardHeader}>
                       <div className={styles.workHeaderRow}>
                         <p className={styles.workTitle}>{work.roomName}</p>
@@ -679,16 +697,22 @@ function getAmenitiesBounds(work: { bedCount: number }) {
 }
 
 function sortWorks(list: CleaningWork[]) {
+  const buildingCounts = list.reduce<Record<number, number>>((acc, work) => {
+    acc[work.buildingId] = (acc[work.buildingId] ?? 0) + 1;
+    return acc;
+  }, {});
+
   return [...list].sort((a, b) => {
-    if (a.buildingShortName !== b.buildingShortName) {
-      return a.buildingShortName.localeCompare(b.buildingShortName, 'ko');
+    const aSector = a.sectorValue || a.sectorCode;
+    const bSector = b.sectorValue || b.sectorCode;
+    if (aSector !== bSector) {
+      return aSector.localeCompare(bSector, 'ko');
     }
 
-    if (a.roomNo !== b.roomNo) {
-      return a.roomNo.localeCompare(b.roomNo, 'ko', { numeric: true, sensitivity: 'base' });
-    }
+    const countDiff = (buildingCounts[b.buildingId] ?? 0) - (buildingCounts[a.buildingId] ?? 0);
+    if (countDiff !== 0) return countDiff;
 
-    return a.id - b.id;
+    return b.roomNo.localeCompare(a.roomNo, 'ko', { numeric: true, sensitivity: 'base' });
   });
 }
 

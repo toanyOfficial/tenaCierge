@@ -1,7 +1,8 @@
 import { and, asc, desc, eq } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/mysql-core';
 
 import { db } from '@/src/db/client';
-import { clientRooms, etcBuildings, workHeader } from '@/src/db/schema';
+import { clientRooms, etcBaseCode, etcBuildings, workHeader } from '@/src/db/schema';
 import type { CleaningWork } from '@/src/server/workTypes';
 import { formatDateKey } from '@/src/utils/workWindow';
 
@@ -9,6 +10,7 @@ export type WorkRow = {
   id: number;
   date: string | Date;
   roomId: number;
+  buildingId: number | null;
   cancelYn: boolean | null;
   checkoutTime: string | Date | null;
   checkinTime: string | Date | null;
@@ -22,14 +24,20 @@ export type WorkRow = {
   clientId: number | null;
   buildingShortName: string | null;
   buildingName: string | null;
+  sectorCode: string | null;
+  sectorValue: string | null;
+  cleanerId: number | null;
 };
 
 export async function fetchWorkRowsByDate(targetDate: string) {
+  const buildingSector = alias(etcBaseCode, 'workSector');
+
   return db
     .select({
       id: workHeader.id,
       date: workHeader.date,
       roomId: workHeader.roomId,
+      buildingId: clientRooms.buildingId,
       cancelYn: workHeader.cancelYn,
       checkoutTime: workHeader.checkoutTime,
       checkinTime: workHeader.checkinTime,
@@ -42,21 +50,31 @@ export async function fetchWorkRowsByDate(targetDate: string) {
       defaultCheckin: clientRooms.checkinTime,
       clientId: clientRooms.clientId,
       buildingShortName: etcBuildings.shortName,
-      buildingName: etcBuildings.buildingName
+      buildingName: etcBuildings.buildingName,
+      sectorCode: etcBuildings.sectorCode,
+      sectorValue: buildingSector.value,
+      cleanerId: workHeader.cleanerId
     })
     .from(workHeader)
     .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
     .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
+    .leftJoin(
+      buildingSector,
+      and(eq(buildingSector.codeGroup, etcBuildings.sectorCode), eq(buildingSector.code, etcBuildings.sectorValue))
+    )
     .where(eq(workHeader.date, targetDate))
     .orderBy(asc(workHeader.id));
 }
 
 export async function fetchWorkRowById(workId: number) {
+  const buildingSector = alias(etcBaseCode, 'workSectorById');
+
   const rows = await db
     .select({
       id: workHeader.id,
       date: workHeader.date,
       roomId: workHeader.roomId,
+      buildingId: clientRooms.buildingId,
       cancelYn: workHeader.cancelYn,
       checkoutTime: workHeader.checkoutTime,
       checkinTime: workHeader.checkinTime,
@@ -69,11 +87,18 @@ export async function fetchWorkRowById(workId: number) {
       defaultCheckin: clientRooms.checkinTime,
       clientId: clientRooms.clientId,
       buildingShortName: etcBuildings.shortName,
-      buildingName: etcBuildings.buildingName
+      buildingName: etcBuildings.buildingName,
+      sectorCode: etcBuildings.sectorCode,
+      sectorValue: buildingSector.value,
+      cleanerId: workHeader.cleanerId
     })
     .from(workHeader)
     .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
     .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
+    .leftJoin(
+      buildingSector,
+      and(eq(buildingSector.codeGroup, etcBuildings.sectorCode), eq(buildingSector.code, etcBuildings.sectorValue))
+    )
     .where(eq(workHeader.id, workId))
     .limit(1);
 
@@ -81,11 +106,14 @@ export async function fetchWorkRowById(workId: number) {
 }
 
 export async function fetchLatestWorkByDateAndRoom(date: string, roomId: number) {
+  const buildingSector = alias(etcBaseCode, 'workSectorLatest');
+
   const rows = await db
     .select({
       id: workHeader.id,
       date: workHeader.date,
       roomId: workHeader.roomId,
+      buildingId: clientRooms.buildingId,
       cancelYn: workHeader.cancelYn,
       checkoutTime: workHeader.checkoutTime,
       checkinTime: workHeader.checkinTime,
@@ -98,11 +126,18 @@ export async function fetchLatestWorkByDateAndRoom(date: string, roomId: number)
       defaultCheckin: clientRooms.checkinTime,
       clientId: clientRooms.clientId,
       buildingShortName: etcBuildings.shortName,
-      buildingName: etcBuildings.buildingName
+      buildingName: etcBuildings.buildingName,
+      sectorCode: etcBuildings.sectorCode,
+      sectorValue: buildingSector.value,
+      cleanerId: workHeader.cleanerId
     })
     .from(workHeader)
     .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
     .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
+    .leftJoin(
+      buildingSector,
+      and(eq(buildingSector.codeGroup, etcBuildings.sectorCode), eq(buildingSector.code, etcBuildings.sectorValue))
+    )
     .where(and(eq(workHeader.roomId, roomId), eq(workHeader.date, date)))
     .orderBy(desc(workHeader.id))
     .limit(1);
@@ -115,6 +150,7 @@ export function serializeWorkRow(row: WorkRow): CleaningWork {
     id: row.id,
     date: normalizeDate(row.date),
     roomId: row.roomId,
+    buildingId: row.buildingId ?? 0,
     cancelYn: Boolean(row.cancelYn),
     checkoutTime: toTimeString(row.checkoutTime),
     checkinTime: toTimeString(row.checkinTime),
@@ -128,7 +164,10 @@ export function serializeWorkRow(row: WorkRow): CleaningWork {
     clientId: row.clientId,
     buildingShortName: row.buildingShortName ?? 'N/A',
     buildingName: row.buildingName ?? '미지정',
-    roomName: buildRoomName(row.buildingShortName, row.roomNo)
+    roomName: buildRoomName(row.buildingShortName, row.roomNo),
+    sectorCode: row.sectorCode ?? '',
+    sectorValue: row.sectorValue ?? row.sectorCode ?? '',
+    cleanerId: row.cleanerId ? Number(row.cleanerId) : null
   };
 }
 

@@ -139,7 +139,9 @@ export async function getWorkListSnapshot(
         ? await fetchAssignableWorkers(targetDate)
         : [];
     const buildingCounts = normalized.reduce<Record<number, number>>((acc, row) => {
-      acc[row.buildingId] = (acc[row.buildingId] ?? 0) + 1;
+      if (row.cleaningYn) {
+        acc[row.buildingId] = (acc[row.buildingId] ?? 0) + 1;
+      }
       return acc;
     }, {});
 

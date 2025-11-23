@@ -3,6 +3,7 @@ import { asc, and, eq } from 'drizzle-orm';
 import { db } from '@/src/db/client';
 import { clientRooms, etcBuildings, workHeader } from '@/src/db/schema';
 import { findClientByProfile } from '@/src/server/clients';
+import { findWorkerByProfile } from '@/src/server/workers';
 import { fetchWorkRowsByDate, serializeWorkRow } from '@/src/server/workQueries';
 import type { CleaningWork } from '@/src/server/workTypes';
 import type { ProfileSummary } from '@/src/utils/profile';
@@ -32,28 +33,19 @@ export type CleaningSnapshot = {
   adminRoomOptions: RoomOption[];
   hostRoomIds: number[];
   message: string | null;
+  currentWorkerId: number | null;
 };
 
 export async function getCleaningSnapshot(profile: ProfileSummary): Promise<CleaningSnapshot> {
   const meta = resolveWorkWindow();
   const client = profile.roles.includes('host') ? await findClientByProfile(profile) : null;
+  const worker = profile.roles.includes('cleaner') ? await findWorkerByProfile(profile) : null;
   const [works, hostRooms, adminRooms] = await Promise.all([
     getWorks(meta.targetDate),
     client ? getRoomOptions(client.id) : Promise.resolve([]),
     profile.roles.includes('admin') ? getRoomOptions() : Promise.resolve([])
   ]);
-
-  const sortedWorks = works.sort((a, b) => {
-    if (a.buildingShortName !== b.buildingShortName) {
-      return a.buildingShortName.localeCompare(b.buildingShortName, 'ko');
-    }
-
-    if (a.roomNo !== b.roomNo) {
-      return a.roomNo.localeCompare(b.roomNo, 'ko', { numeric: true, sensitivity: 'base' });
-    }
-
-    return a.id - b.id;
-  });
+  const sortedWorks = sortWorks(works);
 
   return {
     targetTag: meta.targetTag,
@@ -66,7 +58,8 @@ export async function getCleaningSnapshot(profile: ProfileSummary): Promise<Clea
     hostRoomOptions: hostRooms,
     adminRoomOptions: adminRooms,
     hostRoomIds: hostRooms.map((room) => room.roomId),
-    message: '16:00이 되면 오더수정이 마감됩니다. 반드시 16:00 이전에 수정사항을 반영해주세요.'
+    message: '16:00이 되면 오더수정이 마감됩니다. 반드시 16:00 이전에 수정사항을 반영해주세요.',
+    currentWorkerId: worker?.id ?? null
   };
 }
 
@@ -126,6 +119,26 @@ function toTimeString(value: string | Date | null | undefined) {
   const hour = (parts[0] ?? '00').padStart(2, '0');
   const minute = (parts[1] ?? '00').padStart(2, '0');
   return `${hour}:${minute}`;
+}
+
+function sortWorks(list: CleaningWork[]) {
+  const buildingCounts = list.reduce<Record<number, number>>((acc, work) => {
+    acc[work.buildingId] = (acc[work.buildingId] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  return [...list].sort((a, b) => {
+    const aSector = a.sectorValue || a.sectorCode;
+    const bSector = b.sectorValue || b.sectorCode;
+    if (aSector !== bSector) {
+      return aSector.localeCompare(bSector, 'ko');
+    }
+
+    const countDiff = (buildingCounts[b.buildingId] ?? 0) - (buildingCounts[a.buildingId] ?? 0);
+    if (countDiff !== 0) return countDiff;
+
+    return b.roomNo.localeCompare(a.roomNo, 'ko', { numeric: true, sensitivity: 'base' });
+  });
 }
 
 function buildRoomName(shortName?: string | null, roomNo?: string | null) {
