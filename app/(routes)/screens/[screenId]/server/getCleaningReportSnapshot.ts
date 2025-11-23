@@ -26,7 +26,7 @@ export async function getCleaningReportSnapshot(
 ) {
   try {
     if (!profile.roles.some((role) => role === 'admin' || role === 'butler' || role === 'cleaner')) {
-      throw new Error('접근 권한이 없습니다.');
+      throw new Error('청소완료보고를 조회할 수 없는 역할입니다.');
     }
 
     if (!workId || Number.isNaN(workId)) {
