@@ -21,4 +21,5 @@ export type CleaningWork = {
   cleanerId: number | null;
   cleaningYn: boolean;
   date: string;
+  imagesSetId: number | null;
 };

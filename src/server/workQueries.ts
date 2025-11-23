@@ -28,6 +28,7 @@ export type WorkRow = {
   sectorCode: string | null;
   sectorValue: string | null;
   cleanerId: number | null;
+  imagesSetId: number | null;
 };
 
 export async function fetchWorkRowsByDate(targetDate: string) {
@@ -55,7 +56,8 @@ export async function fetchWorkRowsByDate(targetDate: string) {
       buildingName: etcBuildings.buildingName,
       sectorCode: etcBuildings.sectorCode,
       sectorValue: buildingSector.value,
-      cleanerId: workHeader.cleanerId
+      cleanerId: workHeader.cleanerId,
+      imagesSetId: clientRooms.imagesSetId
     })
     .from(workHeader)
     .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
@@ -93,7 +95,8 @@ export async function fetchWorkRowById(workId: number) {
       buildingName: etcBuildings.buildingName,
       sectorCode: etcBuildings.sectorCode,
       sectorValue: buildingSector.value,
-      cleanerId: workHeader.cleanerId
+      cleanerId: workHeader.cleanerId,
+      imagesSetId: clientRooms.imagesSetId
     })
     .from(workHeader)
     .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
@@ -133,7 +136,8 @@ export async function fetchLatestWorkByDateAndRoom(date: string, roomId: number)
       buildingName: etcBuildings.buildingName,
       sectorCode: etcBuildings.sectorCode,
       sectorValue: buildingSector.value,
-      cleanerId: workHeader.cleanerId
+      cleanerId: workHeader.cleanerId,
+      imagesSetId: clientRooms.imagesSetId
     })
     .from(workHeader)
     .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
@@ -172,7 +176,8 @@ export function serializeWorkRow(row: WorkRow): CleaningWork {
     roomName: buildRoomName(row.buildingShortName, row.roomNo),
     sectorCode: row.sectorCode ?? '',
     sectorValue: row.sectorValue ?? row.sectorCode ?? '',
-    cleanerId: row.cleanerId ? Number(row.cleanerId) : null
+    cleanerId: row.cleanerId ? Number(row.cleanerId) : null,
+    imagesSetId: row.imagesSetId ?? null
   };
 }
 
