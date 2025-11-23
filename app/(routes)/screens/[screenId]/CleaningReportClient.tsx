@@ -19,12 +19,13 @@ const requiredImageSlots = [
 
 export default function CleaningReportClient({ snapshot }: Props) {
   const { work, cleaningChecklist, suppliesChecklist } = snapshot;
-  const [activeRole, setActiveRole] = useState(profile.primaryRole ?? profile.roles[0] ?? null);
+  const initialImageSelections = useMemo(
+    () => Object.fromEntries(requiredImageSlots.map(({ key }) => [key, null])) as Record<string, File | null>,
+    []
+  );
   const [cleaningChecks, setCleaningChecks] = useState<Set<number>>(new Set());
   const [supplyChecks, setSupplyChecks] = useState<Set<number>>(new Set());
-  const [imageSelections, setImageSelections] = useState<Record<string, File | null>>(
-    () => Object.fromEntries(requiredImageSlots.map(({ key }) => [key, null])) as Record<string, File | null>
-  );
+  const [imageSelections, setImageSelections] = useState<Record<string, File | null>>(initialImageSelections);
   const [status, setStatus] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
@@ -73,7 +74,7 @@ export default function CleaningReportClient({ snapshot }: Props) {
       setStatus('청소 완료 보고가 저장되었습니다.');
       setCleaningChecks(new Set());
       setSupplyChecks(new Set());
-      setImageSelections(Object.fromEntries(requiredImageSlots.map(({ key }) => [key, null])) as Record<string, File | null>);
+      setImageSelections(initialImageSelections);
     } catch (err) {
       const message = err instanceof Error ? err.message : '저장 중 오류가 발생했습니다.';
       setError(message);
