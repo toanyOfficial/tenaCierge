@@ -355,7 +355,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                       `${work.buildingShortName}${work.roomNo} 호실에 대하여 클리닝 완료 보고를 진행하시겠습니까?`
                                     );
                                     if (ok) {
-                                      router.push('/screens/005');
+                                      router.push(`/screens/005?workId=${work.id}`);
                                     }
                                     return;
                                   }
@@ -374,7 +374,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                       `${work.buildingShortName}${work.roomNo} 호실에 대하여 수퍼바이징 완료 보고를 진행하시겠습니까?`
                                     );
                                     if (ok) {
-                                      router.push('/screens/005');
+                                      router.push(`/screens/005?workId=${work.id}`);
                                     }
                                     return;
                                   }

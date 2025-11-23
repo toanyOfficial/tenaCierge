@@ -5,9 +5,11 @@ import styles from './screens.module.css';
 import CleaningListClient from './CleaningListClient';
 import ApplyClient from './ApplyClient';
 import WorkListClient from './WorkListClient';
+import CleaningReportClient from './CleaningReportClient';
 import { getCleaningSnapshot } from './server/getCleaningSnapshot';
 import { getApplySnapshot } from './server/getApplySnapshot';
 import { getWorkListSnapshot } from './server/getWorkListSnapshot';
+import { getCleaningReportSnapshot } from './server/getCleaningReportSnapshot';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 
 type Props = {
@@ -28,7 +30,7 @@ export default async function ScreenPage({
 }: Props & { searchParams?: { date?: string; window?: 'd0' | 'd1' } }) {
   const { screenId } = params;
 
-  if (!['002', '003', '004'].includes(screenId)) {
+  if (!['002', '003', '004', '005'].includes(screenId)) {
     return (
       <section className={styles.placeholder}>
         <div className={styles.card}>
@@ -77,6 +79,17 @@ export default async function ScreenPage({
     return (
       <div className={styles.screenWrapper}>
         <WorkListClient profile={profile} snapshot={snapshot} />
+      </div>
+    );
+  }
+
+  if (screenId === '005') {
+    const workId = searchParams?.workId ? Number(searchParams.workId) : null;
+    const snapshot = await getCleaningReportSnapshot(profile, workId);
+
+    return (
+      <div className={styles.screenWrapper}>
+        <CleaningReportClient profile={profile} snapshot={snapshot} />
       </div>
     );
   }
