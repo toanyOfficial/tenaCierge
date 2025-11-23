@@ -1,7 +1,7 @@
-import { asc, inArray } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
-import { workChecklistList } from '@/src/db/schema';
+import { workChecklistList, workChecklistSetDetail } from '@/src/db/schema';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { fetchWorkRowById, serializeWorkRow } from '@/src/server/workQueries';
 import type { CleaningWork } from '@/src/server/workTypes';
@@ -41,21 +41,33 @@ export async function getCleaningReportSnapshot(
 
     const checklistRows = await db
       .select({
-        id: workChecklistList.id,
-        title: workChecklistList.title,
+        id: workChecklistSetDetail.id,
+        title: workChecklistSetDetail.title,
+        fallbackTitle: workChecklistList.title,
         type: workChecklistList.type
       })
-      .from(workChecklistList)
+      .from(workChecklistSetDetail)
+      .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
       .where(inArray(workChecklistList.type, [1, 3]))
-      .orderBy(asc(workChecklistList.type), asc(workChecklistList.id));
+      .orderBy(asc(workChecklistList.type), asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id));
 
     const cleaningChecklist = checklistRows
       .filter((item) => item.type === 1)
-      .map(({ id, title, type }) => ({ id, title, type, score: 0 }));
+      .map(({ id, title, fallbackTitle, type }) => ({
+        id,
+        title: title ?? fallbackTitle ?? '',
+        type,
+        score: 0
+      }));
 
     const suppliesChecklist = checklistRows
       .filter((item) => item.type === 3)
-      .map(({ id, title, type }) => ({ id, title, type, score: 0 }));
+      .map(({ id, title, fallbackTitle, type }) => ({
+        id,
+        title: title ?? fallbackTitle ?? '',
+        type,
+        score: 0
+      }));
 
     return {
       work: serializeWorkRow(workRow),
