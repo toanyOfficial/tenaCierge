@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import type { MouseEvent as ReactMouseEvent } from 'react';
+import { useRouter } from 'next/navigation';
 
 import type { CleanerSnapshot } from './page';
 import styles from './dashboard.module.css';
@@ -24,6 +26,8 @@ function getStatusLabel(snapshot: CleanerSnapshot) {
 }
 
 export default function CleanerPanel({ snapshot }: Props) {
+  const router = useRouter();
+
   if (!snapshot) {
     return (
       <section className={styles.cleanerPanel} data-child-id="5">
@@ -41,6 +45,29 @@ export default function CleanerPanel({ snapshot }: Props) {
   const statusLabel = getStatusLabel(snapshot);
   const highlightWorklist = snapshot.highlightWorklist;
   const highlightApply = snapshot.highlightApply;
+
+  const handleWorklistClick = async (event: ReactMouseEvent<HTMLAnchorElement>) => {
+    if (!highlightWorklist) {
+      event.preventDefault();
+      return;
+    }
+
+    event.preventDefault();
+
+    try {
+      const res = await fetch('/api/work-access?role=cleaner');
+      const body = await res.json().catch(() => ({}));
+
+      if (!body?.allowed) {
+        alert(body?.message ?? '오늘, 내일 중 업무 신청 사항이 없습니다.');
+        return;
+      }
+
+      router.push('/screens/004');
+    } catch (error) {
+      alert('접근 검증 중 오류가 발생했습니다.');
+    }
+  };
 
   return (
     <section className={styles.cleanerPanel} data-child-id="5">
@@ -78,6 +105,7 @@ export default function CleanerPanel({ snapshot }: Props) {
           aria-disabled={!highlightWorklist}
           prefetch={false}
           tabIndex={highlightWorklist ? 0 : -1}
+          onClick={handleWorklistClick}
         >
           과업지시서
         </Link>
