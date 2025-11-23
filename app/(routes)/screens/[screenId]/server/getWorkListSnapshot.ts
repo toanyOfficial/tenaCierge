@@ -139,9 +139,7 @@ export async function getWorkListSnapshot(
         ? await fetchAssignableWorkers(targetDate)
         : [];
     const buildingCounts = normalized.reduce<Record<number, number>>((acc, row) => {
-      if (row.cleaningYn) {
-        acc[row.buildingId] = (acc[row.buildingId] ?? 0) + 1;
-      }
+      acc[row.buildingId] = (acc[row.buildingId] ?? 0) + 1;
       return acc;
     }, {});
 
@@ -245,10 +243,6 @@ async function fetchAssignableWorkers(targetDate: string): Promise<AssignableWor
 }
 
 function sortRows(a: WorkListEntry, b: WorkListEntry, buildingCounts: Record<number, number>) {
-  if (a.cleaningYn !== b.cleaningYn) {
-    return a.cleaningYn ? 1 : -1; // cleaning 없는 건 먼저
-  }
-
   const aSector = a.sectorValue || a.sectorCode;
   const bSector = b.sectorValue || b.sectorCode;
   if (aSector !== bSector) return aSector.localeCompare(bSector);

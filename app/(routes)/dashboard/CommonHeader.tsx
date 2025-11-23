@@ -61,6 +61,7 @@ export default function CommonHeader({ profile, activeRole, onRoleChange, compac
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [navBusy, setNavBusy] = useState(false);
+  const [navAccess, setNavAccess] = useState<Record<string, boolean | null>>({});
 
   const roles = useMemo(() => sortRoles(profile.roles), [profile.roles]);
   const roleSummary = roles.length ? roles.map((role) => roleLabels[role] ?? role).join(', ') : 'Role 없음';
@@ -133,6 +134,33 @@ export default function CommonHeader({ profile, activeRole, onRoleChange, compac
     },
     [activeRole, router]
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function refreshAccess() {
+      if (!activeRole || !['cleaner', 'butler'].includes(activeRole)) {
+        setNavAccess((prev) => ({ ...prev, '/screens/004': true }));
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/work-access?role=${activeRole}`);
+        const body = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        setNavAccess((prev) => ({ ...prev, '/screens/004': Boolean(body?.allowed) }));
+      } catch (error) {
+        if (cancelled) return;
+        setNavAccess((prev) => ({ ...prev, '/screens/004': false }));
+      }
+    }
+
+    refreshAccess();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeRole]);
 
   useEffect(() => {
     function handleOutsideClick(event: MouseEvent) {
@@ -248,7 +276,9 @@ export default function CommonHeader({ profile, activeRole, onRoleChange, compac
             <button
               key={link.href}
               type="button"
-              className={`${styles.navButton} ${styles.navButtonEnabled}`}
+              className={`${styles.navButton} ${
+                navAccess[link.href] === false ? styles.navButtonDisabled : styles.navButtonEnabled
+              }`}
               onClick={(event) => handleNavClick(event, link.href)}
               disabled={navBusy}
             >
