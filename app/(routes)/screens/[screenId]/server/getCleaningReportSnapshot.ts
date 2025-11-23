@@ -1,7 +1,7 @@
 import { asc, eq, inArray } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
-import { workChecklistList, workChecklistSetDetail } from '@/src/db/schema';
+import { workChecklistList, workChecklistSetDetail, workImagesList, workImagesSetDetail } from '@/src/db/schema';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { fetchWorkRowById, serializeWorkRow } from '@/src/server/workQueries';
 import type { CleaningWork } from '@/src/server/workTypes';
@@ -11,6 +11,7 @@ export type CleaningReportSnapshot = {
   work: CleaningWork;
   cleaningChecklist: ChecklistItem[];
   suppliesChecklist: ChecklistItem[];
+  imageSlots: ImageSlot[];
 };
 
 export type ChecklistItem = {
@@ -18,6 +19,12 @@ export type ChecklistItem = {
   title: string;
   type: number;
   score: number;
+};
+
+export type ImageSlot = {
+  id: number;
+  title: string;
+  required: boolean;
 };
 
 export async function getCleaningReportSnapshot(
@@ -69,10 +76,34 @@ export async function getCleaningReportSnapshot(
         score: 0
       }));
 
+    const imageSlots = await (async () => {
+      if (!workRow.imagesSetId) return [] as ImageSlot[];
+
+      const rows = await db
+        .select({
+          id: workImagesSetDetail.id,
+          title: workImagesSetDetail.title,
+          fallbackTitle: workImagesList.title,
+          required: workImagesSetDetail.required,
+          sortOrder: workImagesSetDetail.sortOrder
+        })
+        .from(workImagesSetDetail)
+        .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
+        .where(eq(workImagesSetDetail.imagesSetId, workRow.imagesSetId))
+        .orderBy(asc(workImagesSetDetail.sortOrder), asc(workImagesSetDetail.id));
+
+      return rows.map(({ id, title, fallbackTitle, required }) => ({
+        id,
+        title: title ?? fallbackTitle ?? '',
+        required: Boolean(required)
+      }));
+    })();
+
     return {
       work: serializeWorkRow(workRow),
       cleaningChecklist,
-      suppliesChecklist
+      suppliesChecklist,
+      imageSlots
     } satisfies CleaningReportSnapshot;
   } catch (error) {
     await logServerError({

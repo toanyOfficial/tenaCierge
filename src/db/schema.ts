@@ -87,6 +87,7 @@ export const clientRooms = mysqlTable('client_rooms', {
   facilityYn: boolean('facility_yn').default(true).notNull(),
   icalUrl1: varchar('ical_url_1', { length: 2083 }),
   icalUrl2: varchar('ical_url_2', { length: 2083 }),
+  imagesSetId: int('images_set_id').notNull(),
   settleFlag: tinyint('settle_flag').default(1).notNull(),
   weight: tinyint('weight').default(10).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -211,6 +212,35 @@ export const workChecklistSetHeader = mysqlTable('work_checklist_set_header', {
   id: int('id', { unsigned: true }).autoincrement().notNull(),
   title: varchar('title', { length: 15 }).notNull(),
   description: varchar('dscpt', { length: 50 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const workImagesList = mysqlTable('work_images_list', {
+  id: tinyint('id', { unsigned: true }).autoincrement().notNull(),
+  title: varchar('title', { length: 15 }).notNull(),
+  comment: varchar('comment', { length: 50 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const workImagesSetHeader = mysqlTable('work_images_set_header', {
+  id: int('id', { unsigned: true }).autoincrement().notNull(),
+  title: varchar('title', { length: 15 }).notNull(),
+  description: varchar('dscpt', { length: 50 }),
+  role: tinyint('role').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const workImagesSetDetail = mysqlTable('work_images_set_detail', {
+  id: int('id', { unsigned: true }).autoincrement().notNull(),
+  imagesSetId: int('images_set_id', { unsigned: true }).notNull(),
+  imagesListId: tinyint('images_list_id', { unsigned: true }).notNull(),
+  sortOrder: tinyint('sort_order').notNull(),
+  required: boolean('required').notNull(),
+  title: varchar('title', { length: 15 }),
+  comment: varchar('comment', { length: 50 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });

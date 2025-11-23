@@ -10,18 +10,22 @@ type Props = {
   snapshot: CleaningReportSnapshot;
 };
 
-const requiredImageSlots = [
-  { key: 'entrance', title: '현관', icon: '🚪' },
-  { key: 'bathroom', title: '욕실', icon: '🛁' },
-  { key: 'bed', title: '침구', icon: '🛏️' },
-  { key: 'amenities', title: '어메니티', icon: '🧴' }
-];
+const slotIcon = (title: string) => {
+  if (title.includes('현관')) return '🚪';
+  if (title.includes('욕실') || title.includes('화장실')) return '🛁';
+  if (title.includes('침대') || title.includes('침구')) return '🛏️';
+  if (title.includes('어메니티') || title.includes('비품')) return '🧴';
+  if (title.includes('거실')) return '🛋️';
+  if (title.includes('주방')) return '🍳';
+  return '📷';
+};
 
 export default function CleaningReportClient({ snapshot }: Props) {
-  const { work, cleaningChecklist, suppliesChecklist } = snapshot;
+  const { work, cleaningChecklist, suppliesChecklist, imageSlots } = snapshot;
+  const imageSlotKeys = useMemo(() => imageSlots.map((slot) => String(slot.id)), [imageSlots]);
   const initialImageSelections = useMemo(
-    () => Object.fromEntries(requiredImageSlots.map(({ key }) => [key, null])) as Record<string, File | null>,
-    []
+    () => Object.fromEntries(imageSlotKeys.map((key) => [key, null])) as Record<string, File | null>,
+    [imageSlotKeys]
   );
   const [cleaningChecks, setCleaningChecks] = useState<Set<number>>(new Set());
   const [supplyChecks, setSupplyChecks] = useState<Set<number>>(new Set());
@@ -86,38 +90,14 @@ export default function CleaningReportClient({ snapshot }: Props) {
   return (
     <div className={styles.screenShell}>
       <section className={styles.cleaningSection}>
-        <div className={styles.sectionHeaderSolo}>
-          <div>
-            <p className={styles.sectionTitle}>청소완료보고</p>
-            <p className={styles.subtle}>호실 정보를 확인하고 체크리스트 및 사진을 제출하세요.</p>
-          </div>
-          <p className={styles.windowBadge}>작업일 {work.date}</p>
-        </div>
+        <header className={styles.roomHero}>
+          <p className={styles.heroLabel}>호실</p>
+          <p className={styles.heroTitle}>{roomTitle}</p>
+          <p className={styles.heroSub}>작업일 {work.date}</p>
+        </header>
 
-        <div className={styles.reportGridSimple}>
-          <article className={styles.reportCard}>
-            <header className={styles.reportCardHeader}>호실 정보</header>
-            <dl className={styles.roomInfoGrid}>
-              <div>
-                <dt>호실</dt>
-                <dd>{roomTitle}</dd>
-              </div>
-              <div>
-                <dt>건물명</dt>
-                <dd>{work.buildingName}</dd>
-              </div>
-              <div>
-                <dt>체크인</dt>
-                <dd>{work.checkinTime}</dd>
-              </div>
-              <div>
-                <dt>체크아웃</dt>
-                <dd>{work.checkoutTime}</dd>
-              </div>
-            </dl>
-          </article>
-
-          <div className={styles.reportCard}>
+        <div className={styles.reportGridStacked}>
+          <article className={styles.reportCardWide}>
             <header className={styles.reportCardHeader}>청소 체크리스트</header>
             {cleaningChecklist.length === 0 ? (
               <p className={styles.reportEmpty}>청소 체크리스트가 없습니다.</p>
@@ -137,10 +117,10 @@ export default function CleaningReportClient({ snapshot }: Props) {
                 ))}
               </ul>
             )}
-          </div>
+          </article>
 
-          <div className={styles.reportCard}>
-            <header className={styles.reportCardHeader}>소모품 체크</header>
+          <article className={styles.reportCardWide}>
+            <header className={styles.reportCardHeader}>소모품 체크리스트</header>
             {suppliesChecklist.length === 0 ? (
               <p className={styles.reportEmpty}>소모품 체크리스트가 없습니다.</p>
             ) : (
@@ -159,28 +139,39 @@ export default function CleaningReportClient({ snapshot }: Props) {
                 ))}
               </ul>
             )}
-          </div>
+          </article>
 
-          <div className={styles.reportCard}>
+          <article className={styles.reportCardWide}>
             <header className={styles.reportCardHeader}>이미지 업로드</header>
-            <div className={styles.imageGrid}>
-              {requiredImageSlots.map((slot) => (
-                <label key={slot.key} className={styles.imageTile}>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleImageChange(slot.key, e.target.files)}
-                    className={styles.imageInput}
-                  />
-                  <span className={styles.imageIcon}>{slot.icon}</span>
-                  <span className={styles.imageLabel}>{slot.title}</span>
-                  <span className={styles.imageHint}>
-                    {imageSelections[slot.key]?.name ? imageSelections[slot.key]?.name : '이미지 선택'}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
+            {imageSlots.length === 0 ? (
+              <p className={styles.reportEmpty}>업로드할 이미지가 없습니다.</p>
+            ) : (
+              <div className={styles.imageGrid}>
+                {imageSlots.map((slot) => {
+                  const key = String(slot.id);
+                  return (
+                    <label key={key} className={styles.imageTile}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleImageChange(key, e.target.files)}
+                        className={styles.imageInput}
+                      />
+                      <span className={styles.imageIcon}>{slotIcon(slot.title)}</span>
+                      <span className={styles.imageLabel}>{slot.title}</span>
+                      <span className={styles.imageHint}>
+                        {imageSelections[key]?.name
+                          ? imageSelections[key]?.name
+                          : slot.required
+                            ? '필수 이미지 선택'
+                            : '이미지 선택'}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </article>
         </div>
 
         <footer className={styles.reportFooter}>
