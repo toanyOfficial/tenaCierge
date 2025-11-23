@@ -47,11 +47,6 @@ export default function CleanerPanel({ snapshot }: Props) {
   const highlightApply = snapshot.highlightApply;
 
   const handleWorklistClick = async (event: ReactMouseEvent<HTMLAnchorElement>) => {
-    if (!highlightWorklist) {
-      event.preventDefault();
-      return;
-    }
-
     event.preventDefault();
 
     try {
@@ -101,10 +96,10 @@ export default function CleanerPanel({ snapshot }: Props) {
         </Link>
         <Link
           href="/screens/004"
-          className={`${styles.linkButton} ${highlightWorklist ? styles.ctaHighlight : styles.ctaDisabled}`}
-          aria-disabled={!highlightWorklist}
+          className={`${styles.linkButton} ${highlightWorklist ? styles.ctaHighlight : styles.ctaNeutral}`}
+          aria-disabled={false}
           prefetch={false}
-          tabIndex={highlightWorklist ? 0 : -1}
+          tabIndex={0}
           onClick={handleWorklistClick}
         >
           과업지시서
