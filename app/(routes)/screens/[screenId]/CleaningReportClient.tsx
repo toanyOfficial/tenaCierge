@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 
 import styles from './screens.module.css';
+import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
 import type { CleaningReportSnapshot } from './server/getCleaningReportSnapshot';
 
 type Props = {
