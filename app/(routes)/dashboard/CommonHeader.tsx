@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
 import type { ProfileSummary } from '@/src/utils/profile';
@@ -60,6 +60,7 @@ export default function CommonHeader({ profile, activeRole, onRoleChange, compac
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [navBusy, setNavBusy] = useState(false);
 
   const roles = useMemo(() => sortRoles(profile.roles), [profile.roles]);
   const roleSummary = roles.length ? roles.map((role) => roleLabels[role] ?? role).join(', ') : 'Role 없음';
@@ -102,6 +103,35 @@ export default function CommonHeader({ profile, activeRole, onRoleChange, compac
       setIsOpen(false);
     },
     [onRoleChange]
+  );
+
+  const handleNavClick = useCallback(
+    async (event: ReactMouseEvent, href: string) => {
+      event.preventDefault();
+
+      const needsGuard = href === '/screens/004' && (activeRole === 'cleaner' || activeRole === 'butler');
+
+      if (needsGuard) {
+        try {
+          setNavBusy(true);
+          const res = await fetch(`/api/work-access?role=${activeRole ?? ''}`);
+          const body = await res.json().catch(() => ({}));
+
+          if (!body?.allowed) {
+            alert(body?.message ?? '접근할 수 없습니다.');
+            return;
+          }
+        } catch (error) {
+          alert('접근 검증 중 오류가 발생했습니다.');
+          return;
+        } finally {
+          setNavBusy(false);
+        }
+      }
+
+      router.push(href);
+    },
+    [activeRole, router]
   );
 
   useEffect(() => {
@@ -215,9 +245,15 @@ export default function CommonHeader({ profile, activeRole, onRoleChange, compac
       {navLinks.length ? (
         <nav className={`${styles.globalNav} ${compact ? styles.globalNavCompact : ''}`} aria-label="화면 이동">
           {navLinks.map((link) => (
-            <Link key={link.href} href={link.href} className={`${styles.navButton} ${styles.navButtonEnabled}`}>
+            <button
+              key={link.href}
+              type="button"
+              className={`${styles.navButton} ${styles.navButtonEnabled}`}
+              onClick={(event) => handleNavClick(event, link.href)}
+              disabled={navBusy}
+            >
               {link.label}
-            </Link>
+            </button>
           ))}
         </nav>
       ) : null}

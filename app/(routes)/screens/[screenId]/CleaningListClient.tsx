@@ -816,7 +816,9 @@ function getAmenitiesBounds(work: { bedCount: number }) {
 
 function sortWorks(list: CleaningWork[]) {
   const buildingCounts = list.reduce<Record<number, number>>((acc, work) => {
-    acc[work.buildingId] = (acc[work.buildingId] ?? 0) + 1;
+    if (work.cleaningYn) {
+      acc[work.buildingId] = (acc[work.buildingId] ?? 0) + 1;
+    }
     return acc;
   }, {});
 
