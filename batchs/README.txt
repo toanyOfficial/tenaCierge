@@ -92,6 +92,306 @@ D−2~D−6은 선형 보간, 7일 이상은 D−7 변수 사용.
 - 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
   간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
 
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+- 매일 09:00에 운영하는 당일 전용 배치는 `--today-only`를 켜면 된다. 이 경우 run_date=target_date로
+  간주하고 work_header만 생성하며 work_apply/정확도/튜닝 갱신은 건너뛴다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 실수로 과거/미래 날짜를 넘기면 기본적으로 서울 오늘
+  날짜로 강제되며, 정말로 백필을 원할 때만 `--run-date YYYY-MM-DD --allow-backfill`을 함께 준다.
+
+- `--run-date`를 생략하면 **서울 시간(KST) 기준 오늘 날짜**를 자동으로 사용하므로 서버 TZ가 달라도
+  항상 오늘(D0) → D1~D7 범위를 생성한다. 과거 데이터를 재생성하려면 `--run-date YYYY-MM-DD`
+  옵션을 명시적으로 지정한다.
+
 🧾 3. 파일 및 폴더 구조
 ics/YYYYMMDDhhmmss/          # ICS 다운로드 폴더
 
