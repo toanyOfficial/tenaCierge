@@ -22,4 +22,5 @@ export type CleaningWork = {
   cleaningYn: boolean;
   date: string;
   imagesSetId: number | null;
+  checklistSetId: number | null;
 };

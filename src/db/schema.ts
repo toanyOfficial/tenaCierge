@@ -87,6 +87,7 @@ export const clientRooms = mysqlTable('client_rooms', {
   facilityYn: boolean('facility_yn').default(true).notNull(),
   icalUrl1: varchar('ical_url_1', { length: 2083 }),
   icalUrl2: varchar('ical_url_2', { length: 2083 }),
+  checklistSetId: int('checklist_set_id'),
   imagesSetId: int('images_set_id').notNull(),
   settleFlag: tinyint('settle_flag').default(1).notNull(),
   weight: tinyint('weight').default(10).notNull(),
@@ -321,6 +322,7 @@ export const workHeader = mysqlTable('work_header', {
   supervisingEndTime: time('supervising_end_time'),
   requirements: varchar('requirements', { length: 30 }),
   cancelYn: boolean('cancel_yn').default(false).notNull(),
+  supervisingYn: boolean('supervising_yn').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });

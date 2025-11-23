@@ -11,6 +11,7 @@ export type WorkRow = {
   date: string | Date;
   roomId: number;
   buildingId: number | null;
+  checklistSetId: number | null;
   cancelYn: boolean | null;
   cleaningYn: boolean | null;
   checkoutTime: string | Date | null;
@@ -40,6 +41,7 @@ export async function fetchWorkRowsByDate(targetDate: string) {
       date: workHeader.date,
       roomId: workHeader.roomId,
       buildingId: clientRooms.buildingId,
+      checklistSetId: clientRooms.checklistSetId,
       cancelYn: workHeader.cancelYn,
       cleaningYn: workHeader.cleaningYn,
       checkoutTime: workHeader.checkoutTime,
@@ -79,6 +81,7 @@ export async function fetchWorkRowById(workId: number) {
       date: workHeader.date,
       roomId: workHeader.roomId,
       buildingId: clientRooms.buildingId,
+      checklistSetId: clientRooms.checklistSetId,
       cancelYn: workHeader.cancelYn,
       cleaningYn: workHeader.cleaningYn,
       checkoutTime: workHeader.checkoutTime,
@@ -120,6 +123,7 @@ export async function fetchLatestWorkByDateAndRoom(date: string, roomId: number)
       date: workHeader.date,
       roomId: workHeader.roomId,
       buildingId: clientRooms.buildingId,
+      checklistSetId: clientRooms.checklistSetId,
       cancelYn: workHeader.cancelYn,
       cleaningYn: workHeader.cleaningYn,
       checkoutTime: workHeader.checkoutTime,
@@ -167,18 +171,19 @@ export function serializeWorkRow(row: WorkRow): CleaningWork {
     amenitiesQty: row.amenitiesQty ?? 0,
     requirements: row.requirements ?? '',
     roomNo: row.roomNo ?? '-',
-    bedCount: row.bedCount ?? 1,
-    defaultCheckout: toTimeString(row.defaultCheckout),
-    defaultCheckin: toTimeString(row.defaultCheckin),
-    clientId: row.clientId,
-    buildingShortName: row.buildingShortName ?? 'N/A',
-    buildingName: row.buildingName ?? '미지정',
-    roomName: buildRoomName(row.buildingShortName, row.roomNo),
-    sectorCode: row.sectorCode ?? '',
-    sectorValue: row.sectorValue ?? row.sectorCode ?? '',
-    cleanerId: row.cleanerId ? Number(row.cleanerId) : null,
-    imagesSetId: row.imagesSetId ?? null
-  };
+  bedCount: row.bedCount ?? 1,
+  defaultCheckout: toTimeString(row.defaultCheckout),
+  defaultCheckin: toTimeString(row.defaultCheckin),
+  clientId: row.clientId,
+  buildingShortName: row.buildingShortName ?? 'N/A',
+  buildingName: row.buildingName ?? '미지정',
+  roomName: buildRoomName(row.buildingShortName, row.roomNo),
+  sectorCode: row.sectorCode ?? '',
+  sectorValue: row.sectorValue ?? row.sectorCode ?? '',
+  cleanerId: row.cleanerId ? Number(row.cleanerId) : null,
+  imagesSetId: row.imagesSetId ?? null,
+  checklistSetId: row.checklistSetId ?? null
+};
 }
 
 export type RoomMeta = {
