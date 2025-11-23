@@ -59,6 +59,8 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
   const [addStatus, setAddStatus] = useState('');
   const [addError, setAddError] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [collapsedSectors, setCollapsedSectors] = useState<Set<string>>(new Set());
+  const [collapsedBuildings, setCollapsedBuildings] = useState<Record<string, Set<string>>>({});
 
   const viewingAsHost = activeRole === 'host';
   const viewingAsAdmin = activeRole === 'admin';
@@ -182,6 +184,77 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
   const roleGuardMessage = !canSeeList
     ? '화면 002는 Host, Butler, Admin 역할에게만 제공됩니다. 역할을 변경해 주세요.'
     : null;
+
+  const groupedWorks = useMemo(() => {
+    const sorted = sortWorks(visibleWorks);
+    const sectorIndex: Record<string, number> = {};
+
+    const groups: {
+      key: string;
+      label: string;
+      count: number;
+      buildings: { key: string; label: string; count: number; works: CleaningWork[] }[];
+    }[] = [];
+
+    sorted.forEach((work) => {
+      const sectorKey = work.sectorValue || work.sectorCode || '구역 미정';
+      const sectorLabel = sectorKey;
+
+      if (sectorIndex[sectorKey] === undefined) {
+        sectorIndex[sectorKey] = groups.length;
+        groups.push({ key: sectorKey, label: sectorLabel, count: 0, buildings: [] });
+      }
+
+      const sector = groups[sectorIndex[sectorKey]];
+      sector.count += 1;
+
+      const buildingKey = `${sectorKey}::${work.buildingId}`;
+      let building = sector.buildings.find((entry) => entry.key === buildingKey);
+
+      if (!building) {
+        building = {
+          key: buildingKey,
+          label: work.buildingShortName || work.buildingName || `건물 ${work.buildingId}`,
+          count: 0,
+          works: []
+        };
+        sector.buildings.push(building);
+      }
+
+      building.count += 1;
+      building.works.push(work);
+    });
+
+    return groups;
+  }, [visibleWorks]);
+
+  const toggleSector = (key: string) => {
+    setCollapsedSectors((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const toggleBuilding = (sectorKey: string, buildingKey: string) => {
+    setCollapsedBuildings((prev) => {
+      const next = { ...prev };
+      const set = new Set(next[sectorKey] ?? []);
+
+      if (set.has(buildingKey)) {
+        set.delete(buildingKey);
+      } else {
+        set.add(buildingKey);
+      }
+
+      next[sectorKey] = set;
+      return next;
+    });
+  };
 
   function handleFieldChange(id: number, field: WorkField, value: string | number | boolean) {
     setWorks((prev) => prev.map((work) => (work.id === id ? { ...work, [field]: value } : work)));
@@ -352,6 +425,128 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
     }
   }
 
+  const renderWorkCard = (work: CleaningWork) => {
+    const checkoutBounds = getCheckoutBounds(work);
+    const checkinBounds = getCheckinBounds(work);
+    const blanketBounds = getBlanketBounds(work);
+    const amenitiesBounds = getAmenitiesBounds(work);
+    const isSaving = savingIds.includes(work.id);
+    const hasChanges = isWorkDirty(work, baseline);
+    const isMine = snapshot.currentWorkerId && work.cleanerId === snapshot.currentWorkerId;
+    const isInspection = work.cleaningYn === false;
+    const statusLabel = isInspection ? '상태 확인' : work.cancelYn ? '취소 상태' : '예약 유지';
+
+    return (
+      <article key={work.id} className={`${styles.workCard} ${isMine ? styles.workCardOwned : ''}`.trim()}>
+        <header className={styles.workCardHeader}>
+          <div className={styles.workHeaderRow}>
+            <p className={styles.workTitle}>{work.roomName}</p>
+            <div className={styles.workMetaRow}>
+              <span className={isInspection ? styles.badgeMuted : work.cancelYn ? styles.badgeDanger : styles.badgeMuted}>
+                {statusLabel}
+              </span>
+              {!isInspection ? (
+                canEdit ? (
+                  <button
+                    type="button"
+                    className={styles.cancelToggle}
+                    onClick={() => handleFieldChange(work.id, 'cancelYn', !work.cancelYn)}
+                  >
+                    {work.cancelYn ? '취소철회' : '취소하기'}
+                  </button>
+                ) : (
+                  <span className={work.cancelYn ? styles.badgeDanger : styles.badgeMuted}>
+                    {work.cancelYn ? '취소됨' : '예약 유지'}
+                  </span>
+                )
+              ) : null}
+            </div>
+            {work.cancelYn ? <p className={styles.cancelAlert}>이 청소 건은 취소된 상태입니다.</p> : null}
+          </div>
+        </header>
+
+        <div className={styles.workFields}>
+          <div className={styles.inlineFieldGroup}>
+            <FieldRow label="체크아웃" description="L.C.최대2시간">
+              <select
+                className={styles.timeSelect}
+                value={work.checkoutTime}
+                disabled={!canEdit}
+                onChange={(event) => handleTimeChange(work.id, 'checkoutTime', event.target.value, checkoutBounds)}
+              >
+                {buildTimeOptions(checkoutBounds.min, checkoutBounds.max).map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </FieldRow>
+            <FieldRow label="체크인" description="E.C.최대2시간">
+              <select
+                className={styles.timeSelect}
+                value={work.checkinTime}
+                disabled={!canEdit}
+                onChange={(event) => handleTimeChange(work.id, 'checkinTime', event.target.value, checkinBounds)}
+              >
+                {buildTimeOptions(checkinBounds.min, checkinBounds.max).map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </FieldRow>
+          </div>
+
+          <div className={styles.inlineFieldGroup}>
+            <FieldRow label="침구 수량" description={`${blanketBounds.min}~${blanketBounds.max}세트`}>
+              <QuantityStepper
+                value={work.blanketQty}
+                min={blanketBounds.min}
+                max={blanketBounds.max}
+                disabled={!canEdit}
+                onChange={(next) => handleNumberChange(work.id, 'blanketQty', next, blanketBounds.min, blanketBounds.max)}
+              />
+            </FieldRow>
+            <FieldRow label="어메니티" description={`${amenitiesBounds.min}~${amenitiesBounds.max}세트`}>
+              <QuantityStepper
+                value={work.amenitiesQty}
+                min={amenitiesBounds.min}
+                max={amenitiesBounds.max}
+                disabled={!canEdit}
+                onChange={(next) =>
+                  handleNumberChange(work.id, 'amenitiesQty', next, amenitiesBounds.min, amenitiesBounds.max)
+                }
+              />
+            </FieldRow>
+          </div>
+
+          <FieldRow label="요청사항" description={canEditRequirements ? '255자 이내 수정 가능' : '열람 전용'}>
+            {canEditRequirements ? (
+              <textarea
+                className={styles.compactTextarea}
+                rows={3}
+                value={work.requirements}
+                onChange={(event) => handleFieldChange(work.id, 'requirements', event.target.value.slice(0, 255))}
+              />
+            ) : (
+              <p className={styles.readonlyText}>{work.requirements || '요청 사항 없음'}</p>
+            )}
+          </FieldRow>
+        </div>
+
+        <div className={styles.cardActions}>
+          <button type="button" onClick={() => handleSave(work.id)} disabled={!canEdit || isSaving || !hasChanges}>
+            {isSaving ? '저장 중...' : '저장'}
+          </button>
+          <div className={styles.cardStatus}>
+            {statusMap[work.id] ? <span className={styles.statusOk}>{statusMap[work.id]}</span> : null}
+            {errorMap[work.id] ? <span className={styles.statusError}>{errorMap[work.id]}</span> : null}
+          </div>
+        </div>
+      </article>
+    );
+  };
+
   return (
     <div className={styles.screenShell}>
       <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={handleRoleChange} compact />
@@ -374,131 +569,52 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
 
         {canSeeList && !batchingOnly ? (
           <>
-            <div className={styles.cardGrid}>
-              {visibleWorks.map((work) => {
-                const checkoutBounds = getCheckoutBounds(work);
-                const checkinBounds = getCheckinBounds(work);
-                const blanketBounds = getBlanketBounds(work);
-                const amenitiesBounds = getAmenitiesBounds(work);
-                const isSaving = savingIds.includes(work.id);
-                const hasChanges = isWorkDirty(work, baseline);
-                const isMine = snapshot.currentWorkerId && work.cleanerId === snapshot.currentWorkerId;
-
+            <div className={styles.groupStack}>
+              {groupedWorks.map((sector) => {
+                const sectorCollapsed = collapsedSectors.has(sector.key);
                 return (
-                  <article
-                    key={work.id}
-                    className={`${styles.workCard} ${isMine ? styles.workCardOwned : ''}`.trim()}
-                  >
-                    <header className={styles.workCardHeader}>
-                      <div className={styles.workHeaderRow}>
-                        <p className={styles.workTitle}>{work.roomName}</p>
-                        <div className={styles.workMetaRow}>
-                          <span className={styles.cancelComment}>{work.cancelYn ? '취소 상태' : '예약 유지'}</span>
-                          {canEdit ? (
-                            <button
-                              type="button"
-                              className={styles.cancelToggle}
-                              onClick={() => handleFieldChange(work.id, 'cancelYn', !work.cancelYn)}
-                            >
-                              {work.cancelYn ? '취소철회' : '취소하기'}
-                            </button>
-                          ) : (
-                            <span className={work.cancelYn ? styles.badgeDanger : styles.badgeMuted}>
-                              {work.cancelYn ? '취소됨' : '예약 유지'}
-                            </span>
-                          )}
-                        </div>
-                        {work.cancelYn ? (
-                          <p className={styles.cancelAlert}>이 청소 건은 취소된 상태입니다.</p>
-                        ) : null}
+                  <div className={styles.groupSection} key={sector.key}>
+                    <button
+                      type="button"
+                      className={styles.groupHeader}
+                      onClick={() => toggleSector(sector.key)}
+                      aria-expanded={!sectorCollapsed}
+                    >
+                      <span className={styles.groupHeaderText}>{sector.label}</span>
+                      <span className={styles.groupCount}>{sector.count}건</span>
+                      <span className={styles.foldIcon} aria-hidden="true">
+                        {sectorCollapsed ? '▼' : '▲'}
+                      </span>
+                    </button>
+                    {!sectorCollapsed ? (
+                      <div className={styles.buildingStack}>
+                        {sector.buildings.map((building) => {
+                          const collapsed = collapsedBuildings[sector.key]?.has(building.key) ?? false;
+                          return (
+                            <div className={styles.buildingGroup} key={building.key}>
+                              <button
+                                type="button"
+                                className={styles.buildingHeader}
+                                onClick={() => toggleBuilding(sector.key, building.key)}
+                                aria-expanded={!collapsed}
+                              >
+                                <span>{building.label}</span>
+                                <span className={styles.buildingCount}>{building.count}건</span>
+                                <span className={styles.foldIcon} aria-hidden="true">
+                                  {collapsed ? '▼' : '▲'}
+                                </span>
+                              </button>
+                              {!collapsed ? (
+                                <div className={styles.cardGrid}>
+                                  {building.works.map((work) => renderWorkCard(work))}
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })}
                       </div>
-                    </header>
-
-                      <div className={styles.workFields}>
-                        <div className={styles.inlineFieldGroup}>
-                          <FieldRow label="체크아웃" description="L.C.최대2시간">
-                            <select
-                              className={styles.timeSelect}
-                              value={work.checkoutTime}
-                              disabled={!canEdit}
-                              onChange={(event) =>
-                                handleTimeChange(work.id, 'checkoutTime', event.target.value, checkoutBounds)
-                              }
-                            >
-                              {buildTimeOptions(checkoutBounds.min, checkoutBounds.max).map((option) => (
-                                <option key={option} value={option}>
-                                  {option}
-                                </option>
-                              ))}
-                            </select>
-                          </FieldRow>
-                          <FieldRow label="체크인" description="E.C.최대2시간">
-                            <select
-                              className={styles.timeSelect}
-                              value={work.checkinTime}
-                              disabled={!canEdit}
-                              onChange={(event) =>
-                                handleTimeChange(work.id, 'checkinTime', event.target.value, checkinBounds)
-                              }
-                            >
-                              {buildTimeOptions(checkinBounds.min, checkinBounds.max).map((option) => (
-                                <option key={option} value={option}>
-                                  {option}
-                                </option>
-                              ))}
-                            </select>
-                          </FieldRow>
-                        </div>
-
-                      <div className={styles.inlineFieldGroup}>
-                        <FieldRow label="침구 수량" description={`${blanketBounds.min}~${blanketBounds.max}세트`}>
-                          <QuantityStepper
-                            value={work.blanketQty}
-                            min={blanketBounds.min}
-                            max={blanketBounds.max}
-                            disabled={!canEdit}
-                            onChange={(next) =>
-                              handleNumberChange(work.id, 'blanketQty', next, blanketBounds.min, blanketBounds.max)
-                            }
-                          />
-                        </FieldRow>
-                        <FieldRow label="어메니티" description={`${amenitiesBounds.min}~${amenitiesBounds.max}세트`}>
-                          <QuantityStepper
-                            value={work.amenitiesQty}
-                            min={amenitiesBounds.min}
-                            max={amenitiesBounds.max}
-                            disabled={!canEdit}
-                            onChange={(next) =>
-                              handleNumberChange(work.id, 'amenitiesQty', next, amenitiesBounds.min, amenitiesBounds.max)
-                            }
-                          />
-                        </FieldRow>
-                      </div>
-
-                      <FieldRow label="요청사항" description={canEditRequirements ? '255자 이내 수정 가능' : '열람 전용'}>
-                        {canEditRequirements ? (
-                          <textarea
-                            value={work.requirements}
-                            onChange={(event) =>
-                              handleFieldChange(work.id, 'requirements', event.target.value.slice(0, 255))
-                            }
-                          />
-                        ) : (
-                          <p className={styles.readonlyText}>{work.requirements || '요청 사항 없음'}</p>
-                        )}
-                      </FieldRow>
-                    </div>
-
-                    <div className={styles.cardActions}>
-                      <button type="button" onClick={() => handleSave(work.id)} disabled={!canEdit || isSaving || !hasChanges}>
-                        {isSaving ? '저장 중...' : '저장'}
-                      </button>
-                      <div className={styles.cardStatus}>
-                        {statusMap[work.id] ? <span className={styles.statusOk}>{statusMap[work.id]}</span> : null}
-                        {errorMap[work.id] ? <span className={styles.statusError}>{errorMap[work.id]}</span> : null}
-                      </div>
-                    </div>
-                  </article>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>
@@ -626,6 +742,8 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                   <label className={styles.formControl}>
                     <span>요청사항 (선택)</span>
                     <textarea
+                      className={styles.compactTextarea}
+                      rows={3}
                       value={addForm.requirements}
                       maxLength={255}
                       onChange={(event) =>

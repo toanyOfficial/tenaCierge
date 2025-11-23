@@ -19,5 +19,6 @@ export type CleaningWork = {
   defaultCheckin: string;
   clientId: number | null;
   cleanerId: number | null;
+  cleaningYn: boolean;
   date: string;
 };

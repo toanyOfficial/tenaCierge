@@ -231,6 +231,72 @@
   display: flex;
 }
 
+.groupStack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.groupSection {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.groupHeader,
+.buildingHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.groupHeaderText {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.groupCount,
+.buildingCount {
+  color: #475569;
+  font-weight: 700;
+}
+
+.foldIcon {
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.buildingStack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.buildingGroup {
+  border: 1px dashed #e2e8f0;
+  border-radius: 12px;
+  padding: 8px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .workCardHeader {
   display: flex;
   flex-direction: column;
@@ -620,6 +686,12 @@
 
 .fieldControl textarea {
   min-height: 60px;
+}
+
+.compactTextarea {
+  min-height: 72px;
+  resize: vertical;
+  line-height: 1.4;
 }
 
 .readonlyText {

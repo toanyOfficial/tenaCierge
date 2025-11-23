@@ -12,6 +12,7 @@ export type WorkRow = {
   roomId: number;
   buildingId: number | null;
   cancelYn: boolean | null;
+  cleaningYn: boolean | null;
   checkoutTime: string | Date | null;
   checkinTime: string | Date | null;
   blanketQty: number | null;
@@ -39,6 +40,7 @@ export async function fetchWorkRowsByDate(targetDate: string) {
       roomId: workHeader.roomId,
       buildingId: clientRooms.buildingId,
       cancelYn: workHeader.cancelYn,
+      cleaningYn: workHeader.cleaningYn,
       checkoutTime: workHeader.checkoutTime,
       checkinTime: workHeader.checkinTime,
       blanketQty: workHeader.blanketQty,
@@ -76,6 +78,7 @@ export async function fetchWorkRowById(workId: number) {
       roomId: workHeader.roomId,
       buildingId: clientRooms.buildingId,
       cancelYn: workHeader.cancelYn,
+      cleaningYn: workHeader.cleaningYn,
       checkoutTime: workHeader.checkoutTime,
       checkinTime: workHeader.checkinTime,
       blanketQty: workHeader.blanketQty,
@@ -115,6 +118,7 @@ export async function fetchLatestWorkByDateAndRoom(date: string, roomId: number)
       roomId: workHeader.roomId,
       buildingId: clientRooms.buildingId,
       cancelYn: workHeader.cancelYn,
+      cleaningYn: workHeader.cleaningYn,
       checkoutTime: workHeader.checkoutTime,
       checkinTime: workHeader.checkinTime,
       blanketQty: workHeader.blanketQty,
@@ -152,6 +156,7 @@ export function serializeWorkRow(row: WorkRow): CleaningWork {
     roomId: row.roomId,
     buildingId: row.buildingId ?? 0,
     cancelYn: Boolean(row.cancelYn),
+    cleaningYn: row.cleaningYn ?? true,
     checkoutTime: toTimeString(row.checkoutTime),
     checkinTime: toTimeString(row.checkinTime),
     blanketQty: row.blanketQty ?? 0,
