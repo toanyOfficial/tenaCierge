@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { and, eq, inArray } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
-import { workApply, workAssignment, workHeader } from '@/src/db/schema';
+import { workApply } from '@/src/db/schema';
 import { findWorkerByProfile } from '@/src/server/workers';
 import { getProfileSummary } from '@/src/utils/profile';
 import { formatDateKey, getKstNow } from '@/src/utils/workWindow';
@@ -36,24 +36,6 @@ export async function GET(request: Request) {
 
     if (!applyRows.length) {
       return NextResponse.json({ allowed: false, message: '오늘,내일 중 업무 신청 사항이 없습니다.' });
-    }
-
-    if (role === 'cleaner') {
-      const assignmentRows = await db
-        .select({ id: workAssignment.id })
-        .from(workAssignment)
-        .where(and(eq(workAssignment.workerId, worker.id), inArray(workAssignment.assignDate, targetDates)));
-
-      const directRows = await db
-        .select({ id: workHeader.id })
-        .from(workHeader)
-        .where(and(eq(workHeader.cleanerId, worker.id), inArray(workHeader.date, targetDates)));
-
-      const hasAssignment = assignmentRows.length > 0 || directRows.length > 0;
-
-      if (!hasAssignment) {
-        return NextResponse.json({ allowed: false, message: '아직 할당된 업무가 없습니다.' });
-      }
     }
 
     return NextResponse.json({ allowed: true });

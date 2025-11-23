@@ -56,6 +56,7 @@ export type WorkListSnapshot = {
   windowDates: { d0: string; d1: string };
   works: WorkListEntry[];
   assignableWorkers: AssignableWorker[];
+  emptyMessage?: string;
 };
 
 export async function getWorkListSnapshot(
@@ -112,6 +113,8 @@ export async function getWorkListSnapshot(
       | Array<ReturnType<typeof baseQuery>[number] & { assignWorkerId?: number | null }>
       | undefined = undefined;
 
+    let emptyMessage: string | undefined;
+
     if (profile.primaryRole === 'admin' || profile.roles.includes('admin') || profile.roles.includes('butler')) {
       rows = await baseQuery;
     } else if (profile.roles.includes('host')) {
@@ -123,10 +126,12 @@ export async function getWorkListSnapshot(
     } else if (profile.roles.includes('cleaner')) {
       if (!worker) {
         rows = [];
+        emptyMessage = '근무자 정보를 찾을 수 없습니다.';
       } else {
         const assignedWorkIds = await fetchAssignedWorkIds(worker.id, targetDate);
         if (!assignedWorkIds.length) {
           rows = [];
+          emptyMessage = '아직 할당된 업무가 없습니다.';
         } else {
           rows = await baseQuery.where(and(eq(workHeader.date, targetDate), inArray(workHeader.id, assignedWorkIds)));
         }
@@ -153,7 +158,8 @@ export async function getWorkListSnapshot(
       windowLabel:
         window === 'd0' ? `D0 (${windowDates.d0})` : window === 'd1' ? `D+1 (${windowDates.d1})` : targetDate,
       works,
-      assignableWorkers
+      assignableWorkers,
+      emptyMessage
     };
   } catch (error) {
     await logServerError({

@@ -273,7 +273,10 @@ export default function WorkListClient({ profile, snapshot }: Props) {
         ) : null}
 
         {canSee ? (
-          <div className={styles.workList}>
+          works.length === 0 ? (
+            <p className={styles.helper}>{snapshot.emptyMessage ?? '표시할 업무가 없습니다.'}</p>
+          ) : (
+            <div className={styles.workList}>
             {groupedBySector.map((group) => {
               const opened = openGroups[group.key] ?? true;
               return (
@@ -389,7 +392,8 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                 </article>
               );
             })}
-          </div>
+            </div>
+          )
         ) : null}
 
         {status ? <p className={styles.successText}>{status}</p> : null}
