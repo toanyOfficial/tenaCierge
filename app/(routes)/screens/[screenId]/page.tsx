@@ -85,13 +85,44 @@ export default async function ScreenPage({
 
   if (screenId === '005') {
     const workId = searchParams?.workId ? Number(searchParams.workId) : null;
-    const snapshot = await getCleaningReportSnapshot(profile, workId);
 
-    return (
-      <div className={styles.screenWrapper}>
-        <CleaningReportClient profile={profile} snapshot={snapshot} />
-      </div>
-    );
+    if (!workId || Number.isNaN(workId)) {
+      return (
+        <section className={styles.placeholder}>
+          <div className={styles.card}>
+            <p className={styles.lead}>청소완료보고를 조회하려면 workId 파라미터가 필요합니다.</p>
+            <p className={styles.helper}>업무 목록에서 원하는 업무를 선택해 이동해 주세요.</p>
+            <Link className={styles.backLink} href="/screens/004">
+              업무 목록으로 돌아가기
+            </Link>
+          </div>
+        </section>
+      );
+    }
+
+    try {
+      const snapshot = await getCleaningReportSnapshot(profile, workId);
+
+      return (
+        <div className={styles.screenWrapper}>
+          <CleaningReportClient snapshot={snapshot} />
+        </div>
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '청소완료보고 데이터를 불러오지 못했습니다.';
+
+      return (
+        <section className={styles.placeholder}>
+          <div className={styles.card}>
+            <p className={styles.lead}>청소완료보고 화면을 불러오지 못했습니다.</p>
+            <p className={styles.helper}>{message}</p>
+            <Link className={styles.backLink} href="/screens/004">
+              업무 목록으로 돌아가기
+            </Link>
+          </div>
+        </section>
+      );
+    }
   }
 
   const snapshot = await getCleaningSnapshot(profile);
