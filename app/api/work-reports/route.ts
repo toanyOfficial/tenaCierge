@@ -68,16 +68,10 @@ export async function POST(req: Request) {
     ]);
 
     const cleaningChecklistIds = checklistRows.filter((row) => row.type === 1).map((row) => row.id);
-    const supplyChecklistIds = checklistRows.filter((row) => row.type === 3).map((row) => row.id);
-
     const readinessMessages: string[] = [];
 
     if (cleaningChecklistIds.length && cleaningChecklistIds.some((id) => !cleaningChecks.includes(id))) {
       readinessMessages.push('체크리스트를 확인하세요');
-    }
-
-    if (supplyChecklistIds.length && supplyChecklistIds.some((id) => !supplyChecks.includes(id))) {
-      if (!readinessMessages.includes('체크리스트를 확인하세요')) readinessMessages.push('체크리스트를 확인하세요');
     }
 
     if (imageFiles.length !== imageFileSlots.length) {
@@ -113,11 +107,6 @@ export async function POST(req: Request) {
     });
 
     if (requiredImageIds.some((id) => !imageMap.has(id))) {
-      readinessMessages.push('필수 사진 항목을 확인하세요.');
-    }
-
-    if (!cleaningChecks.length && !supplyChecks.length && !imageFiles.length && !existingImages.length) {
-      readinessMessages.push('체크리스트를 확인하세요');
       readinessMessages.push('필수 사진 항목을 확인하세요.');
     }
 

@@ -22,21 +22,6 @@ type Props = {
   snapshot: CleaningReportSnapshot;
 };
 
-const slotIcon = (title: string) => {
-  const normalized = title.toLowerCase();
-
-  if (normalized.includes('현관') || normalized.includes('문')) return faDoorOpen;
-  if (normalized.includes('욕실') || normalized.includes('화장실') || normalized.includes('샤워')) return faBath;
-  if (normalized.includes('침대') || normalized.includes('침구') || normalized.includes('침실')) return faBed;
-  if (normalized.includes('거실')) return faBuilding;
-  if (normalized.includes('주방') || normalized.includes('키친')) return faKitchenSet;
-  if (normalized.includes('소독') || normalized.includes('살균')) return faSprayCanSparkles;
-  if (normalized.includes('세면') || normalized.includes('샤워')) return faShower;
-  if (normalized.includes('출입') || normalized.includes('체크인')) return faHouseUser;
-
-  return faCamera;
-};
-
 type ImageTileProps = {
   slot: ImageSlot;
   selectedFile?: File | null;
@@ -60,10 +45,6 @@ function ImageTile({ slot, selectedFile, previewUrl, onChange, required }: Image
         className={styles.imageInput}
       />
 
-      <span className={styles.imageIconCircle}>
-        <FontAwesomeIcon icon={slotIcon(slot.title)} size="lg" />
-      </span>
-
       <div className={styles.imageTextBlock}>
         <span className={styles.imageLabel}>{slot.title}</span>
         {slot.comment ? <span className={styles.imageComment}>{slot.comment}</span> : null}
@@ -72,7 +53,7 @@ function ImageTile({ slot, selectedFile, previewUrl, onChange, required }: Image
           {selectedFile?.name
             ? selectedFile.name
             : previewUrl
-              ? '업로드된 이미지를 사용합니다.'
+              ? '기존 이미지'
               : required
                 ? '필수 이미지 선택'
                 : '선택 이미지'}
@@ -116,26 +97,21 @@ export default function CleaningReportClient({ snapshot }: Props) {
     [cleaningChecklist, cleaningChecks]
   );
 
-  const suppliesComplete = useMemo(
-    () => suppliesChecklist.length === 0 || suppliesChecklist.every((item) => supplyChecks.has(item.id)),
-    [suppliesChecklist, supplyChecks]
-  );
-
   const requiredImagesReady = useMemo(
     () => requiredImageSlots.every((slot) => imageSelections[String(slot.id)] || imagePreviews[String(slot.id)]),
     [requiredImageSlots, imageSelections, imagePreviews]
   );
 
-  const isReadyToSubmit = cleaningComplete && suppliesComplete && requiredImagesReady;
+  const isReadyToSubmit = cleaningComplete && requiredImagesReady;
 
   const readinessMessages = useMemo(() => {
     const messages: string[] = [];
 
-    if (!cleaningComplete || !suppliesComplete) messages.push('체크리스트를 확인하세요');
+    if (!cleaningComplete) messages.push('체크리스트를 확인하세요');
     if (!requiredImagesReady) messages.push('필수 사진 항목을 확인하세요.');
 
     return messages;
-  }, [cleaningComplete, suppliesComplete, requiredImagesReady]);
+  }, [cleaningComplete, requiredImagesReady]);
 
   const roomTitle = useMemo(() => `${work.buildingShortName}${work.roomNo}`, [work.buildingShortName, work.roomNo]);
 
@@ -287,20 +263,19 @@ export default function CleaningReportClient({ snapshot }: Props) {
                 {requiredImageSlots.length > 0 ? (
                   <div className={styles.imageGroup}>
                     <div className={styles.imageGroupHeader}>
-                      <span className={styles.imageGroupTitle}>필수 이미지</span>
                       <span className={styles.imageBadgeRequired}>모두 첨부 필요</span>
                     </div>
                     <div className={styles.imageGrid}>
-                {requiredImageSlots.map((slot) => (
-                  <ImageTile
-                    key={slot.id}
-                    slot={slot}
-                    selectedFile={imageSelections[String(slot.id)]}
-                    previewUrl={imagePreviews[String(slot.id)]}
-                    onChange={handleImageChange}
-                    required
-                  />
-                ))}
+                      {requiredImageSlots.map((slot) => (
+                        <ImageTile
+                          key={slot.id}
+                          slot={slot}
+                          selectedFile={imageSelections[String(slot.id)]}
+                          previewUrl={imagePreviews[String(slot.id)]}
+                          onChange={handleImageChange}
+                          required
+                        />
+                      ))}
                     </div>
                   </div>
                 ) : null}
@@ -308,7 +283,6 @@ export default function CleaningReportClient({ snapshot }: Props) {
                 {optionalImageSlots.length > 0 ? (
                   <div className={styles.imageGroup}>
                     <div className={styles.imageGroupHeader}>
-                      <span className={styles.imageGroupTitle}>선택 이미지</span>
                       <span className={styles.imageBadgeOptional}>선택 제출</span>
                     </div>
                     <div className={styles.imageGrid}>

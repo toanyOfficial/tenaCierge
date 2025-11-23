@@ -1666,13 +1666,8 @@
 .imageGroupHeader {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.imageGroupTitle {
-  font-weight: 800;
-  color: #0f172a;
+  justify-content: flex-start;
+  gap: 8px;
 }
 
 .imageBadgeRequired,
@@ -1699,7 +1694,7 @@
 
 .imageGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 0.75rem;
 }
 
@@ -1707,13 +1702,13 @@
   position: relative;
   border: 1px dashed var(--gray-300);
   border-radius: 14px;
-  padding: 16px;
-  min-height: 170px;
+  padding: 12px;
+  min-height: 150px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   background: #ffffff;
   cursor: pointer;
   transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
@@ -1740,17 +1735,6 @@
   inset: 0;
   opacity: 0;
   cursor: pointer;
-}
-
-.imageIconCircle {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #0f172a;
-  color: #fff;
 }
 
 .imageTextBlock {
