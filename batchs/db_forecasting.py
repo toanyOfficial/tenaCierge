@@ -891,7 +891,7 @@ class BatchRunner:
                         condition_check,
                         cleaning,
                         pred.room.checkin_time,
-                        pred.room.checkout_time,
+                        pred.room.checkout_time
                     ),
                 )
         self.conn.commit()
