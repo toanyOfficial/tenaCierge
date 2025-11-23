@@ -96,6 +96,23 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
     updates.cleanerId = rows[0].id;
   }
 
+  if (Object.prototype.hasOwnProperty.call(body, 'cleanerId') && (isAdmin || isButler)) {
+    const cleanerId = body.cleanerId;
+    if (cleanerId === null) {
+      updates.cleanerId = null;
+    } else if (typeof cleanerId === 'number' && Number.isFinite(cleanerId)) {
+      const rows = await db
+        .select({ id: workerHeader.id })
+        .from(workerHeader)
+        .where(eq(workerHeader.id, cleanerId))
+        .limit(1);
+      if (!rows[0]) {
+        return NextResponse.json({ message: '해당 직원 정보를 찾을 수 없습니다.' }, { status: 404 });
+      }
+      updates.cleanerId = cleanerId;
+    }
+  }
+
   if (!Object.keys(updates).length) {
     return NextResponse.json({ message: '변경할 항목이 없습니다.' }, { status: 400 });
   }
@@ -108,6 +125,7 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
       supplyYn: workHeader.supplyYn,
       cleaningFlag: workHeader.cleaningFlag,
       supervisingEndTime: workHeader.supervisingEndTime,
+      cleanerId: workHeader.cleanerId,
       cleanerName: workerHeader.name
     })
     .from(workHeader)
@@ -122,6 +140,7 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
       supplyYn: Boolean(next?.supplyYn),
       cleaningFlag: Number(next?.cleaningFlag ?? updates.cleaningFlag ?? 1),
       supervisingEndTime: next?.supervisingEndTime ?? null,
+      cleanerId: next?.cleanerId ?? null,
       cleanerName: next?.cleanerName ?? ''
     }
   });

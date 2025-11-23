@@ -129,7 +129,7 @@ export default function CommonHeader({ profile, activeRole, onRoleChange, compac
       className={`${styles.commonBar} ${compact ? styles.commonBarCompact : styles.commonBarFull}`}
       data-child-id="1"
     >
-      <div className={styles.barTop}>
+      <div className={`${styles.barTop} ${compact ? styles.barTopCompact : ''}`}>
         <article
           className={`${styles.profileCard} ${compact ? styles.profileCardCompact : ''}`}
           aria-label="profiles"

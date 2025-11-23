@@ -390,6 +390,9 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                             </span>
                           )}
                         </div>
+                        {work.cancelYn ? (
+                          <p className={styles.cancelAlert}>이 청소 건은 취소된 상태입니다.</p>
+                        ) : null}
                       </div>
                     </header>
 

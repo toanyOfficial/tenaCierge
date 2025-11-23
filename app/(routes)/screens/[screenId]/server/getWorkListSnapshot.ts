@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 
 import { db } from '@/src/db/client';
@@ -7,6 +7,7 @@ import {
   etcBaseCode,
   etcBuildings,
   etcNotice,
+  workApply,
   workAssignment,
   workHeader,
   workerHeader
@@ -32,10 +33,19 @@ export type WorkListEntry = {
   cleaningYn: boolean;
   conditionCheckYn: boolean;
   supervisingEndTime: string | null;
+  cleanerId: number | null;
   cleanerName: string;
   buildingId: number;
   sectorCode: string;
   sectorValue: string;
+};
+
+export type AssignableWorker = {
+  id: number;
+  name: string;
+  phone: string | null;
+  registerCode: string;
+  tier: number;
 };
 
 export type WorkListSnapshot = {
@@ -45,6 +55,7 @@ export type WorkListSnapshot = {
   window?: 'd0' | 'd1';
   windowDates: { d0: string; d1: string };
   works: WorkListEntry[];
+  assignableWorkers: AssignableWorker[];
 };
 
 export async function getWorkListSnapshot(
@@ -123,6 +134,10 @@ export async function getWorkListSnapshot(
     }
 
     const normalized = (rows ?? []).map((row) => normalizeRow(row));
+    const assignableWorkers =
+      profile.roles.includes('admin') || profile.roles.includes('butler')
+        ? await fetchAssignableWorkers(targetDate)
+        : [];
     const buildingCounts = normalized.reduce<Record<number, number>>((acc, row) => {
       acc[row.buildingId] = (acc[row.buildingId] ?? 0) + 1;
       return acc;
@@ -137,7 +152,8 @@ export async function getWorkListSnapshot(
       windowDates,
       windowLabel:
         window === 'd0' ? `D0 (${windowDates.d0})` : window === 'd1' ? `D+1 (${windowDates.d1})` : targetDate,
-      works
+      works,
+      assignableWorkers
     };
   } catch (error) {
     await logServerError({
@@ -189,11 +205,41 @@ function normalizeRow(row: any): WorkListEntry {
     cleaningYn: Boolean(row.cleaningYn),
     conditionCheckYn: Boolean(row.conditionCheckYn),
     supervisingEndTime: row.supervisingEndTime ? toTime(row.supervisingEndTime) : null,
+    cleanerId: row.cleanerId ? Number(row.cleanerId) : null,
     cleanerName: row.cleanerName ?? '',
     buildingId: Number(row.buildingId ?? 0),
     sectorCode: row.sectorCode ?? '',
     sectorValue: row.sectorValue ?? row.sectorCode ?? ''
   };
+}
+
+async function fetchAssignableWorkers(targetDate: string): Promise<AssignableWorker[]> {
+  const rows = await db
+    .select({
+      id: workApply.workerId,
+      name: workerHeader.name,
+      phone: workerHeader.phone,
+      registerCode: workerHeader.registerCode,
+      tier: workerHeader.tier
+    })
+    .from(workApply)
+    .leftJoin(workerHeader, eq(workApply.workerId, workerHeader.id))
+    .where(and(eq(workApply.workDate, targetDate), isNotNull(workApply.workerId)))
+    .orderBy(workApply.workerId);
+
+  const deduped = new Map<number, AssignableWorker>();
+  rows.forEach((row) => {
+    if (!row.id) return;
+    deduped.set(Number(row.id), {
+      id: Number(row.id),
+      name: row.name ?? '이름 미상',
+      phone: row.phone ?? null,
+      registerCode: row.registerCode ?? '-',
+      tier: Number(row.tier ?? 0)
+    });
+  });
+
+  return Array.from(deduped.values());
 }
 
 function sortRows(a: WorkListEntry, b: WorkListEntry, buildingCounts: Record<number, number>) {

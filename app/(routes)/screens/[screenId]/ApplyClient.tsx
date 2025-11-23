@@ -33,6 +33,7 @@ type DateGroup = {
   label: string;
   dayLabel: string;
   sectors: SectorGroup[];
+  hasMine: boolean;
 };
 
 export default function ApplyClient({ profile, snapshot }: Props) {
@@ -83,12 +84,14 @@ export default function ApplyClient({ profile, snapshot }: Props) {
 
         const refSlot = dateSlots[0];
         const dayLabel = refSlot?.daysUntil === 0 ? 'D0' : `D+${refSlot?.daysUntil ?? ''}`;
+        const hasMine = dateSlots.some((slot) => slot.isMine);
 
         return {
           key: dateKey,
           label: refSlot?.workDateLabel ?? dateKey,
           dayLabel,
-          sectors
+          sectors,
+          hasMine
         } satisfies DateGroup;
       });
   }, [slots]);
@@ -161,8 +164,16 @@ export default function ApplyClient({ profile, snapshot }: Props) {
     }
   }
 
-  function renderButton(slot: ApplySlot) {
+  function renderButton(slot: ApplySlot, locked = false) {
     const isPending = pendingId === slot.id;
+
+    if (locked && !slot.isMine) {
+      return (
+        <button type="button" className={styles.applyGhostButton} disabled>
+          신청불가
+        </button>
+      );
+    }
 
     if (slot.isMine) {
       return (
@@ -205,7 +216,10 @@ export default function ApplyClient({ profile, snapshot }: Props) {
     );
   }
 
-  function renderHelper(slot: ApplySlot) {
+  function renderHelper(slot: ApplySlot, locked = false) {
+    if (locked) {
+      return <p className={styles.applyHint}>같은 날짜에는 한 건만 신청할 수 있습니다.</p>;
+    }
     if (statusMap[slot.id]) {
       return <p className={styles.applyStatus}>{statusMap[slot.id]}</p>;
     }
@@ -293,10 +307,13 @@ export default function ApplyClient({ profile, snapshot }: Props) {
                             <ul className={styles.applySlotList}>
                               {sector.slots.map((slot) => {
                                 const takenByOther = slot.isTaken && !slot.isMine;
+                                const locked = !snapshot.isAdmin && group.hasMine && !slot.isMine;
                                 return (
                                   <li
                                     key={slot.id}
-                                    className={`${styles.applySlot} ${takenByOther ? styles.applySlotTaken : ''}`}
+                                    className={`${styles.applySlot} ${takenByOther ? styles.applySlotTaken : ''} ${
+                                      slot.isMine ? styles.applySlotMine : ''
+                                    } ${locked ? styles.applySlotLocked : ''}`}
                                   >
                                     <div className={styles.applySlotMeta}>
                                       <span className={slot.isButlerSlot ? styles.positionButler : styles.positionCleaner}>
@@ -308,8 +325,8 @@ export default function ApplyClient({ profile, snapshot }: Props) {
                                         </span>
                                       ) : null}
                                     </div>
-                                    <div className={styles.applySlotAction}>{renderButton(slot)}</div>
-                                    <div className={styles.applySlotHelper}>{renderHelper(slot)}</div>
+                                    <div className={styles.applySlotAction}>{renderButton(slot, locked)}</div>
+                                    <div className={styles.applySlotHelper}>{renderHelper(slot, locked)}</div>
                                   </li>
                                 );
                               })}

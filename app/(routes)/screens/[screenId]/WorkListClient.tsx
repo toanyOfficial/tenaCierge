@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import type { FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
 import styles from './screens.module.css';
-import type { WorkListSnapshot } from './server/getWorkListSnapshot';
+import type { AssignableWorker, WorkListEntry, WorkListSnapshot } from './server/getWorkListSnapshot';
 import type { ProfileSummary } from '@/src/utils/profile';
 
 type Props = {
@@ -14,6 +15,16 @@ type Props = {
 };
 
 const cleaningLabels = ['청소대기', '청소중', '마무리중', '청소종료'];
+const tierLabels: Record<number, string> = {
+  99: '관리자',
+  7: '버틀러',
+  6: '전문가',
+  5: '숙련자',
+  4: '비기너',
+  3: '보류',
+  2: '대기',
+  1: '블랙'
+};
 
 export default function WorkListClient({ profile, snapshot }: Props) {
   const router = useRouter();
@@ -24,10 +35,19 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const [error, setError] = useState('');
   const [detailOpen, setDetailOpen] = useState(false);
   const [activeWindow, setActiveWindow] = useState<'d0' | 'd1' | undefined>(snapshot.window);
+  const [assignTarget, setAssignTarget] = useState<WorkListEntry | null>(null);
+  const [assignSelection, setAssignSelection] = useState<number | null>(null);
+  const [assignQuery, setAssignQuery] = useState('');
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignError, setAssignError] = useState('');
+  const [searchResults, setSearchResults] = useState<AssignableWorker[]>([]);
+  const [assignOptions, setAssignOptions] = useState<AssignableWorker[]>(snapshot.assignableWorkers);
 
   useEffect(() => {
     setWorks(snapshot.works);
     setActiveWindow(snapshot.window);
+    setAssignOptions(snapshot.assignableWorkers);
+    setSearchResults([]);
   }, [snapshot]);
 
   const canSee = useMemo(
@@ -83,6 +103,18 @@ export default function WorkListClient({ profile, snapshot }: Props) {
     [modalWorks, finishedWorks]
   );
 
+  const combinedWorkers = useMemo(() => {
+    const map = new Map<number, AssignableWorker>();
+    assignOptions.forEach((w) => map.set(w.id, w));
+    searchResults.forEach((w) => map.set(w.id, w));
+    return Array.from(map.values());
+  }, [assignOptions, searchResults]);
+
+  const sortedWorkers = useMemo(
+    () => [...combinedWorkers].sort((a, b) => a.name.localeCompare(b.name)),
+    [combinedWorkers]
+  );
+
   function cleaningTone(flag: number) {
     if (flag >= 4) return styles.cleaningDone;
     if (flag === 3) return styles.cleaningNearDone;
@@ -130,6 +162,49 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   function cycleCleaning(flag: number) {
     const next = flag + 1;
     return next > 4 ? 1 : next;
+  }
+
+  function resetAssignModal() {
+    setAssignTarget(null);
+    setAssignSelection(null);
+    setAssignQuery('');
+    setAssignError('');
+    setAssignLoading(false);
+    setSearchResults([]);
+  }
+
+  async function handleAssignSave() {
+    if (!assignTarget) return;
+    await updateWork(assignTarget.id, { cleanerId: assignSelection ?? null });
+    resetAssignModal();
+  }
+
+  async function handleAssignSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const term = assignQuery.trim();
+    if (!term) return;
+    setAssignLoading(true);
+    setAssignError('');
+    try {
+      const res = await fetch(`/api/workers/search?q=${encodeURIComponent(term)}`);
+      if (!res.ok) {
+        setAssignError('검색 중 오류가 발생했습니다.');
+        return;
+      }
+      const body = await res.json();
+      const mapped: AssignableWorker[] = (body?.workers ?? []).map((w: any) => ({
+        id: Number(w.id),
+        name: w.name ?? '이름 미상',
+        phone: w.phone ?? null,
+        registerCode: w.registerCode ?? '-',
+        tier: Number(w.tier ?? 0)
+      }));
+      setSearchResults(mapped);
+    } catch (error) {
+      setAssignError('검색 중 오류가 발생했습니다.');
+    } finally {
+      setAssignLoading(false);
+    }
   }
 
   return (
@@ -228,8 +303,8 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                         if (disabledLine) {
                           return (
                             <div key={work.id} className={`${styles.workCardMuted} ${styles.workCardMutedRow}`}>
-                              <p className={styles.workTitle}>{work.roomName}</p>
-                              <p className={styles.requirementsText}>{work.requirements || '요청사항 없음'}</p>
+                              <span className={styles.workTitle}>{work.roomName}</span>
+                              <span className={styles.requirementsText}>{work.requirements || '요청사항 없음'}</span>
                             </div>
                           );
                         }
@@ -259,9 +334,10 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                 className={canAssignCleaner ? styles.toggleButton : styles.toggleButtonDisabled}
                                 disabled={!canAssignCleaner}
                                 onClick={() => {
-                                  const term = window.prompt('배정할 직원의 휴대폰 또는 관리코드를 입력하세요.');
-                                  if (!term) return;
-                                  updateWork(work.id, { assignTerm: term });
+                                  setAssignTarget(work);
+                                  setAssignSelection(work.cleanerId ?? null);
+                                  setAssignQuery('');
+                                  setAssignError('');
                                 }}
                               >
                                 {work.cleanerName ? `담당자 ${work.cleanerName}` : '배정하기'}
@@ -389,6 +465,77 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                   <p className={styles.helper}>완료된 업무가 없습니다.</p>
                 ) : null}
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {assignTarget ? (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modal}>
+            <header className={styles.modalHeader}>
+              <h3>담당자 배정</h3>
+              <button onClick={resetAssignModal} className={styles.iconButton} aria-label="닫기">
+                ✕
+              </button>
+            </header>
+
+            <form className={styles.assignSearch} onSubmit={handleAssignSearch}>
+              <label className={styles.fieldLabel}>
+                이름 / 전화 / 관리코드 검색
+                <div className={styles.searchRow}>
+                  <input
+                    value={assignQuery}
+                    onChange={(e) => setAssignQuery(e.target.value)}
+                    className={styles.textInput}
+                    placeholder="예: 홍길동 또는 010"
+                  />
+                  <button type="submit" className={styles.secondaryButton} disabled={assignLoading}>
+                    {assignLoading ? '검색 중…' : '검색'}
+                  </button>
+                </div>
+              </label>
+              {assignError ? <p className={styles.errorText}>{assignError}</p> : null}
+            </form>
+
+            <div className={styles.assignList}>
+              <label className={styles.assignRow}>
+                <input
+                  type="radio"
+                  name="assign"
+                  value="none"
+                  checked={assignSelection === null}
+                  onChange={() => setAssignSelection(null)}
+                />
+                <span className={styles.assignName}>배정취소</span>
+              </label>
+              {sortedWorkers.map((worker) => (
+                <label key={worker.id} className={styles.assignRow}>
+                  <input
+                    type="radio"
+                    name="assign"
+                    value={worker.id}
+                    checked={assignSelection === worker.id}
+                    onChange={() => setAssignSelection(worker.id)}
+                  />
+                  <div className={styles.assignMeta}>
+                    <span className={styles.assignName}>{worker.name}</span>
+                    <span className={styles.assignDetail}>
+                      {tierLabels[worker.tier] ?? '무등급'} · {worker.phone ?? '전화 미상'} · {worker.registerCode}
+                    </span>
+                  </div>
+                </label>
+              ))}
+              {!sortedWorkers.length ? <p className={styles.helper}>배정 가능한 인원이 없습니다.</p> : null}
+            </div>
+
+            <div className={styles.modalFooter}>
+              <button type="button" className={styles.secondaryButton} onClick={resetAssignModal}>
+                취소
+              </button>
+              <button type="button" className={styles.primaryButton} onClick={handleAssignSave} disabled={assignLoading}>
+                저장
+              </button>
             </div>
           </div>
         </div>

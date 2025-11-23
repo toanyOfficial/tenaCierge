@@ -23,10 +23,14 @@
 }
 
 .barTop {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+}
+
+.barTopCompact {
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .profileCard {
@@ -35,7 +39,7 @@
 }
 
 .profileCardCompact {
-  width: 100%;
+  min-width: 0;
 }
 
 
@@ -84,14 +88,13 @@
 }
 
 .roleClusterCompact {
-  width: 100%;
-  justify-content: flex-start;
+  justify-content: flex-end;
 }
 
 .roleDropdown {
   position: relative;
-  min-width: 140px;
-  max-width: 220px;
+  min-width: 160px;
+  max-width: 240px;
   flex-shrink: 1;
 }
 
@@ -103,8 +106,7 @@
 }
 
 .globalButtonsCompact {
-  width: 100%;
-  justify-content: flex-start;
+  justify-content: flex-end;
 }
 
 .roleTrigger {
@@ -157,8 +159,9 @@
   margin: 6px 0 0;
   padding: 8px;
   position: absolute;
-  right: 0;
-  min-width: 138px;
+  left: 0;
+  min-width: 160px;
+  width: max-content;
   background: #ffffff;
   border-radius: 12px;
   border: 1px solid rgba(15, 23, 42, 0.08);
@@ -170,7 +173,7 @@
   margin: 6px 0 0;
   padding: 12px;
   position: absolute;
-  right: 0;
+  left: 0;
   min-width: 160px;
   background: #ffffff;
   border-radius: 12px;
@@ -210,7 +213,7 @@
 
 .globalNav {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 6px;
   margin-left: auto;
   width: 100%;
@@ -289,33 +292,33 @@
   fill: currentColor;
 }
 
-  @media (max-width: 768px) {
-    .commonBar {
-      gap: 8px;
-    }
-
-    .roleCluster {
-      width: auto;
-      flex: 0 0 auto;
-      justify-content: flex-end;
-      gap: 6px;
-    }
-
-    .roleDropdown {
-      min-width: 92px;
-      flex: 0 0 auto;
-    }
-
-    .roleTrigger {
-      width: auto;
-      justify-content: space-between;
-    }
-
-    .globalButtons {
-      flex: 0 0 auto;
-      justify-content: flex-end;
-    }
+@media (max-width: 900px) {
+  .barTop,
+  .barTopCompact {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
+
+  .roleCluster,
+  .roleClusterCompact {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .globalButtonsCompact,
+  .globalButtons {
+    justify-content: flex-start;
+  }
+
+  .roleDropdown {
+    min-width: 140px;
+  }
+
+  .globalNav {
+    gap: 8px;
+  }
+}
 
 .dashboardStack {
   display: flex;
@@ -560,33 +563,105 @@
 .applicationPanel header span {
   font-size: 0.8rem;
   color: #94a3b8;
+  border-radius: 18px;
+  border: 1px dashed rgba(148, 163, 184, 0.6);
+  background: #ffffff;
+}
+
+.secondaryCtas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quickLinkGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.butlerSection {
+  margin-top: 24px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sectionHeader h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.sectionHeader p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.butlerSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.sectorBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectorHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: linear-gradient(120deg, #f8fafc, #e2e8f0);
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.sectorCard {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.sectorTotal {
+  border: 1.5px solid #0f172a;
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.1);
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
+.sectorCard header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sectorCard header p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.sectorCard header span {
+  font-weight: 600;
+  color: #0f172a;
 }
 
 .applicationList {
   list-style: none;
   margin: 0;
-  white-space: pre-line;
-  line-height: 1.6;
-  color: #0f172a;
-}
-
-.noticeOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  z-index: 50;
-}
-
-.noticeModal {
-  width: min(480px, 100%);
-  background: #ffffff;
-  border-radius: 24px;
-  padding: 20px;
-  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.2);
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -977,20 +1052,6 @@
 .noticeModal header p {
   margin: 0;
   font-weight: 600;
-  color: #0f172a;
-  cursor: pointer;
-}
-
-.noticeActions button[disabled] {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.noticeFeedback {
-  margin: 0;
-  text-align: right;
-  font-size: 0.85rem;
-  color: #ef4444;
 }
 
 .noticeModal header button {
