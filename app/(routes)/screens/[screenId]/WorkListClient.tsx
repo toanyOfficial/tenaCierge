@@ -381,11 +381,6 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                 disabled={!canToggleSupervising}
                                 onClick={() => {
                                   if (!work.supervisingYn) {
-                                    if (work.cleaningFlag < 3) {
-                                      window.alert('청소 완료 보고 이후에 수퍼바이징을 진행할 수 있습니다.');
-                                      return;
-                                    }
-
                                     const ok = window.confirm(
                                       `${work.buildingShortName}${work.roomNo} 호실에 대하여 수퍼바이징 완료 보고를 진행하시겠습니까?`
                                     );
@@ -499,7 +494,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
           <div className={styles.modalCard} role="dialog" aria-modal="true">
             <div className={styles.modalHead}>
               <span>호실 정보</span>
-              <button onClick={() => setInfoTarget(null)} aria-label="닫기">
+              <button onClick={() => setInfoTarget(null)} aria-label="닫기" className={styles.iconButton}>
                 ✕
               </button>
             </div>
@@ -507,11 +502,27 @@ export default function WorkListClient({ profile, snapshot }: Props) {
             <div className={styles.infoGrid}>
               <div>
                 <p className={styles.infoLabel}>객실</p>
-                <p className={styles.infoValue}>{infoTarget.roomName}</p>
+                <p className={`${styles.infoValue} ${styles.infoRoomName}`}>{infoTarget.roomName}</p>
               </div>
               <div>
                 <p className={styles.infoLabel}>도로명 주소</p>
-                <p className={styles.infoValue}>{infoTarget.buildingAddressNew || '정보 없음'}</p>
+                <button
+                  type="button"
+                  className={`${styles.infoValue} ${styles.infoCopy}`}
+                  onClick={() => {
+                    const address = infoTarget.buildingAddressNew || '';
+                    if (!address) {
+                      window.alert('복사할 주소가 없습니다.');
+                      return;
+                    }
+                    window.navigator.clipboard
+                      ?.writeText(address)
+                      .then(() => window.alert('도로명 주소를 복사했습니다.'))
+                      .catch(() => window.alert('주소 복사에 실패했습니다. 다시 시도해주세요.'));
+                  }}
+                >
+                  {infoTarget.buildingAddressNew || '정보 없음'}
+                </button>
               </div>
               <div>
                 <p className={styles.infoLabel}>일반 쓰레기</p>
@@ -533,6 +544,12 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                 <p className={styles.infoLabel}>도어락 비밀번호</p>
                 <p className={styles.infoValue}>{infoTarget.doorPassword || '정보 없음'}</p>
               </div>
+            </div>
+
+            <div className={styles.modalFoot}>
+              <button type="button" className={styles.primaryButton} onClick={() => setInfoTarget(null)}>
+                닫기
+              </button>
             </div>
           </div>
         </div>
