@@ -11,7 +11,6 @@ import {
   workHeader,
   workImagesList,
   workImagesSetDetail,
-  workImagesSetHeader,
   workReports
 } from '@/src/db/schema';
 import { logServerError } from '@/src/server/errorLogger';
@@ -67,9 +66,8 @@ export async function POST(req: Request) {
             })
             .from(workImagesSetDetail)
             .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
-            .leftJoin(workImagesSetHeader, eq(workImagesSetDetail.imagesSetId, workImagesSetHeader.id))
-            .where(and(eq(workImagesSetDetail.imagesSetId, targetWork.imagesSetId), eq(workImagesSetHeader.role, 1)))
-            .orderBy(asc(workImagesSetDetail.seq), asc(workImagesSetDetail.id))
+            .where(eq(workImagesSetDetail.imagesSetId, targetWork.imagesSetId))
+            .orderBy(asc(workImagesSetDetail.id))
         : Promise.resolve([])
     ]);
 

@@ -229,7 +229,6 @@ export const workImagesSetHeader = mysqlTable('work_images_set_header', {
   id: int('id', { unsigned: true }).autoincrement().notNull(),
   title: varchar('title', { length: 15 }).notNull(),
   description: varchar('dscpt', { length: 50 }),
-  role: tinyint('role').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
@@ -238,7 +237,6 @@ export const workImagesSetDetail = mysqlTable('work_images_set_detail', {
   id: int('id', { unsigned: true }).autoincrement().notNull(),
   imagesSetId: int('images_set_id', { unsigned: true }).notNull(),
   imagesListId: tinyint('images_list_id', { unsigned: true }).notNull(),
-  seq: tinyint('seq').notNull(),
   required: boolean('required').notNull(),
   title: varchar('title', { length: 15 }),
   comment: varchar('comment', { length: 50 }),

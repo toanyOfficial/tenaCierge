@@ -6,7 +6,6 @@ import {
   workChecklistSetDetail,
   workImagesList,
   workImagesSetDetail,
-  workImagesSetHeader,
   workReports
 } from '@/src/db/schema';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
@@ -107,13 +106,11 @@ export async function getSupervisingReportSnapshot(
           fallbackTitle: workImagesList.title,
           comment: workImagesSetDetail.comment,
           fallbackComment: workImagesList.comment,
-          required: workImagesSetDetail.required,
-          role: workImagesSetHeader.role
+          required: workImagesSetDetail.required
         })
         .from(workImagesSetDetail)
         .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
-        .leftJoin(workImagesSetHeader, eq(workImagesSetDetail.imagesSetId, workImagesSetHeader.id))
-        .where(and(eq(workImagesSetDetail.imagesSetId, workRow.imagesSetId), eq(workImagesSetHeader.role, 2)))
+        .where(eq(workImagesSetDetail.imagesSetId, workRow.imagesSetId))
         .orderBy(asc(workImagesSetDetail.id));
 
       return rows.map(({ id, title, fallbackTitle, required, comment, fallbackComment }) => ({
