@@ -2,16 +2,15 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
 import styles from './screens.module.css';
-import type { CleaningReportSnapshot, ImageSlot } from './server/getCleaningReportSnapshot';
+import type { ImageSlot, SupervisingReportSnapshot } from './server/getSupervisingReportSnapshot';
 import type { ProfileSummary } from '@/src/utils/profile';
 
 type Props = {
   profile: ProfileSummary;
-  snapshot: CleaningReportSnapshot;
+  snapshot: SupervisingReportSnapshot;
 };
 
 type ImageTileProps = {
@@ -48,9 +47,9 @@ function ImageTile({ slot, selectedFile, previewUrl, onChange, required }: Image
   );
 }
 
-export default function CleaningReportClient({ profile, snapshot }: Props) {
-  const { work, cleaningChecklist, suppliesChecklist, imageSlots, existingCleaningChecks, existingSupplyChecks, savedImages } = snapshot;
-  const router = useRouter();
+export default function SupervisingReportClient({ profile, snapshot }: Props) {
+  const { work, cleaningChecklist, suppliesChecklist, imageSlots, existingCleaningChecks, existingSupplyChecks, savedImages } =
+    snapshot;
   const [activeRole, setActiveRole] = useState(profile.primaryRole ?? profile.roles[0] ?? null);
   const requiredImageSlots = useMemo(() => imageSlots.filter((slot) => slot.required), [imageSlots]);
   const optionalImageSlots = useMemo(() => imageSlots.filter((slot) => !slot.required), [imageSlots]);
@@ -79,26 +78,20 @@ export default function CleaningReportClient({ profile, snapshot }: Props) {
   const [error, setError] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
 
-  const cleaningComplete = useMemo(
-    () => cleaningChecklist.length === 0 || cleaningChecklist.every((item) => cleaningChecks.has(item.id)),
-    [cleaningChecklist, cleaningChecks]
-  );
-
   const requiredImagesReady = useMemo(
     () => requiredImageSlots.every((slot) => imageSelections[String(slot.id)] || imagePreviews[String(slot.id)]),
     [requiredImageSlots, imageSelections, imagePreviews]
   );
 
-  const isReadyToSubmit = cleaningComplete && requiredImagesReady;
-
   const readinessMessages = useMemo(() => {
     const messages: string[] = [];
 
-    if (!cleaningComplete) messages.push('체크리스트를 확인하세요');
-    if (!requiredImagesReady) messages.push('필수 사진 항목을 확인하세요.');
+    if (!requiredImagesReady && requiredImageSlots.length > 0) messages.push('필수 사진 항목을 확인하세요.');
 
     return messages;
-  }, [cleaningComplete, requiredImagesReady]);
+  }, [requiredImagesReady, requiredImageSlots]);
+
+  const isReadyToSubmit = readinessMessages.length === 0;
 
   const roomTitle = useMemo(() => `${work.buildingShortName}${work.roomNo}`, [work.buildingShortName, work.roomNo]);
 
@@ -154,7 +147,7 @@ export default function CleaningReportClient({ profile, snapshot }: Props) {
         )
       );
 
-      const res = await fetch('/api/work-reports', {
+      const res = await fetch('/api/supervising-reports', {
         method: 'POST',
         body: formData
       });
@@ -165,7 +158,20 @@ export default function CleaningReportClient({ profile, snapshot }: Props) {
         throw new Error(data.message || '저장 중 오류가 발생했습니다.');
       }
 
-      router.push('/screens/004');
+      setStatus('수퍼바이징 완료보고가 저장되었습니다.');
+      setCleaningChecks(new Set(cleaningChecks));
+      setSupplyChecks(new Set(supplyChecks));
+      setImageSelections(initialImageSelections);
+      if (Array.isArray(data.images)) {
+        const nextPreviews = { ...initialImagePreviews };
+        data.images.forEach((img: { slotId?: number; url?: string }) => {
+          if (!img || typeof img.slotId !== 'number' || !img.url) return;
+          nextPreviews[String(img.slotId)] = img.url;
+        });
+        setImagePreviews(nextPreviews);
+      } else {
+        setImagePreviews(initialImagePreviews);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : '저장 중 오류가 발생했습니다.';
       setError(message);
@@ -186,9 +192,9 @@ export default function CleaningReportClient({ profile, snapshot }: Props) {
 
         <div className={styles.reportGridStacked}>
           <article className={styles.reportCardWide}>
-            <header className={styles.reportCardHeader}>청소 체크리스트</header>
+            <header className={styles.reportCardHeader}>수퍼바이징 체크리스트</header>
             {cleaningChecklist.length === 0 ? (
-              <p className={styles.reportEmpty}>청소 체크리스트가 없습니다.</p>
+              <p className={styles.reportEmpty}>체크리스트가 없습니다.</p>
             ) : (
               <ul className={styles.checklist}>
                 {cleaningChecklist.map((item) => (
@@ -280,7 +286,7 @@ export default function CleaningReportClient({ profile, snapshot }: Props) {
 
         <footer className={styles.reportFooter}>
           <button className={styles.primaryButton} disabled={submitting || !isReadyToSubmit} onClick={handleSubmit}>
-            {submitting ? '저장 중...' : '청소완료 보고 저장'}
+            {submitting ? '저장 중...' : '수퍼바이징 완료보고 저장'}
           </button>
           {!isReadyToSubmit && readinessMessages.length ? (
             <p className={styles.readinessText}>{readinessMessages.join(' / ')}</p>
