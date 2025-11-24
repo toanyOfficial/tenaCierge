@@ -106,17 +106,18 @@ export async function getCleaningReportSnapshot(
           fallbackTitle: workImagesList.title,
           comment: workImagesSetDetail.comment,
           fallbackComment: workImagesList.comment,
-          required: workImagesSetDetail.required
+          required: workImagesSetDetail.required,
+          listRequired: workImagesList.required
         })
         .from(workImagesSetDetail)
         .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
-        .where(eq(workImagesSetDetail.imagesSetId, workRow.imagesSetId))
+        .where(and(eq(workImagesSetDetail.imagesSetId, workRow.imagesSetId), eq(workImagesList.role, 1)))
         .orderBy(asc(workImagesSetDetail.id));
 
-      return rows.map(({ id, title, fallbackTitle, required, comment, fallbackComment }) => ({
+      return rows.map(({ id, title, fallbackTitle, required, listRequired, comment, fallbackComment }) => ({
         id,
         title: title ?? fallbackTitle ?? '',
-        required: Boolean(required),
+        required: Boolean(listRequired ?? required),
         comment: comment ?? fallbackComment ?? null
       }));
     })();

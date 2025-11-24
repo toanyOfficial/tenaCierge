@@ -62,11 +62,12 @@ export async function POST(req: Request) {
         ? db
             .select({
               id: workImagesSetDetail.id,
-              required: workImagesSetDetail.required
+              required: workImagesSetDetail.required,
+              listRequired: workImagesList.required
             })
             .from(workImagesSetDetail)
             .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
-            .where(eq(workImagesSetDetail.imagesSetId, targetWork.imagesSetId))
+            .where(and(eq(workImagesSetDetail.imagesSetId, targetWork.imagesSetId), eq(workImagesList.role, 1)))
             .orderBy(asc(workImagesSetDetail.id))
         : Promise.resolve([])
     ]);
@@ -82,7 +83,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: '이미지 매핑 정보가 올바르지 않습니다.' }, { status: 400 });
     }
 
-    const requiredImageIds = imageSlotRows.filter((row) => row.required).map((row) => row.id);
+    const requiredImageIds = imageSlotRows
+      .map((row) => ({ id: row.id, required: row.listRequired ?? row.required }))
+      .filter((row) => row.required)
+      .map((row) => row.id);
 
     const uploads: { slotId: number; url: string }[] = [];
     if (imageFiles.length) {
