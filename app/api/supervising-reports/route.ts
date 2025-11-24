@@ -59,7 +59,7 @@ export async function POST(req: Request) {
         })
         .from(workChecklistSetDetail)
         .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
-        .where(and(eq(workChecklistSetDetail.checklistHeaderId, targetWork.checklistSetId), inArray(workChecklistList.type, [2, 3])))
+        .where(and(eq(workChecklistSetDetail.checklistHeaderId, targetWork.checklistSetId), inArray(workChecklistList.type, [1, 3])))
         .orderBy(asc(workChecklistList.type), asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
       targetWork.imagesSetId
         ? db
@@ -70,7 +70,7 @@ export async function POST(req: Request) {
             .from(workImagesSetDetail)
             .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
             .leftJoin(workImagesSetHeader, eq(workImagesSetDetail.imagesSetId, workImagesSetHeader.id))
-            .where(and(eq(workImagesSetDetail.imagesSetId, targetWork.imagesSetId), eq(workImagesSetHeader.role, 2)))
+            .where(and(eq(workImagesSetDetail.imagesSetId, targetWork.imagesSetId), eq(workImagesSetHeader.role, 1)))
             .orderBy(asc(workImagesSetDetail.sortOrder), asc(workImagesSetDetail.id))
         : Promise.resolve([])
     ]);
@@ -124,11 +124,11 @@ export async function POST(req: Request) {
       contents2?: unknown | null;
     }[];
 
-    const validCleaningChecks = cleaningChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 2));
+    const validCleaningChecks = cleaningChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 1));
     const validSupplyChecks = supplyChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 3));
 
     if (validCleaningChecks.length) {
-      rowsToInsert.push({ workId, type: 4, contents1: validCleaningChecks });
+      rowsToInsert.push({ workId, type: 1, contents1: validCleaningChecks });
     }
 
     if (validSupplyChecks.length) {
@@ -137,10 +137,10 @@ export async function POST(req: Request) {
 
     if (imageMap.size) {
       const images = Array.from(imageMap.entries()).map(([slotId, url]) => ({ slotId, url }));
-      rowsToInsert.push({ workId, type: 5, contents1: images, contents2: images });
+      rowsToInsert.push({ workId, type: 3, contents1: images, contents2: images });
     }
 
-    const targetTypes = [2, 4, 5];
+    const targetTypes = [1, 2, 3];
 
     await db.transaction(async (tx) => {
       await tx.delete(workReports).where(and(eq(workReports.workId, workId), inArray(workReports.type, targetTypes)));
@@ -167,7 +167,7 @@ export async function POST(req: Request) {
       }
     });
 
-    return NextResponse.json({ ok: true, images: rowsToInsert.find((row) => row.type === 5)?.contents1 ?? [] });
+    return NextResponse.json({ ok: true, images: rowsToInsert.find((row) => row.type === 3)?.contents1 ?? [] });
   } catch (error) {
     await logServerError({ appName: 'supervising-reports', message: '수퍼바이징 완료보고 저장 실패', error });
     return NextResponse.json({ message: '저장 중 오류가 발생했습니다.' }, { status: 500 });
