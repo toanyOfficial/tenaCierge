@@ -95,7 +95,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
 
   const modalWorks = useMemo(() => works.filter((w) => w.cleaningYn), [works]);
   const finishedWorks = useMemo(
-    () => modalWorks.filter((w) => w.supplyYn && w.cleaningFlag === 4 && Boolean(w.supervisingEndTime)),
+    () => modalWorks.filter((w) => w.supplyYn && w.cleaningFlag === 4 && Boolean(w.supervisingYn)),
     [modalWorks]
   );
   const inProgressWorks = useMemo(
@@ -300,7 +300,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                     <div className={styles.groupBody}>
                       {group.works.map((work) => {
                         const cleaningLabel = cleaningLabels[(work.cleaningFlag || 1) - 1] ?? cleaningLabels[0];
-                        const supervisingLabel = work.supervisingEndTime ? '검수완료' : '검수대기';
+                        const supervisingLabel = work.supervisingYn ? '검수완료' : '검수대기';
                         const disabledLine = !work.cleaningYn;
 
                         if (disabledLine) {
@@ -366,10 +366,10 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                               </button>
 
                               <button
-                                className={`${styles.toggleButton} ${work.supervisingEndTime ? styles.superviseOn : styles.superviseOff}`}
+                                className={`${styles.toggleButton} ${work.supervisingYn ? styles.superviseOn : styles.superviseOff}`}
                                 disabled={!canToggleSupervising}
                                 onClick={() => {
-                                  if (!work.supervisingEndTime && work.cleaningFlag >= 3) {
+                                  if (!work.supervisingYn && work.cleaningFlag >= 3) {
                                     const ok = window.confirm(
                                       `${work.buildingShortName}${work.roomNo} 호실에 대하여 수퍼바이징 완료 보고를 진행하시겠습니까?`
                                     );
@@ -378,7 +378,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                     }
                                     return;
                                   }
-                                  updateWork(work.id, { supervisingDone: !work.supervisingEndTime });
+                                  updateWork(work.id, { supervisingDone: !work.supervisingYn });
                                 }}
                               >
                                 {supervisingLabel}
@@ -438,8 +438,8 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                       <span className={checkinClass}>{work.checkinTime}</span>
                       <span className={work.supplyYn ? styles.stateOn : styles.stateOff}>{work.supplyYn ? '완료' : '대기'}</span>
                       <span className={cleaningClass}>{cleaningLabel}</span>
-                      <span className={work.supervisingEndTime ? styles.stateOn : styles.stateOff}>
-                        {work.supervisingEndTime ? '완료' : '대기'}
+                      <span className={work.supervisingYn ? styles.stateOn : styles.stateOff}>
+                        {work.supervisingYn ? '완료' : '대기'}
                       </span>
                     </div>
                   );
