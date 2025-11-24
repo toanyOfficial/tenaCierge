@@ -11,6 +11,7 @@ import {
   workHeader,
   workImagesList,
   workImagesSetDetail,
+  workImagesSetHeader,
   workReports
 } from '@/src/db/schema';
 import { logServerError } from '@/src/server/errorLogger';
