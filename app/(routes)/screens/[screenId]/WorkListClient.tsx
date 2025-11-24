@@ -40,6 +40,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const [assignQuery, setAssignQuery] = useState('');
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState('');
+  const [infoTarget, setInfoTarget] = useState<WorkListEntry | null>(null);
   const [searchResults, setSearchResults] = useState<AssignableWorker[]>([]);
   const [assignOptions, setAssignOptions] = useState<AssignableWorker[]>(snapshot.assignableWorkers);
 
@@ -315,7 +316,17 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                         return (
                           <div key={work.id} className={styles.workCard}>
                             <div className={styles.workCardHeader}>
-                              <p className={styles.workTitle}>{work.roomName}</p>
+                              <div className={styles.workTitleRow}>
+                                <p className={styles.workTitle}>{work.roomName}</p>
+                                <button
+                                  type="button"
+                                  className={styles.infoButton}
+                                  onClick={() => setInfoTarget(work)}
+                                  aria-label="호실 정보 보기"
+                                >
+                                  호실 정보
+                                </button>
+                              </div>
                               <p className={styles.workSubtitle}>
                                 체크아웃 {work.checkoutTime} · 체크인 {work.checkinTime} · 침구 {work.blanketQty} · 어메니티
                                 {` ${work.amenitiesQty}`}
@@ -477,6 +488,50 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                 {!finishedWorks.length ? (
                   <p className={styles.helper}>완료된 업무가 없습니다.</p>
                 ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {infoTarget ? (
+        <div className={styles.modalBackdrop}>
+          <div className={styles.modalCard} role="dialog" aria-modal="true">
+            <div className={styles.modalHead}>
+              <span>호실 정보</span>
+              <button onClick={() => setInfoTarget(null)} aria-label="닫기">
+                ✕
+              </button>
+            </div>
+
+            <div className={styles.infoGrid}>
+              <div>
+                <p className={styles.infoLabel}>객실</p>
+                <p className={styles.infoValue}>{infoTarget.roomName}</p>
+              </div>
+              <div>
+                <p className={styles.infoLabel}>도로명 주소</p>
+                <p className={styles.infoValue}>{infoTarget.buildingAddressNew || '정보 없음'}</p>
+              </div>
+              <div>
+                <p className={styles.infoLabel}>일반 쓰레기</p>
+                <p className={styles.infoValue}>{infoTarget.generalTrashInfo || '정보 없음'}</p>
+              </div>
+              <div>
+                <p className={styles.infoLabel}>음식물 쓰레기</p>
+                <p className={styles.infoValue}>{infoTarget.foodTrashInfo || '정보 없음'}</p>
+              </div>
+              <div>
+                <p className={styles.infoLabel}>재활용 쓰레기</p>
+                <p className={styles.infoValue}>{infoTarget.recycleTrashInfo || '정보 없음'}</p>
+              </div>
+              <div>
+                <p className={styles.infoLabel}>중앙현관 비밀번호</p>
+                <p className={styles.infoValue}>{infoTarget.centralPassword || infoTarget.buildingPassword || '정보 없음'}</p>
+              </div>
+              <div>
+                <p className={styles.infoLabel}>도어락 비밀번호</p>
+                <p className={styles.infoValue}>{infoTarget.doorPassword || '정보 없음'}</p>
               </div>
             </div>
           </div>

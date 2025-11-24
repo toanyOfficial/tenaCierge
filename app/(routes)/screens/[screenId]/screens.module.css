@@ -339,10 +339,34 @@
   gap: 6px;
 }
 
+.workTitleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
 .workTitle {
   margin: 0;
   font-size: 1.1rem;
   color: #0f172a;
+}
+
+.infoButton {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.infoButton:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
 }
 
 .workRowCompact {
@@ -1304,6 +1328,28 @@
   line-height: 1.5;
   color: #0f172a;
   margin: 0;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.infoLabel {
+  margin: 0 0 4px;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.infoValue {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  color: #0f172a;
+  background: #f8fafc;
+  min-height: 44px;
 }
 
 .modalScrollable {

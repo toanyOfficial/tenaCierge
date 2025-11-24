@@ -23,6 +23,13 @@ export type WorkListEntry = {
   roomName: string;
   buildingShortName: string;
   roomNo: string;
+  buildingAddressNew: string;
+  generalTrashInfo: string;
+  foodTrashInfo: string;
+  recycleTrashInfo: string;
+  buildingPassword: string;
+  centralPassword: string;
+  doorPassword: string;
   checkoutTime: string;
   checkinTime: string;
   blanketQty: number;
@@ -95,10 +102,17 @@ export async function getWorkListSnapshot(
         supervisingEndTime: workHeader.supervisingEndTime,
         cleanerId: workHeader.cleanerId,
         roomNo: clientRooms.roomNo,
+        centralPassword: clientRooms.centralPassword,
+        doorPassword: clientRooms.doorPassword,
         buildingId: clientRooms.buildingId,
         sectorCode: etcBuildings.sectorCode,
         sectorValue: buildingSector.value,
         buildingShortName: etcBuildings.shortName,
+        buildingAddressNew: etcBuildings.addressNew,
+        buildingPassword: etcBuildings.buildingPassword,
+        generalTrashInfo: etcBuildings.buildingGeneral,
+        foodTrashInfo: etcBuildings.buildingFood,
+        recycleTrashInfo: etcBuildings.buildingRecycle,
         cleanerName: workerHeader.name
       })
       .from(workHeader)
@@ -203,6 +217,13 @@ function normalizeRow(row: any): WorkListEntry {
     roomName: `${row.buildingShortName ?? ''}${row.roomNo ?? ''}`.trim() || '미지정 객실',
     buildingShortName: row.buildingShortName ?? '',
     roomNo: row.roomNo ?? '',
+    buildingAddressNew: row.buildingAddressNew ?? '',
+    generalTrashInfo: row.generalTrashInfo ?? '',
+    foodTrashInfo: row.foodTrashInfo ?? '',
+    recycleTrashInfo: row.recycleTrashInfo ?? '',
+    buildingPassword: row.buildingPassword ?? '',
+    centralPassword: row.centralPassword ?? '',
+    doorPassword: row.doorPassword ?? '',
     checkoutTime: toTime(row.checkoutTime),
     checkinTime: toTime(row.checkinTime),
     blanketQty: Number(row.blanketQty ?? 0),
