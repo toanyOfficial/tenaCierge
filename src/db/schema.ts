@@ -87,6 +87,8 @@ export const clientRooms = mysqlTable('client_rooms', {
   facilityYn: boolean('facility_yn').default(true).notNull(),
   icalUrl1: varchar('ical_url_1', { length: 2083 }),
   icalUrl2: varchar('ical_url_2', { length: 2083 }),
+  checklistSetId: int('checklist_set_id'),
+  imagesSetId: int('images_set_id').notNull(),
   settleFlag: tinyint('settle_flag').default(1).notNull(),
   weight: tinyint('weight').default(10).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -186,14 +188,58 @@ export const workerTierRules = mysqlTable('worker_tier_rules', {
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
 
-export const workCheckList = mysqlTable('work_checkList', {
-  id: int('id', { unsigned: true }).autoincrement().notNull(),
+export const workChecklistList = mysqlTable('work_checklist_list', {
+  id: tinyint('id', { unsigned: true }).autoincrement().notNull(),
   type: tinyint('type').notNull(),
-  generalYn: boolean('general_yn').notNull(),
-  buildingId: tinyint('building_id'),
-  seq: tinyint('seq').notNull(),
   title: varchar('title', { length: 20 }).notNull(),
+  description: varchar('dscpt', { length: 50 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const workChecklistSetDetail = mysqlTable('work_checklist_set_detail', {
+  id: int('id', { unsigned: true }).autoincrement().notNull(),
+  checklistListId: tinyint('checklist_list_id', { unsigned: true }).notNull(),
+  checklistHeaderId: int('checklist_header_id', { unsigned: true }).notNull(),
+  seq: tinyint('seq'),
+  title: varchar('title', { length: 20 }),
+  description: varchar('dscpt', { length: 50 }),
   score: tinyint('score').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const workChecklistSetHeader = mysqlTable('work_checklist_set_header', {
+  id: int('id', { unsigned: true }).autoincrement().notNull(),
+  title: varchar('title', { length: 15 }).notNull(),
+  description: varchar('dscpt', { length: 50 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const workImagesList = mysqlTable('work_images_list', {
+  id: tinyint('id', { unsigned: true }).autoincrement().notNull(),
+  title: varchar('title', { length: 15 }).notNull(),
+  comment: varchar('comment', { length: 50 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const workImagesSetHeader = mysqlTable('work_images_set_header', {
+  id: int('id', { unsigned: true }).autoincrement().notNull(),
+  title: varchar('title', { length: 15 }).notNull(),
+  description: varchar('dscpt', { length: 50 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const workImagesSetDetail = mysqlTable('work_images_set_detail', {
+  id: int('id', { unsigned: true }).autoincrement().notNull(),
+  imagesSetId: int('images_set_id', { unsigned: true }).notNull(),
+  imagesListId: tinyint('images_list_id', { unsigned: true }).notNull(),
+  required: boolean('required').notNull(),
+  title: varchar('title', { length: 15 }),
+  comment: varchar('comment', { length: 50 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
@@ -274,6 +320,7 @@ export const workHeader = mysqlTable('work_header', {
   supervisingEndTime: time('supervising_end_time'),
   requirements: varchar('requirements', { length: 30 }),
   cancelYn: boolean('cancel_yn').default(false).notNull(),
+  supervisingYn: boolean('supervising_yn').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
