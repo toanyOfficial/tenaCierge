@@ -150,7 +150,10 @@ export async function POST(req: Request) {
         await tx.insert(workReports).values(rowsToInsert);
       }
 
-      await tx.update(workHeader).set({ supervisingYn: true }).where(eq(workHeader.id, workId));
+      await tx
+        .update(workHeader)
+        .set({ supervisingYn: true, supervisingEndTime: new Date() })
+        .where(eq(workHeader.id, workId));
 
       const scoredIds = [...new Set([...validCleaningChecks, ...validSupplyChecks])];
       const scoreMap = new Map<number, number>(checklistRows.map((row) => [row.id, Number(row.score) || 0]));

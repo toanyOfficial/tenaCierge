@@ -152,7 +152,10 @@ export async function POST(req: Request) {
       await db.insert(workReports).values(rowsToInsert);
     }
 
-    await db.update(workHeader).set({ cleaningFlag: 4 }).where(eq(workHeader.id, workId));
+    await db
+      .update(workHeader)
+      .set({ cleaningFlag: 4, cleaningEndTime: new Date() })
+      .where(eq(workHeader.id, workId));
 
     return NextResponse.json({ ok: true, images: rowsToInsert.find((row) => row.type === 3)?.contents1 ?? [] });
   } catch (error) {
