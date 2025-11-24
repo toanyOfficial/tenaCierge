@@ -48,16 +48,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: '체크리스트 세트가 없습니다.' }, { status: 400 });
     }
 
-    const [checklistRows, imageSlotRows] = await Promise.all([
-      db
-        .select({
-          id: workChecklistSetDetail.id,
-          type: workChecklistList.type
-        })
-        .from(workChecklistSetDetail)
-        .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
-        .where(and(eq(workChecklistSetDetail.checklistHeaderId, targetWork.checklistSetId), inArray(workChecklistList.type, [1, 2, 3])))
-        .orderBy(asc(workChecklistList.type), asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
+  const [checklistRows, imageSlotRows] = await Promise.all([
+    db
+      .select({
+        id: workChecklistSetDetail.id,
+        type: workChecklistList.type
+      })
+      .from(workChecklistSetDetail)
+      .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
+      .where(and(eq(workChecklistSetDetail.checklistHeaderId, targetWork.checklistSetId), inArray(workChecklistList.type, [1, 2])))
+      .orderBy(asc(workChecklistList.type), asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
       targetWork.imagesSetId
         ? db
             .select({
@@ -71,8 +71,7 @@ export async function POST(req: Request) {
         : Promise.resolve([])
     ]);
 
-    const cleaningChecklistIds = checklistRows.filter((row) => row.type === 1 || row.type === 2).map((row) => row.id);
-    const sharedChecklistIds = checklistRows.filter((row) => row.type === 2).map((row) => row.id);
+    const cleaningChecklistIds = checklistRows.filter((row) => row.type === 1).map((row) => row.id);
     const readinessMessages: string[] = [];
 
     if (cleaningChecklistIds.length && cleaningChecklistIds.some((id) => !cleaningChecks.includes(id))) {
@@ -131,11 +130,6 @@ export async function POST(req: Request) {
       rowsToInsert.push({ workId, type: 1, contents1: cleaningOnly });
     }
 
-    const sharedCleaning = cleaningChecks.filter((id) => sharedChecklistIds.includes(id));
-    if (sharedCleaning.length) {
-      rowsToInsert.push({ workId, type: 4, contents1: sharedCleaning });
-    }
-
     if (supplyChecks.length) {
       rowsToInsert.push({ workId, type: 2, contents1: supplyChecks });
     }
@@ -145,7 +139,7 @@ export async function POST(req: Request) {
       rowsToInsert.push({ workId, type: 3, contents1: images, contents2: images });
     }
 
-    const targetTypes = [1, 2, 3, 4];
+    const targetTypes = [1, 2, 3];
 
     await db.delete(workReports).where(and(eq(workReports.workId, workId), inArray(workReports.type, targetTypes)));
 

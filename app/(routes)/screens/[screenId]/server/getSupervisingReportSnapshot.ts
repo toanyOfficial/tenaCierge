@@ -80,7 +80,7 @@ export async function getSupervisingReportSnapshot(
       .orderBy(asc(workChecklistList.type), asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id));
 
     const cleaningChecklist = checklistRows
-      .filter((item) => item.type === 2)
+      .filter((item) => item.type === 3)
       .map(({ id, title, fallbackTitle, type, score }) => ({
         id,
         title: title ?? fallbackTitle ?? '',
@@ -89,7 +89,7 @@ export async function getSupervisingReportSnapshot(
       }));
 
     const suppliesChecklist = checklistRows
-      .filter((item) => item.type === 3)
+      .filter((item) => item.type === 2)
       .map(({ id, title, fallbackTitle, type, score }) => ({
         id,
         title: title ?? fallbackTitle ?? '',

@@ -6,6 +6,7 @@ import {
   workChecklistSetDetail,
   workImagesList,
   workImagesSetDetail,
+  workImagesSetHeader,
   workReports
 } from '@/src/db/schema';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
@@ -75,11 +76,11 @@ export async function getCleaningReportSnapshot(
       })
       .from(workChecklistSetDetail)
       .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
-      .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), inArray(workChecklistList.type, [1, 2, 3])))
+      .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), inArray(workChecklistList.type, [1, 2])))
       .orderBy(asc(workChecklistList.type), asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id));
 
     const cleaningChecklist = checklistRows
-      .filter((item) => item.type === 1 || item.type === 2)
+      .filter((item) => item.type === 1)
       .map(({ id, title, fallbackTitle, type, score }) => ({
         id,
         title: title ?? fallbackTitle ?? '',
@@ -88,7 +89,7 @@ export async function getCleaningReportSnapshot(
       }));
 
     const suppliesChecklist = checklistRows
-      .filter((item) => item.type === 3)
+      .filter((item) => item.type === 2)
       .map(({ id, title, fallbackTitle, type, score }) => ({
         id,
         title: title ?? fallbackTitle ?? '',
@@ -107,11 +108,13 @@ export async function getCleaningReportSnapshot(
           comment: workImagesSetDetail.comment,
           fallbackComment: workImagesList.comment,
           required: workImagesSetDetail.required,
-          sortOrder: workImagesSetDetail.sortOrder
+          sortOrder: workImagesSetDetail.sortOrder,
+          role: workImagesSetHeader.role
         })
         .from(workImagesSetDetail)
         .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
-        .where(eq(workImagesSetDetail.imagesSetId, workRow.imagesSetId))
+        .leftJoin(workImagesSetHeader, eq(workImagesSetDetail.imagesSetId, workImagesSetHeader.id))
+        .where(and(eq(workImagesSetDetail.imagesSetId, workRow.imagesSetId), eq(workImagesSetHeader.role, 1)))
         .orderBy(asc(workImagesSetDetail.sortOrder), asc(workImagesSetDetail.id));
 
       return rows.map(({ id, title, fallbackTitle, required, comment, fallbackComment }) => ({
@@ -141,7 +144,6 @@ export async function getCleaningReportSnapshot(
     };
 
     const rawCleaningChecks = latestReports.get(1)?.contents1 ?? [];
-    const rawSharedChecks = latestReports.get(4)?.contents1 ?? [];
     const rawSupplyChecks = latestReports.get(2)?.contents1 ?? [];
 
     const savedImages = (() => {
@@ -174,7 +176,7 @@ export async function getCleaningReportSnapshot(
       cleaningChecklist,
       suppliesChecklist,
       imageSlots,
-      existingCleaningChecks: parseIdArray([...(Array.isArray(rawCleaningChecks) ? rawCleaningChecks : []), ...(Array.isArray(rawSharedChecks) ? rawSharedChecks : [])]),
+      existingCleaningChecks: parseIdArray(rawCleaningChecks),
       existingSupplyChecks: parseIdArray(rawSupplyChecks),
       savedImages
     } satisfies CleaningReportSnapshot;
