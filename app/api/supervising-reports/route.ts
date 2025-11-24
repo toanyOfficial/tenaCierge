@@ -71,7 +71,7 @@ export async function POST(req: Request) {
             .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
             .leftJoin(workImagesSetHeader, eq(workImagesSetDetail.imagesSetId, workImagesSetHeader.id))
             .where(and(eq(workImagesSetDetail.imagesSetId, targetWork.imagesSetId), eq(workImagesSetHeader.role, 2)))
-            .orderBy(asc(workImagesSetDetail.sortOrder), asc(workImagesSetDetail.id))
+            .orderBy(asc(workImagesSetDetail.seq), asc(workImagesSetDetail.id))
         : Promise.resolve([])
     ]);
 

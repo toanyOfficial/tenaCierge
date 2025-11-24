@@ -66,8 +66,9 @@ export async function POST(req: Request) {
             })
             .from(workImagesSetDetail)
             .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
-            .where(eq(workImagesSetDetail.imagesSetId, targetWork.imagesSetId))
-            .orderBy(asc(workImagesSetDetail.sortOrder), asc(workImagesSetDetail.id))
+            .leftJoin(workImagesSetHeader, eq(workImagesSetDetail.imagesSetId, workImagesSetHeader.id))
+            .where(and(eq(workImagesSetDetail.imagesSetId, targetWork.imagesSetId), eq(workImagesSetHeader.role, 1)))
+            .orderBy(asc(workImagesSetDetail.seq), asc(workImagesSetDetail.id))
         : Promise.resolve([])
     ]);
 

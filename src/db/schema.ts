@@ -238,7 +238,7 @@ export const workImagesSetDetail = mysqlTable('work_images_set_detail', {
   id: int('id', { unsigned: true }).autoincrement().notNull(),
   imagesSetId: int('images_set_id', { unsigned: true }).notNull(),
   imagesListId: tinyint('images_list_id', { unsigned: true }).notNull(),
-  sortOrder: tinyint('sort_order').notNull(),
+  seq: tinyint('seq').notNull(),
   required: boolean('required').notNull(),
   title: varchar('title', { length: 15 }),
   comment: varchar('comment', { length: 50 }),

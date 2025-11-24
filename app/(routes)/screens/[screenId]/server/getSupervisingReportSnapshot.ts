@@ -108,14 +108,14 @@ export async function getSupervisingReportSnapshot(
           comment: workImagesSetDetail.comment,
           fallbackComment: workImagesList.comment,
           required: workImagesSetDetail.required,
-          sortOrder: workImagesSetDetail.sortOrder,
+          sortOrder: workImagesSetDetail.seq,
           role: workImagesSetHeader.role
         })
         .from(workImagesSetDetail)
         .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
         .leftJoin(workImagesSetHeader, eq(workImagesSetDetail.imagesSetId, workImagesSetHeader.id))
         .where(and(eq(workImagesSetDetail.imagesSetId, workRow.imagesSetId), eq(workImagesSetHeader.role, 2)))
-        .orderBy(asc(workImagesSetDetail.sortOrder), asc(workImagesSetDetail.id));
+        .orderBy(asc(workImagesSetDetail.seq), asc(workImagesSetDetail.id));
 
       return rows.map(({ id, title, fallbackTitle, required, comment, fallbackComment }) => ({
         id,
