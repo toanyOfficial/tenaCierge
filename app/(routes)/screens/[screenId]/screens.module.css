@@ -600,6 +600,11 @@
   text-overflow: ellipsis;
 }
 
+.timeWarning {
+  color: #b45309;
+  font-weight: 700;
+}
+
 .inspectText {
   color: #475569;
   font-weight: 700;
@@ -627,6 +632,11 @@
 
 .detailCleanDone {
   color: #ef4444;
+  font-weight: 700;
+}
+
+.finishedValue {
+  color: #374151;
   font-weight: 700;
 }
 

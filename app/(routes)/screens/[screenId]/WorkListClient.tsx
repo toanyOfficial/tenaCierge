@@ -428,11 +428,14 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                     return styles.detailCleanIdle;
                   })();
 
+                  const checkoutClass = work.checkoutTime === '12:00' ? '' : styles.timeWarning;
+                  const checkinClass = work.checkinTime === '16:00' ? '' : styles.timeWarning;
+
                   return (
                     <div key={work.id} className={styles.detailGridRow}>
                       <span>{work.roomName}</span>
-                      <span>{work.checkoutTime}</span>
-                      <span>{work.checkinTime}</span>
+                      <span className={checkoutClass}>{work.checkoutTime}</span>
+                      <span className={checkinClass}>{work.checkinTime}</span>
                       <span className={work.supplyYn ? styles.stateOn : styles.stateOff}>{work.supplyYn ? '완료' : '대기'}</span>
                       <span className={cleaningClass}>{cleaningLabel}</span>
                       <span className={work.supervisingEndTime ? styles.stateOn : styles.stateOff}>
@@ -458,11 +461,11 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                 {finishedWorks.map((work) => (
                   <div key={work.id} className={styles.detailGridRow}>
                     <span>{work.roomName}</span>
-                    <span>{work.checkoutTime}</span>
-                    <span>{work.checkinTime}</span>
-                    <span className={styles.stateOn}>완료</span>
-                    <span className={styles.cleaningDone}>청소종료</span>
-                    <span className={styles.stateOn}>완료</span>
+                    <span className={work.checkoutTime === '12:00' ? '' : styles.timeWarning}>{work.checkoutTime}</span>
+                    <span className={work.checkinTime === '16:00' ? '' : styles.timeWarning}>{work.checkinTime}</span>
+                    <span className={styles.finishedValue}>완료</span>
+                    <span className={styles.finishedValue}>청소종료</span>
+                    <span className={styles.finishedValue}>완료</span>
                   </div>
                 ))}
                 {!finishedWorks.length ? (
@@ -475,14 +478,14 @@ export default function WorkListClient({ profile, snapshot }: Props) {
       ) : null}
 
       {assignTarget ? (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal}>
-            <header className={styles.modalHeader}>
-              <h3>담당자 배정</h3>
-              <button onClick={resetAssignModal} className={styles.iconButton} aria-label="닫기">
+        <div className={styles.modalBackdrop}>
+          <div className={styles.modalCard} role="dialog" aria-modal="true">
+            <div className={styles.modalHead}>
+              <span>담당자 배정</span>
+              <button onClick={resetAssignModal} aria-label="닫기">
                 ✕
               </button>
-            </header>
+            </div>
 
             <form className={styles.assignSearch} onSubmit={handleAssignSearch}>
               <label className={styles.fieldLabel}>
@@ -533,7 +536,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
               {!sortedWorkers.length ? <p className={styles.helper}>배정 가능한 인원이 없습니다.</p> : null}
             </div>
 
-            <div className={styles.modalFooter}>
+            <div className={styles.modalFoot}>
               <button type="button" className={styles.secondaryButton} onClick={resetAssignModal}>
                 취소
               </button>
