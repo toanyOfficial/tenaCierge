@@ -2,6 +2,18 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useMemo, useState } from 'react';
+import { FontAwesomeIcon } from '@/src/vendor/fontawesome/react-fontawesome';
+import {
+  faBath,
+  faBed,
+  faBuilding,
+  faCamera,
+  faDoorOpen,
+  faHouseUser,
+  faKitchenSet,
+  faShower,
+  faSprayCanSparkles
+} from '@/src/vendor/fontawesome/free-solid-svg-icons';
 
 import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
 import styles from './screens.module.css';
