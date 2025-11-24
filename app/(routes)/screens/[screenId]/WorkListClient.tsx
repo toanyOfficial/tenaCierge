@@ -369,12 +369,12 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                 className={`${styles.toggleButton} ${work.supervisingEndTime ? styles.superviseOn : styles.superviseOff}`}
                                 disabled={!canToggleSupervising}
                                 onClick={() => {
-                                  if (!work.supervisingEndTime && work.cleaningFlag === 3) {
+                                  if (!work.supervisingEndTime && work.cleaningFlag >= 3) {
                                     const ok = window.confirm(
                                       `${work.buildingShortName}${work.roomNo} 호실에 대하여 수퍼바이징 완료 보고를 진행하시겠습니까?`
                                     );
                                     if (ok) {
-                                      router.push(`/screens/005?workId=${work.id}`);
+                                      router.push(`/screens/006?workId=${work.id}`);
                                     }
                                     return;
                                   }
