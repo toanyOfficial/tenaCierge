@@ -219,8 +219,10 @@ export const workChecklistSetHeader = mysqlTable('work_checklist_set_header', {
 
 export const workImagesList = mysqlTable('work_images_list', {
   id: tinyint('id', { unsigned: true }).autoincrement().notNull(),
+  role: tinyint('role', { unsigned: true }).notNull(),
   title: varchar('title', { length: 15 }).notNull(),
   comment: varchar('comment', { length: 50 }),
+  required: boolean('required').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
