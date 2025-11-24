@@ -11,7 +11,9 @@ import {
   workHeader,
   workImagesList,
   workImagesSetDetail,
-  workReports
+  workImagesSetHeader,
+  workReports,
+  workerEvaluateHistory
 } from '@/src/db/schema';
 import { logServerError } from '@/src/server/errorLogger';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
@@ -22,7 +24,7 @@ export const runtime = 'nodejs';
 export async function POST(req: Request) {
   const profile = await getProfileWithDynamicRoles();
 
-  if (!profile.roles.some((role) => role === 'admin' || role === 'butler' || role === 'cleaner')) {
+  if (!profile.roles.some((role) => role === 'admin' || role === 'butler')) {
     return NextResponse.json({ message: '접근 권한이 없습니다.' }, { status: 403 });
   }
 
@@ -48,16 +50,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: '체크리스트 세트가 없습니다.' }, { status: 400 });
     }
 
-  const [checklistRows, imageSlotRows] = await Promise.all([
-    db
-      .select({
-        id: workChecklistSetDetail.id,
-        type: workChecklistList.type
-      })
-      .from(workChecklistSetDetail)
-      .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
-      .where(and(eq(workChecklistSetDetail.checklistHeaderId, targetWork.checklistSetId), inArray(workChecklistList.type, [1, 3])))
-      .orderBy(asc(workChecklistList.type), asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
+    const [checklistRows, imageSlotRows] = await Promise.all([
+      db
+        .select({
+          id: workChecklistSetDetail.id,
+          type: workChecklistList.type,
+          score: workChecklistSetDetail.score
+        })
+        .from(workChecklistSetDetail)
+        .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
+        .where(and(eq(workChecklistSetDetail.checklistHeaderId, targetWork.checklistSetId), inArray(workChecklistList.type, [2, 3])))
+        .orderBy(asc(workChecklistList.type), asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
       targetWork.imagesSetId
         ? db
             .select({
@@ -67,27 +70,20 @@ export async function POST(req: Request) {
             .from(workImagesSetDetail)
             .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
             .leftJoin(workImagesSetHeader, eq(workImagesSetDetail.imagesSetId, workImagesSetHeader.id))
-            .where(and(eq(workImagesSetDetail.imagesSetId, targetWork.imagesSetId), eq(workImagesSetHeader.role, 1)))
+            .where(and(eq(workImagesSetDetail.imagesSetId, targetWork.imagesSetId), eq(workImagesSetHeader.role, 2)))
             .orderBy(asc(workImagesSetDetail.seq), asc(workImagesSetDetail.id))
         : Promise.resolve([])
     ]);
 
-    const cleaningChecklistIds = checklistRows.filter((row) => row.type === 1).map((row) => row.id);
-    const readinessMessages: string[] = [];
-
-    if (cleaningChecklistIds.length && cleaningChecklistIds.some((id) => !cleaningChecks.includes(id))) {
-      readinessMessages.push('체크리스트를 확인하세요');
-    }
+    const requiredImageIds = imageSlotRows.filter((row) => row.required).map((row) => row.id);
 
     if (imageFiles.length !== imageFileSlots.length) {
       return NextResponse.json({ message: '이미지 매핑 정보가 올바르지 않습니다.' }, { status: 400 });
     }
 
-    const requiredImageIds = imageSlotRows.filter((row) => row.required).map((row) => row.id);
-
     const uploads: { slotId: number; url: string }[] = [];
     if (imageFiles.length) {
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'work', String(workId));
+      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'work', String(workId), 'supervising');
       await mkdir(uploadDir, { recursive: true });
 
       for (const [index, file] of imageFiles.entries()) {
@@ -97,7 +93,7 @@ export async function POST(req: Request) {
         const destName = `${Date.now()}-${safeName}`;
         const destPath = path.join(uploadDir, destName);
         await writeFile(destPath, buffer);
-        uploads.push({ slotId: imageFileSlots[index], url: path.posix.join('/uploads/work', String(workId), destName) });
+        uploads.push({ slotId: imageFileSlots[index], url: path.posix.join('/uploads/work', String(workId), 'supervising', destName) });
       }
     }
 
@@ -110,6 +106,8 @@ export async function POST(req: Request) {
       if (!Number.isFinite(img.slotId) || !img.url) return;
       imageMap.set(Number(img.slotId), img.url);
     });
+
+    const readinessMessages: string[] = [];
 
     if (requiredImageIds.some((id) => !imageMap.has(id))) {
       readinessMessages.push('필수 사진 항목을 확인하세요.');
@@ -126,34 +124,52 @@ export async function POST(req: Request) {
       contents2?: unknown | null;
     }[];
 
-    const cleaningOnly = cleaningChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 1));
-    const supplyOnly = supplyChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 3));
-    if (cleaningOnly.length) {
-      rowsToInsert.push({ workId, type: 1, contents1: cleaningOnly });
+    const validCleaningChecks = cleaningChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 2));
+    const validSupplyChecks = supplyChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 3));
+
+    if (validCleaningChecks.length) {
+      rowsToInsert.push({ workId, type: 4, contents1: validCleaningChecks });
     }
 
-    if (supplyOnly.length) {
-      rowsToInsert.push({ workId, type: 2, contents1: supplyOnly });
+    if (validSupplyChecks.length) {
+      rowsToInsert.push({ workId, type: 2, contents1: validSupplyChecks });
     }
 
     if (imageMap.size) {
       const images = Array.from(imageMap.entries()).map(([slotId, url]) => ({ slotId, url }));
-      rowsToInsert.push({ workId, type: 3, contents1: images, contents2: images });
+      rowsToInsert.push({ workId, type: 5, contents1: images, contents2: images });
     }
 
-    const targetTypes = [1, 2, 3];
+    const targetTypes = [4, 2, 5];
 
-    await db.delete(workReports).where(and(eq(workReports.workId, workId), inArray(workReports.type, targetTypes)));
+    await db.transaction(async (tx) => {
+      await tx.delete(workReports).where(and(eq(workReports.workId, workId), inArray(workReports.type, targetTypes)));
 
-    if (rowsToInsert.length) {
-      await db.insert(workReports).values(rowsToInsert);
-    }
+      if (rowsToInsert.length) {
+        await tx.insert(workReports).values(rowsToInsert);
+      }
 
-    await db.update(workHeader).set({ cleaningFlag: 4 }).where(eq(workHeader.id, workId));
+      await tx.update(workHeader).set({ supervisingYn: true }).where(eq(workHeader.id, workId));
 
-    return NextResponse.json({ ok: true, images: rowsToInsert.find((row) => row.type === 3)?.contents1 ?? [] });
+      const scoredIds = [...new Set([...validCleaningChecks, ...validSupplyChecks])];
+      const scoreMap = new Map<number, number>(checklistRows.map((row) => [row.id, Number(row.score) || 0]));
+      const checklistPointSum = scoredIds.reduce((sum, id) => sum + (scoreMap.get(id) ?? 0), 0);
+
+      if (targetWork.cleanerId) {
+        await tx.insert(workerEvaluateHistory).values({
+          workerId: targetWork.cleanerId,
+          evaluatedAt: new Date(),
+          workId,
+          checklistTitleArray: scoredIds,
+          checklistPointSum,
+          comment: '수퍼바이징 결과'
+        });
+      }
+    });
+
+    return NextResponse.json({ ok: true, images: rowsToInsert.find((row) => row.type === 5)?.contents1 ?? [] });
   } catch (error) {
-    await logServerError({ appName: 'work-reports', message: '청소완료보고 저장 실패', error });
+    await logServerError({ appName: 'supervising-reports', message: '수퍼바이징 완료보고 저장 실패', error });
     return NextResponse.json({ message: '저장 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }
