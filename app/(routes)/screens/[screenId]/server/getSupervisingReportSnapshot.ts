@@ -76,11 +76,11 @@ export async function getSupervisingReportSnapshot(
       })
       .from(workChecklistSetDetail)
       .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
-      .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), inArray(workChecklistList.type, [1, 3])))
+      .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), inArray(workChecklistList.type, [2, 3])))
       .orderBy(asc(workChecklistList.type), asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id));
 
     const cleaningChecklist = checklistRows
-      .filter((item) => item.type === 1)
+      .filter((item) => item.type === 2)
       .map(({ id, title, fallbackTitle, type, score }) => ({
         id,
         title: title ?? fallbackTitle ?? '',
@@ -114,7 +114,7 @@ export async function getSupervisingReportSnapshot(
         .from(workImagesSetDetail)
         .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
         .leftJoin(workImagesSetHeader, eq(workImagesSetDetail.imagesSetId, workImagesSetHeader.id))
-        .where(and(eq(workImagesSetDetail.imagesSetId, workRow.imagesSetId), eq(workImagesSetHeader.role, 1)))
+        .where(and(eq(workImagesSetDetail.imagesSetId, workRow.imagesSetId), eq(workImagesSetHeader.role, 2)))
         .orderBy(asc(workImagesSetDetail.sortOrder), asc(workImagesSetDetail.id));
 
       return rows.map(({ id, title, fallbackTitle, required, comment, fallbackComment }) => ({
@@ -143,11 +143,11 @@ export async function getSupervisingReportSnapshot(
       return value.map((v) => Number(v)).filter((v) => Number.isFinite(v));
     };
 
-    const rawCleaningChecks = latestReports.get(1)?.contents1 ?? [];
+    const rawCleaningChecks = latestReports.get(4)?.contents1 ?? [];
     const rawSupplyChecks = latestReports.get(2)?.contents1 ?? [];
 
     const savedImages = (() => {
-      const rawImages = latestReports.get(3)?.contents1;
+      const rawImages = latestReports.get(5)?.contents1;
 
       if (!rawImages) return [] as SavedImage[];
 
