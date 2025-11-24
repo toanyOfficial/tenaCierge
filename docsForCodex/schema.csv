@@ -238,15 +238,17 @@
 "tenaCierge"	"work_images_list"	"id"	"1"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"13"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
 "tenaCierge"	"work_images_list"	"title"	"2"	\0	"NO"	"varchar"	"15"	\0	\0	"varchar(15)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
 "tenaCierge"	"work_images_list"	"comment"	"3"	\0	"YES"	"varchar"	"50"	\0	\0	"varchar(50)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
-"tenaCierge"	"work_images_list"	"created_at"	"4"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
-"tenaCierge"	"work_images_list"	"updated_at"	"5"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_list"	"required"	"4"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_list"	"role"	"5"	"0"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint unsigned"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_list"	"created_at"	"6"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_list"	"updated_at"	"7"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
 "tenaCierge"	"work_images_set_detail"	"id"	"1"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"16"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
 "tenaCierge"	"work_images_set_detail"	"images_set_id"	"2"	\0	"NO"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_images_set_image_set_header"	"1"	"1"	"A"	"3"	\0	\0	""	"UNIQUE"	"ux_images_set_detail"	\0	\0	\0	\0
 "tenaCierge"	"work_images_set_detail"	"images_set_id"	"2"	\0	"NO"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"ux_images_set_detail"	"0"	"1"	"A"	"3"	\0	\0	""	"UNIQUE"	"ux_images_set_detail"	\0	\0	\0	\0
 "tenaCierge"	"work_images_set_detail"	"images_list_id"	"3"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	"MUL"	""	""	"idx_images_set_images_list"	"1"	"1"	"A"	"13"	\0	\0	""	"UNIQUE"	"ux_images_set_detail"	\0	\0	\0	\0
 "tenaCierge"	"work_images_set_detail"	"images_list_id"	"3"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	"MUL"	""	""	"ux_images_set_detail"	"0"	"2"	"A"	"16"	\0	\0	""	"UNIQUE"	"ux_images_set_detail"	\0	\0	\0	\0
-"tenaCierge"	"work_images_set_detail"	"sort_order"	"4"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
-"tenaCierge"	"work_images_set_detail"	"required"	"5"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:선택 / 1:필수"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_detail"	"required"	"4"	\0	"YES"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:선택 / 1:필수"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_detail"	"role"	"5"	\0	"YES"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
 "tenaCierge"	"work_images_set_detail"	"title"	"6"	\0	"YES"	"varchar"	"15"	\0	\0	"varchar(15)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
 "tenaCierge"	"work_images_set_detail"	"comment"	"7"	\0	"YES"	"varchar"	"50"	\0	\0	"varchar(50)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
 "tenaCierge"	"work_images_set_detail"	"created_at"	"8"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
@@ -254,13 +256,12 @@
 "tenaCierge"	"work_images_set_header"	"id"	"1"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"3"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
 "tenaCierge"	"work_images_set_header"	"title"	"2"	\0	"NO"	"varchar"	"15"	\0	\0	"varchar(15)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
 "tenaCierge"	"work_images_set_header"	"dscpt"	"3"	\0	"YES"	"varchar"	"50"	\0	\0	"varchar(50)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
-"tenaCierge"	"work_images_set_header"	"role"	"4"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	"1:클리너 / 2:버틀러"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
-"tenaCierge"	"work_images_set_header"	"created_at"	"5"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
-"tenaCierge"	"work_images_set_header"	"updated_at"	"6"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_header"	"created_at"	"4"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_header"	"updated_at"	"5"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
 "tenaCierge"	"work_reports"	"id"	"1"	\0	"NO"	"bigint"	\0	"20"	"0"	"bigint unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"0"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
 "tenaCierge"	"work_reports"	"work_id"	"2"	\0	"NO"	"bigint"	\0	"19"	"0"	"bigint"	"MUL"	""	""	"idx_work_reports_work_id"	"1"	"1"	"A"	"0"	\0	\0	""	\0	\0	\0	\0	\0	\0
 "tenaCierge"	"work_reports"	"work_id"	"2"	\0	"NO"	"bigint"	\0	"19"	"0"	"bigint"	"MUL"	""	""	"idx_work_reports_work_type"	"1"	"1"	"A"	"0"	\0	\0	""	\0	\0	\0	\0	\0	\0
-"tenaCierge"	"work_reports"	"type"	"3"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	"1:supervising/2:supplies/3:images"	"idx_work_reports_work_type"	"1"	"2"	"A"	"0"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_reports"	"type"	"3"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	"1:cleaningChecklist/2:supplies/3:cleaningImages/4:supervisingChecklist/5:supervisingImages"	"idx_work_reports_work_type"	"1"	"2"	"A"	"0"	\0	\0	""	\0	\0	\0	\0	\0	\0
 "tenaCierge"	"work_reports"	"contents1"	"4"	\0	"NO"	"json"	\0	\0	\0	"json"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
 "tenaCierge"	"work_reports"	"contents2"	"5"	\0	"YES"	"json"	\0	\0	\0	"json"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
 "tenaCierge"	"work_reports"	"created_at"	"6"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
