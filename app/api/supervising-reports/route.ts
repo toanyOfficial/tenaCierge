@@ -124,8 +124,8 @@ export async function POST(req: Request) {
       contents2?: unknown | null;
     }[];
 
-    const validCleaningChecks = cleaningChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 3));
-    const validSupplyChecks = supplyChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 2));
+    const validCleaningChecks = cleaningChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 2));
+    const validSupplyChecks = supplyChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 3));
 
     if (validCleaningChecks.length) {
       rowsToInsert.push({ workId, type: 4, contents1: validCleaningChecks });
