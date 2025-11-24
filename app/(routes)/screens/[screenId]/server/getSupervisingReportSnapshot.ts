@@ -14,7 +14,7 @@ import { fetchWorkRowById, serializeWorkRow } from '@/src/server/workQueries';
 import type { CleaningWork } from '@/src/server/workTypes';
 import { logServerError } from '@/src/server/errorLogger';
 
-export type CleaningReportSnapshot = {
+export type SupervisingReportSnapshot = {
   work: CleaningWork;
   cleaningChecklist: ChecklistItem[];
   suppliesChecklist: ChecklistItem[];
@@ -43,13 +43,13 @@ export type SavedImage = {
   url: string;
 };
 
-export async function getCleaningReportSnapshot(
+export async function getSupervisingReportSnapshot(
   profile: Awaited<ReturnType<typeof getProfileWithDynamicRoles>>,
   workId?: number | null
 ) {
   try {
-  if (!profile.roles.some((role) => role === 'admin' || role === 'butler' || role === 'cleaner')) {
-      throw new Error('청소완료보고를 조회할 수 없는 역할입니다.');
+    if (!profile.roles.some((role) => role === 'admin' || role === 'butler')) {
+      throw new Error('수퍼바이징 완료보고를 조회할 수 없습니다.');
     }
 
     if (!workId || Number.isNaN(workId)) {
@@ -76,11 +76,11 @@ export async function getCleaningReportSnapshot(
       })
       .from(workChecklistSetDetail)
       .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
-      .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), inArray(workChecklistList.type, [1, 3])))
+      .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), inArray(workChecklistList.type, [2, 3])))
       .orderBy(asc(workChecklistList.type), asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id));
 
     const cleaningChecklist = checklistRows
-      .filter((item) => item.type === 1)
+      .filter((item) => item.type === 2)
       .map(({ id, title, fallbackTitle, type, score }) => ({
         id,
         title: title ?? fallbackTitle ?? '',
@@ -113,7 +113,7 @@ export async function getCleaningReportSnapshot(
         .from(workImagesSetDetail)
         .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
         .leftJoin(workImagesSetHeader, eq(workImagesSetDetail.imagesSetId, workImagesSetHeader.id))
-        .where(and(eq(workImagesSetDetail.imagesSetId, workRow.imagesSetId), eq(workImagesSetHeader.role, 1)))
+        .where(and(eq(workImagesSetDetail.imagesSetId, workRow.imagesSetId), eq(workImagesSetHeader.role, 2)))
         .orderBy(asc(workImagesSetDetail.id));
 
       return rows.map(({ id, title, fallbackTitle, required, comment, fallbackComment }) => ({
@@ -142,11 +142,11 @@ export async function getCleaningReportSnapshot(
       return value.map((v) => Number(v)).filter((v) => Number.isFinite(v));
     };
 
-    const rawCleaningChecks = latestReports.get(1)?.contents1 ?? [];
+    const rawCleaningChecks = latestReports.get(4)?.contents1 ?? [];
     const rawSupplyChecks = latestReports.get(2)?.contents1 ?? [];
 
     const savedImages = (() => {
-      const rawImages = latestReports.get(3)?.contents1;
+      const rawImages = latestReports.get(5)?.contents1;
 
       if (!rawImages) return [] as SavedImage[];
 
@@ -178,12 +178,12 @@ export async function getCleaningReportSnapshot(
       existingCleaningChecks: parseIdArray(rawCleaningChecks),
       existingSupplyChecks: parseIdArray(rawSupplyChecks),
       savedImages
-    } satisfies CleaningReportSnapshot;
+    } satisfies SupervisingReportSnapshot;
   } catch (error) {
     await logServerError({
-      appName: 'cleaning-report',
+      appName: 'supervising-report',
       errorCode: 'SNAPSHOT_FAIL',
-      message: 'getCleaningReportSnapshot 실패',
+      message: 'getSupervisingReportSnapshot 실패',
       error
     });
     throw error;
