@@ -95,7 +95,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
 
   const modalWorks = useMemo(() => works.filter((w) => w.cleaningYn), [works]);
   const finishedWorks = useMemo(
-    () => modalWorks.filter((w) => w.supplyYn && w.cleaningFlag === 4 && Boolean(w.supervisingEndTime)),
+    () => modalWorks.filter((w) => w.supplyYn && w.cleaningFlag === 4 && Boolean(w.supervisingYn)),
     [modalWorks]
   );
   const inProgressWorks = useMemo(
@@ -300,7 +300,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                     <div className={styles.groupBody}>
                       {group.works.map((work) => {
                         const cleaningLabel = cleaningLabels[(work.cleaningFlag || 1) - 1] ?? cleaningLabels[0];
-                        const supervisingLabel = work.supervisingEndTime ? '검수완료' : '검수대기';
+                        const supervisingLabel = work.supervisingYn ? '검수완료' : '검수대기';
                         const disabledLine = !work.cleaningYn;
 
                         if (disabledLine) {
@@ -366,19 +366,19 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                               </button>
 
                               <button
-                                className={`${styles.toggleButton} ${work.supervisingEndTime ? styles.superviseOn : styles.superviseOff}`}
+                                className={`${styles.toggleButton} ${work.supervisingYn ? styles.superviseOn : styles.superviseOff}`}
                                 disabled={!canToggleSupervising}
                                 onClick={() => {
-                                  if (!work.supervisingEndTime && work.cleaningFlag === 3) {
+                                  if (!work.supervisingYn && work.cleaningFlag >= 3) {
                                     const ok = window.confirm(
                                       `${work.buildingShortName}${work.roomNo} 호실에 대하여 수퍼바이징 완료 보고를 진행하시겠습니까?`
                                     );
                                     if (ok) {
-                                      router.push(`/screens/005?workId=${work.id}`);
+                                      router.push(`/screens/006?workId=${work.id}`);
                                     }
                                     return;
                                   }
-                                  updateWork(work.id, { supervisingDone: !work.supervisingEndTime });
+                                  updateWork(work.id, { supervisingDone: !work.supervisingYn });
                                 }}
                               >
                                 {supervisingLabel}
@@ -428,15 +428,18 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                     return styles.detailCleanIdle;
                   })();
 
+                  const checkoutClass = work.checkoutTime === '12:00' ? '' : styles.timeWarning;
+                  const checkinClass = work.checkinTime === '16:00' ? '' : styles.timeWarning;
+
                   return (
                     <div key={work.id} className={styles.detailGridRow}>
                       <span>{work.roomName}</span>
-                      <span>{work.checkoutTime}</span>
-                      <span>{work.checkinTime}</span>
+                      <span className={checkoutClass}>{work.checkoutTime}</span>
+                      <span className={checkinClass}>{work.checkinTime}</span>
                       <span className={work.supplyYn ? styles.stateOn : styles.stateOff}>{work.supplyYn ? '완료' : '대기'}</span>
                       <span className={cleaningClass}>{cleaningLabel}</span>
-                      <span className={work.supervisingEndTime ? styles.stateOn : styles.stateOff}>
-                        {work.supervisingEndTime ? '완료' : '대기'}
+                      <span className={work.supervisingYn ? styles.stateOn : styles.stateOff}>
+                        {work.supervisingYn ? '완료' : '대기'}
                       </span>
                     </div>
                   );
@@ -458,11 +461,11 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                 {finishedWorks.map((work) => (
                   <div key={work.id} className={styles.detailGridRow}>
                     <span>{work.roomName}</span>
-                    <span>{work.checkoutTime}</span>
-                    <span>{work.checkinTime}</span>
-                    <span className={styles.stateOn}>완료</span>
-                    <span className={styles.cleaningDone}>청소종료</span>
-                    <span className={styles.stateOn}>완료</span>
+                    <span className={work.checkoutTime === '12:00' ? '' : styles.timeWarning}>{work.checkoutTime}</span>
+                    <span className={work.checkinTime === '16:00' ? '' : styles.timeWarning}>{work.checkinTime}</span>
+                    <span className={styles.finishedValue}>완료</span>
+                    <span className={styles.finishedValue}>청소종료</span>
+                    <span className={styles.finishedValue}>완료</span>
                   </div>
                 ))}
                 {!finishedWorks.length ? (
@@ -475,14 +478,14 @@ export default function WorkListClient({ profile, snapshot }: Props) {
       ) : null}
 
       {assignTarget ? (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal}>
-            <header className={styles.modalHeader}>
-              <h3>담당자 배정</h3>
-              <button onClick={resetAssignModal} className={styles.iconButton} aria-label="닫기">
+        <div className={styles.modalBackdrop}>
+          <div className={styles.modalCard} role="dialog" aria-modal="true">
+            <div className={styles.modalHead}>
+              <span>담당자 배정</span>
+              <button onClick={resetAssignModal} aria-label="닫기">
                 ✕
               </button>
-            </header>
+            </div>
 
             <form className={styles.assignSearch} onSubmit={handleAssignSearch}>
               <label className={styles.fieldLabel}>
@@ -533,7 +536,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
               {!sortedWorkers.length ? <p className={styles.helper}>배정 가능한 인원이 없습니다.</p> : null}
             </div>
 
-            <div className={styles.modalFooter}>
+            <div className={styles.modalFoot}>
               <button type="button" className={styles.secondaryButton} onClick={resetAssignModal}>
                 취소
               </button>
