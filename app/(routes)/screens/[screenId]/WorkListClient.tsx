@@ -369,7 +369,12 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                 className={`${styles.toggleButton} ${work.supervisingYn ? styles.superviseOn : styles.superviseOff}`}
                                 disabled={!canToggleSupervising}
                                 onClick={() => {
-                                  if (!work.supervisingYn && work.cleaningFlag >= 3) {
+                                  if (!work.supervisingYn) {
+                                    if (work.cleaningFlag < 3) {
+                                      window.alert('청소 완료 보고 이후에 수퍼바이징을 진행할 수 있습니다.');
+                                      return;
+                                    }
+
                                     const ok = window.confirm(
                                       `${work.buildingShortName}${work.roomNo} 호실에 대하여 수퍼바이징 완료 보고를 진행하시겠습니까?`
                                     );
@@ -378,6 +383,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                     }
                                     return;
                                   }
+
                                   updateWork(work.id, { supervisingDone: !work.supervisingYn });
                                 }}
                               >
