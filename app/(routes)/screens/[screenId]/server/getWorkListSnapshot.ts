@@ -32,6 +32,7 @@ export type WorkListEntry = {
   cleaningFlag: number;
   cleaningYn: boolean;
   conditionCheckYn: boolean;
+  supervisingYn: boolean;
   supervisingEndTime: string | null;
   cleanerId: number | null;
   cleanerName: string;
@@ -90,6 +91,7 @@ export async function getWorkListSnapshot(
         cleaningFlag: workHeader.cleaningFlag,
         cleaningYn: workHeader.cleaningYn,
         conditionCheckYn: workHeader.conditionCheckYn,
+        supervisingYn: workHeader.supervisingYn,
         supervisingEndTime: workHeader.supervisingEndTime,
         cleanerId: workHeader.cleanerId,
         roomNo: clientRooms.roomNo,
@@ -210,6 +212,7 @@ function normalizeRow(row: any): WorkListEntry {
     cleaningFlag: Number(row.cleaningFlag ?? 1),
     cleaningYn: Boolean(row.cleaningYn),
     conditionCheckYn: Boolean(row.conditionCheckYn),
+    supervisingYn: Boolean(row.supervisingYn),
     supervisingEndTime: row.supervisingEndTime ? toTime(row.supervisingEndTime) : null,
     cleanerId: row.cleanerId ? Number(row.cleanerId) : null,
     cleanerName: row.cleanerName ?? '',
