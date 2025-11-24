@@ -165,6 +165,7 @@ export default function CleaningReportClient({ profile, snapshot }: Props) {
         throw new Error(data.message || '저장 중 오류가 발생했습니다.');
       }
 
+      window.alert('보고가 정상적으로 제출되었습니다.');
       router.push('/screens/004');
     } catch (err) {
       const message = err instanceof Error ? err.message : '저장 중 오류가 발생했습니다.';

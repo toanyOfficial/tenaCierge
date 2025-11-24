@@ -442,7 +442,7 @@
 }
 
 .cleaningDone {
-  background: linear-gradient(135deg, #0f172a, #1d4ed8);
+  background: linear-gradient(135deg, #0f172a, #2563eb);
   color: #ffffff;
 }
 
@@ -1814,5 +1814,22 @@
 .primaryButton:disabled {
   background: var(--gray-300);
   color: var(--gray-600);
+  cursor: not-allowed;
+}
+
+.secondaryButton {
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #0f172a;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secondaryButton:disabled {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #94a3b8;
   cursor: not-allowed;
 }
