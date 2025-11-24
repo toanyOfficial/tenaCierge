@@ -76,7 +76,7 @@ export async function getCleaningReportSnapshot(
       })
       .from(workChecklistSetDetail)
       .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
-      .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), inArray(workChecklistList.type, [1, 2])))
+      .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), inArray(workChecklistList.type, [1, 3])))
       .orderBy(asc(workChecklistList.type), asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id));
 
     const cleaningChecklist = checklistRows
@@ -89,7 +89,7 @@ export async function getCleaningReportSnapshot(
       }));
 
     const suppliesChecklist = checklistRows
-      .filter((item) => item.type === 2)
+      .filter((item) => item.type === 3)
       .map(({ id, title, fallbackTitle, type, score }) => ({
         id,
         title: title ?? fallbackTitle ?? '',

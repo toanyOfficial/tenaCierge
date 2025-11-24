@@ -56,7 +56,7 @@ export async function POST(req: Request) {
       })
       .from(workChecklistSetDetail)
       .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
-      .where(and(eq(workChecklistSetDetail.checklistHeaderId, targetWork.checklistSetId), inArray(workChecklistList.type, [1, 2])))
+      .where(and(eq(workChecklistSetDetail.checklistHeaderId, targetWork.checklistSetId), inArray(workChecklistList.type, [1, 3])))
       .orderBy(asc(workChecklistList.type), asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
       targetWork.imagesSetId
         ? db
@@ -126,12 +126,13 @@ export async function POST(req: Request) {
     }[];
 
     const cleaningOnly = cleaningChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 1));
+    const supplyOnly = supplyChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 3));
     if (cleaningOnly.length) {
       rowsToInsert.push({ workId, type: 1, contents1: cleaningOnly });
     }
 
-    if (supplyChecks.length) {
-      rowsToInsert.push({ workId, type: 2, contents1: supplyChecks });
+    if (supplyOnly.length) {
+      rowsToInsert.push({ workId, type: 2, contents1: supplyOnly });
     }
 
     if (imageMap.size) {
