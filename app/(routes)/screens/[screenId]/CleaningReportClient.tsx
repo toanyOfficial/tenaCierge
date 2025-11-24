@@ -2,18 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useMemo, useState } from 'react';
-import { FontAwesomeIcon } from '@/src/vendor/fontawesome/react-fontawesome';
-import {
-  faBath,
-  faBed,
-  faBuilding,
-  faCamera,
-  faDoorOpen,
-  faHouseUser,
-  faKitchenSet,
-  faShower,
-  faSprayCanSparkles
-} from '@/src/vendor/fontawesome/free-solid-svg-icons';
+import { useRouter } from 'next/navigation';
 
 import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
 import styles from './screens.module.css';
@@ -61,6 +50,7 @@ function ImageTile({ slot, selectedFile, previewUrl, onChange, required }: Image
 
 export default function CleaningReportClient({ profile, snapshot }: Props) {
   const { work, cleaningChecklist, suppliesChecklist, imageSlots, existingCleaningChecks, existingSupplyChecks, savedImages } = snapshot;
+  const router = useRouter();
   const [activeRole, setActiveRole] = useState(profile.primaryRole ?? profile.roles[0] ?? null);
   const requiredImageSlots = useMemo(() => imageSlots.filter((slot) => slot.required), [imageSlots]);
   const optionalImageSlots = useMemo(() => imageSlots.filter((slot) => !slot.required), [imageSlots]);
@@ -175,20 +165,7 @@ export default function CleaningReportClient({ profile, snapshot }: Props) {
         throw new Error(data.message || '저장 중 오류가 발생했습니다.');
       }
 
-      setStatus('청소 완료 보고가 저장되었습니다.');
-      setCleaningChecks(new Set(cleaningChecks));
-      setSupplyChecks(new Set(supplyChecks));
-      setImageSelections(initialImageSelections);
-      if (Array.isArray(data.images)) {
-        const nextPreviews = { ...initialImagePreviews };
-        data.images.forEach((img: { slotId?: number; url?: string }) => {
-          if (!img || typeof img.slotId !== 'number' || !img.url) return;
-          nextPreviews[String(img.slotId)] = img.url;
-        });
-        setImagePreviews(nextPreviews);
-      } else {
-        setImagePreviews(initialImagePreviews);
-      }
+      router.push('/screens/004');
     } catch (err) {
       const message = err instanceof Error ? err.message : '저장 중 오류가 발생했습니다.';
       setError(message);
