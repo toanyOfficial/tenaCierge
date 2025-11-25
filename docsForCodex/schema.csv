@@ -1,283 +1,330 @@
-table_schema,table_name,column_name,data_type,is_nullable,column_comment
-"tenaCierge","client_additional_price","id","int unsigned","NO",""
-"tenaCierge","client_additional_price","room_id","int","NO",""
-"tenaCierge","client_additional_price","date","date","NO",""
-"tenaCierge","client_additional_price","seq","tinyint","NO",""
-"tenaCierge","client_additional_price","title","varchar(15)","NO",""
-"tenaCierge","client_additional_price","price","decimal(9,2)","NO",""
-"tenaCierge","client_additional_price","comment","varchar(255)","YES",""
-"tenaCierge","client_additional_price","created_at","timestamp","NO",""
-"tenaCierge","client_additional_price","updated_at","timestamp","NO",""
-"tenaCierge","client_custom_price","id","int unsigned","NO",""
-"tenaCierge","client_custom_price","room_id","int","NO",""
-"tenaCierge","client_custom_price","title","varchar(15)","NO",""
-"tenaCierge","client_custom_price","price_per_cleaning","decimal(9,2)","NO",""
-"tenaCierge","client_custom_price","price_per_month","decimal(11,2)","NO",""
-"tenaCierge","client_custom_price","start_date","date","NO",""
-"tenaCierge","client_custom_price","end_date","date","NO",""
-"tenaCierge","client_custom_price","comment","varchar(255)","YES",""
-"tenaCierge","client_custom_price","created_at","timestamp","NO",""
-"tenaCierge","client_custom_price","updated_at","timestamp","NO",""
-"tenaCierge","client_detail","id","int unsigned","NO",""
-"tenaCierge","client_detail","client_id","mediumint unsigned","NO",""
-"tenaCierge","client_detail","created_at","timestamp","NO",""
-"tenaCierge","client_detail","updated_at","timestamp","NO",""
-"tenaCierge","client_header","id","mediumint unsigned","NO",""
-"tenaCierge","client_header","register_no","varchar(6)","NO",""
-"tenaCierge","client_header","name","varchar(10)","NO",""
-"tenaCierge","client_header","person","varchar(5)","NO",""
-"tenaCierge","client_header","phone","varchar(11)","NO",""
-"tenaCierge","client_header","rcpt_flag","tinyint","NO",""
-"tenaCierge","client_header","rcpt_no","varchar(13)","YES",""
-"tenaCierge","client_header","rcpt_name","varchar(20)","YES",""
-"tenaCierge","client_header","rcpt_mail","varchar(255)","YES",""
-"tenaCierge","client_header","settle_flag","tinyint","NO",""
-"tenaCierge","client_header","desk_yn","boolean","NO",""
-"tenaCierge","client_header","created_at","timestamp","NO",""
-"tenaCierge","client_header","updated_at","timestamp","NO",""
-"tenaCierge","client_rooms","id","int unsigned","NO",""
-"tenaCierge","client_rooms","client_id","mediumint unsigned","NO",""
-"tenaCierge","client_rooms","building_id","tinyint","NO",""
-"tenaCierge","client_rooms","room_no","char(5)","NO",""
-"tenaCierge","client_rooms","central_password","varchar(20)","YES",""
-"tenaCierge","client_rooms","door_password","varchar(15)","NO",""
-"tenaCierge","client_rooms","start_date","date","NO",""
-"tenaCierge","client_rooms","end_date","date","YES",""
-"tenaCierge","client_rooms","open_yn","boolean","NO",""
-"tenaCierge","client_rooms","room_count","tinyint","NO",""
-"tenaCierge","client_rooms","bed_count","tinyint","NO",""
-"tenaCierge","client_rooms","checkout_time","time","NO",""
-"tenaCierge","client_rooms","checkin_time","time","NO",""
-"tenaCierge","client_rooms","facility_yn","boolean","NO",""
-"tenaCierge","client_rooms","ical_url_1","varchar(2083)","YES",""
-"tenaCierge","client_rooms","ical_url_2","varchar(2083)","YES",""
-"tenaCierge","client_rooms","checklist_set_id","int","YES",""
-"tenaCierge","client_rooms","images_set_id","int","NO",""
-"tenaCierge","client_rooms","settle_flag","tinyint","NO",""
-"tenaCierge","client_rooms","weight","tinyint","NO",""
-"tenaCierge","client_rooms","created_at","timestamp","NO",""
-"tenaCierge","client_rooms","updated_at","timestamp","NO",""
-"tenaCierge","etc_baseCode","code_group","varchar(20)","NO",""
-"tenaCierge","etc_baseCode","code","varchar(10)","NO",""
-"tenaCierge","etc_baseCode","value","varchar(255)","NO",""
-"tenaCierge","etc_baseCode","created_at","timestamp","NO",""
-"tenaCierge","etc_baseCode","updated_at","timestamp","NO",""
-"tenaCierge","etc_buildings","id","tinyint unsigned","NO",""
-"tenaCierge","etc_buildings","basecode_sector","varchar(10)","NO",""
-"tenaCierge","etc_buildings","basecode_code","varchar(255)","NO",""
-"tenaCierge","etc_buildings","building_name","varchar(20)","NO",""
-"tenaCierge","etc_buildings","building_short_name","varchar(10)","NO",""
-"tenaCierge","etc_buildings","building_address_old","varchar(255)","NO",""
-"tenaCierge","etc_buildings","building_address_new","varchar(255)","NO",""
-"tenaCierge","etc_buildings","building_password","varchar(10)","YES",""
-"tenaCierge","etc_buildings","building_recycle","varchar(20)","YES",""
-"tenaCierge","etc_buildings","building_general","varchar(20)","YES",""
-"tenaCierge","etc_buildings","building_food","varchar(20)","YES",""
-"tenaCierge","etc_buildings","building_way_img_basePath","varchar(255)","YES",""
-"tenaCierge","etc_buildings","building_way_img_relativePath","varchar(255)","YES",""
-"tenaCierge","etc_buildings","delete_yn","boolean","NO",""
-"tenaCierge","etc_buildings","created_at","timestamp","NO",""
-"tenaCierge","etc_buildings","updated_at","timestamp","NO",""
-"tenaCierge","etc_errorLogs","id","bigint unsigned","NO",""
-"tenaCierge","etc_errorLogs","level","tinyint unsigned","NO",""
-"tenaCierge","etc_errorLogs","app_name","varchar(50)","NO",""
-"tenaCierge","etc_errorLogs","error_code","varchar(50)","YES",""
-"tenaCierge","etc_errorLogs","message","varchar(500)","NO",""
-"tenaCierge","etc_errorLogs","stacktrace","text","YES",""
-"tenaCierge","etc_errorLogs","request_id","varchar(100)","YES",""
-"tenaCierge","etc_errorLogs","user_id","bigint unsigned","YES",""
-"tenaCierge","etc_errorLogs","context_json","json","YES",""
-"tenaCierge","etc_errorLogs","created_at","timestamp","NO",""
-"tenaCierge","etc_errorLogs","updated_at","timestamp","NO",""
-"tenaCierge","etc_notice","id","int unsigned","NO",""
-"tenaCierge","etc_notice","notice_date","date","NO",""
-"tenaCierge","etc_notice","notice","varchar(255)","NO",""
-"tenaCierge","etc_notice","created_at","timestamp","NO",""
-"tenaCierge","etc_notice","updated_at","timestamp","NO",""
-"tenaCierge","work_apply","id","bigint unsigned","NO",""
-"tenaCierge","work_apply","work_date","date","NO",""
-"tenaCierge","work_apply","basecode_sector","varchar(10)","NO",""
-"tenaCierge","work_apply","basecode_code","varchar(255)","NO",""
-"tenaCierge","work_apply","seq","tinyint","NO",""
-"tenaCierge","work_apply","position","tinyint","NO",""
-"tenaCierge","work_apply","worker_id","int","YES",""
-"tenaCierge","work_apply","created_at","timestamp","NO",""
-"tenaCierge","work_apply","updated_at","timestamp","NO",""
-"tenaCierge","work_apply_rules","id","bigint unsigned","NO",""
-"tenaCierge","work_apply_rules","min_weight","smallint","NO",""
-"tenaCierge","work_apply_rules","max_weight","smallint","YES",""
-"tenaCierge","work_apply_rules","cleaner_count","tinyint","NO",""
-"tenaCierge","work_apply_rules","butler_count","tinyint","NO",""
-"tenaCierge","work_apply_rules","level_flag","tinyint","NO",""
-"tenaCierge","work_apply_rules","created_at","timestamp","NO",""
-"tenaCierge","work_apply_rules","updated_at","timestamp","NO",""
-"tenaCierge","work_assignment","id","bigint unsigned","NO",""
-"tenaCierge","work_assignment","work_id","bigint","NO",""
-"tenaCierge","work_assignment","worker_id","int","NO",""
-"tenaCierge","work_assignment","assign_dttm","date","NO",""
-"tenaCierge","work_assignment","created_at","timestamp","NO",""
-"tenaCierge","work_assignment","updated_at","timestamp","NO",""
-"tenaCierge","work_checklist_list","id","tinyint unsigned","NO",""
-"tenaCierge","work_checklist_list","type","tinyint","NO",""
-"tenaCierge","work_checklist_list","title","varchar(20)","NO",""
-"tenaCierge","work_checklist_list","dscpt","varchar(50)","YES",""
-"tenaCierge","work_checklist_list","created_at","timestamp","NO",""
-"tenaCierge","work_checklist_list","updated_at","timestamp","NO",""
-"tenaCierge","work_checklist_set_detail","id","int unsigned","NO",""
-"tenaCierge","work_checklist_set_detail","checklist_list_id","tinyint unsigned","NO",""
-"tenaCierge","work_checklist_set_detail","checklist_header_id","int unsigned","NO",""
-"tenaCierge","work_checklist_set_detail","seq","tinyint","YES",""
-"tenaCierge","work_checklist_set_detail","title","varchar(20)","YES",""
-"tenaCierge","work_checklist_set_detail","dscpt","varchar(50)","YES",""
-"tenaCierge","work_checklist_set_detail","score","tinyint","NO",""
-"tenaCierge","work_checklist_set_detail","created_at","timestamp","NO",""
-"tenaCierge","work_checklist_set_detail","updated_at","timestamp","NO",""
-"tenaCierge","work_checklist_set_header","id","int unsigned","NO",""
-"tenaCierge","work_checklist_set_header","title","varchar(15)","NO",""
-"tenaCierge","work_checklist_set_header","dscpt","varchar(50)","YES",""
-"tenaCierge","work_checklist_set_header","created_at","timestamp","NO",""
-"tenaCierge","work_checklist_set_header","updated_at","timestamp","NO",""
-"tenaCierge","work_fore_accuracy","id","bigint unsigned","NO",""
-"tenaCierge","work_fore_accuracy","date","date","NO",""
-"tenaCierge","work_fore_accuracy","horizon","char(3)","NO",""
-"tenaCierge","work_fore_accuracy","acc","decimal(5,4)","NO",""
-"tenaCierge","work_fore_accuracy","prec","decimal(5,4)","NO",""
-"tenaCierge","work_fore_accuracy","rec","decimal(5,4)","NO",""
-"tenaCierge","work_fore_accuracy","f1","decimal(5,4)","NO",""
-"tenaCierge","work_fore_accuracy","n","tinyint","NO",""
-"tenaCierge","work_fore_accuracy","created_at","timestamp","NO",""
-"tenaCierge","work_fore_accuracy","updated_at","timestamp","NO",""
-"tenaCierge","work_fore_d1","id","bigint unsigned","NO",""
-"tenaCierge","work_fore_d1","run_dttm","date","NO",""
-"tenaCierge","work_fore_d1","target_date","date","NO",""
-"tenaCierge","work_fore_d1","room_id","int","NO",""
-"tenaCierge","work_fore_d1","p_out","decimal(4,3)","NO",""
-"tenaCierge","work_fore_d1","actual_out","boolean","NO",""
-"tenaCierge","work_fore_d1","correct","boolean","NO",""
-"tenaCierge","work_fore_d1","created_at","timestamp","NO",""
-"tenaCierge","work_fore_d1","updated_at","timestamp","NO",""
-"tenaCierge","work_fore_d7","id","bigint unsigned","NO",""
-"tenaCierge","work_fore_d7","run_dttm","date","NO",""
-"tenaCierge","work_fore_d7","target_date","date","NO",""
-"tenaCierge","work_fore_d7","room_id","int","NO",""
-"tenaCierge","work_fore_d7","p_out","decimal(4,3)","NO",""
-"tenaCierge","work_fore_d7","actual_out","boolean","NO",""
-"tenaCierge","work_fore_d7","correct","boolean","NO",""
-"tenaCierge","work_fore_d7","created_at","timestamp","NO",""
-"tenaCierge","work_fore_d7","updated_at","timestamp","NO",""
-"tenaCierge","work_fore_tuning","id","bigint unsigned","NO",""
-"tenaCierge","work_fore_tuning","date","date","NO",""
-"tenaCierge","work_fore_tuning","horizon","char(3)","NO",""
-"tenaCierge","work_fore_tuning","variable","varchar(15)","NO",""
-"tenaCierge","work_fore_tuning","before","decimal(5,4)","NO",""
-"tenaCierge","work_fore_tuning","after","decimal(5,4)","NO",""
-"tenaCierge","work_fore_tuning","delta","decimal(10,6)","NO",""
-"tenaCierge","work_fore_tuning","explanation","varchar(50)","NO",""
-"tenaCierge","work_fore_tuning","created_at","timestamp","NO",""
-"tenaCierge","work_fore_tuning","updated_at","timestamp","NO",""
-"tenaCierge","work_fore_variable","id","bigint unsigned","NO",""
-"tenaCierge","work_fore_variable","name","varchar(15)","NO",""
-"tenaCierge","work_fore_variable","value","decimal(5,4)","NO",""
-"tenaCierge","work_fore_variable","created_at","timestamp","NO",""
-"tenaCierge","work_fore_variable","updated_at","timestamp","NO",""
-"tenaCierge","work_header","id","bigint unsigned","NO",""
-"tenaCierge","work_header","date","date","NO",""
-"tenaCierge","work_header","room_id","int","NO",""
-"tenaCierge","work_header","cleaner_id","int","YES",""
-"tenaCierge","work_header","butler_id","int","YES",""
-"tenaCierge","work_header","amenities_qty","tinyint","NO",""
-"tenaCierge","work_header","blanket_qty","tinyint","NO",""
-"tenaCierge","work_header","conditionCheckYn","boolean","NO",""
-"tenaCierge","work_header","cleaning_yn","boolean","NO",""
-"tenaCierge","work_header","checkin_time","time","NO",""
-"tenaCierge","work_header","ceckout_time","time","NO",""
-"tenaCierge","work_header","supply_yn","boolean","NO",""
-"tenaCierge","work_header","clening_flag","tinyint","NO",""
-"tenaCierge","work_header","cleaning_end_time","time","YES",""
-"tenaCierge","work_header","supervising_end_time","time","YES",""
-"tenaCierge","work_header","requirements","varchar(30)","YES",""
-"tenaCierge","work_header","cancel_yn","boolean","NO",""
-"tenaCierge","work_header","supervising_yn","boolean","NO",""
-"tenaCierge","work_header","created_at","timestamp","NO",""
-"tenaCierge","work_header","updated_at","timestamp","NO",""
-"tenaCierge","work_images_list","id","tinyint unsigned","NO",""
-"tenaCierge","work_images_list","role","tinyint unsigned","NO",""
-"tenaCierge","work_images_list","title","varchar(15)","NO",""
-"tenaCierge","work_images_list","comment","varchar(50)","YES",""
-"tenaCierge","work_images_list","required","boolean","NO",""
-"tenaCierge","work_images_list","created_at","timestamp","NO",""
-"tenaCierge","work_images_list","updated_at","timestamp","NO",""
-"tenaCierge","work_images_set_detail","id","int unsigned","NO",""
-"tenaCierge","work_images_set_detail","images_set_id","int unsigned","NO",""
-"tenaCierge","work_images_set_detail","images_list_id","tinyint unsigned","NO",""
-"tenaCierge","work_images_set_detail","required","boolean","NO",""
-"tenaCierge","work_images_set_detail","title","varchar(15)","YES",""
-"tenaCierge","work_images_set_detail","comment","varchar(50)","YES",""
-"tenaCierge","work_images_set_detail","created_at","timestamp","NO",""
-"tenaCierge","work_images_set_detail","updated_at","timestamp","NO",""
-"tenaCierge","work_images_set_header","id","int unsigned","NO",""
-"tenaCierge","work_images_set_header","title","varchar(15)","NO",""
-"tenaCierge","work_images_set_header","dscpt","varchar(50)","YES",""
-"tenaCierge","work_images_set_header","created_at","timestamp","NO",""
-"tenaCierge","work_images_set_header","updated_at","timestamp","NO",""
-"tenaCierge","work_reports","id","bigint unsigned","NO",""
-"tenaCierge","work_reports","work_id","bigint","NO",""
-"tenaCierge","work_reports","type","tinyint","NO",""
-"tenaCierge","work_reports","contents1","json","NO",""
-"tenaCierge","work_reports","contents2","json","YES",""
-"tenaCierge","work_reports","created_at","timestamp","NO",""
-"tenaCierge","work_reports","updated_at","timestamp","NO",""
-"tenaCierge","worker_detail","id","int unsigned","NO",""
-"tenaCierge","worker_detail","worker_id","bigint unsigned","NO",""
-"tenaCierge","worker_detail","created_at","timestamp","NO",""
-"tenaCierge","worker_detail","updated_at","timestamp","NO",""
-"tenaCierge","worker_evaluateHistory","id","bigint unsigned","NO",""
-"tenaCierge","worker_evaluateHistory","worker_id","int unsigned","NO",""
-"tenaCierge","worker_evaluateHistory","evaluate_dttm","datetime","NO",""
-"tenaCierge","worker_evaluateHistory","work_id","bigint","NO",""
-"tenaCierge","worker_evaluateHistory","checklist_title_array","json","NO",""
-"tenaCierge","worker_evaluateHistory","checklist_point_sum","tinyint","NO",""
-"tenaCierge","worker_evaluateHistory","comment","varchar(255)","NO",""
-"tenaCierge","worker_evaluateHistory","created_at","timestamp","NO",""
-"tenaCierge","worker_evaluateHistory","updated_at","timestamp","NO",""
-"tenaCierge","worker_header","id","int unsigned","NO",""
-"tenaCierge","worker_header","register_no","varchar(6)","NO",""
-"tenaCierge","worker_header","name","varchar(20)","NO",""
-"tenaCierge","worker_header","phone","varchar(11)","YES",""
-"tenaCierge","worker_header","reg_no","char(13)","YES",""
-"tenaCierge","worker_header","basecode_bank","varchar(10)","YES",""
-"tenaCierge","worker_header","basecode_code","varchar(255)","YES",""
-"tenaCierge","worker_header","account_no","varchar(50)","YES",""
-"tenaCierge","worker_header","tier","tinyint","NO",""
-"tenaCierge","worker_header","comments","varchar(255)","YES",""
-"tenaCierge","worker_header","created_at","timestamp","NO",""
-"tenaCierge","worker_header","updated_at","timestamp","NO",""
-"tenaCierge","worker_penaltyHistory","id","int unsigned","NO",""
-"tenaCierge","worker_penaltyHistory","worker_id","int unsigned","NO",""
-"tenaCierge","worker_penaltyHistory","start_date","date","NO",""
-"tenaCierge","worker_penaltyHistory","interval","tinyint","NO",""
-"tenaCierge","worker_penaltyHistory","comment","varchar(255)","NO",""
-"tenaCierge","worker_penaltyHistory","created_at","timestamp","NO",""
-"tenaCierge","worker_penaltyHistory","updated_at","timestamp","NO",""
-"tenaCierge","worker_schedule_exception","id","int unsigned","NO",""
-"tenaCierge","worker_schedule_exception","worker_id","int unsigned","NO",""
-"tenaCierge","worker_schedule_exception","excpt_date","date","NO",""
-"tenaCierge","worker_schedule_exception","add_work_yn","boolean","NO",""
-"tenaCierge","worker_schedule_exception","cancel_work_yn","boolean","NO",""
-"tenaCierge","worker_schedule_exception","created_at","timestamp","NO",""
-"tenaCierge","worker_schedule_exception","updated_at","timestamp","NO",""
-"tenaCierge","worker_tier_rules","id","int unsigned","NO",""
-"tenaCierge","worker_tier_rules","min_percentage","tinyint unsigned","NO",""
-"tenaCierge","worker_tier_rules","max_percentage","tinyint","NO",""
-"tenaCierge","worker_tier_rules","tier","tinyint","NO",""
-"tenaCierge","worker_tier_rules","hourly_wage","smallint","YES",""
-"tenaCierge","worker_tier_rules","apply_start_time","time","YES",""
-"tenaCierge","worker_tier_rules","apply_horizon","tinyint","YES",""
-"tenaCierge","worker_tier_rules","comment","varchar(100)","NO",""
-"tenaCierge","worker_tier_rules","created_at","timestamp","NO",""
-"tenaCierge","worker_tier_rules","updated_at","timestamp","NO",""
-"tenaCierge","worker_weekly_pattern","id","int unsigned","NO",""
-"tenaCierge","worker_weekly_pattern","worker_id","int unsigned","NO",""
-"tenaCierge","worker_weekly_pattern","weekday","tinyint","NO",""
-"tenaCierge","worker_weekly_pattern","created_at","timestamp","NO",""
-"tenaCierge","worker_weekly_pattern","updated_at","timestamp","NO",""
+"TABLE_SCHEMA"	"TABLE_NAME"	"COLUMN_NAME"	"ORDINAL_POSITION"	"COLUMN_DEFAULT"	"IS_NULLABLE"	"DATA_TYPE"	"CHARACTER_MAXIMUM_LENGTH"	"NUMERIC_PRECISION"	"NUMERIC_SCALE"	"COLUMN_TYPE"	"COLUMN_KEY"	"EXTRA"	"COLUMN_COMMENT"	"INDEX_NAME"	"NON_UNIQUE"	"SEQ_IN_INDEX"	"COLLATION"	"CARDINALITY"	"SUB_PART"	"PACKED"	"INDEX_NULLABLE"	"CONSTRAINT_TYPE"	"CONSTRAINT_NAME"	"REFERENCED_TABLE_NAME"	"REFERENCED_COLUMN_NAME"	"FK_UPDATE_RULE"	"FK_DELETE_RULE"
+"tenaCierge"	"client_additional_price"	"id"	"1"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"0"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"client_additional_price"	"room_id"	"2"	\0	"NO"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_cap_room_date"	"1"	"1"	"A"	"0"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_additional_price"	"date"	"3"	\0	"NO"	"date"	\0	\0	\0	"date"	""	""	""	"idx_cap_room_date"	"1"	"2"	"A"	"0"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_additional_price"	"seq"	"4"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_additional_price"	"minus_yn"	"5"	"0"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:양수 / 1:음수"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_additional_price"	"ratio_yn"	"6"	"0"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:절대값 / 1:퍼센타일비율"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_additional_price"	"title"	"7"	\0	"NO"	"varchar"	"15"	\0	\0	"varchar(15)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_additional_price"	"amount"	"8"	\0	"NO"	"decimal"	\0	"9"	"2"	"decimal(9,2)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_additional_price"	"comment"	"9"	\0	"YES"	"varchar"	"255"	\0	\0	"varchar(255)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_additional_price"	"created_at"	"10"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_additional_price"	"updated_at"	"11"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_detail"	"id"	"1"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"0"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"client_detail"	"client_id"	"2"	\0	"NO"	"mediumint"	\0	"7"	"0"	"mediumint unsigned"	"MUL"	""	"client_header 참조"	"idx_client_detail_client_id"	"1"	"1"	"A"	"0"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_detail"	"created_at"	"3"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_detail"	"updated_at"	"4"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_header"	"id"	"1"	\0	"NO"	"mediumint"	\0	"7"	"0"	"mediumint unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"22"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"client_header"	"register_no"	"2"	\0	"NO"	"varchar"	"6"	\0	\0	"varchar(6)"	"UNI"	""	"영대문자,숫자섞어서 랜덤생성/중복불가"	"idx_client_header_register_no"	"1"	"1"	"A"	"22"	\0	\0	""	"UNIQUE"	"ux_client_header_register_no"	\0	\0	\0	\0
+"tenaCierge"	"client_header"	"register_no"	"2"	\0	"NO"	"varchar"	"6"	\0	\0	"varchar(6)"	"UNI"	""	"영대문자,숫자섞어서 랜덤생성/중복불가"	"ux_client_header_register_no"	"0"	"1"	"A"	"22"	\0	\0	""	"UNIQUE"	"ux_client_header_register_no"	\0	\0	\0	\0
+"tenaCierge"	"client_header"	"name"	"3"	\0	"NO"	"varchar"	"10"	\0	\0	"varchar(10)"	"MUL"	""	""	"idx_client_header_name"	"1"	"1"	"A"	"22"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_header"	"person"	"4"	\0	"NO"	"varchar"	"5"	\0	\0	"varchar(5)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_header"	"phone"	"5"	\0	"NO"	"varchar"	"11"	\0	\0	"varchar(11)"	"UNI"	""	"휴대전화만 가능"	"idx_client_header_phone"	"1"	"1"	"A"	"22"	\0	\0	""	"UNIQUE"	"ux_client_header_phone"	\0	\0	\0	\0
+"tenaCierge"	"client_header"	"phone"	"5"	\0	"NO"	"varchar"	"11"	\0	\0	"varchar(11)"	"UNI"	""	"휴대전화만 가능"	"ux_client_header_phone"	"0"	"1"	"A"	"22"	\0	\0	""	"UNIQUE"	"ux_client_header_phone"	\0	\0	\0	\0
+"tenaCierge"	"client_header"	"rcpt_flag"	"6"	"1"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	"1:세금계산서/2:현금영수증"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_header"	"rcpt_no"	"7"	\0	"YES"	"varchar"	"13"	\0	\0	"varchar(13)"	""	""	"사업자번호,주민번호/숫자만"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_header"	"rcpt_name"	"8"	\0	"YES"	"varchar"	"20"	\0	\0	"varchar(20)"	""	""	"영수증발행 대상의 이름"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_header"	"rcpt_mail"	"9"	\0	"YES"	"varchar"	"255"	\0	\0	"varchar(255)"	""	""	"영수증 발행 받을 메일주소"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_header"	"settle_flag"	"10"	"1"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	"1:건별제/2:정액제/3:커스텀/4:기타"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_header"	"desk_yn"	"11"	"0"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:사용안함/1:사용함"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_header"	"created_at"	"12"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_header"	"updated_at"	"13"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_list"	"id"	"1"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"18"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"client_price_list"	"title"	"2"	\0	"NO"	"varchar"	"15"	\0	\0	"varchar(15)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_list"	"selected_by"	"3"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	"1:client_price_set / 2:client_rooms / 3:client_additional_price"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_list"	"minus_yn"	"4"	"0"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:양수 / 1:음수"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_list"	"ratio_yn"	"5"	"0"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:절대값 / 1:퍼센타일비율"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_list"	"type"	"6"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	"1:횟수당 / 2:월당"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_list"	"amount"	"7"	\0	"NO"	"decimal"	\0	"11"	"2"	"decimal(11,2)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_list"	"dscpt"	"8"	\0	"YES"	"varchar"	"255"	\0	\0	"varchar(255)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_list"	"created_at"	"9"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_list"	"updated_at"	"10"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_set_detail"	"id"	"1"	\0	"NO"	"bigint"	\0	"20"	"0"	"bigint unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"23"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"client_price_set_detail"	"price_set_id"	"2"	\0	"YES"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_price_set_price_set_header"	"1"	"1"	"A"	"7"	\0	\0	"YES"	"UNIQUE"	"ux_price_set_detail"	\0	\0	\0	\0
+"tenaCierge"	"client_price_set_detail"	"price_set_id"	"2"	\0	"YES"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"ux_price_set_detail"	"0"	"1"	"A"	"7"	\0	\0	"YES"	"UNIQUE"	"ux_price_set_detail"	\0	\0	\0	\0
+"tenaCierge"	"client_price_set_detail"	"price_id"	"3"	\0	"YES"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_price_set_price_list"	"1"	"1"	"A"	"8"	\0	\0	"YES"	"UNIQUE"	"ux_price_set_detail"	\0	\0	\0	\0
+"tenaCierge"	"client_price_set_detail"	"price_id"	"3"	\0	"YES"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"ux_price_set_detail"	"0"	"2"	"A"	"23"	\0	\0	"YES"	"UNIQUE"	"ux_price_set_detail"	\0	\0	\0	\0
+"tenaCierge"	"client_price_set_detail"	"minus_yn"	"4"	\0	"YES"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:양수 / 1:음수"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_set_detail"	"ratio_yn"	"5"	\0	"YES"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:절대값 / 1:퍼센타일비율"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_set_detail"	"amount_per_cleaning"	"6"	\0	"YES"	"decimal"	\0	"9"	"2"	"decimal(9,2)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_set_detail"	"amount_per_month"	"7"	\0	"YES"	"decimal"	\0	"11"	"2"	"decimal(11,2)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_set_detail"	"use_yn"	"8"	"1"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:사용안함 / 1:사용함"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_set_detail"	"created_at"	"9"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_set_detail"	"updated_at"	"10"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_set_header"	"id"	"1"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"7"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"client_price_set_header"	"title"	"2"	\0	"YES"	"varchar"	"15"	\0	\0	"varchar(15)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_set_header"	"dscpt"	"3"	\0	"YES"	"varchar"	"50"	\0	\0	"varchar(50)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_set_header"	"use_yn"	"4"	"1"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:사용안함 / 1:사용함"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_set_header"	"created_at"	"5"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_price_set_header"	"updated_at"	"6"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"id"	"1"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"97"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"client_id"	"2"	\0	"NO"	"mediumint"	\0	"7"	"0"	"mediumint unsigned"	"MUL"	""	"client_header 참조"	"idx_client_rooms_client"	"1"	"1"	"A"	"20"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"client_id"	"2"	\0	"NO"	"mediumint"	\0	"7"	"0"	"mediumint unsigned"	"MUL"	""	"client_header 참조"	"idx_client_rooms_client_open"	"1"	"1"	"A"	"20"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"building_id"	"3"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	"MUL"	""	""	"idx_building_room"	"1"	"1"	"A"	"11"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"building_id"	"3"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	"MUL"	""	""	"idx_client_rooms_building_id"	"1"	"1"	"A"	"11"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"room_no"	"4"	\0	"NO"	"char"	"5"	\0	\0	"char(5)"	""	""	""	"idx_building_room"	"1"	"2"	"A"	"93"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"central_password"	"5"	\0	"YES"	"varchar"	"20"	\0	\0	"varchar(20)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"door_password"	"6"	\0	"NO"	"varchar"	"15"	\0	\0	"varchar(15)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"start_date"	"7"	\0	"NO"	"date"	\0	\0	\0	"date"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"end_date"	"8"	\0	"YES"	"date"	\0	\0	\0	"date"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"open_yn"	"9"	"0"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:운영안함, 1:운영함"	"idx_client_rooms_client_open"	"1"	"2"	"A"	"23"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"room_count"	"10"	"1"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"bed_count"	"11"	"1"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"checkout_time"	"12"	\0	"NO"	"time"	\0	\0	\0	"time"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"checkin_time"	"13"	\0	"NO"	"time"	\0	\0	\0	"time"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"price_set_id"	"14"	\0	"NO"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_client_rooms_price_set"	"1"	"1"	"A"	"1"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"images_set_id"	"15"	\0	"NO"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_client_rooms_images_set"	"1"	"1"	"A"	"1"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"checklist_set_id"	"16"	\0	"NO"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_client_rooms_checklist_set"	"1"	"1"	"A"	"1"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"facility_yn"	"17"	"1"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:사용안함/1:사용함"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"realtime_overview_yn"	"18"	"0"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:사용안함/1:사용함"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"images_yn"	"19"	"0"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:사용안함/1:사용함"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"ical_url_1"	"20"	\0	"YES"	"varchar"	"2083"	\0	\0	"varchar(2083)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"ical_url_2"	"21"	\0	"YES"	"varchar"	"2083"	\0	\0	"varchar(2083)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"weight"	"22"	"10"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"created_at"	"23"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"client_rooms"	"updated_at"	"24"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_baseCode"	"code_group"	"1"	\0	"NO"	"varchar"	"30"	\0	\0	"varchar(30)"	"PRI"	""	"코드그룹명"	"PRIMARY"	"0"	"1"	"A"	"2"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"etc_baseCode"	"code"	"2"	\0	"NO"	"varchar"	"10"	\0	\0	"varchar(10)"	"PRI"	""	"코드"	"PRIMARY"	"0"	"2"	"A"	"51"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"etc_baseCode"	"value"	"3"	\0	"NO"	"varchar"	"255"	\0	\0	"varchar(255)"	""	""	"값"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_baseCode"	"created_at"	"4"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_baseCode"	"updated_at"	"5"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_buildings"	"id"	"1"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"11"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"etc_buildings"	"basecode_sector"	"2"	\0	"NO"	"varchar"	"10"	\0	\0	"varchar(10)"	"MUL"	""	"지역코드"	"idx_buildings_region"	"1"	"1"	"A"	"1"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_buildings"	"basecode_code"	"3"	\0	"NO"	"varchar"	"255"	\0	\0	"varchar(255)"	""	""	"지역값"	"idx_buildings_region"	"1"	"2"	"A"	"3"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_buildings"	"building_name"	"4"	\0	"NO"	"varchar"	"20"	\0	\0	"varchar(20)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_buildings"	"building_short_name"	"5"	\0	"NO"	"varchar"	"10"	\0	\0	"varchar(10)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_buildings"	"building_address_old"	"6"	\0	"NO"	"varchar"	"255"	\0	\0	"varchar(255)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_buildings"	"building_address_new"	"7"	\0	"NO"	"varchar"	"255"	\0	\0	"varchar(255)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_buildings"	"building_password"	"8"	\0	"YES"	"varchar"	"10"	\0	\0	"varchar(10)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_buildings"	"building_recycle"	"9"	\0	"YES"	"varchar"	"20"	\0	\0	"varchar(20)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_buildings"	"building_general"	"10"	\0	"YES"	"varchar"	"20"	\0	\0	"varchar(20)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_buildings"	"building_food"	"11"	\0	"YES"	"varchar"	"20"	\0	\0	"varchar(20)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_buildings"	"building_way_img_basePath"	"12"	\0	"YES"	"varchar"	"255"	\0	\0	"varchar(255)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_buildings"	"building_way_img_relativePath"	"13"	\0	"YES"	"varchar"	"255"	\0	\0	"varchar(255)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_buildings"	"delete_yn"	"14"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_buildings"	"created_at"	"15"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_buildings"	"updated_at"	"16"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_errorLogs"	"id"	"1"	\0	"NO"	"bigint"	\0	"20"	"0"	"bigint unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"7"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"etc_errorLogs"	"level"	"2"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint unsigned"	""	""	"1:FATAL/2:ERROR/3:WARN/4:INFO/5:DEBUG"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_errorLogs"	"app_name"	"3"	\0	"NO"	"varchar"	"50"	\0	\0	"varchar(50)"	""	""	"서비스 또는 모듈명"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_errorLogs"	"error_code"	"4"	\0	"YES"	"varchar"	"50"	\0	\0	"varchar(50)"	""	""	"비즈니스 에러코드"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_errorLogs"	"message"	"5"	\0	"NO"	"varchar"	"500"	\0	\0	"varchar(500)"	""	""	"요약 에러 메시지"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_errorLogs"	"stacktrace"	"6"	\0	"YES"	"text"	"65535"	\0	\0	"text"	""	""	"전체 스택 트레이스"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_errorLogs"	"request_id"	"7"	\0	"YES"	"varchar"	"100"	\0	\0	"varchar(100)"	"MUL"	""	"트랜잭션/요청 추적용 ID"	"idx_errorLogs_request_id"	"1"	"1"	"A"	"1"	\0	\0	"YES"	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_errorLogs"	"user_id"	"8"	\0	"YES"	"bigint"	\0	"20"	"0"	"bigint unsigned"	"MUL"	""	"에러 발생 유저 PK"	"idx_errorLogs_user"	"1"	"1"	"A"	"1"	\0	\0	"YES"	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_errorLogs"	"context_json"	"9"	\0	"YES"	"json"	\0	\0	\0	"json"	""	""	"추가 상태/파라미터 JSON"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_errorLogs"	"created_at"	"10"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	"MUL"	"DEFAULT_GENERATED"	""	"idx_errorLogs_created_at"	"1"	"1"	"A"	"7"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_errorLogs"	"created_at"	"10"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	"MUL"	"DEFAULT_GENERATED"	""	"idx_errorLogs_user"	"1"	"2"	"A"	"7"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_errorLogs"	"updated_at"	"11"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_notice"	"id"	"1"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"0"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"etc_notice"	"notice_date"	"2"	\0	"NO"	"date"	\0	\0	\0	"date"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_notice"	"notice"	"3"	\0	"NO"	"varchar"	"255"	\0	\0	"varchar(255)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_notice"	"created_at"	"4"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"etc_notice"	"updated_at"	"5"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_apply"	"id"	"1"	\0	"NO"	"bigint"	\0	"20"	"0"	"bigint unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"28"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"work_apply"	"work_date"	"2"	\0	"NO"	"date"	\0	\0	\0	"date"	"MUL"	""	""	"ux_work_apply"	"0"	"1"	"A"	"10"	\0	\0	""	"UNIQUE"	"ux_work_apply"	\0	\0	\0	\0
+"tenaCierge"	"work_apply"	"basecode_sector"	"3"	\0	"NO"	"varchar"	"10"	\0	\0	"varchar(10)"	""	""	"지역코드"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_apply"	"basecode_code"	"4"	\0	"NO"	"varchar"	"255"	\0	\0	"varchar(255)"	""	""	"지역값"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_apply"	"seq"	"5"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_apply"	"position"	"6"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	"1:클리너/2:버틀러"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_apply"	"worker_id"	"7"	\0	"YES"	"int"	\0	"10"	"0"	"int"	""	""	""	"ux_work_apply"	"0"	"2"	"A"	"14"	\0	\0	"YES"	"UNIQUE"	"ux_work_apply"	\0	\0	\0	\0
+"tenaCierge"	"work_apply"	"created_at"	"8"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_apply"	"updated_at"	"9"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_apply_rules"	"id"	"1"	\0	"NO"	"bigint"	\0	"20"	"0"	"bigint unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"9"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"work_apply_rules"	"min_weight"	"2"	\0	"NO"	"smallint"	\0	"5"	"0"	"smallint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_apply_rules"	"max_weight"	"3"	\0	"NO"	"smallint"	\0	"5"	"0"	"smallint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_apply_rules"	"cleaner_count"	"4"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_apply_rules"	"butler_count"	"5"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_apply_rules"	"level_flag"	"6"	"1"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	"1:normal/2:warning/3:emergency"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_apply_rules"	"created_at"	"7"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_apply_rules"	"updated_at"	"8"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_assignment"	"id"	"1"	\0	"NO"	"bigint"	\0	"20"	"0"	"bigint unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"0"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"work_assignment"	"work_id"	"2"	\0	"NO"	"bigint"	\0	"19"	"0"	"bigint"	"MUL"	""	""	"idx_work_assignment_work_id"	"1"	"1"	"A"	"0"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_assignment"	"worker_id"	"3"	\0	"NO"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_work_assignment_worker_id"	"1"	"1"	"A"	"0"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_assignment"	"assign_dttm"	"4"	\0	"NO"	"date"	\0	\0	\0	"date"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_assignment"	"created_at"	"5"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_assignment"	"updated_at"	"6"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_list"	"id"	"1"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"25"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_list"	"type"	"2"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	"1:cleaning/2:supervising/3:supplies"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_list"	"title"	"3"	\0	"NO"	"varchar"	"20"	\0	\0	"varchar(20)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_list"	"dscpt"	"4"	\0	"YES"	"varchar"	"50"	\0	\0	"varchar(50)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_list"	"created_at"	"5"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_list"	"updated_at"	"6"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_set_detail"	"id"	"1"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"25"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_set_detail"	"checklist_list_id"	"2"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	"MUL"	""	""	"idx_work_checklist_set_work_checklist_set__list"	"1"	"1"	"A"	"25"	\0	\0	""	"UNIQUE"	"ux_checklist_set_detail"	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_set_detail"	"checklist_list_id"	"2"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	"MUL"	""	""	"ux_checklist_set_detail"	"0"	"2"	"A"	"25"	\0	\0	""	"UNIQUE"	"ux_checklist_set_detail"	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_set_detail"	"checklist_header_id"	"3"	\0	"NO"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_work_checklist_set_work_checklist_set__header"	"1"	"1"	"A"	"1"	\0	\0	""	"UNIQUE"	"ux_checklist_set_detail"	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_set_detail"	"checklist_header_id"	"3"	\0	"NO"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"ux_checklist_set_detail"	"0"	"1"	"A"	"1"	\0	\0	""	"UNIQUE"	"ux_checklist_set_detail"	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_set_detail"	"seq"	"4"	\0	"YES"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_set_detail"	"title"	"5"	\0	"YES"	"varchar"	"20"	\0	\0	"varchar(20)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_set_detail"	"dscpt"	"6"	\0	"YES"	"varchar"	"50"	\0	\0	"varchar(50)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_set_detail"	"score"	"7"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_set_detail"	"created_at"	"8"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_set_detail"	"updated_at"	"9"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_set_header"	"id"	"1"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"0"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_set_header"	"title"	"2"	\0	"NO"	"varchar"	"15"	\0	\0	"varchar(15)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_set_header"	"dscpt"	"3"	\0	"YES"	"varchar"	"50"	\0	\0	"varchar(50)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_set_header"	"created_at"	"4"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_checklist_set_header"	"updated_at"	"5"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_accuracy"	"id"	"1"	\0	"NO"	"bigint"	\0	"20"	"0"	"bigint unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"0"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"work_fore_accuracy"	"date"	"2"	\0	"NO"	"date"	\0	\0	\0	"date"	"MUL"	""	""	"ux_wfa_date_horizon"	"0"	"1"	"A"	"0"	\0	\0	""	"UNIQUE"	"ux_wfa_date_horizon"	\0	\0	\0	\0
+"tenaCierge"	"work_fore_accuracy"	"horizon"	"3"	\0	"NO"	"char"	"3"	\0	\0	"char(3)"	""	""	""	"ux_wfa_date_horizon"	"0"	"2"	"A"	"0"	\0	\0	""	"UNIQUE"	"ux_wfa_date_horizon"	\0	\0	\0	\0
+"tenaCierge"	"work_fore_accuracy"	"acc"	"4"	\0	"NO"	"decimal"	\0	"5"	"4"	"decimal(5,4)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_accuracy"	"prec"	"5"	\0	"NO"	"decimal"	\0	"5"	"4"	"decimal(5,4)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_accuracy"	"rec"	"6"	\0	"NO"	"decimal"	\0	"5"	"4"	"decimal(5,4)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_accuracy"	"f1"	"7"	\0	"NO"	"decimal"	\0	"5"	"4"	"decimal(5,4)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_accuracy"	"n"	"8"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_accuracy"	"created_at"	"9"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_accuracy"	"updated_at"	"10"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d1"	"id"	"1"	\0	"NO"	"bigint"	\0	"20"	"0"	"bigint unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"876"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d1"	"run_dttm"	"2"	\0	"NO"	"date"	\0	\0	\0	"date"	"MUL"	""	""	"idx_work_fore_d1_run"	"1"	"1"	"A"	"6"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d1"	"target_date"	"3"	\0	"NO"	"date"	\0	\0	\0	"date"	"MUL"	""	""	"idx_work_fore_d1_target_room"	"1"	"1"	"A"	"10"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d1"	"room_id"	"4"	\0	"NO"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_work_fore_d1_room_id"	"1"	"1"	"A"	"49"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d1"	"room_id"	"4"	\0	"NO"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_work_fore_d1_target_room"	"1"	"2"	"A"	"488"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d1"	"p_out"	"5"	\0	"NO"	"decimal"	\0	"4"	"3"	"decimal(4,3)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d1"	"actual_out"	"6"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d1"	"correct"	"7"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d1"	"created_at"	"8"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d1"	"updated_at"	"9"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d7"	"id"	"1"	\0	"NO"	"bigint"	\0	"20"	"0"	"bigint unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"1099"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d7"	"run_dttm"	"2"	\0	"NO"	"date"	\0	\0	\0	"date"	"MUL"	""	""	"idx_work_fore_d7_run"	"1"	"1"	"A"	"6"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d7"	"target_date"	"3"	\0	"NO"	"date"	\0	\0	\0	"date"	"MUL"	""	""	"idx_work_fore_d7_target_room"	"1"	"1"	"A"	"12"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d7"	"room_id"	"4"	\0	"NO"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_work_fore_d7_room_id"	"1"	"1"	"A"	"49"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d7"	"room_id"	"4"	\0	"NO"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_work_fore_d7_target_room"	"1"	"2"	"A"	"586"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d7"	"p_out"	"5"	\0	"NO"	"decimal"	\0	"4"	"3"	"decimal(4,3)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d7"	"actual_out"	"6"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d7"	"correct"	"7"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d7"	"created_at"	"8"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_d7"	"updated_at"	"9"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_tuning"	"id"	"1"	\0	"NO"	"bigint"	\0	"20"	"0"	"bigint unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"0"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"work_fore_tuning"	"date"	"2"	\0	"NO"	"date"	\0	\0	\0	"date"	"MUL"	""	""	"idx_wft_date_horizon"	"1"	"1"	"A"	"0"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_tuning"	"horizon"	"3"	\0	"NO"	"char"	"3"	\0	\0	"char(3)"	""	""	""	"idx_wft_date_horizon"	"1"	"2"	"A"	"0"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_tuning"	"variable"	"4"	\0	"NO"	"varchar"	"15"	\0	\0	"varchar(15)"	"MUL"	""	""	"idx_wft_variable"	"1"	"1"	"A"	"0"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_tuning"	"before"	"5"	\0	"NO"	"decimal"	\0	"5"	"4"	"decimal(5,4)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_tuning"	"after"	"6"	\0	"NO"	"decimal"	\0	"5"	"4"	"decimal(5,4)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_tuning"	"delta"	"7"	\0	"NO"	"decimal"	\0	"10"	"6"	"decimal(10,6)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_tuning"	"explanation"	"8"	\0	"NO"	"varchar"	"50"	\0	\0	"varchar(50)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_tuning"	"created_at"	"9"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_tuning"	"updated_at"	"10"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_variable"	"id"	"1"	\0	"NO"	"bigint"	\0	"20"	"0"	"bigint unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"9"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"work_fore_variable"	"name"	"2"	\0	"NO"	"varchar"	"15"	\0	\0	"varchar(15)"	"UNI"	""	""	"ux_wfv_name"	"0"	"1"	"A"	"9"	\0	\0	""	"UNIQUE"	"ux_wfv_name"	\0	\0	\0	\0
+"tenaCierge"	"work_fore_variable"	"value"	"3"	\0	"NO"	"decimal"	\0	"5"	"4"	"decimal(5,4)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_variable"	"created_at"	"4"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_fore_variable"	"updated_at"	"5"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"id"	"1"	\0	"NO"	"bigint"	\0	"20"	"0"	"bigint unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"59"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"date"	"2"	\0	"NO"	"date"	\0	\0	\0	"date"	"MUL"	""	""	"idx_work_header_butler"	"1"	"1"	"A"	"5"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"date"	"2"	\0	"NO"	"date"	\0	\0	\0	"date"	"MUL"	""	""	"idx_work_header_cleaner"	"1"	"1"	"A"	"5"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"date"	"2"	\0	"NO"	"date"	\0	\0	\0	"date"	"MUL"	""	""	"idx_work_header_room"	"1"	"1"	"A"	"5"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"room_id"	"3"	\0	"NO"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_work_header_room_id"	"1"	"1"	"A"	"30"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"room_id"	"3"	\0	"NO"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_work_header_room"	"1"	"2"	"A"	"59"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"cleaner_id"	"4"	\0	"YES"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_work_header_cleaner_id"	"1"	"1"	"A"	"4"	\0	\0	"YES"	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"cleaner_id"	"4"	\0	"YES"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_work_header_cleaner"	"1"	"2"	"A"	"9"	\0	\0	"YES"	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"butler_id"	"5"	\0	"YES"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_work_header_butler_id"	"1"	"1"	"A"	"1"	\0	\0	"YES"	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"butler_id"	"5"	\0	"YES"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_work_header_butler"	"1"	"2"	"A"	"5"	\0	\0	"YES"	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"amenities_qty"	"6"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"blanket_qty"	"7"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"conditionCheckYn"	"8"	"0"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:대상아님/1:대상"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"cleaning_yn"	"9"	"1"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:대상아님/1:대상"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"checkin_time"	"10"	\0	"NO"	"time"	\0	\0	\0	"time"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"ceckout_time"	"11"	\0	"NO"	"time"	\0	\0	\0	"time"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"supply_yn"	"12"	"0"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:미배급/1:배급"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"clening_flag"	"13"	"1"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	"1:대기/2:시작/3:완료5분전/4:완료"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"supervising_yn"	"14"	"0"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"cleaning_end_time"	"15"	\0	"YES"	"time"	\0	\0	\0	"time"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"supervising_end_time"	"16"	\0	"YES"	"time"	\0	\0	\0	"time"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"requirements"	"17"	\0	"YES"	"varchar"	"30"	\0	\0	"varchar(30)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"cancel_yn"	"18"	"0"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:정상/1:취소"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"created_at"	"19"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_header"	"updated_at"	"20"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_list"	"id"	"1"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"13"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"work_images_list"	"title"	"2"	\0	"NO"	"varchar"	"15"	\0	\0	"varchar(15)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_list"	"comment"	"3"	\0	"YES"	"varchar"	"50"	\0	\0	"varchar(50)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_list"	"required"	"4"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_list"	"role"	"5"	"0"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint unsigned"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_list"	"created_at"	"6"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_list"	"updated_at"	"7"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_detail"	"id"	"1"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"13"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_detail"	"images_set_id"	"2"	\0	"NO"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"idx_images_set_image_set_header"	"1"	"1"	"A"	"1"	\0	\0	""	"UNIQUE"	"ux_images_set_detail"	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_detail"	"images_set_id"	"2"	\0	"NO"	"int"	\0	"10"	"0"	"int"	"MUL"	""	""	"ux_images_set_detail"	"0"	"1"	"A"	"1"	\0	\0	""	"UNIQUE"	"ux_images_set_detail"	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_detail"	"images_list_id"	"3"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	"MUL"	""	""	"idx_images_set_images_list"	"1"	"1"	"A"	"13"	\0	\0	""	"UNIQUE"	"ux_images_set_detail"	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_detail"	"images_list_id"	"3"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	"MUL"	""	""	"ux_images_set_detail"	"0"	"2"	"A"	"13"	\0	\0	""	"UNIQUE"	"ux_images_set_detail"	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_detail"	"required"	"4"	\0	"YES"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:선택 / 1:필수"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_detail"	"role"	"5"	\0	"YES"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_detail"	"title"	"6"	\0	"YES"	"varchar"	"15"	\0	\0	"varchar(15)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_detail"	"comment"	"7"	\0	"YES"	"varchar"	"50"	\0	\0	"varchar(50)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_detail"	"created_at"	"8"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_detail"	"updated_at"	"9"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_header"	"id"	"1"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"1"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_header"	"title"	"2"	\0	"NO"	"varchar"	"15"	\0	\0	"varchar(15)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_header"	"dscpt"	"3"	\0	"YES"	"varchar"	"50"	\0	\0	"varchar(50)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_header"	"created_at"	"4"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_images_set_header"	"updated_at"	"5"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_reports"	"id"	"1"	\0	"NO"	"bigint"	\0	"20"	"0"	"bigint unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"27"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"work_reports"	"work_id"	"2"	\0	"NO"	"bigint"	\0	"19"	"0"	"bigint"	"MUL"	""	""	"idx_work_reports_work_id"	"1"	"1"	"A"	"7"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_reports"	"work_id"	"2"	\0	"NO"	"bigint"	\0	"19"	"0"	"bigint"	"MUL"	""	""	"idx_work_reports_work_type"	"1"	"1"	"A"	"7"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_reports"	"type"	"3"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	"1:cleaningChecklist/2:supplies/3:cleaningImages/4:supervisingChecklist/5:supervisingImages"	"idx_work_reports_work_type"	"1"	"2"	"A"	"27"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_reports"	"contents1"	"4"	\0	"NO"	"json"	\0	\0	\0	"json"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_reports"	"contents2"	"5"	\0	"YES"	"json"	\0	\0	\0	"json"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_reports"	"created_at"	"6"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"work_reports"	"updated_at"	"7"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_detail"	"id"	"1"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"0"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"worker_detail"	"worker_id"	"2"	\0	"NO"	"bigint"	\0	"20"	"0"	"bigint unsigned"	"UNI"	""	"client_header 참조"	"idx_worker_detail_worker_id"	"1"	"1"	"A"	"0"	\0	\0	""	"UNIQUE"	"ux_worker_detail_worker"	\0	\0	\0	\0
+"tenaCierge"	"worker_detail"	"worker_id"	"2"	\0	"NO"	"bigint"	\0	"20"	"0"	"bigint unsigned"	"UNI"	""	"client_header 참조"	"ux_worker_detail_worker"	"0"	"1"	"A"	"0"	\0	\0	""	"UNIQUE"	"ux_worker_detail_worker"	\0	\0	\0	\0
+"tenaCierge"	"worker_detail"	"created_at"	"3"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_detail"	"updated_at"	"4"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_evaluateHistory"	"id"	"1"	\0	"NO"	"bigint"	\0	"20"	"0"	"bigint unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"4"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"worker_evaluateHistory"	"worker_id"	"2"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"MUL"	""	"client_header 참조"	"idx_weh_worker_date"	"1"	"1"	"A"	"2"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_evaluateHistory"	"worker_id"	"2"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"MUL"	""	"client_header 참조"	"idx_worker_evaluateHistory_worker_id"	"1"	"1"	"A"	"2"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_evaluateHistory"	"evaluate_dttm"	"3"	\0	"NO"	"datetime"	\0	\0	\0	"datetime"	""	""	""	"idx_weh_worker_date"	"1"	"2"	"A"	"4"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_evaluateHistory"	"work_id"	"4"	\0	"NO"	"bigint"	\0	"19"	"0"	"bigint"	"MUL"	""	""	"idx_weh_work"	"1"	"1"	"A"	"4"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_evaluateHistory"	"checklist_title_array"	"5"	\0	"NO"	"json"	\0	\0	\0	"json"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_evaluateHistory"	"checklist_point_sum"	"6"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_evaluateHistory"	"comment"	"7"	\0	"NO"	"varchar"	"255"	\0	\0	"varchar(255)"	""	""	"당일의 마지막 청소 건에만 입력"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_evaluateHistory"	"created_at"	"8"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_evaluateHistory"	"updated_at"	"9"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_header"	"id"	"1"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"124"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"worker_header"	"register_no"	"2"	\0	"NO"	"varchar"	"6"	\0	\0	"varchar(6)"	"UNI"	""	"영대문자,숫자섞어서 랜덤생성/중복불가"	"idx_worker_header_register_no"	"1"	"1"	"A"	"124"	\0	\0	""	"UNIQUE"	"ux_worker_header_register_no"	\0	\0	\0	\0
+"tenaCierge"	"worker_header"	"register_no"	"2"	\0	"NO"	"varchar"	"6"	\0	\0	"varchar(6)"	"UNI"	""	"영대문자,숫자섞어서 랜덤생성/중복불가"	"ux_worker_header_register_no"	"0"	"1"	"A"	"124"	\0	\0	""	"UNIQUE"	"ux_worker_header_register_no"	\0	\0	\0	\0
+"tenaCierge"	"worker_header"	"name"	"3"	\0	"NO"	"varchar"	"20"	\0	\0	"varchar(20)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_header"	"phone"	"4"	\0	"YES"	"varchar"	"11"	\0	\0	"varchar(11)"	"UNI"	""	"휴대전화만 가능"	"idx_worker_header_phone"	"1"	"1"	"A"	"114"	\0	\0	"YES"	"UNIQUE"	"ux_worker_header_phone"	\0	\0	\0	\0
+"tenaCierge"	"worker_header"	"phone"	"4"	\0	"YES"	"varchar"	"11"	\0	\0	"varchar(11)"	"UNI"	""	"휴대전화만 가능"	"ux_worker_header_phone"	"0"	"1"	"A"	"114"	\0	\0	"YES"	"UNIQUE"	"ux_worker_header_phone"	\0	\0	\0	\0
+"tenaCierge"	"worker_header"	"reg_no"	"5"	\0	"YES"	"char"	"13"	\0	\0	"char(13)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_header"	"basecode_bank"	"6"	\0	"YES"	"varchar"	"10"	\0	\0	"varchar(10)"	""	""	"지역코드"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_header"	"basecode_code"	"7"	\0	"YES"	"varchar"	"255"	\0	\0	"varchar(255)"	""	""	"지역값"	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_header"	"account_no"	"8"	\0	"YES"	"varchar"	"50"	\0	\0	"varchar(50)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_header"	"tier"	"9"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	"MUL"	""	""	"idx_worker_header_tier"	"1"	"1"	"A"	"5"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_header"	"comments"	"10"	\0	"YES"	"varchar"	"255"	\0	\0	"varchar(255)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_header"	"created_at"	"11"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_header"	"updated_at"	"12"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_penaltyHistory"	"id"	"1"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"0"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"worker_penaltyHistory"	"worker_id"	"2"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"MUL"	""	"client_header 참조"	"idx_worker_penaltyHistory_worker_id"	"1"	"1"	"A"	"0"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_penaltyHistory"	"worker_id"	"2"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"MUL"	""	"client_header 참조"	"idx_wph_worker_start"	"1"	"1"	"A"	"0"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_penaltyHistory"	"start_date"	"3"	\0	"NO"	"date"	\0	\0	\0	"date"	""	""	""	"idx_wph_worker_start"	"1"	"2"	"A"	"0"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_penaltyHistory"	"interval"	"4"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_penaltyHistory"	"comment"	"5"	\0	"NO"	"varchar"	"255"	\0	\0	"varchar(255)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_penaltyHistory"	"created_at"	"6"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_penaltyHistory"	"updated_at"	"7"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_schedule_exception"	"id"	"1"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"0"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"worker_schedule_exception"	"worker_id"	"2"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"MUL"	""	"client_header 참조"	"idx_worker_schedule_exception_worker_id"	"1"	"1"	"A"	"0"	\0	\0	""	"UNIQUE"	"ux_worker_schedule_exception"	\0	\0	\0	\0
+"tenaCierge"	"worker_schedule_exception"	"worker_id"	"2"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"MUL"	""	"client_header 참조"	"ux_worker_schedule_exception"	"0"	"1"	"A"	"0"	\0	\0	""	"UNIQUE"	"ux_worker_schedule_exception"	\0	\0	\0	\0
+"tenaCierge"	"worker_schedule_exception"	"excpt_date"	"3"	\0	"NO"	"date"	\0	\0	\0	"date"	""	""	"0:일요일 ~ 6:토요일"	"ux_worker_schedule_exception"	"0"	"2"	"A"	"0"	\0	\0	""	"UNIQUE"	"ux_worker_schedule_exception"	\0	\0	\0	\0
+"tenaCierge"	"worker_schedule_exception"	"add_work_yn"	"4"	"0"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	"MUL"	""	"0:규칙대로/1:무조건출근"	"ck_wse_logic"	"1"	"1"	"A"	"0"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_schedule_exception"	"cancel_work_yn"	"5"	"0"	"NO"	"tinyint"	\0	"3"	"0"	"tinyint(1)"	""	""	"0:규칙대로/1:무조건휴일"	"ck_wse_logic"	"1"	"2"	"A"	"0"	\0	\0	""	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_schedule_exception"	"created_at"	"6"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_schedule_exception"	"updated_at"	"7"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_tier_rules"	"id"	"1"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"7"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"worker_tier_rules"	"min_percentage"	"2"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint unsigned"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_tier_rules"	"max_percentage"	"3"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_tier_rules"	"tier"	"4"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_tier_rules"	"hourly_wage"	"5"	\0	"YES"	"smallint"	\0	"5"	"0"	"smallint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_tier_rules"	"apply_start_time"	"6"	\0	"YES"	"time"	\0	\0	\0	"time"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_tier_rules"	"apply_horizon"	"7"	\0	"YES"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_tier_rules"	"comment"	"8"	\0	"YES"	"varchar"	"100"	\0	\0	"varchar(100)"	""	""	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_tier_rules"	"created_at"	"9"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_tier_rules"	"updated_at"	"10"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_weekly_pattern"	"id"	"1"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"PRI"	"auto_increment"	"PK"	"PRIMARY"	"0"	"1"	"A"	"0"	\0	\0	""	"PRIMARY KEY"	"PRIMARY"	\0	\0	\0	\0
+"tenaCierge"	"worker_weekly_pattern"	"worker_id"	"2"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"MUL"	""	"client_header 참조"	"idx_worker_weekly_pattern_worker_id"	"1"	"1"	"A"	"0"	\0	\0	""	"UNIQUE"	"ux_worker_weekly_pattern"	\0	\0	\0	\0
+"tenaCierge"	"worker_weekly_pattern"	"worker_id"	"2"	\0	"NO"	"int"	\0	"10"	"0"	"int unsigned"	"MUL"	""	"client_header 참조"	"ux_worker_weekly_pattern"	"0"	"1"	"A"	"0"	\0	\0	""	"UNIQUE"	"ux_worker_weekly_pattern"	\0	\0	\0	\0
+"tenaCierge"	"worker_weekly_pattern"	"weekday"	"3"	\0	"NO"	"tinyint"	\0	"3"	"0"	"tinyint"	""	""	"0:일요일 ~ 6:토요일"	"ux_worker_weekly_pattern"	"0"	"2"	"A"	"0"	\0	\0	""	"UNIQUE"	"ux_worker_weekly_pattern"	\0	\0	\0	\0
+"tenaCierge"	"worker_weekly_pattern"	"created_at"	"4"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
+"tenaCierge"	"worker_weekly_pattern"	"updated_at"	"5"	"CURRENT_TIMESTAMP"	"NO"	"timestamp"	\0	\0	\0	"timestamp"	""	"DEFAULT_GENERATED"	""	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0	\0
