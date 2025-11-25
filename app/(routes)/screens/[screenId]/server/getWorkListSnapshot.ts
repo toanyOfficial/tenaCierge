@@ -76,7 +76,7 @@ export async function getWorkListSnapshot(
     const now = getKstNow();
     const minutes = now.getHours() * 60 + now.getMinutes();
     const { targetDate, window, windowDates } = resolveWindow(now, minutes, dateParam, windowParam);
-    const targetDateValue = new Date(`${targetDate}T00:00:00+09:00`);
+    const targetDateValue = new Date(`${targetDate}T00:00:00Z`);
 
     const notice = await fetchLatestNotice();
 
@@ -198,7 +198,7 @@ async function fetchLatestNotice() {
 }
 
 async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
-  const targetDateValue = new Date(`${targetDate}T00:00:00+09:00`);
+  const targetDateValue = new Date(`${targetDate}T00:00:00Z`);
   const rows = await db
     .select({ workId: workAssignment.workId })
     .from(workAssignment)

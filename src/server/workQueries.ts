@@ -34,7 +34,7 @@ export type WorkRow = {
 
 export async function fetchWorkRowsByDate(targetDate: string) {
   const buildingSector = alias(etcBaseCode, 'workSector');
-  const targetDateValue = new Date(`${targetDate}T00:00:00+09:00`);
+  const targetDateValue = new Date(`${targetDate}T00:00:00Z`);
 
   return db
     .select({
@@ -117,7 +117,7 @@ export async function fetchWorkRowById(workId: number) {
 
 export async function fetchLatestWorkByDateAndRoom(date: string, roomId: number) {
   const buildingSector = alias(etcBaseCode, 'workSectorLatest');
-  const dateValue = new Date(`${date}T00:00:00+09:00`);
+  const dateValue = new Date(`${date}T00:00:00Z`);
 
   const rows = await db
     .select({
