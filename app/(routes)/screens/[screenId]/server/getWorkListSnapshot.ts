@@ -76,6 +76,7 @@ export async function getWorkListSnapshot(
     const now = getKstNow();
     const minutes = now.getHours() * 60 + now.getMinutes();
     const { targetDate, window, windowDates } = resolveWindow(now, minutes, dateParam, windowParam);
+    const targetDateValue = new Date(`${targetDate}T00:00:00+09:00`);
 
     const notice = await fetchLatestNotice();
 
@@ -84,7 +85,7 @@ export async function getWorkListSnapshot(
 
     const buildingSector = alias(etcBaseCode, 'buildingSector');
 
-    const baseQuery = db
+    const baseQueryBuilder = db
       .select({
         id: workHeader.id,
         date: workHeader.date,
@@ -122,12 +123,11 @@ export async function getWorkListSnapshot(
         buildingSector,
         and(eq(buildingSector.codeGroup, etcBuildings.sectorCode), eq(buildingSector.code, etcBuildings.sectorValue))
       )
-      .leftJoin(workerHeader, eq(workHeader.cleanerId, workerHeader.id))
-      .where(eq(workHeader.date, targetDate));
+      .leftJoin(workerHeader, eq(workHeader.cleanerId, workerHeader.id));
 
-    let rows:
-      | Array<ReturnType<typeof baseQuery>[number] & { assignWorkerId?: number | null }>
-      | undefined = undefined;
+    const baseQuery = baseQueryBuilder.where(eq(workHeader.date, targetDateValue));
+
+    let rows: Awaited<typeof baseQuery> | undefined = undefined;
 
     let emptyMessage: string | undefined;
 
@@ -137,7 +137,9 @@ export async function getWorkListSnapshot(
       if (!client) {
         rows = [];
       } else {
-        rows = await baseQuery.where(and(eq(workHeader.date, targetDate), eq(clientRooms.clientId, client.id)));
+        rows = await baseQueryBuilder
+          .where(and(eq(workHeader.date, targetDateValue), eq(clientRooms.clientId, client.id)))
+          .limit(1000);
       }
     } else if (profile.roles.includes('cleaner')) {
       if (!worker) {
@@ -149,7 +151,9 @@ export async function getWorkListSnapshot(
           rows = [];
           emptyMessage = '아직 할당된 업무가 없습니다.';
         } else {
-          rows = await baseQuery.where(and(eq(workHeader.date, targetDate), inArray(workHeader.id, assignedWorkIds)));
+          rows = await baseQueryBuilder
+            .where(and(eq(workHeader.date, targetDateValue), inArray(workHeader.id, assignedWorkIds)))
+            .limit(1000);
         }
       }
     }
@@ -194,10 +198,11 @@ async function fetchLatestNotice() {
 }
 
 async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
+  const targetDateValue = new Date(`${targetDate}T00:00:00+09:00`);
   const rows = await db
     .select({ workId: workAssignment.workId })
     .from(workAssignment)
-    .where(and(eq(workAssignment.workerId, workerId), eq(workAssignment.assignDate, targetDate)));
+    .where(and(eq(workAssignment.workerId, workerId), eq(workAssignment.assignDate, targetDateValue)));
 
   if (rows.length) {
     return rows.map((row) => Number(row.workId));
@@ -206,7 +211,7 @@ async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
   const directRows = await db
     .select({ id: workHeader.id })
     .from(workHeader)
-    .where(and(eq(workHeader.date, targetDate), eq(workHeader.cleanerId, workerId)));
+    .where(and(eq(workHeader.date, targetDateValue), eq(workHeader.cleanerId, workerId)));
 
   return directRows.map((row) => Number(row.id));
 }
@@ -244,6 +249,7 @@ function normalizeRow(row: any): WorkListEntry {
 }
 
 async function fetchAssignableWorkers(targetDate: string): Promise<AssignableWorker[]> {
+  const targetDateValue = new Date(`${targetDate}T00:00:00+09:00`);
   const rows = await db
     .select({
       id: workApply.workerId,
@@ -254,7 +260,7 @@ async function fetchAssignableWorkers(targetDate: string): Promise<AssignableWor
     })
     .from(workApply)
     .leftJoin(workerHeader, eq(workApply.workerId, workerHeader.id))
-    .where(and(eq(workApply.workDate, targetDate), isNotNull(workApply.workerId)))
+    .where(and(eq(workApply.workDate, targetDateValue), isNotNull(workApply.workerId)))
     .orderBy(workApply.workerId);
 
   const deduped = new Map<number, AssignableWorker>();
@@ -309,7 +315,12 @@ function normalizeDate(input?: string) {
   return input;
 }
 
-function resolveWindow(now: Date, minutes: number, dateParam?: string, windowParam?: 'd0' | 'd1') {
+function resolveWindow(
+  now: Date,
+  minutes: number,
+  dateParam?: string,
+  windowParam?: 'd0' | 'd1'
+): { targetDate: string; window: 'd0' | 'd1'; windowDates: { d0: string; d1: string } } {
   const today = formatDateKey(now);
   const tomorrow = formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
 

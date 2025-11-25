@@ -150,6 +150,7 @@ async function getCleanerSnapshot(profile: ProfileSummary): Promise<CleanerSnaps
 
     const nowKst = getKstNow();
     const targetDateStr = formatDateKey(nowKst);
+    const targetDate = parseDateValue(targetDateStr);
     const tomorrow = new Date(nowKst);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowDateStr = formatDateKey(tomorrow);
@@ -171,7 +172,7 @@ async function getCleanerSnapshot(profile: ProfileSummary): Promise<CleanerSnaps
         buildingSector,
         and(eq(buildingSector.codeGroup, etcBuildings.sectorCode), eq(buildingSector.code, etcBuildings.sectorValue))
       )
-      .where(and(eq(workHeader.cleanerId, worker.id), gte(workHeader.date, targetDateStr)))
+      .where(and(eq(workHeader.cleanerId, worker.id), gte(workHeader.date, targetDate ?? nowKst)))
       .orderBy(asc(workHeader.date))
       .limit(6);
 
@@ -193,7 +194,7 @@ async function getCleanerSnapshot(profile: ProfileSummary): Promise<CleanerSnaps
       })
       .from(workApply)
       .leftJoin(applySector, and(eq(applySector.codeGroup, workApply.sectorCode), eq(applySector.code, workApply.sectorValue)))
-      .where(and(eq(workApply.workerId, worker.id), gte(workApply.workDate, targetDateStr)))
+      .where(and(eq(workApply.workerId, worker.id), gte(workApply.workDate, targetDate ?? nowKst)))
       .orderBy(asc(workApply.workDate), asc(workApply.seq))
       .limit(10);
 
@@ -303,6 +304,7 @@ async function buildButlerSnapshot(
 ): Promise<ButlerSnapshot | null> {
   const { db } = await import('@/src/db/client');
   const targetDateKey = formatDateKey(targetDate);
+  const targetDateValue = parseDateValue(targetDateKey) ?? targetDate;
 
   const works = await db
     .select({
@@ -324,14 +326,14 @@ async function buildButlerSnapshot(
       etcBaseCode,
       and(eq(etcBaseCode.codeGroup, etcBuildings.sectorCode), eq(etcBaseCode.code, etcBuildings.sectorValue))
     )
-    .where(eq(workHeader.date, targetDateKey));
+    .where(eq(workHeader.date, targetDateValue));
 
   const normalizedWorks = works.map((work) => {
     const sectorLabel = work.sectorLabel ?? work.sectorValue ?? work.sectorCode ?? '미지정 섹터';
     const buildingName = work.buildingName ?? '미지정 빌딩';
     const checkoutTimeLabel = formatCheckoutTimeLabel(work.checkoutTime);
     const checkoutMinutes = checkoutTimeToMinutes(work.checkoutTime);
-    const isCleaning = work.cleaningYn === true || work.cleaningYn === 1;
+    const isCleaning = Boolean(work.cleaningYn);
     const workTypeLabel = isCleaning ? '청소' : '점검';
 
     return {
@@ -457,7 +459,7 @@ async function buildButlerSnapshot(
     checkoutTimeLabel: work.checkoutTimeLabel,
     roomNo: work.roomNo,
     workTypeLabel: work.workTypeLabel,
-    isCleaning: work.workTypeLabel === '청소' || work.cleaningYn === true || work.cleaningYn === 1,
+    isCleaning: work.workTypeLabel === '청소',
     comment: work.comment
   }));
 
@@ -773,6 +775,7 @@ async function resolvePreferredSectors(profile: ProfileSummary): Promise<string[
     const nowKst = getKstNow();
     const targetDate = new Date(nowKst);
     const todayKey = formatDateKey(targetDate);
+    const todayDateValue = parseDateValue(todayKey) ?? targetDate;
     const tomorrow = new Date(nowKst);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowKey = formatDateKey(tomorrow);
@@ -786,7 +789,7 @@ async function resolvePreferredSectors(profile: ProfileSummary): Promise<string[
       })
       .from(workApply)
       .leftJoin(applySector, and(eq(applySector.codeGroup, workApply.sectorCode), eq(applySector.code, workApply.sectorValue)))
-      .where(and(eq(workApply.workerId, worker.id), gte(workApply.workDate, todayKey)))
+      .where(and(eq(workApply.workerId, worker.id), gte(workApply.workDate, todayDateValue)))
       .orderBy(asc(workApply.workDate))
       .limit(6);
 

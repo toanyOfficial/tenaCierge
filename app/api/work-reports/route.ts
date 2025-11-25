@@ -16,6 +16,7 @@ import {
 import { logServerError } from '@/src/server/errorLogger';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { fetchWorkRowById } from '@/src/server/workQueries';
+import { getKstNow } from '@/src/utils/workWindow';
 
 export const runtime = 'nodejs';
 
@@ -145,6 +146,8 @@ export async function POST(req: Request) {
     }
 
     const targetTypes = [1, 2, 3];
+    const nowKst = getKstNow();
+    const nowTime = nowKst.toTimeString().slice(0, 8);
 
     await db.delete(workReports).where(and(eq(workReports.workId, workId), inArray(workReports.type, targetTypes)));
 
@@ -154,7 +157,7 @@ export async function POST(req: Request) {
 
     await db
       .update(workHeader)
-      .set({ cleaningFlag: 4, cleaningEndTime: new Date() })
+      .set({ cleaningFlag: 4, cleaningEndTime: nowTime })
       .where(eq(workHeader.id, workId));
 
     return NextResponse.json({ ok: true, images: rowsToInsert.find((row) => row.type === 3)?.contents1 ?? [] });

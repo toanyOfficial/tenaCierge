@@ -17,6 +17,7 @@ import {
 import { logServerError } from '@/src/server/errorLogger';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { fetchWorkRowById } from '@/src/server/workQueries';
+import { getKstNow } from '@/src/utils/workWindow';
 
 export const runtime = 'nodejs';
 
@@ -142,6 +143,8 @@ export async function POST(req: Request) {
     }
 
     const targetTypes = [4, 2, 5];
+    const nowKst = getKstNow();
+    const nowTime = nowKst.toTimeString().slice(0, 8);
 
     await db.transaction(async (tx) => {
       await tx.delete(workReports).where(and(eq(workReports.workId, workId), inArray(workReports.type, targetTypes)));
@@ -152,7 +155,7 @@ export async function POST(req: Request) {
 
       await tx
         .update(workHeader)
-        .set({ supervisingYn: true, supervisingEndTime: new Date() })
+        .set({ supervisingYn: true, supervisingEndTime: nowTime })
         .where(eq(workHeader.id, workId));
 
       const scoredIds = [...new Set([...validCleaningChecks, ...validSupplyChecks])];

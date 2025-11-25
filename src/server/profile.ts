@@ -34,12 +34,13 @@ export async function getProfileWithDynamicRoles(): Promise<ProfileSummary> {
   const now = getKstNow();
   const today = formatDateKey(now);
   const tomorrow = formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+  const targetDates = [today, tomorrow].map((value) => new Date(`${value}T00:00:00+09:00`));
 
   const butlerRows = await db
     .select({ id: workApply.id })
     .from(workApply)
     .where(
-      and(eq(workApply.workerId, worker.id), eq(workApply.position, 2), inArray(workApply.workDate, [today, tomorrow]))
+      and(eq(workApply.workerId, worker.id), eq(workApply.position, 2), inArray(workApply.workDate, targetDates))
     );
 
   const extraRoles = butlerRows.length ? ['butler'] : [];

@@ -83,7 +83,7 @@ export async function getSupervisingReportSnapshot(
       .map(({ id, title, fallbackTitle, type, score }) => ({
         id,
         title: title ?? fallbackTitle ?? '',
-        type,
+        type: Number(type ?? 0),
         score: Number(score) || 0
       }));
 
@@ -92,7 +92,7 @@ export async function getSupervisingReportSnapshot(
       .map(({ id, title, fallbackTitle, type, score }) => ({
         id,
         title: title ?? fallbackTitle ?? '',
-        type,
+        type: Number(type ?? 0),
         score: Number(score) || 0
       }));
 

@@ -29,7 +29,7 @@ export function generateMetadata({ params }: Props): Metadata {
 export default async function ScreenPage({
   params,
   searchParams
-}: Props & { searchParams?: { date?: string; window?: 'd0' | 'd1' } }) {
+}: Props & { searchParams?: { date?: string; window?: 'd0' | 'd1'; workId?: string } }) {
   const { screenId } = params;
 
   if (!['002', '003', '004', '005', '006'].includes(screenId)) {
