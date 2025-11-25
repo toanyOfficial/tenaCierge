@@ -22,8 +22,10 @@ const selection = {
 export type ApplyRow = Awaited<ReturnType<typeof listApplyRows>>[number];
 
 export async function listApplyRows(startDate: string, endDate: string) {
+  const start = new Date(`${startDate}T00:00:00+09:00`);
+  const end = new Date(`${endDate}T00:00:00+09:00`);
   return baseQuery()
-    .where(and(gte(workApply.workDate, startDate), lte(workApply.workDate, endDate)))
+    .where(and(gte(workApply.workDate, start), lte(workApply.workDate, end)))
     .orderBy(asc(workApply.workDate), asc(workApply.sectorValue), asc(workApply.id));
 }
 

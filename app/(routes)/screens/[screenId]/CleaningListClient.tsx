@@ -174,7 +174,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
     snapshot.currentWorkerId
   ]);
 
-  const batchingOnly = snapshot.window === 'batching' && !viewingAsAdmin;
+  const batchingOnly = snapshot.window === 'edit' && !viewingAsAdmin;
   const hostRestrictionMessage = viewingAsHost
     ? snapshot.hostCanEdit
       ? '15:00~16:00 구간에서는 체크아웃/체크인·소모품 정보를 직접 조정할 수 있습니다.'
