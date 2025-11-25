@@ -7,8 +7,8 @@ SELECT
   wh.date,
   wh.cleaner_id,
   wh.cleaning_yn,
-  wh.cleaning_flag,
-  wh.checkout_time,
+  wh.clening_flag,
+  wh.ceckout_time,
   wh.checkin_time,
   wh.blanket_qty,
   wh.amenities_qty,
@@ -23,9 +23,9 @@ SELECT
   cr.checkout_time   AS default_checkout,
   cr.checkin_time    AS default_checkin,
   b.id               AS building_id,
-  b.sector_code,
-  b.sector_value,
-  b.short_name       AS building_short_name,
+  b.basecode_sector,
+  b.basecode_code,
+  b.building_short_name,
   b.building_name,
   bc.value           AS sector_value_label
 FROM work_header AS wh
@@ -34,6 +34,6 @@ LEFT JOIN client_rooms AS cr
 LEFT JOIN etc_buildings AS b
   ON cr.building_id = b.id
 LEFT JOIN etc_baseCode AS bc
-  ON bc.code_group = b.sector_code AND bc.code = b.sector_value
+  ON bc.code_group = b.basecode_sector AND bc.code = b.basecode_code
 WHERE wh.date = DATE(:target_date)
 ORDER BY wh.id ASC;
