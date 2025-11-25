@@ -9,6 +9,7 @@ import { getApplyHorizonDays, getApplyStartLabel } from '@/src/utils/tier';
 import { parseTimeString } from '@/src/utils/time';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { getKstNow } from '@/src/utils/workWindow';
+import type { ProfileSummary } from '@/src/utils/profile';
 
 const ALLOWED_ROLES = ['admin', 'butler', 'cleaner'] as const;
 const CUTOFF_MINUTES = 10 * 60;
@@ -58,7 +59,7 @@ export async function PATCH(request: Request, { params }: { params: { applyId: s
 }
 
 type ApplyContext = {
-  profile: ReturnType<typeof getProfileSummary>;
+  profile: ProfileSummary;
   slot: NonNullable<Awaited<ReturnType<typeof getApplyRowById>>>;
   now: Date;
   daysUntil: number;
@@ -117,7 +118,7 @@ async function handleApply({ profile, slot, now, daysUntil, isButlerSlot, occupa
 }
 
 type CancelContext = {
-  profile: ReturnType<typeof getProfileSummary>;
+  profile: ProfileSummary;
   slot: NonNullable<Awaited<ReturnType<typeof getApplyRowById>>>;
   now: Date;
   daysUntil: number;

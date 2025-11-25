@@ -25,6 +25,7 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
       cleanerId: workHeader.cleanerId,
       supplyYn: workHeader.supplyYn,
       cleaningFlag: workHeader.cleaningFlag,
+      supervisingYn: workHeader.supervisingYn,
       supervisingEndTime: workHeader.supervisingEndTime
     })
     .from(workHeader)
@@ -71,6 +72,7 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
     if (!isAdmin && !isButler) {
       return NextResponse.json({ message: '검수 상태는 관리자/버틀러만 변경할 수 있습니다.' }, { status: 403 });
     }
+    updates.supervisingYn = body.supervisingDone;
     updates.supervisingEndTime = body.supervisingDone ? getKstNow() : null;
   }
 
@@ -124,6 +126,7 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
       id: workHeader.id,
       supplyYn: workHeader.supplyYn,
       cleaningFlag: workHeader.cleaningFlag,
+      supervisingYn: workHeader.supervisingYn,
       supervisingEndTime: workHeader.supervisingEndTime,
       cleanerId: workHeader.cleanerId,
       cleanerName: workerHeader.name
@@ -139,6 +142,7 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
     work: {
       supplyYn: Boolean(next?.supplyYn),
       cleaningFlag: Number(next?.cleaningFlag ?? updates.cleaningFlag ?? 1),
+      supervisingYn: Boolean(next?.supervisingYn ?? updates.supervisingYn ?? false),
       supervisingEndTime: next?.supervisingEndTime ?? null,
       cleanerId: next?.cleanerId ?? null,
       cleanerName: next?.cleanerName ?? ''
