@@ -55,6 +55,14 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
     return formatCurrency(line.amount);
   };
 
+  const renderRatioLineText = (line: SettlementSnapshot['statements'][number]['lines'][number]) => {
+    if (!line.ratioYn) return line.item;
+
+    const percent = line.ratioValue ?? line.amount;
+    const applied = Math.abs(line.rawTotal ?? line.total);
+    return `${line.item} · ${percent}% · -${formatCurrency(applied)}원x${percent}%`;
+  };
+
   return (
     <div className={styles.wrapper}>
       <div className={styles.panel}>
@@ -143,14 +151,19 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
               <span className={styles.chip}>{month}</span>
             </div>
 
-            <div className={styles.meta}>
-              <div>청소비용: {formatCurrency(statement.totals.cleaning)} 원</div>
-              <div>시설관리비용: {formatCurrency(statement.totals.facility)} 원</div>
-              <div>월정액비용: {formatCurrency(statement.totals.monthly)} 원</div>
-              <div>기타비용: {formatCurrency(statement.totals.misc)} 원</div>
-              <div>합계: {formatCurrency(statement.totals.total)} 원</div>
-              <div>VAT(10%): {formatCurrency(statement.totals.vat)} 원</div>
-              <div>총액(VAT포함): {formatCurrency(statement.totals.grandTotal)} 원</div>
+            <div className={styles.metaHighlight}>
+              <div className={styles.metaItem}>
+                <span className={styles.metaLabel}>합계</span>
+                <strong className={styles.metaValue}>{formatCurrency(statement.totals.total)} 원</strong>
+              </div>
+              <div className={styles.metaItem}>
+                <span className={styles.metaLabel}>VAT(10%)</span>
+                <strong className={styles.metaValue}>{formatCurrency(statement.totals.vat)} 원</strong>
+              </div>
+              <div className={`${styles.metaItem} ${styles.metaGrand}`}>
+                <span className={styles.metaLabel}>총액(VAT포함)</span>
+                <strong className={styles.metaValue}>{formatCurrency(statement.totals.grandTotal)} 원</strong>
+              </div>
             </div>
 
           {statement.lines.length === 0 && (
@@ -255,15 +268,10 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
 
                         {room.monthly.map((line) => (
                           <Fragment key={line.id}>
-                            <div className={styles.lineCell}>
-                              {line.item}
-                              {line.ratioYn && (
-                                <div className={styles.note}>비율 {line.ratioValue ?? line.amount}% · 적용금액 {formatCurrency(line.total)}</div>
-                              )}
+                            <div className={`${styles.lineCell} ${line.ratioYn ? styles.ratioText : ''}`}>
+                              {renderRatioLineText(line)}
                             </div>
-                            <div className={styles.lineCell}>
-                              {formatCurrency(line.total)}
-                            </div>
+                            <div className={styles.lineCell}>{formatCurrency(line.total)}</div>
                           </Fragment>
                         ))}
 
@@ -293,19 +301,16 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
                           {room.perWork.map((line) => (
                             <div key={line.id} className={styles.lineRow}>
                               <div className={styles.lineCell}>{line.date}</div>
-                              <div className={styles.lineCell}>
-                                {line.item}
-                                {line.ratioYn && (
-                                  <div className={styles.note}>비율 {line.ratioValue ?? line.amount}% · 적용금액 {formatCurrency(line.total)}</div>
-                                )}
+                              <div className={`${styles.lineCell} ${line.ratioYn ? styles.ratioText : ''}`}>
+                                {renderRatioLineText(line)}
                               </div>
-                            <div className={styles.lineCell}>{renderAmount(line)}</div>
-                            <div className={styles.lineCell}>{line.quantity}</div>
-                            <div className={styles.lineCell}>
-                              {formatCurrency(line.total)}
+                              <div className={styles.lineCell}>{renderAmount(line)}</div>
+                              <div className={styles.lineCell}>{line.quantity}</div>
+                              <div className={styles.lineCell}>
+                                {formatCurrency(line.total)}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
 
                           <div className={styles.totalRow}>
                             <div className={styles.totalLabel}>합계</div>
