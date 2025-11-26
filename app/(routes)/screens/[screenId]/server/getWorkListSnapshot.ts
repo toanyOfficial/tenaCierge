@@ -249,7 +249,7 @@ function normalizeRow(row: any): WorkListEntry {
 }
 
 async function fetchAssignableWorkers(targetDate: string): Promise<AssignableWorker[]> {
-  const targetDateValue = new Date(`${targetDate}T00:00:00+09:00`);
+  const targetDateValue = new Date(`${targetDate}T00:00:00Z`);
   const rows = await db
     .select({
       id: workApply.workerId,
