@@ -141,6 +141,48 @@ function addLine(
   lines.push({ ...line, total, id: line.id ?? `${line.date}-${line.item}-${lines.length}` });
 }
 
+async function loadCustomPrices(
+  roomIds: number[],
+  start: Date,
+  end: Date,
+  month: string,
+  hostId?: number
+) {
+  try {
+    return await db
+      .select({
+        roomId: clientCustomPrice.roomId,
+        title: clientCustomPrice.title,
+        pricePerCleaning: sql`CAST(${clientCustomPrice.pricePerCleaning} AS DECIMAL(20,4))`,
+        pricePerMonth: sql`CAST(${clientCustomPrice.pricePerMonth} AS DECIMAL(20,4))`,
+        start: clientCustomPrice.startDate,
+        end: clientCustomPrice.endDate
+      })
+      .from(clientCustomPrice)
+      .where(
+        and(
+          inArray(clientCustomPrice.roomId, roomIds),
+          lte(clientCustomPrice.startDate, end),
+          gte(clientCustomPrice.endDate, start)
+        )
+      );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '알 수 없는 오류';
+    const isMissingTable = message.includes("doesn't exist") || message.includes('does not exist');
+
+    if (isMissingTable) {
+      await logEtcError({
+        message: `client_custom_price 누락으로 커스텀 요금을 생략합니다: ${message}`,
+        stacktrace: error instanceof Error ? error.stack ?? null : null,
+        context: { month, hostId: hostId ?? null, table: 'client_custom_price' }
+      });
+      return [];
+    }
+
+    throw error;
+  }
+}
+
 export async function getSettlementSnapshot(
   profile: ProfileSummary,
   monthParam?: string | null,
@@ -199,23 +241,7 @@ export async function getSettlementSnapshot(
     const roomIds = roomRows.map((row) => row.roomId);
 
     const priceRows = roomIds.length
-      ? await db
-          .select({
-            roomId: clientCustomPrice.roomId,
-            title: clientCustomPrice.title,
-            pricePerCleaning: sql`CAST(${clientCustomPrice.pricePerCleaning} AS DECIMAL(20,4))`,
-            pricePerMonth: sql`CAST(${clientCustomPrice.pricePerMonth} AS DECIMAL(20,4))`,
-            start: clientCustomPrice.startDate,
-            end: clientCustomPrice.endDate
-          })
-          .from(clientCustomPrice)
-          .where(
-            and(
-              inArray(clientCustomPrice.roomId, roomIds),
-              lte(clientCustomPrice.startDate, end),
-              gte(clientCustomPrice.endDate, start)
-            )
-          )
+      ? await loadCustomPrices(roomIds, start, end, month, hostFilterId ?? undefined)
       : [];
 
     const additionalRows = roomIds.length
