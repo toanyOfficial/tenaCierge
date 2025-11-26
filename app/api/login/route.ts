@@ -6,6 +6,9 @@ import { db } from '@/src/db/client';
 import { clientHeader, workerHeader } from '@/src/db/schema';
 import { getSeoul1630Expiry } from '@/src/utils/cookie';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 type WorkerRecord = {
   id: number;
   name: string;
