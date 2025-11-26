@@ -88,6 +88,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: validation.message }, { status: 400 });
   }
 
+  const duplicate = await fetchLatestWorkByDateAndRoom(insertDate, roomMeta.roomId);
+
+  if (duplicate) {
+    return NextResponse.json(
+      { message: '해당 날짜에 이미 등록된 작업이 있습니다.', work: serializeWorkRow(duplicate) },
+      { status: 409 }
+    );
+  }
+
   const insertPayload = buildInsertPayload(insertDate, roomMeta.roomId, validation.values);
 
   const result = await db.insert(workHeader).values(insertPayload);

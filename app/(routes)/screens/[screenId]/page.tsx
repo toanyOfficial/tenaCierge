@@ -169,7 +169,7 @@ export default async function ScreenPage({
     }
   }
 
-  const snapshot = await getCleaningSnapshot(profile);
+  const snapshot = await getCleaningSnapshot(profile, searchParams?.date);
 
   return (
     <div className={styles.screenWrapper}>
