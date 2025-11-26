@@ -107,7 +107,7 @@ class CleanerRankingBatch:
         start_dt = dt.datetime.combine(self.target_date, dt.time.min)
         end_dt = start_dt + dt.timedelta(days=1)
         sql = """
-            SELECT id, worker_id, checklist_title_array, checklist_point_sum
+            SELECT id, worker_id, checklist_title_array, checklist_point_sum, evaluate_dttm
             FROM worker_evaluateHistory
             WHERE evaluate_dttm >= %s AND evaluate_dttm < %s
         """
@@ -125,6 +125,7 @@ class CleanerRankingBatch:
                     id=int(row["id"]),
                     points=int(row.get("checklist_point_sum") or 0),
                     checklist_ids=list(checklist_list),
+                    evaluate_dttm=row.get("evaluate_dttm"),
                 )
                 evaluations.setdefault(worker_id, []).append(entry)
         logging.info("%s 일자 평가 건수: %s명", self.target_date, len(evaluations))
@@ -233,12 +234,18 @@ class CleanerRankingBatch:
             return
         with self.conn.cursor() as cur:
             for worker_id, comment in comments.items():
-                ids = [entry["id"] for entry in evaluations.get(worker_id, [])]
-                if not ids:
+                entries = evaluations.get(worker_id, [])
+                if not entries:
                     continue
-                placeholders = ",".join(["%s"] * len(ids))
-                sql = f"UPDATE worker_evaluateHistory SET comment=%s WHERE id IN ({placeholders})"
-                cur.execute(sql, (comment, *ids))
+                latest_entry = max(
+                    entries,
+                    key=lambda e: (
+                        e.get("evaluate_dttm") or dt.datetime.min,
+                        e.get("id", 0),
+                    ),
+                )
+                sql = "UPDATE worker_evaluateHistory SET comment=%s WHERE id=%s"
+                cur.execute(sql, (comment, latest_entry["id"]))
         logging.info("AI 코멘트 업데이트 %s명", len(comments))
 
     def _persist_tiers(self, updates: Dict[int, int]) -> None:
