@@ -189,7 +189,7 @@ function addLine(
   room: { roomId: number; roomLabel: string },
   line: Omit<SettlementLine, 'id' | 'total' | 'rawTotal' | 'roomId' | 'roomLabel'> & { id?: string }
 ) {
-  const rawTotal = line.amount * line.quantity;
+  const rawTotal = line.ratioYn ? 0 : line.amount * line.quantity;
   const total = line.minusYn ? -rawTotal : rawTotal;
 
   lines.push({
@@ -203,8 +203,6 @@ function addLine(
     ratioValue: line.ratioValue,
     id: line.id ?? `${room.roomLabel}-${line.date}-${line.item}-${lines.length}`
   });
-
-  return total;
 }
 
 async function loadPriceItems(roomIds: number[], month: string, hostId?: number | null) {
@@ -485,7 +483,7 @@ export async function getSettlementSnapshot(
         switch (price.type) {
           case 1: {
             if (isCleaningWork) {
-              const delta = addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
+              addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
                 date,
                 item: `${room.label} ${price.title ?? '청소비'}`,
                 amount: price.amount,
@@ -495,14 +493,13 @@ export async function getSettlementSnapshot(
                 ratioYn: price.ratioYn,
                 ratioValue: price.ratioValue
               });
-              hostStatement.totals.cleaning += delta;
             }
             break;
           }
           case 3: {
             if (isCleaningWork) {
               const qty = room.bedCount ?? 1;
-              const delta = addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
+              addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
                 date,
                 item: `${room.label} ${price.title ?? '침구/베드 청소비'}`,
                 amount: price.amount,
@@ -512,7 +509,6 @@ export async function getSettlementSnapshot(
                 ratioYn: price.ratioYn,
                 ratioValue: price.ratioValue
               });
-              hostStatement.totals.facility += delta;
             }
             break;
           }
@@ -524,7 +520,7 @@ export async function getSettlementSnapshot(
             const varianceMinutes = Math.max(0, actualOut - expectedOut) + Math.max(0, expectedIn - actualIn);
 
             if (varianceMinutes > 0) {
-              const delta = addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
+              addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
                 date,
                 item: `${room.label} ${price.title ?? '체크인/아웃 변동'}`,
                 amount: price.amount,
@@ -534,7 +530,6 @@ export async function getSettlementSnapshot(
                 ratioYn: price.ratioYn,
                 ratioValue: price.ratioValue
               });
-              hostStatement.totals.facility += delta;
             }
             break;
           }
@@ -545,7 +540,7 @@ export async function getSettlementSnapshot(
             const extras = extraAmenities + extraBlankets;
 
             if (extras > 0) {
-              const delta = addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
+              addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
                 date,
                 item: `${room.label} ${price.title ?? '추가 어메니티/침구'}`,
                 amount: price.amount,
@@ -555,7 +550,6 @@ export async function getSettlementSnapshot(
                 ratioYn: price.ratioYn,
                 ratioValue: price.ratioValue
               });
-              hostStatement.totals.facility += delta;
             }
             break;
           }
@@ -580,7 +574,7 @@ export async function getSettlementSnapshot(
         switch (price.type) {
           case 2: {
             const perDay = price.amount / daysInMonth;
-            const delta = addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
+            addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
               date: monthDate,
               item: `${roomInfo.label} ${price.title ?? '월정액'}`,
               amount: perDay,
@@ -590,14 +584,13 @@ export async function getSettlementSnapshot(
               ratioYn: price.ratioYn,
               ratioValue: price.ratioValue
             });
-            hostStatement.totals.monthly += delta;
             break;
           }
           case 4: {
             const qty = roomInfo.bedCount ?? 1;
             const perDay = price.amount / daysInMonth;
             const totalQty = qty * activeDays;
-            const delta = addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
+            addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
               date: monthDate,
               item: `${roomInfo.label} ${price.title ?? '침구 월정액'} (x${qty})`,
               amount: perDay,
@@ -607,11 +600,10 @@ export async function getSettlementSnapshot(
               ratioYn: price.ratioYn,
               ratioValue: price.ratioValue
             });
-            hostStatement.totals.monthly += delta;
             break;
           }
           case 7: {
-            const delta = addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
+            addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
               date: monthDate,
               item: `${roomInfo.label} ${price.title ?? '임시 항목'}`,
               amount: price.amount,
@@ -621,7 +613,6 @@ export async function getSettlementSnapshot(
               ratioYn: price.ratioYn,
               ratioValue: price.ratioValue
             });
-            hostStatement.totals.misc += delta;
             break;
           }
           default:
@@ -638,19 +629,55 @@ export async function getSettlementSnapshot(
     const date = extra.date.toISOString().slice(0, 10);
     const price = Number(extra.price ?? 0);
 
-    const delta = addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: room.label }, {
+    addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: room.label }, {
       date,
       item: `${room.label} ${extra.title}`,
       amount: price,
       quantity: 1,
       category: 'misc'
     });
-    hostStatement.totals.misc += delta;
   }
 
   for (const statement of statements) {
-    statement.totals.total =
+    const baseByRoomCategory = new Map<string, number>();
+
+    for (const line of statement.lines) {
+      if (line.minusYn || line.ratioYn) continue;
+      const key = `${line.roomId}-${line.category}`;
+      const prev = baseByRoomCategory.get(key) ?? 0;
+      baseByRoomCategory.set(key, prev + line.rawTotal);
+    }
+
+    for (const line of statement.lines) {
+      if (!line.ratioYn) continue;
+      const key = `${line.roomId}-${line.category}`;
+      const base = baseByRoomCategory.get(key) ?? 0;
+      const ratio = (line.ratioValue ?? line.amount) / 100;
+      const computed = base * ratio;
+
+      line.rawTotal = computed;
+      line.total = line.minusYn ? -computed : computed;
+    }
+
+    const discountSum = statement.lines.filter((line) => line.minusYn).reduce((sum, line) => sum + line.total, 0);
+
+    statement.totals.cleaning = statement.lines
+      .filter((line) => line.category === 'cleaning' && !line.minusYn)
+      .reduce((sum, line) => sum + line.total, 0);
+    statement.totals.facility = statement.lines
+      .filter((line) => line.category === 'facility' && !line.minusYn)
+      .reduce((sum, line) => sum + line.total, 0);
+    statement.totals.monthly = statement.lines
+      .filter((line) => line.category === 'monthly' && !line.minusYn)
+      .reduce((sum, line) => sum + line.total, 0);
+    statement.totals.misc = statement.lines
+      .filter((line) => line.category === 'misc' && !line.minusYn)
+      .reduce((sum, line) => sum + line.total, 0);
+
+    const baseTotal =
       statement.totals.cleaning + statement.totals.facility + statement.totals.monthly + statement.totals.misc;
+
+    statement.totals.total = baseTotal + discountSum;
 
     statement.lines.sort((a, b) => a.date.localeCompare(b.date));
   }

@@ -153,9 +153,12 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
                     roomId: line.roomId,
                     roomLabel: line.roomLabel,
                     monthly: [] as typeof statement.lines,
-                  perWork: [] as typeof statement.lines
-                };
-                if (line.category === 'monthly') {
+                    perWork: [] as typeof statement.lines,
+                    discounts: [] as typeof statement.lines
+                  };
+                if (line.minusYn) {
+                  entry.discounts.push(line);
+                } else if (line.category === 'monthly') {
                   entry.monthly.push(line);
                 } else {
                   entry.perWork.push(line);
@@ -163,20 +166,26 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
                 map.set(line.roomId, entry);
                 return map;
               },
-              new Map<number, { roomId: number; roomLabel: string; monthly: typeof statement.lines; perWork: typeof statement.lines }>()
+              new Map<number, {
+                roomId: number;
+                roomLabel: string;
+                monthly: typeof statement.lines;
+                perWork: typeof statement.lines;
+                discounts: typeof statement.lines;
+              }>()
             ).values()
           ).map((room) => {
-              const monthlyBase = room.monthly.reduce((sum, line) => sum + (line.minusYn ? 0 : line.rawTotal), 0);
-              const monthlyDiscount = room.monthly.reduce((sum, line) => sum + (line.minusYn ? line.rawTotal : 0), 0);
-              const monthlyTotal = monthlyBase - monthlyDiscount;
+              const monthlyTotal = room.monthly.reduce((sum, line) => sum + line.total, 0);
+              const perWorkTotal = room.perWork.reduce((sum, line) => sum + line.total, 0);
 
-              const perWorkBase = room.perWork.reduce((sum, line) => sum + (line.minusYn ? 0 : line.rawTotal), 0);
-              const perWorkDiscount = room.perWork.reduce((sum, line) => sum + (line.minusYn ? line.rawTotal : 0), 0);
-              const perWorkTotal = perWorkBase - perWorkDiscount;
+              const discountTotal = room.discounts.reduce((sum, line) => sum + line.total, 0);
+
+              const monthlyBase = monthlyTotal;
+              const perWorkBase = perWorkTotal;
 
               const roomBase = monthlyBase + perWorkBase;
-              const roomDiscount = monthlyDiscount + perWorkDiscount;
-              const roomTotal = roomBase - roomDiscount;
+              const roomTotal = roomBase + discountTotal;
+              const hasDiscount = discountTotal !== 0;
 
               return (
                 <div key={room.roomId} className={styles.roomSection}>
@@ -187,37 +196,42 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
 
                   <div className={styles.roomTotals}>
                     <span>
-                      월 비용 합계: <strong className={monthlyTotal < 0 ? styles.negative : ''}>{formatCurrency(monthlyTotal)}</strong>{' '}
-                      <span className={styles.muted}>
-                        (할인 전 {formatCurrency(monthlyBase)}원{monthlyDiscount > 0 ? ` · 할인 -${formatCurrency(monthlyDiscount)}원` : ''})
-                      </span>
+                      월 비용 합계:{' '}
+                      <strong className={monthlyTotal < 0 ? styles.negative : ''}>{formatCurrency(monthlyTotal)}</strong>
                     </span>
                     <span>
                       회당 비용 합계:{' '}
-                      <strong className={perWorkTotal < 0 ? styles.negative : ''}>{formatCurrency(perWorkTotal)}</strong>{' '}
-                      <span className={styles.muted}>
-                        (할인 전 {formatCurrency(perWorkBase)}원{perWorkDiscount > 0 ? ` · 할인 -${formatCurrency(perWorkDiscount)}원` : ''})
-                      </span>
+                      <strong className={perWorkTotal < 0 ? styles.negative : ''}>{formatCurrency(perWorkTotal)}</strong>
                     </span>
                     <span className={styles.totalStack}>
                       <span className={styles.totalLabel}>객실 총 금액</span>
-                      <span className={styles.totalValueRow}>
-                        <span className={styles.muted}>할인 전</span>
-                        <strong>{formatCurrency(roomBase)}</strong>원
-                      </span>
-                      {roomDiscount > 0 && (
-                        <span className={`${styles.totalValueRow} ${styles.negative}`}>
-                          <span className={styles.muted}>할인/공제</span>
-                          <strong>-{formatCurrency(roomDiscount)}</strong>원
+                      {hasDiscount ? (
+                        <>
+                          <span className={styles.totalValueRow}>
+                            <span className={styles.muted}>할인 전</span>
+                            <strong>{formatCurrency(roomBase)}</strong>원
+                          </span>
+                          <span className={`${styles.totalValueRow} ${styles.negative}`}>
+                            <span className={styles.muted}>할인/공제</span>
+                            <strong>{formatCurrency(discountTotal)}</strong>원
+                          </span>
+                          <span className={styles.totalValueRow}>
+                            <span className={styles.muted}>최종</span>
+                            <strong className={roomTotal < 0 ? styles.negative : styles.emphasis}>
+                              {formatCurrency(roomTotal)}
+                            </strong>
+                            원
+                          </span>
+                        </>
+                      ) : (
+                        <span className={styles.totalValueRow}>
+                          <span className={styles.muted}>총액</span>
+                          <strong className={roomTotal < 0 ? styles.negative : styles.emphasis}>
+                            {formatCurrency(roomTotal)}
+                          </strong>
+                          원
                         </span>
                       )}
-                      <span className={styles.totalValueRow}>
-                        <span className={styles.muted}>최종</span>
-                        <strong className={roomTotal < 0 ? styles.negative : styles.emphasis}>
-                          {formatCurrency(roomTotal)}
-                        </strong>
-                        원
-                      </span>
                     </span>
                   </div>
 
@@ -236,23 +250,13 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
                                 <div className={styles.note}>비율 {line.ratioValue ?? line.amount}% · 적용금액 {formatCurrency(line.total)}</div>
                               )}
                             </div>
-                            <div className={`${styles.lineCell} ${line.minusYn ? styles.negative : ''}`}>
+                            <div className={styles.lineCell}>
                               {formatCurrency(line.total)}
                             </div>
                           </Fragment>
                         ))}
 
-                        <div className={styles.totalLabel}>할인 전 합계</div>
-                        <div className={styles.totalValue}>{formatCurrency(monthlyBase)}</div>
-
-                        {monthlyDiscount > 0 && (
-                          <>
-                            <div className={styles.totalLabel}>할인/공제</div>
-                            <div className={`${styles.totalValue} ${styles.negative}`}>-{formatCurrency(monthlyDiscount)}</div>
-                          </>
-                        )}
-
-                        <div className={styles.totalLabel}>최종 합계</div>
+                        <div className={styles.totalLabel}>합계</div>
                         <div className={`${styles.totalValue} ${monthlyTotal < 0 ? styles.negative : ''}`}>
                           {formatCurrency(monthlyTotal)}
                         </div>
@@ -284,34 +288,16 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
                                   <div className={styles.note}>비율 {line.ratioValue ?? line.amount}% · 적용금액 {formatCurrency(line.total)}</div>
                                 )}
                               </div>
-                              <div className={styles.lineCell}>{renderAmount(line)}</div>
-                              <div className={styles.lineCell}>{line.quantity}</div>
-                              <div className={`${styles.lineCell} ${line.minusYn ? styles.negative : ''}`}>
-                                {formatCurrency(line.total)}
-                              </div>
+                            <div className={styles.lineCell}>{renderAmount(line)}</div>
+                            <div className={styles.lineCell}>{line.quantity}</div>
+                            <div className={styles.lineCell}>
+                              {formatCurrency(line.total)}
                             </div>
-                          ))}
+                          </div>
+                        ))}
 
                           <div className={styles.totalRow}>
-                            <div className={styles.totalLabel}>할인 전 합계</div>
-                            <div className={styles.totalLabel}></div>
-                            <div className={styles.totalLabel}></div>
-                            <div className={styles.totalLabel}></div>
-                            <div className={styles.totalValue}>{formatCurrency(perWorkBase)}</div>
-                          </div>
-                          {perWorkDiscount > 0 && (
-                            <div className={styles.totalRow}>
-                              <div className={styles.totalLabel}>할인/공제</div>
-                              <div className={styles.totalLabel}></div>
-                              <div className={styles.totalLabel}></div>
-                              <div className={styles.totalLabel}></div>
-                              <div className={`${styles.totalValue} ${styles.negative}`}>
-                                -{formatCurrency(perWorkDiscount)}
-                              </div>
-                            </div>
-                          )}
-                          <div className={styles.totalRow}>
-                            <div className={styles.totalLabel}>최종 합계</div>
+                            <div className={styles.totalLabel}>합계</div>
                             <div className={styles.totalLabel}></div>
                             <div className={styles.totalLabel}></div>
                             <div className={styles.totalLabel}></div>
