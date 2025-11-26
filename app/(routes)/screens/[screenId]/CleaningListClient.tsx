@@ -499,6 +499,11 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
     const isMine = snapshot.currentWorkerId && work.cleanerId === snapshot.currentWorkerId;
     const isInspection = work.cleaningYn === false;
     const statusLabel = isInspection ? '상태 확인' : work.cancelYn ? '취소 상태' : '예약 유지';
+    const statusClass = isInspection
+      ? styles.statusCheckBadge
+      : work.cancelYn
+        ? styles.badgeDanger
+        : styles.badgeMuted;
 
     return (
       <article key={work.id} className={`${styles.workCard} ${isMine ? styles.workCardOwned : ''}`.trim()}>
@@ -506,9 +511,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
           <div className={styles.workHeaderRow}>
             <p className={styles.workTitle}>{work.roomName}</p>
             <div className={styles.workMetaRow}>
-              <span className={isInspection ? styles.badgeMuted : work.cancelYn ? styles.badgeDanger : styles.badgeMuted}>
-                {statusLabel}
-              </span>
+              <span className={statusClass}>{statusLabel}</span>
               {!isInspection ? (
                 canEdit ? (
                   <button
