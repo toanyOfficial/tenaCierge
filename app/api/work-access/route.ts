@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     const now = getKstNow();
     const today = formatDateKey(now);
     const tomorrow = formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
-    const targetDates = [today, tomorrow];
+    const targetDates = [today, tomorrow].map((value) => new Date(`${value}T00:00:00+09:00`));
 
     const applyRows = await db
       .select({ date: workApply.workDate })

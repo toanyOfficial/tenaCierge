@@ -6,11 +6,15 @@ import CleaningListClient from './CleaningListClient';
 import ApplyClient from './ApplyClient';
 import WorkListClient from './WorkListClient';
 import CleaningReportClient from './CleaningReportClient';
+import SupervisingReportClient from './SupervisingReportClient';
+import EvaluationHistoryClient from './EvaluationHistoryClient';
 import { getCleaningSnapshot } from './server/getCleaningSnapshot';
 import { getApplySnapshot } from './server/getApplySnapshot';
 import { getWorkListSnapshot } from './server/getWorkListSnapshot';
 import { getCleaningReportSnapshot } from './server/getCleaningReportSnapshot';
+import { getSupervisingReportSnapshot } from './server/getSupervisingReportSnapshot';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
+import { getEvaluationSnapshot } from '@/src/server/evaluations';
 
 type Props = {
   params: {
@@ -27,10 +31,10 @@ export function generateMetadata({ params }: Props): Metadata {
 export default async function ScreenPage({
   params,
   searchParams
-}: Props & { searchParams?: { date?: string; window?: 'd0' | 'd1' } }) {
+}: Props & { searchParams?: { date?: string; window?: 'd0' | 'd1'; workId?: string; workerId?: string } }) {
   const { screenId } = params;
 
-  if (!['002', '003', '004', '005'].includes(screenId)) {
+  if (!['002', '003', '004', '005', '006', '007'].includes(screenId)) {
     return (
       <section className={styles.placeholder}>
         <div className={styles.card}>
@@ -85,16 +89,116 @@ export default async function ScreenPage({
 
   if (screenId === '005') {
     const workId = searchParams?.workId ? Number(searchParams.workId) : null;
-    const snapshot = await getCleaningReportSnapshot(profile, workId);
+
+    if (!workId || Number.isNaN(workId)) {
+      return (
+        <section className={styles.placeholder}>
+          <div className={styles.card}>
+            <p className={styles.lead}>청소완료보고를 조회하려면 workId 파라미터가 필요합니다.</p>
+            <p className={styles.helper}>업무 목록에서 원하는 업무를 선택해 이동해 주세요.</p>
+            <Link className={styles.backLink} href="/screens/004">
+              업무 목록으로 돌아가기
+            </Link>
+          </div>
+        </section>
+      );
+    }
+
+    try {
+      const snapshot = await getCleaningReportSnapshot(profile, workId);
+
+      return (
+        <div className={styles.screenWrapper}>
+          <CleaningReportClient profile={profile} snapshot={snapshot} />
+        </div>
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '청소완료보고 데이터를 불러오지 못했습니다.';
+
+      return (
+        <section className={styles.placeholder}>
+          <div className={styles.card}>
+            <p className={styles.lead}>청소완료보고 화면을 불러오지 못했습니다.</p>
+            <p className={styles.helper}>{message}</p>
+            <Link className={styles.backLink} href="/screens/004">
+              업무 목록으로 돌아가기
+            </Link>
+          </div>
+        </section>
+      );
+    }
+  }
+
+  if (screenId === '006') {
+    const workId = searchParams?.workId ? Number(searchParams.workId) : null;
+
+    if (!workId || Number.isNaN(workId)) {
+      return (
+        <section className={styles.placeholder}>
+          <div className={styles.card}>
+            <p className={styles.lead}>수퍼바이징 완료보고를 조회하려면 workId 파라미터가 필요합니다.</p>
+            <p className={styles.helper}>과업지시서에서 검수완료 버튼을 눌러 이동해 주세요.</p>
+            <Link className={styles.backLink} href="/screens/004">
+              과업지시서로 돌아가기
+            </Link>
+          </div>
+        </section>
+      );
+    }
+
+    try {
+      const snapshot = await getSupervisingReportSnapshot(profile, workId);
+
+      return (
+        <div className={styles.screenWrapper}>
+          <SupervisingReportClient profile={profile} snapshot={snapshot} />
+        </div>
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '수퍼바이징 완료보고 데이터를 불러오지 못했습니다.';
+
+      return (
+        <section className={styles.placeholder}>
+          <div className={styles.card}>
+            <p className={styles.lead}>수퍼바이징 완료보고 화면을 불러오지 못했습니다.</p>
+            <p className={styles.helper}>{message}</p>
+            <Link className={styles.backLink} href="/screens/004">
+              과업지시서로 돌아가기
+            </Link>
+          </div>
+        </section>
+      );
+    }
+  }
+
+  if (screenId === '007') {
+    const allowedRoles = ['admin', 'butler', 'cleaner'];
+    const canAccess = profile.roles.some((role) => allowedRoles.includes(role));
+
+    if (!canAccess) {
+      return (
+        <section className={styles.placeholder}>
+          <div className={styles.card}>
+            <p className={styles.lead}>평가 이력은 관리자, 버틀러, 클리너만 조회할 수 있습니다.</p>
+            <Link className={styles.backLink} href="/dashboard">
+              대시보드로 돌아가기
+            </Link>
+          </div>
+        </section>
+      );
+    }
+
+    const workerId = searchParams?.workerId ? Number(searchParams.workerId) : undefined;
+    const snapshot = await getEvaluationSnapshot(profile, workerId);
 
     return (
       <div className={styles.screenWrapper}>
-        <CleaningReportClient profile={profile} snapshot={snapshot} />
+        <EvaluationHistoryClient profile={profile} snapshot={snapshot} />
       </div>
     );
   }
 
-  const snapshot = await getCleaningSnapshot(profile);
+  const snapshot = await getCleaningSnapshot(profile, searchParams?.date);
 
   return (
     <div className={styles.screenWrapper}>

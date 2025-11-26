@@ -7,7 +7,14 @@ import { findWorkerByProfile } from '@/src/server/workers';
 import { fetchWorkRowsByDate, serializeWorkRow } from '@/src/server/workQueries';
 import type { CleaningWork } from '@/src/server/workTypes';
 import type { ProfileSummary } from '@/src/utils/profile';
-import { resolveWorkWindow, type WorkWindowMeta } from '@/src/utils/workWindow';
+import {
+  buildDateOptions,
+  formatDateKey,
+  getKstNow,
+  isDateWithinRange,
+  resolveWorkWindow,
+  type WorkWindowMeta
+} from '@/src/utils/workWindow';
 
 export type RoomOption = {
   roomId: number;
@@ -26,6 +33,9 @@ export type CleaningSnapshot = {
   targetDateLabel: string;
   targetDate: string;
   window: WorkWindowMeta['window'];
+  today: string;
+  maxDate: string;
+  dateOptions: { value: string; label: string; tag: WorkWindowMeta['targetTag'] }[];
   hostCanEdit: boolean;
   hostCanAdd: boolean;
   works: CleaningWork[];
@@ -36,8 +46,12 @@ export type CleaningSnapshot = {
   currentWorkerId: number | null;
 };
 
-export async function getCleaningSnapshot(profile: ProfileSummary): Promise<CleaningSnapshot> {
-  const meta = resolveWorkWindow();
+export async function getCleaningSnapshot(profile: ProfileSummary, targetDate?: string): Promise<CleaningSnapshot> {
+  const now = getKstNow();
+  const today = formatDateKey(now);
+  const maxDate = buildMaxDate(today, 7);
+  const dateOptions = buildDateOptions(7, now);
+  const meta = resolveWorkWindow(undefined, targetDate && isDateWithinRange(targetDate, 7, now) ? targetDate : undefined);
   const client = profile.roles.includes('host') ? await findClientByProfile(profile) : null;
   const worker = profile.roles.includes('cleaner') ? await findWorkerByProfile(profile) : null;
   const [works, hostRooms, adminRooms] = await Promise.all([
@@ -51,6 +65,9 @@ export async function getCleaningSnapshot(profile: ProfileSummary): Promise<Clea
     targetTag: meta.targetTag,
     targetDateLabel: meta.targetDateLabel,
     targetDate: meta.targetDate,
+    today,
+    maxDate,
+    dateOptions,
     window: meta.window,
     hostCanEdit: meta.hostCanEdit,
     hostCanAdd: meta.hostCanAdd,
@@ -61,6 +78,12 @@ export async function getCleaningSnapshot(profile: ProfileSummary): Promise<Clea
     message: '16:00이 되면 오더수정이 마감됩니다. 반드시 16:00 이전에 수정사항을 반영해주세요.',
     currentWorkerId: worker?.id ?? null
   };
+}
+
+function buildMaxDate(today: string, days: number) {
+  const base = new Date(`${today}T00:00:00+09:00`);
+  base.setDate(base.getDate() + days);
+  return formatDateKey(base);
 }
 
 async function getWorks(targetDate: string): Promise<CleaningWork[]> {
