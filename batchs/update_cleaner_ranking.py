@@ -61,8 +61,10 @@ class CleanerRankingBatch:
         if not tier_rules:
             logging.warning("worker_tier_rules 테이블이 비어 있어 tier 계산을 건너뜁니다.")
             return
-        daily_evals = self._load_daily_evaluations()
-        comments = self._generate_comments(daily_evals)
+        checklist_titles = self._load_checklist_titles()
+        daily_trend = self._load_daily_trend_scores()
+        daily_evals = self._load_daily_evaluations(checklist_titles)
+        comments = self._generate_comments(daily_evals, daily_trend)
         if comments:
             self._persist_comments(comments, daily_evals)
         tier_updates = self._calculate_tiers(workers, tier_rules)
@@ -103,29 +105,118 @@ class CleanerRankingBatch:
                 workers.append(row)
         return workers
 
-    def _load_daily_evaluations(self) -> Dict[int, List[Dict[str, object]]]:
+    def _load_checklist_titles(self) -> Dict[int, str]:
+        sql = "SELECT id, title FROM work_checklist_list"
+        titles: Dict[int, str] = {}
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(sql)
+            for row in cur:
+                titles[int(row["id"])] = row.get("title") or ""
+        return titles
+
+    def _load_daily_trend_scores(self) -> Dict[int, List[Dict[str, object]]]:
+        start_date = self.target_date - dt.timedelta(days=6)
+        start_dt = dt.datetime.combine(start_date, dt.time.min)
+        end_dt = dt.datetime.combine(self.target_date + dt.timedelta(days=1), dt.time.min)
+        sql = """
+            SELECT worker_id, DATE(evaluate_dttm) AS eval_date, SUM(checklist_point_sum) AS total
+            FROM worker_evaluateHistory
+            WHERE evaluate_dttm >= %s AND evaluate_dttm < %s
+            GROUP BY worker_id, eval_date
+        """
+        trend: Dict[int, List[Dict[str, object]]] = {}
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(sql, (start_dt, end_dt))
+            for row in cur:
+                worker_id = int(row["worker_id"])
+                trend.setdefault(worker_id, []).append(
+                    {
+                        "date": str(row["eval_date"]),
+                        "score": int(row.get("total") or 0),
+                    }
+                )
+        return trend
+
+    def _extract_checklist_ids_from_reports(self, contents: object) -> List[int]:
+        ids: List[int] = []
+
+        def walk(node: object) -> None:
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    lowered = key.lower()
+                    if isinstance(value, (int, str)) and "checklist" in lowered:
+                        try:
+                            ids.append(int(value))
+                        except (TypeError, ValueError):
+                            continue
+                    elif isinstance(value, (dict, list)):
+                        walk(value)
+            elif isinstance(node, list):
+                for item in node:
+                    walk(item)
+
+        walk(contents)
+        return ids
+
+    def _load_daily_evaluations(
+        self,
+        checklist_titles: Dict[int, str],
+    ) -> Dict[int, List[Dict[str, object]]]:
         start_dt = dt.datetime.combine(self.target_date, dt.time.min)
         end_dt = start_dt + dt.timedelta(days=1)
         sql = """
-            SELECT id, worker_id, checklist_title_array, checklist_point_sum, evaluate_dttm
-            FROM worker_evaluateHistory
-            WHERE evaluate_dttm >= %s AND evaluate_dttm < %s
+            SELECT
+                weh.id,
+                weh.worker_id,
+                weh.work_id,
+                weh.checklist_title_array,
+                weh.checklist_point_sum,
+                weh.evaluate_dttm,
+                cr.room_no,
+                b.building_short_name,
+                wr.contents1,
+                wr.contents2
+            FROM worker_evaluateHistory AS weh
+            LEFT JOIN work_header AS wh ON wh.id = weh.work_id
+            LEFT JOIN client_rooms AS cr ON wh.room_id = cr.id
+            LEFT JOIN etc_buildings AS b ON cr.building_id = b.id
+            LEFT JOIN work_reports AS wr ON wr.work_id = weh.work_id AND wr.type = 1
+            WHERE weh.evaluate_dttm >= %s AND weh.evaluate_dttm < %s
         """
         evaluations: Dict[int, List[Dict[str, object]]] = {}
         with self.conn.cursor(dictionary=True) as cur:
             cur.execute(sql, (start_dt, end_dt))
             for row in cur:
                 worker_id = int(row["worker_id"])
-                checklist = row.get("checklist_title_array")
+                checklist_raw = row.get("checklist_title_array")
                 try:
-                    checklist_list: Iterable[int] = json.loads(checklist) if checklist else []
+                    checklist_ids: Iterable[int] = json.loads(checklist_raw) if checklist_raw else []
                 except Exception:
-                    checklist_list = []
+                    checklist_ids = []
+                report_ids: List[int] = []
+                for key in ("contents1", "contents2"):
+                    contents = row.get(key)
+                    if contents is None:
+                        continue
+                    parsed_contents = contents
+                    if isinstance(contents, str):
+                        try:
+                            parsed_contents = json.loads(contents)
+                        except Exception:
+                            parsed_contents = contents
+                    report_ids.extend(self._extract_checklist_ids_from_reports(parsed_contents))
+                all_ids = list({*list(checklist_ids), *report_ids})
+                deductions = [checklist_titles.get(i, f"{i}") for i in all_ids if i is not None]
+                room_label = "".join(
+                    filter(None, [row.get("building_short_name") or "", row.get("room_no") or ""])
+                )
                 entry = dict(
                     id=int(row["id"]),
+                    work_id=int(row["work_id"]),
                     points=int(row.get("checklist_point_sum") or 0),
-                    checklist_ids=list(checklist_list),
                     evaluate_dttm=row.get("evaluate_dttm"),
+                    room_name=room_label,
+                    deductions=deductions,
                 )
                 evaluations.setdefault(worker_id, []).append(entry)
         logging.info("%s 일자 평가 건수: %s명", self.target_date, len(evaluations))
@@ -173,58 +264,108 @@ class CleanerRankingBatch:
                 assigned[worker["id"]] = rule["tier"]
         return assigned
 
-    def _build_prompt(self, worker_id: int, entries: List[Dict[str, object]]) -> str:
-        scores = [int(e["points"]) for e in entries]
-        total_score = sum(scores)
-        avg_score = total_score / len(scores) if scores else 0
-        checklist_counts = [len(e.get("checklist_ids", [])) for e in entries]
-        avg_checks = sum(checklist_counts) / len(checklist_counts) if checklist_counts else 0
-        return (
-            f"클리너 ID {worker_id}의 {self.target_date} 업무 요약입니다. "
-            f"총 작업 {len(entries)}건, 점수 합계 {total_score}점, 평균 점수 {avg_score:.1f}점, "
-            f"작업당 평균 체크 항목 수 {avg_checks:.1f}개입니다. "
-            "체크리스트 항목 이름이나 세부 ID는 그대로 언급하지 말고, 청소/점검 품질과 개선점, "
-            "다음 근무 시 유의사항을 2문장 이내 한국어로 230자 이하로 작성하세요. "
-            "구체적 체크리스트명을 피하고, 긍정과 개선을 함께 제시하세요."
-        )
-
-    def _generate_comments(self, evaluations: Dict[int, List[Dict[str, object]]]) -> Dict[int, str]:
+    def _generate_comments(
+        self, evaluations: Dict[int, List[Dict[str, object]]], daily_trend: Dict[int, List[Dict[str, object]]]
+    ) -> Dict[int, str]:
         if not self.openai_api_key:
             logging.warning("OPENAI_API_KEY가 없어 코멘트 생성을 건너뜁니다.")
             return {}
-        comments: Dict[int, str] = {}
+        payload = {
+            "target_date": str(self.target_date),
+            "workers": [],
+        }
         for worker_id, entries in evaluations.items():
-            if not entries:
-                continue
-            prompt = self._build_prompt(worker_id, entries)
+            sorted_entries = sorted(
+                entries,
+                key=lambda e: (
+                    e.get("evaluate_dttm") or dt.datetime.min,
+                    e.get("id", 0),
+                ),
+            )
+            payload["workers"].append(
+                {
+                    "worker_id": worker_id,
+                    "today": [
+                        {
+                            "evaluation_id": e["id"],
+                            "work_id": e.get("work_id"),
+                            "room": e.get("room_name"),
+                            "score": e.get("points"),
+                            "deductions": e.get("deductions", []),
+                            "evaluated_at": e.get("evaluate_dttm").isoformat()
+                            if isinstance(e.get("evaluate_dttm"), dt.datetime)
+                            else None,
+                        }
+                        for e in sorted_entries
+                    ],
+                    "scores_thesedays": daily_trend.get(worker_id, []),
+                }
+            )
+
+        if not payload["workers"]:
+            return {}
+
+        instruction = (
+            "아래 JSON으로 제공된 오늘 작업 정보와 최근 일주일 점수를 분석하여 클리너별 코멘트를 생성하세요. "
+            "모든 데이터를 한 번에 전달하므로, 응답도 worker_id를 키로 가진 JSON 한 건으로만 반환하세요. "
+            "각 worker 코멘트는 200~255자 이내의 한국어 2~3문장으로 작성하고, 줄바꿈과 이모지, 특수문자를 사용하지 마세요. "
+            "첫 문장은 긍정적이면서 전체 수행을 요약하고, 두 번째 문장은 감점이 집중된 체크리스트 항목이나 패턴을 짧게 언급하세요. "
+            "세 번째 문장은 실행 가능한 개선 제안을 존댓말로 제공하세요. 오늘 점수 흐름이나 작업 순서에서 집중력 저하가 보일 때만 간단히 언급하세요. "
+            "최근 일주일 점수는 상승/하락/유지 중 하나로만 짧게 설명하세요. "
+            "같은 날짜 다른 사람들의 점수와 비교한 격려 멘트도 한 문장에 자연스럽게 섞어주세요. "
+            "사람의 성격·태도에 대한 추측은 금지하며, 제공된 객실명, 감점 항목 title, 점수, 날짜별 추세 외 정보는 사용하지 마세요. "
+            "필요한 경우 감점이 집중된 항목을 예시처럼 자연스럽게 녹여 주세요(욕실 청소, 침구 정리 등). "
+            "응답 형식: {\"<worker_id>\": \"코멘트\", ...} JSON만 반환하세요."
+        )
+
+        request_body = {
+            "model": "gpt-4o-mini",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "숙소 청소 결과를 요약·분석하고 개선 제안을 주는 평가자입니다. JSON만 반환하세요.",
+                },
+                {
+                    "role": "user",
+                    "content": f"{instruction}\ninput_json={json.dumps(payload, ensure_ascii=False)}",
+                },
+            ],
+            "max_tokens": 4000,
+            "temperature": 0.6,
+        }
+
+        logging.info("AI 요청 입력: %s", json.dumps(payload, ensure_ascii=False))
+        comments: Dict[int, str] = {}
+        try:
+            resp = requests.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.openai_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=request_body,
+                timeout=30,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            message = data["choices"][0]["message"]["content"].strip()
+            logging.info("AI 응답 원문: %s", message)
             try:
-                resp = requests.post(
-                    "https://api.openai.com/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self.openai_api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": "gpt-4o-mini",
-                        "messages": [
-                            {
-                                "role": "system",
-                                "content": "숙소 청소 성과를 요약하는 평가자입니다. 결과는 한국어로만 답하세요.",
-                            },
-                            {"role": "user", "content": prompt},
-                        ],
-                        "max_tokens": 200,
-                        "temperature": 0.6,
-                    },
-                    timeout=15,
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                message = data["choices"][0]["message"]["content"].strip()
-                comments[worker_id] = message[:255]
-                logging.info("worker %s 코멘트 생성 완료", worker_id)
-            except Exception as exc:  # pylint: disable=broad-except
-                logging.warning("worker %s 코멘트 생성 실패: %s", worker_id, exc)
+                parsed = json.loads(message)
+            except json.JSONDecodeError:
+                logging.warning("AI 응답을 JSON으로 파싱할 수 없습니다: %s", message)
+                return {}
+            for worker_id, comment in parsed.items():
+                try:
+                    wid_int = int(worker_id)
+                except (TypeError, ValueError):
+                    continue
+                if not isinstance(comment, str):
+                    continue
+                comments[wid_int] = comment.strip()[:255]
+            logging.info("AI 코멘트 생성 완료: %s명", len(comments))
+        except Exception as exc:  # pylint: disable=broad-except
+            logging.warning("AI 코멘트 생성 실패: %s", exc)
         return comments
 
     def _persist_comments(
