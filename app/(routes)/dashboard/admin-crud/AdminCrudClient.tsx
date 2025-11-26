@@ -427,11 +427,16 @@ export default function AdminCrudClient({ tables }: Props) {
                   {snapshot?.rows?.length ? (
                     snapshot.rows.map((row, index) => (
                       <tr key={index}>
-                        {columns.map((column) => (
-                          <td key={column.name}>
-                            {formatCellValue(row[column.name], column)}
-                          </td>
-                        ))}
+                        {columns.map((column) => {
+                          const displayValue = formatCellValue(row[column.name], column);
+                          return (
+                            <td key={column.name}>
+                              <span className={styles.cellContent} title={displayValue}>
+                                {displayValue}
+                              </span>
+                            </td>
+                          );
+                        })}
                         <td className={styles.actionCell}>
                           <button type="button" onClick={() => startEdit(row)} disabled={loading}>
                             수정
