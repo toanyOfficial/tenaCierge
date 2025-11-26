@@ -169,7 +169,8 @@ export default function AdminCrudClient({ tables }: Props) {
         { cache: 'no-cache' }
       );
       if (!response.ok) {
-        throw new Error('연관 데이터를 불러오지 못했습니다.');
+        const { message } = (await response.json().catch(() => ({}))) as { message?: string };
+        throw new Error(message ?? '연관 데이터를 불러오지 못했습니다.');
       }
       const payload = (await response.json()) as { options: { value: string; label: string }[] };
       setReferenceOptions((prev) => ({ ...prev, [columnName]: payload.options ?? [] }));

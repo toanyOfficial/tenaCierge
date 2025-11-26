@@ -63,6 +63,60 @@ const referenceMap: Record<string, Record<string, AdminReference>> = {
   }
 };
 
+const LABEL_PRIORITIES = [
+  'title',
+  'name',
+  'label',
+  'room_no',
+  'room_name',
+  'register_no',
+  'phone',
+  'code',
+  'value',
+  'description'
+];
+
+function guessReferenceTable(columnName: string): string | null {
+  if (!columnName.endsWith('_id')) return null;
+  const base = columnName.replace(/_id$/, '');
+  const candidates = [
+    base,
+    `${base}s`,
+    `${base}_header`,
+    `${base}_list`,
+    `${base}_detail`,
+    `${base}_set_header`,
+    `${base}_set`,
+    `client_${base}`,
+    `work_${base}`,
+    `worker_${base}`
+  ];
+
+  const available = new Set(getSchemaTables().map((table) => table.name));
+  return candidates.find((candidate) => available.has(candidate)) ?? null;
+}
+
+function buildReferenceHints(table: string): Record<string, AdminReference> {
+  const schemaTable = getSchemaTableOrThrow(table);
+  const base = referenceMap[table] ? { ...referenceMap[table] } : {};
+
+  schemaTable.columns.forEach((column) => {
+    if (base[column.name]) return;
+    const guessedTable = guessReferenceTable(column.name);
+    if (guessedTable) {
+      base[column.name] = { table: guessedTable, column: 'id' };
+    }
+  });
+
+  return base;
+}
+
+function getTableConfig(table: string) {
+  return {
+    references: buildReferenceHints(table)
+  };
+}
+
 function getSchemaTableOrThrow(table: string): SchemaTable {
   const schemaTable = getSchemaTable(table);
   if (!schemaTable) {
@@ -72,7 +126,7 @@ function getSchemaTableOrThrow(table: string): SchemaTable {
 }
 
 export function listAdminTables() {
-  return getSchemaTables().map(({ name }) => ({ name, label: name, references: referenceMap[name] ?? {} }));
+  return getSchemaTables().map(({ name }) => ({ name, label: name, references: buildReferenceHints(name) }));
 }
 
 async function fetchColumnMetadata(table: string): Promise<AdminColumnMeta[]> {
@@ -122,10 +176,21 @@ export type TableSnapshot = {
 
 function pickLabelColumns(columns: AdminColumnMeta[]) {
   const textualTypes = new Set(['varchar', 'text', 'char', 'mediumtext', 'longtext', 'tinytext']);
-  return columns
+  const byPriority = columns
     .filter((column) => textualTypes.has(column.dataType))
-    .map((column) => column.name)
-    .slice(0, 3);
+    .sort((a, b) => {
+      const aIndex = LABEL_PRIORITIES.indexOf(a.name);
+      const bIndex = LABEL_PRIORITIES.indexOf(b.name);
+      if (aIndex === -1 && bIndex === -1) return 0;
+      if (aIndex === -1) return 1;
+      if (bIndex === -1) return -1;
+      return aIndex - bIndex;
+    })
+    .map((column) => column.name);
+
+  const fallback = columns.filter((column) => textualTypes.has(column.dataType)).map((column) => column.name);
+
+  return (byPriority.length ? byPriority : fallback).slice(0, 3);
 }
 
 export async function fetchTableSnapshot(table: string, offset = 0, limit = 20): Promise<TableSnapshot> {
@@ -157,16 +222,17 @@ export async function fetchReferenceOptions(
 
   const refColumns = await fetchColumnMetadata(reference.table);
   const labelColumns = pickLabelColumns(refColumns);
-  const displayColumns = labelColumns.length ? labelColumns : [reference.column];
+  const displayColumns = [reference.column, ...labelColumns.filter((columnName) => columnName !== reference.column)].slice(0, 4);
+  const searchColumns = labelColumns.length ? labelColumns : displayColumns;
 
-  const concatExpr = displayColumns.length > 1 ? `CONCAT_WS(' / ', ${displayColumns.map(() => '??').join(', ')})` : '??';
-  const whereClause = keyword ? displayColumns.map(() => '?? LIKE ?').join(' OR ') : '';
+  const concatExpr = `CONCAT_WS(' | ', ${displayColumns.map(() => '??').join(', ')})`;
+  const whereClause = keyword ? searchColumns.map(() => '?? LIKE ?').join(' OR ') : '';
   const sql = `SELECT ?? AS value, ${concatExpr} AS label FROM ?? ${whereClause ? `WHERE ${whereClause}` : ''} ORDER BY ?? DESC LIMIT ?`;
 
   const params: unknown[] = [reference.column, ...displayColumns, reference.table];
 
   if (keyword) {
-    displayColumns.forEach((columnName) => {
+    searchColumns.forEach((columnName) => {
       params.push(columnName, `%${keyword}%`);
     });
   }

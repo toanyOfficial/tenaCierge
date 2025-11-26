@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { fetchReferenceOptions, listAdminTables } from '@/src/server/adminCrud';
+import { fetchReferenceOptions, handleAdminError, listAdminTables } from '@/src/server/adminCrud';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 
 async function ensureAdmin() {
@@ -31,6 +31,9 @@ export async function GET(request: Request) {
     const options = await fetchReferenceOptions(table, column, keyword, limit);
     return NextResponse.json({ options });
   } catch (error) {
-    return NextResponse.json({ message: '연관 데이터 조회 중 오류가 발생했습니다.' }, { status: 500 });
+    await handleAdminError(error);
+    const message = error instanceof Error ? error.message : '연관 데이터 조회 중 오류가 발생했습니다.';
+    const status = message.includes('레퍼런스 정보') ? 400 : 500;
+    return NextResponse.json({ message }, { status });
   }
 }
