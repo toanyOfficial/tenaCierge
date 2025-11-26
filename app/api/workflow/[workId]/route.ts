@@ -7,6 +7,9 @@ import { findWorkerByProfile } from '@/src/server/workers';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { getKstNow } from '@/src/utils/workWindow';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function PATCH(request: Request, { params }: { params: { workId: string } }) {
   const workId = Number(params.workId);
   if (!Number.isFinite(workId)) {
