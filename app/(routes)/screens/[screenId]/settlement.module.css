@@ -126,6 +126,22 @@
   font-size: 0.95rem;
 }
 
+.totalStack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px dashed #cbd5e1;
+}
+
+.totalValueRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .roomTitle {
   margin: 0;
   font-size: 1rem;
@@ -212,6 +228,11 @@
   font-size: 0.8rem;
   color: #475569;
   margin-top: 4px;
+}
+
+.muted {
+  color: #475569;
+  font-size: 0.9rem;
 }
 
 .sectionTitle {
