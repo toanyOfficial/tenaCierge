@@ -9,12 +9,16 @@ import datetime as dt
 import json
 import logging
 import os
+import traceback
+import time
 from typing import Dict, Iterable, List, Optional, Sequence
 
 import mysql.connector
 import requests
 
 KST = dt.timezone(dt.timedelta(hours=9))
+MAX_OPENAI_CALLS_PER_RUN = 3
+COMMENT_DB_LIMIT = 240
 
 
 def configure_logging() -> None:
@@ -28,6 +32,11 @@ def parse_args() -> argparse.Namespace:
         type=lambda s: dt.datetime.strptime(s, "%Y-%m-%d").date(),
         default=dt.datetime.now(KST).date(),
         help="업데이트 기준 일자 (기본: 오늘)",
+    )
+    parser.add_argument(
+        "--disable-ai-comment",
+        action="store_true",
+        help="AI 코멘트 생성을 비활성화합니다.",
     )
     return parser.parse_args()
 
@@ -46,10 +55,12 @@ def get_db_connection() -> mysql.connector.MySQLConnection:
 
 
 class CleanerRankingBatch:
-    def __init__(self, conn, target_date: dt.date) -> None:
+    def __init__(self, conn, target_date: dt.date, *, disable_ai_comment: bool = False) -> None:
         self.conn = conn
         self.target_date = target_date
         self.openai_api_key = os.environ.get("OPENAI_API_KEY")
+        self.disable_ai_comment = disable_ai_comment
+        self.openai_calls = 0
 
     def run(self) -> None:
         scores = self._fetch_scores()
@@ -267,6 +278,9 @@ class CleanerRankingBatch:
     def _generate_comments(
         self, evaluations: Dict[int, List[Dict[str, object]]], daily_trend: Dict[int, List[Dict[str, object]]]
     ) -> Dict[int, str]:
+        if self.disable_ai_comment:
+            logging.info("--disable-ai-comment 옵션으로 코멘트 생성을 건너뜁니다.")
+            return {}
         if not self.openai_api_key:
             logging.warning("OPENAI_API_KEY가 없어 코멘트 생성을 건너뜁니다.")
             return {}
@@ -305,6 +319,11 @@ class CleanerRankingBatch:
         if not payload["workers"]:
             return {}
 
+        return self._request_ai_comments(payload)
+
+    def _request_ai_comments(self, payload: Dict[str, object]) -> Dict[int, str]:
+        comments: Dict[int, str] = {}
+        last_error: Optional[Exception] = None
         instruction = (
             "아래 JSON으로 제공된 오늘 작업 정보와 최근 일주일 점수를 분석하여 클리너별 코멘트를 생성하세요. "
             "모든 데이터를 한 번에 전달하므로, 응답도 worker_id를 키로 가진 JSON 한 건으로만 반환하세요. "
@@ -323,7 +342,10 @@ class CleanerRankingBatch:
             "messages": [
                 {
                     "role": "system",
-                    "content": "숙소 청소 결과를 요약·분석하고 개선 제안을 주는 평가자입니다. JSON만 반환하세요.",
+                    "content": (
+                        "숙소 청소 결과를 요약·분석하고 개선 제안을 주는 평가자입니다. JSON만 반환하세요. "
+                        "각 코멘트는 255자를 넘기지 말고 가능하면 200자 안팎으로 2~3문장으로 작성하세요."
+                    ),
                 },
                 {
                     "role": "user",
@@ -335,38 +357,146 @@ class CleanerRankingBatch:
         }
 
         logging.info("AI 요청 입력: %s", json.dumps(payload, ensure_ascii=False))
-        comments: Dict[int, str] = {}
-        try:
-            resp = requests.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.openai_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=request_body,
-                timeout=30,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            message = data["choices"][0]["message"]["content"].strip()
-            logging.info("AI 응답 원문: %s", message)
+        backoff_delays = [1, 2, 4]
+        max_retries = len(backoff_delays)
+        for attempt in range(max_retries + 1):
+            if self.openai_calls >= MAX_OPENAI_CALLS_PER_RUN:
+                logging.warning(
+                    "OpenAI 호출 상한(%s회)을 초과하여 코멘트 생성을 건너뜁니다.",
+                    MAX_OPENAI_CALLS_PER_RUN,
+                )
+                break
+            self.openai_calls += 1
             try:
-                parsed = json.loads(message)
-            except json.JSONDecodeError:
-                logging.warning("AI 응답을 JSON으로 파싱할 수 없습니다: %s", message)
-                return {}
-            for worker_id, comment in parsed.items():
+                resp = requests.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.openai_api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=request_body,
+                    timeout=30,
+                )
+                if resp.status_code in {400, 401, 403, 404, 422}:
+                    logging.warning(
+                        "AI 코멘트 생성 실패: status=%s, body=%s", resp.status_code, resp.text[:500]
+                    )
+                    break
+                if resp.status_code == 429 or resp.status_code >= 500:
+                    raise requests.HTTPError(f"{resp.status_code} {resp.reason}")
+
+                resp.raise_for_status()
+                raw_text = resp.text
+                logging.info("AI 응답 원문: %s", raw_text[:1000])
+                data = resp.json()
+                message = data["choices"][0]["message"]["content"].strip()
                 try:
-                    wid_int = int(worker_id)
-                except (TypeError, ValueError):
+                    parsed = json.loads(message)
+                except json.JSONDecodeError:
+                    logging.warning("AI 응답을 JSON으로 파싱할 수 없습니다: %s", message[:500])
+                    self._log_error(
+                        message="AI 응답 파싱 실패",
+                        stacktrace=message,
+                        context={"request_body": request_body},
+                    )
+                    return {}
+                expected_ids = {int(w.get("worker_id")) for w in payload.get("workers", []) if w.get("worker_id") is not None}
+                for worker_id, comment in parsed.items():
+                    try:
+                        wid_int = int(worker_id)
+                    except (TypeError, ValueError):
+                        logging.warning("worker %s 응답 포맷 불일치, 코멘트 스킵", worker_id)
+                        continue
+                    if not isinstance(comment, str):
+                        logging.warning("worker %s 응답 포맷 불일치, 코멘트 스킵", worker_id)
+                        continue
+                    comments[wid_int] = comment.strip()[:COMMENT_DB_LIMIT]
+                for wid in expected_ids - set(comments.keys()):
+                    logging.warning("worker %s 응답 포맷 불일치, 코멘트 스킵", wid)
+                logging.info("AI 코멘트 생성 완료: %s명", len(comments))
+                return comments
+            except (requests.Timeout, requests.ConnectionError) as exc:
+                if attempt < max_retries:
+                    delay = backoff_delays[attempt]
+                    logging.warning(
+                        "OpenAI 네트워크 오류, %s초 후 재시도 (%s/%s): %s",
+                        delay,
+                        attempt + 1,
+                        max_retries,
+                        exc,
+                    )
+                    time.sleep(delay)
                     continue
-                if not isinstance(comment, str):
+                logging.warning("OpenAI 네트워크 오류, 재시도 초과: %s", exc)
+                last_error = exc
+                break
+            except requests.HTTPError as exc:
+                status_code = getattr(exc.response, "status_code", None)
+                if status_code == 429 and attempt < max_retries:
+                    delay = backoff_delays[attempt]
+                    logging.warning(
+                        "OpenAI 429 발생, %s초 후 재시도 (%s/%s)",
+                        delay,
+                        attempt + 1,
+                        max_retries,
+                    )
+                    time.sleep(delay)
                     continue
-                comments[wid_int] = comment.strip()[:255]
-            logging.info("AI 코멘트 생성 완료: %s명", len(comments))
-        except Exception as exc:  # pylint: disable=broad-except
-            logging.warning("AI 코멘트 생성 실패: %s", exc)
+                logging.warning(
+                    "AI 코멘트 생성 실패: status=%s, message=%s, body=%s",
+                    status_code,
+                    exc,
+                    getattr(getattr(exc, "response", None), "text", "")[:500],
+                )
+                last_error = exc
+                break
+            except Exception as exc:  # pylint: disable=broad-except
+                logging.warning("AI 코멘트 생성 실패: %s", exc)
+                last_error = exc
+                break
+
+        if last_error:
+            self._log_error(
+                message=f"AI 코멘트 생성 실패: {last_error}",
+                stacktrace=traceback.format_exc(),
+                context={"request_body": request_body},
+            )
         return comments
+
+    def _log_error(
+        self,
+        *,
+        message: str,
+        stacktrace: Optional[str] = None,
+        error_code: Optional[str] = None,
+        level: int = 2,
+        context: Optional[Dict[str, object]] = None,
+    ) -> None:
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO etc_errorLogs
+                        (level, app_name, error_code, message, stacktrace, request_id, user_id, context_json)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        level,
+                        "update_cleaner_ranking",
+                        error_code,
+                        message[:500],
+                        stacktrace,
+                        None,
+                        None,
+                        json.dumps(
+                            {"target_date": str(self.target_date), **(context or {})},
+                            ensure_ascii=False,
+                        ),
+                    ),
+                )
+            self.conn.commit()
+        except Exception:  # pragma: no cover - 실패 시 로그만 남김
+            logging.error("에러로그 저장 실패", exc_info=True)
 
     def _persist_comments(
         self, comments: Dict[int, str], evaluations: Dict[int, List[Dict[str, object]]]
@@ -386,7 +516,7 @@ class CleanerRankingBatch:
                     ),
                 )
                 sql = "UPDATE worker_evaluateHistory SET comment=%s WHERE id=%s"
-                cur.execute(sql, (comment, latest_entry["id"]))
+                cur.execute(sql, (comment[:COMMENT_DB_LIMIT], latest_entry["id"]))
         logging.info("AI 코멘트 업데이트 %s명", len(comments))
 
     def _persist_tiers(self, updates: Dict[int, int]) -> None:
@@ -407,7 +537,11 @@ def main() -> None:
     args = parse_args()
     conn = get_db_connection()
     try:
-        CleanerRankingBatch(conn, args.target_date).run()
+        CleanerRankingBatch(
+            conn,
+            args.target_date,
+            disable_ai_comment=bool(getattr(args, "disable_ai_comment", False)),
+        ).run()
     finally:
         conn.close()
 
