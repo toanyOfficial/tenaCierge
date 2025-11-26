@@ -1,0 +1,235 @@
+.container {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.header {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #e4e7ec;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+  color: #0f172a;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbar label {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.toolbar select,
+.toolbar button {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  color: #0f172a;
+}
+
+.toolbar button {
+  background: #16a34a;
+  color: white;
+  border-color: #16a34a;
+  cursor: pointer;
+}
+
+.toolbar button:disabled {
+  background: #e4e7ec;
+  color: #667085;
+  border-color: #e4e7ec;
+  cursor: not-allowed;
+}
+
+.feedback {
+  color: #0f5132;
+  background: #d1e7dd;
+  border: 1px solid #badbcc;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.columnsHint {
+  font-size: 13px;
+  color: #475467;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 12px;
+}
+
+.formSection,
+.tableSection {
+  border: 1px solid #e4e7ec;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #f9fafb;
+  color: #0f172a;
+}
+
+.formSection header,
+.tableSection header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.formField span {
+  font-weight: 600;
+}
+
+.formField input,
+.formField textarea,
+.formField select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  color: #0f172a;
+}
+
+.formField textarea {
+  min-height: 80px;
+}
+
+.formActions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.formActions button {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #16a34a;
+  background: #16a34a;
+  color: white;
+  cursor: pointer;
+}
+
+.tableWrapper {
+  overflow: auto;
+  border: 1px solid #e4e7ec;
+  border-radius: 8px;
+}
+
+.tableWrapper table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+.tableWrapper th,
+.tableWrapper td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e4e7ec;
+  text-align: left;
+  font-size: 13px;
+}
+
+.tableWrapper th {
+  background: #f2f4f7;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.tableWrapper td {
+  color: #111827;
+}
+
+.actionCell {
+  display: flex;
+  gap: 8px;
+}
+
+.actionCell button {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #16a34a;
+  background: white;
+  cursor: pointer;
+  color: #16a34a;
+}
+
+.actionCell button:last-child {
+  border-color: #b42318;
+  color: #b42318;
+}
+
+.empty {
+  text-align: center;
+  padding: 16px;
+  color: #98a2b3;
+}
+
+.referenceInput {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.referenceSearchRow {
+  display: flex;
+  gap: 8px;
+}
+
+.referenceSearchRow input {
+  flex: 1;
+}
+
+.referenceSearchRow button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  cursor: pointer;
+  color: #0f172a;
+}
+
+.referenceSearchRow button:disabled {
+  cursor: not-allowed;
+  color: #98a2b3;
+  border-color: #e4e7ec;
+}
+
+@media (max-width: 1080px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
