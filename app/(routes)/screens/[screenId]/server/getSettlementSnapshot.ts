@@ -129,11 +129,29 @@ function pickRateBundle(prices: { title: string; pricePerCleaning: number; price
 
 async function resolveAdditionalPriceColumn(month: string, hostId?: number | null) {
   try {
-    const rows = await db.execute<{ column_name: string }>(
+    const raw = await db.execute<{ column_name?: string; COLUMN_NAME?: string }>(
       sql`SELECT column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'client_additional_price'`
     );
 
-    const columns = rows.map((row) => row.column_name.toLowerCase());
+    const rows = Array.isArray(raw)
+      ? (Array.isArray(raw[0]) ? (raw[0] as typeof raw) : raw)
+      : Array.isArray((raw as any)?.rows)
+        ? ((raw as any).rows as { column_name?: string; COLUMN_NAME?: string }[])
+        : [];
+
+    const columns = rows
+      .map((row) => (row?.column_name ?? (row as any)?.COLUMN_NAME ?? '').toString().toLowerCase())
+      .filter(Boolean);
+
+    if (!columns.length) {
+      await logEtcError({
+        message: 'client_additional_price 컬럼 조회 결과가 비어 있습니다.',
+        stacktrace: null,
+        context: { month, hostId: hostId ?? null, table: 'client_additional_price' }
+      });
+
+      return null;
+    }
 
     if (columns.includes('price')) return 'price';
     if (columns.includes('amount')) return 'amount';
