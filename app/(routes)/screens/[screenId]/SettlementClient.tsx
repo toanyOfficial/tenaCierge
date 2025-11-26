@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import styles from './settlement.module.css';
 
 import type { SettlementSnapshot } from './server/getSettlementSnapshot';
-import { settlementBusinessInfo } from './server/getSettlementSnapshot';
+import { settlementBusinessInfo } from './settlementConstants';
 
 type Props = {
   snapshot: SettlementSnapshot;

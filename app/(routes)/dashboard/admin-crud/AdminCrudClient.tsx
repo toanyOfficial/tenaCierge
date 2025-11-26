@@ -273,11 +273,12 @@ export default function AdminCrudClient({ tables }: Props) {
     }
 
     if (isCheckbox) {
+      const checked = value === '1' || value === 'true';
       return (
         <input
           id={column.name}
           type="checkbox"
-          checked={value === '1' || value === true || value === 'true'}
+          checked={checked}
           onChange={(event) => handleInputChange(column, event.target.checked)}
         />
       );
@@ -327,13 +328,18 @@ export default function AdminCrudClient({ tables }: Props) {
       );
     }
 
+    const reference = column.references as AdminReference | undefined;
+    const placeholder = reference
+      ? `${reference.table}.${reference.column}`
+      : column.columnType;
+
     return (
       <input
         id={column.name}
         type={type}
         value={value}
         onChange={(event) => handleInputChange(column, event.target.value)}
-        placeholder={column.references ? `${column.references.table}.${column.references.column}` : column.columnType}
+        placeholder={placeholder}
         disabled={column.autoIncrement && mode === 'create'}
       />
     );

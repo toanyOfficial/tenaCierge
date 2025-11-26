@@ -10,6 +10,9 @@ import {
 } from '@/src/server/adminCrud';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 async function ensureAdmin() {
   const profile = await getProfileWithDynamicRoles();
   if (!profile.roles.includes('admin')) {

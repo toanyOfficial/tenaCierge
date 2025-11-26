@@ -10,6 +10,7 @@ import {
   workHeader
 } from '@/src/db/schema';
 import type { ProfileSummary } from '@/src/utils/profile';
+import { logEtcError } from '@/src/server/errorLogger';
 
 type Money = number;
 
@@ -51,13 +52,6 @@ type RateBundle = {
   bedRentalRate: Money;
   latePerMinute: Money;
   earlyPerMinute: Money;
-};
-
-const businessInfo = {
-  registration: '516-88-02307',
-  company: '(주)테너시티즈',
-  ceo: '마진형',
-  address: '서울특별시 강남구 역삼동 828-78, 103~104호'
 };
 
 function normalizeRegisterNo(value: string | undefined | null) {
@@ -153,13 +147,14 @@ export async function getSettlementSnapshot(
   hostIdParam?: string | null
 ): Promise<SettlementSnapshot> {
   const month = ensureMonth(monthParam);
-  const { start, end } = getMonthBoundary(month);
-  const normalizedRegister = normalizeRegisterNo(profile.registerNo);
+  try {
+    const { start, end } = getMonthBoundary(month);
+    const normalizedRegister = normalizeRegisterNo(profile.registerNo);
 
-  const parsedHostId = hostIdParam ? Number(hostIdParam) : null;
-  const hostFilterId = parsedHostId && !Number.isNaN(parsedHostId) ? parsedHostId : null;
-  const isAdmin = profile.roles.includes('admin');
-  const isHostOnly = profile.roles.includes('host') && !isAdmin;
+    const parsedHostId = hostIdParam ? Number(hostIdParam) : null;
+    const hostFilterId = parsedHostId && !Number.isNaN(parsedHostId) ? parsedHostId : null;
+    const isAdmin = profile.roles.includes('admin');
+    const isHostOnly = profile.roles.includes('host') && !isAdmin;
 
   const hostWhere: any[] = [];
 
@@ -171,104 +166,102 @@ export async function getSettlementSnapshot(
     hostWhere.push(eq(clientHeader.id, hostFilterId));
   }
 
-  const hostCondition = hostWhere.length ? (hostWhere.length === 1 ? hostWhere[0] : or(...hostWhere)) : null;
+    const hostCondition = hostWhere.length ? (hostWhere.length === 1 ? hostWhere[0] : or(...hostWhere)) : null;
 
-  let hostQuery = db
-    .select({ id: clientHeader.id, name: clientHeader.name, registerNo: clientHeader.registerCode })
-    .from(clientHeader);
+    const baseHostQuery = db
+      .select({ id: clientHeader.id, name: clientHeader.name, registerNo: clientHeader.registerCode })
+      .from(clientHeader);
 
-  if (hostCondition) {
-    hostQuery = hostQuery.where(hostCondition);
-  }
+    const hostQuery = hostCondition ? baseHostQuery.where(hostCondition) : baseHostQuery;
 
-  const hostRows = await hostQuery.orderBy(asc(clientHeader.name));
+    const hostRows = await hostQuery.orderBy(asc(clientHeader.name));
 
-  if (!hostRows.length) {
-    return { month, summary: [], statements: [], hostOptions: [], appliedHostId: hostFilterId ?? null };
-  }
+    if (!hostRows.length) {
+      return { month, summary: [], statements: [], hostOptions: [], appliedHostId: hostFilterId ?? null };
+    }
 
-  const hostIds = hostRows.map((row) => row.id);
+    const hostIds = hostRows.map((row) => row.id);
 
-  const roomRows = await db
-    .select({
-      roomId: clientRooms.id,
-      hostId: clientRooms.clientId,
-      bedCount: clientRooms.bedCount,
-      roomNo: clientRooms.roomNo,
-      buildingShort: etcBuildings.shortName,
-      expectedCheckout: clientRooms.checkoutTime,
-      expectedCheckin: clientRooms.checkinTime
-    })
-    .from(clientRooms)
-    .innerJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
-    .where(inArray(clientRooms.clientId, hostIds));
+    const roomRows = await db
+      .select({
+        roomId: clientRooms.id,
+        hostId: clientRooms.clientId,
+        bedCount: clientRooms.bedCount,
+        roomNo: clientRooms.roomNo,
+        buildingShort: etcBuildings.shortName,
+        expectedCheckout: clientRooms.checkoutTime,
+        expectedCheckin: clientRooms.checkinTime
+      })
+      .from(clientRooms)
+      .innerJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
+      .where(inArray(clientRooms.clientId, hostIds));
 
-  const roomIds = roomRows.map((row) => row.roomId);
+    const roomIds = roomRows.map((row) => row.roomId);
 
-  const priceRows = roomIds.length
-    ? await db
-        .select({
-          roomId: clientCustomPrice.roomId,
-          title: clientCustomPrice.title,
-          pricePerCleaning: sql`CAST(${clientCustomPrice.pricePerCleaning} AS DECIMAL(20,4))`,
-          pricePerMonth: sql`CAST(${clientCustomPrice.pricePerMonth} AS DECIMAL(20,4))`,
-          start: clientCustomPrice.startDate,
-          end: clientCustomPrice.endDate
-        })
-        .from(clientCustomPrice)
-        .where(
-          and(
-            inArray(clientCustomPrice.roomId, roomIds),
-            lte(clientCustomPrice.startDate, end),
-            gte(clientCustomPrice.endDate, start)
+    const priceRows = roomIds.length
+      ? await db
+          .select({
+            roomId: clientCustomPrice.roomId,
+            title: clientCustomPrice.title,
+            pricePerCleaning: sql`CAST(${clientCustomPrice.pricePerCleaning} AS DECIMAL(20,4))`,
+            pricePerMonth: sql`CAST(${clientCustomPrice.pricePerMonth} AS DECIMAL(20,4))`,
+            start: clientCustomPrice.startDate,
+            end: clientCustomPrice.endDate
+          })
+          .from(clientCustomPrice)
+          .where(
+            and(
+              inArray(clientCustomPrice.roomId, roomIds),
+              lte(clientCustomPrice.startDate, end),
+              gte(clientCustomPrice.endDate, start)
+            )
           )
-        )
-    : [];
+      : [];
 
-  const additionalRows = roomIds.length
-    ? await db
-        .select({
-          hostId: clientRooms.clientId,
-          roomId: clientAdditionalPrice.roomId,
-          date: clientAdditionalPrice.date,
-          title: clientAdditionalPrice.title,
-          price: sql`CAST(${clientAdditionalPrice.price} AS DECIMAL(20,4))`
-        })
-        .from(clientAdditionalPrice)
-        .innerJoin(clientRooms, eq(clientAdditionalPrice.roomId, clientRooms.id))
-        .where(
-          and(
-            inArray(clientAdditionalPrice.roomId, roomIds),
-            gte(clientAdditionalPrice.date, start),
-            lte(clientAdditionalPrice.date, end)
+    const additionalRows = roomIds.length
+      ? await db
+          .select({
+            hostId: clientRooms.clientId,
+            roomId: clientAdditionalPrice.roomId,
+            date: clientAdditionalPrice.date,
+            title: clientAdditionalPrice.title,
+            price: sql`CAST(${clientAdditionalPrice.price} AS DECIMAL(20,4))`
+          })
+          .from(clientAdditionalPrice)
+          .innerJoin(clientRooms, eq(clientAdditionalPrice.roomId, clientRooms.id))
+          .where(
+            and(
+              inArray(clientAdditionalPrice.roomId, roomIds),
+              gte(clientAdditionalPrice.date, start),
+              lte(clientAdditionalPrice.date, end)
+            )
           )
-        )
-    : [];
+      : [];
 
-  const workRows = roomIds.length
-    ? await db
-        .select({
-          hostId: clientRooms.clientId,
-          roomId: clientRooms.id,
-          workId: workHeader.id,
-          workDate: workHeader.date,
-          amenitiesQty: workHeader.amenitiesQty,
-          blanketQty: workHeader.blanketQty,
-          actualCheckin: workHeader.checkinTime,
-          actualCheckout: workHeader.checkoutTime
-        })
-        .from(workHeader)
-        .innerJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
-        .where(
-          and(
-            inArray(workHeader.roomId, roomIds),
-            gte(workHeader.date, start),
-            lte(workHeader.date, end),
-            eq(workHeader.cancelYn, false)
+    const workRows = roomIds.length
+      ? await db
+          .select({
+            hostId: clientRooms.clientId,
+            roomId: clientRooms.id,
+            workId: workHeader.id,
+            workDate: workHeader.date,
+            amenitiesQty: workHeader.amenitiesQty,
+            blanketQty: workHeader.blanketQty,
+            actualCheckin: workHeader.checkinTime,
+            actualCheckout: workHeader.checkoutTime
+          })
+          .from(workHeader)
+          .innerJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
+          .where(
+            and(
+              inArray(workHeader.roomId, roomIds),
+              gte(workHeader.date, start),
+              lte(workHeader.date, end),
+              eq(workHeader.cancelYn, false)
+            )
           )
-        )
-        .orderBy(asc(workHeader.date))
-    : [];
+          .orderBy(asc(workHeader.date))
+      : [];
 
   const roomMap = new Map(
     roomRows.map((row) => [
@@ -392,17 +385,18 @@ export async function getSettlementSnapshot(
 
   // Monthly items per room
   for (const room of roomRows) {
-    const hostStatement = statementMap.get(room.hostId);
+    const roomInfo = roomMap.get(room.roomId);
+    const hostStatement = roomInfo ? statementMap.get(roomInfo.hostId) : undefined;
     const rate = priceMap.get(room.roomId);
 
-    if (!hostStatement || !rate) continue;
+    if (!hostStatement || !rate || !roomInfo) continue;
 
     const monthDate = `${month}-01`;
 
     if (rate.monthlyRate) {
       addLine(hostStatement.lines, {
         date: monthDate,
-        item: `${room.label} 월정액`,
+        item: `${roomInfo.label} 월정액`,
         amount: rate.monthlyRate,
         quantity: 1,
         category: 'monthly'
@@ -411,11 +405,11 @@ export async function getSettlementSnapshot(
     }
 
     if (rate.bedRentalRate) {
-      const qty = room.bedCount ?? 1;
+      const qty = roomInfo.bedCount ?? 1;
       const total = rate.bedRentalRate * qty;
       addLine(hostStatement.lines, {
         date: monthDate,
-        item: `${room.label} 침구/매트리스 렌탈`,
+        item: `${roomInfo.label} 침구/매트리스 렌탈`,
         amount: rate.bedRentalRate,
         quantity: qty,
         category: 'monthly'
@@ -449,25 +443,32 @@ export async function getSettlementSnapshot(
     statement.lines.sort((a, b) => a.date.localeCompare(b.date));
   }
 
-  const summary = statements.map((st) => ({
-    hostId: st.hostId,
-    hostName: st.hostName,
-    cleaning: st.totals.cleaning,
-    facility: st.totals.facility,
-    monthly: st.totals.monthly,
-    misc: st.totals.misc,
-    total: st.totals.total
-  }));
+    const summary = statements.map((st) => ({
+      hostId: st.hostId,
+      hostName: st.hostName,
+      cleaning: st.totals.cleaning,
+      facility: st.totals.facility,
+      monthly: st.totals.monthly,
+      misc: st.totals.misc,
+      total: st.totals.total
+    }));
 
-  const hostOptions = hostRows.map((row) => ({ id: row.id, name: row.name }));
+    const hostOptions = hostRows.map((row) => ({ id: row.id, name: row.name }));
 
-  return {
-    month,
-    summary,
-    statements,
-    hostOptions,
-    appliedHostId: hostFilterId ?? null
-  };
+    return {
+      month,
+      summary,
+      statements,
+      hostOptions,
+      appliedHostId: hostFilterId ?? null
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '알 수 없는 오류';
+    await logEtcError({
+      message: `getSettlementSnapshot 실패: ${message}`,
+      stacktrace: error instanceof Error ? error.stack ?? null : null,
+      context: { month, hostIdParam, roles: profile.roles }
+    });
+    throw error;
+  }
 }
-
-export const settlementBusinessInfo = businessInfo;

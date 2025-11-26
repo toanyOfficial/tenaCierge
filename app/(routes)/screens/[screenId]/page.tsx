@@ -18,6 +18,9 @@ import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { getEvaluationSnapshot } from '@/src/server/evaluations';
 import { getSettlementSnapshot } from './server/getSettlementSnapshot';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 type Props = {
   params: {
     screenId: string;
