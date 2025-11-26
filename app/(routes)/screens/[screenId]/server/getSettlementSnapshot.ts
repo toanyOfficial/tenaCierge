@@ -155,32 +155,65 @@ function addLine(
 async function loadPriceItems(roomIds: number[], month: string, hostId?: number | null) {
   if (!roomIds.length) return new Map<number, PriceItem[]>();
 
-  const priceRows = await db
-    .select({
-      roomId: clientRooms.id,
-      priceSetId: clientRooms.priceSetId,
-      priceId: clientPriceSetDetail.priceId,
-      priceType: clientPriceList.type,
-      amount: sql`CAST(${clientPriceList.amount} AS DECIMAL(20,4))`,
-      title: clientPriceList.title
-    })
+  const roomPriceSets = await db
+    .select({ roomId: clientRooms.id, priceSetId: clientRooms.priceSetId })
     .from(clientRooms)
-    .leftJoin(clientPriceSetDetail, eq(clientRooms.priceSetId, clientPriceSetDetail.priceSetId))
-    .leftJoin(clientPriceList, eq(clientPriceSetDetail.priceId, clientPriceList.id))
     .where(inArray(clientRooms.id, roomIds));
+
+  const missingPriceSetRooms = roomPriceSets.filter((row) => row.priceSetId == null).map((row) => row.roomId);
+  if (missingPriceSetRooms.length) {
+    await logEtcError({
+      message: '정산용 price_set_id가 지정되지 않은 객실이 있습니다.',
+      stacktrace: null,
+      context: { month, hostId: hostId ?? null, roomIds: missingPriceSetRooms }
+    });
+  }
+
+  const priceSetIds = Array.from(
+    new Set(
+      roomPriceSets
+        .map((row) => row.priceSetId)
+        .filter((value): value is number => typeof value === 'number')
+    )
+  );
+
+  const priceRows = priceSetIds.length
+    ? await db
+        .select({
+          priceSetId: clientPriceSetDetail.priceSetId,
+          priceId: clientPriceSetDetail.priceId,
+          priceType: clientPriceList.type,
+          amount: sql`CAST(${clientPriceList.amount} AS DECIMAL(20,4))`,
+          title: clientPriceList.title
+        })
+        .from(clientPriceSetDetail)
+        .innerJoin(clientPriceList, eq(clientPriceSetDetail.priceId, clientPriceList.id))
+        .where(inArray(clientPriceSetDetail.priceSetId, priceSetIds))
+    : [];
 
   const priceMap = new Map<number, PriceItem[]>();
 
+  const priceSetMap = new Map<number, PriceItem[]>();
   for (const row of priceRows) {
     if (!row.priceId || row.priceType == null || row.amount == null) continue;
-    const list = priceMap.get(row.roomId) ?? [];
+    const list = priceSetMap.get(row.priceSetId) ?? [];
     list.push({
-      roomId: row.roomId,
+      roomId: 0,
       type: Number(row.priceType),
       amount: Number(row.amount),
       title: row.title ?? '요금'
     });
-    priceMap.set(row.roomId, list);
+    priceSetMap.set(row.priceSetId, list);
+  }
+
+  for (const { roomId, priceSetId } of roomPriceSets) {
+    const list = priceSetId ? priceSetMap.get(priceSetId) ?? [] : [];
+    if (list.length) {
+      priceMap.set(
+        roomId,
+        list.map((item) => ({ ...item, roomId }))
+      );
+    }
   }
 
   const missingRooms = roomIds.filter((id) => !(priceMap.get(id)?.length));
@@ -340,11 +373,12 @@ export async function getSettlementSnapshot(
     if (!room || !hostStatement) continue;
 
     const date = work.workDate instanceof Date ? work.workDate.toISOString().slice(0, 10) : String(work.workDate);
+    const isCleaningWork = work.cleaningYn === true;
 
     for (const price of prices) {
       switch (price.type) {
         case 1: {
-          if (work.cleaningYn) {
+          if (isCleaningWork) {
             addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
               date,
               item: `${room.label} ${price.title ?? '청소비'}`,
@@ -357,7 +391,7 @@ export async function getSettlementSnapshot(
           break;
         }
         case 3: {
-          if (work.cleaningYn) {
+          if (isCleaningWork) {
             const qty = room.bedCount ?? 1;
             const total = price.amount * qty;
             addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
