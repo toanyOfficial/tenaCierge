@@ -127,6 +127,35 @@ function pickRateBundle(prices: { title: string; pricePerCleaning: number; price
   return result;
 }
 
+async function resolveAdditionalPriceColumn(month: string, hostId?: number | null) {
+  try {
+    const rows = await db.execute<{ column_name: string }>(
+      sql`SELECT column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'client_additional_price'`
+    );
+
+    const columns = rows.map((row) => row.column_name.toLowerCase());
+
+    if (columns.includes('price')) return 'price';
+    if (columns.includes('amount')) return 'amount';
+    if (columns.includes('value')) return 'value';
+
+    await logEtcError({
+      message: 'client_additional_price의 금액 컬럼(price/amount/value)을 찾을 수 없습니다.',
+      stacktrace: null,
+      context: { month, hostId: hostId ?? null, table: 'client_additional_price', columns }
+    });
+
+    return null;
+  } catch (error) {
+    await logEtcError({
+      message: `client_additional_price 컬럼 조회 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`,
+      stacktrace: error instanceof Error ? error.stack ?? null : null,
+      context: { month, hostId: hostId ?? null, table: 'client_additional_price' }
+    });
+    throw error;
+  }
+}
+
 function toMinutes(time: string | null | undefined) {
   if (!time) return 0;
   const [h, m, s] = time.split(':').map((v) => Number(v));
@@ -244,14 +273,21 @@ export async function getSettlementSnapshot(
       ? await loadCustomPrices(roomIds, start, end, month, hostFilterId ?? undefined)
       : [];
 
-    const additionalRows = roomIds.length
+    const additionalPriceColumn = roomIds.length
+      ? await resolveAdditionalPriceColumn(month, hostFilterId ?? null)
+      : null;
+
+    const additionalRows = roomIds.length && additionalPriceColumn
       ? await db
           .select({
             hostId: clientRooms.clientId,
             roomId: clientAdditionalPrice.roomId,
             date: clientAdditionalPrice.date,
             title: clientAdditionalPrice.title,
-            price: sql`CAST(${clientAdditionalPrice.price} AS DECIMAL(20,4))`
+            price:
+              additionalPriceColumn === 'price'
+                ? sql`CAST(${clientAdditionalPrice.price} AS DECIMAL(20,4))`
+                : sql`CAST(${sql.raw(`client_additional_price.${additionalPriceColumn}`)} AS DECIMAL(20,4))`
           })
           .from(clientAdditionalPrice)
           .innerJoin(clientRooms, eq(clientAdditionalPrice.roomId, clientRooms.id))
