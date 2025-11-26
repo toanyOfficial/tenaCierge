@@ -235,12 +235,32 @@
   font-size: 0.8rem;
   color: #dc2626;
   line-height: 1.2;
+  white-space: pre-line;
 }
 
 .ratioText {
   color: #dc2626;
   font-weight: 700;
   white-space: normal;
+}
+
+.ratioTextBlock {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.ratioTitle {
+  color: #b91c1c;
+}
+
+.ratioNote {
+  white-space: pre-line;
+  color: #dc2626;
+  font-weight: 600;
+  font-size: 0.85rem;
 }
 
 .muted {
@@ -327,6 +347,18 @@
   gap: 12px;
   color: #475569;
   font-size: 0.9rem;
+}
+
+.businessInfoItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stamp {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
 }
 
 .sectionDivider {

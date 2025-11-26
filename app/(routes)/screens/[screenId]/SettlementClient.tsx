@@ -57,14 +57,19 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
   };
 
   const renderRatioLineText = (line: SettlementSnapshot['statements'][number]['lines'][number]) => {
-    if (!line.ratioYn) return line.item;
+    if (!line.ratioYn) return line.priceTitle ?? line.item;
 
     const percent = line.ratioValue ?? line.amount;
     const discountValue = line.total;
     const sign = discountValue < 0 ? '-' : '+';
-    return `${line.priceTitle ?? line.item} · 할인율 ${percent}% · 할인금액 ${sign}${formatCurrency(
-      Math.abs(discountValue)
-    )}원`;
+    const formattedValue = `${sign}${formatCurrency(Math.abs(discountValue))}원`;
+
+    return (
+      <span className={styles.ratioTextBlock}>
+        <span className={styles.ratioTitle}>{line.priceTitle ?? line.item}</span>
+        <span className={styles.ratioNote}>{`할인율 ${percent}%`}{'\n'}{`할인금액 ${formattedValue}`}</span>
+      </span>
+    );
   };
 
   return (
@@ -252,10 +257,11 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
                                 </strong>
                                 원
                                 {line.ratioYn && (
-                                  <span className={styles.noteSmall}>
-                                    할인율 {percent}% · 할인금액 {sign}
-                                    {formatCurrency(Math.abs(discountValue))}원
-                                  </span>
+                                <span className={styles.noteSmall}>
+                                  {`할인율 ${percent}%`}
+                                  {'\n'}
+                                  {`할인금액 ${sign}${formatCurrency(Math.abs(discountValue))}원`}
+                                </span>
                                 )}
                               </span>
                             );
@@ -354,10 +360,18 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
 
             <hr className={styles.sectionDivider} />
             <div className={styles.businessInfo}>
-              <span>사업자등록번호: {business.registration}</span>
-              <span>사업체명: {business.company}</span>
-              <span>대표자명: {business.ceo}</span>
-              <span>사업장주소: {business.address}</span>
+              <span className={styles.businessInfoItem}>사업자등록번호: {business.registration}</span>
+              <span className={styles.businessInfoItem}>
+                사업체명: {business.company}
+                <img
+                  src="/company-stamp.svg"
+                  alt="회사 도장"
+                  className={styles.stamp}
+                  loading="lazy"
+                />
+              </span>
+              <span className={styles.businessInfoItem}>대표자명: {business.ceo}</span>
+              <span className={styles.businessInfoItem}>사업장주소: {business.address}</span>
             </div>
           </div>
         ))}
