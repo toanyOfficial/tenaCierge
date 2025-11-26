@@ -97,9 +97,60 @@
   color: #e2e8f0;
 }
 
-.linesGrid {
+.roomSection {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #f8fafc;
+}
+
+.roomHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.roomTitle {
+  margin: 0;
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.roomMeta {
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.subsection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.subsectionTitle {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.monthlyGrid {
   display: grid;
-  grid-template-columns: 120px 1fr 140px 100px 140px;
+  grid-template-columns: 1fr 140px;
+  gap: 6px;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.workGrid {
+  display: grid;
+  grid-template-columns: 120px 1fr 140px 90px 140px;
   gap: 8px;
   align-items: center;
 }
@@ -191,13 +242,13 @@
 }
 
 @media (max-width: 900px) {
-  .linesGrid {
+  .workGrid {
     grid-template-columns: 100px 1fr 120px 90px 120px;
   }
 }
 
 @media (max-width: 640px) {
-  .linesGrid {
+  .workGrid {
     grid-template-columns: 1fr;
   }
 

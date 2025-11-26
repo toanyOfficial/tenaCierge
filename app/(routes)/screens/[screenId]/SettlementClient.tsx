@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import styles from './settlement.module.css';
@@ -138,29 +138,81 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
               <div>합계: {formatCurrency(statement.totals.total)} 원</div>
             </div>
 
-            <div className={styles.linesGrid}>
-              <div className={styles.lineHeader}>날짜</div>
-              <div className={styles.lineHeader}>항목</div>
-              <div className={styles.lineHeader}>비용</div>
-              <div className={styles.lineHeader}>수량</div>
-              <div className={styles.lineHeader}>합계금액</div>
+            {statement.lines.length === 0 && (
+              <div className={styles.emptyState}>정산 항목이 없습니다.</div>
+            )}
 
-              {statement.lines.length === 0 && (
-                <div className={styles.emptyState} style={{ gridColumn: '1 / -1' }}>
-                  정산 항목이 없습니다.
+            {Array.from(
+              statement.lines.reduce(
+                (map, line) => {
+                  const entry = map.get(line.roomId) ?? {
+                    roomId: line.roomId,
+                    roomLabel: line.roomLabel,
+                    monthly: [] as typeof statement.lines,
+                    perWork: [] as typeof statement.lines
+                  };
+                  if (line.category === 'monthly') {
+                    entry.monthly.push(line);
+                  } else {
+                    entry.perWork.push(line);
+                  }
+                  map.set(line.roomId, entry);
+                  return map;
+                },
+                new Map<number, { roomId: number; roomLabel: string; monthly: typeof statement.lines; perWork: typeof statement.lines }>()
+              ).values()
+            ).map((room) => (
+              <div key={room.roomId} className={styles.roomSection}>
+                <div className={styles.roomHeader}>
+                  <h4 className={styles.roomTitle}>{room.roomLabel}</h4>
+                  <span className={styles.roomMeta}>{month}</span>
                 </div>
-              )}
 
-              {statement.lines.map((line) => (
-                <div key={line.id} className={styles.lineRow}>
-                  <div className={styles.lineCell}>{line.date}</div>
-                  <div className={styles.lineCell}>{line.item}</div>
-                  <div className={styles.lineCell}>{formatCurrency(line.amount)}</div>
-                  <div className={styles.lineCell}>{line.quantity}</div>
-                  <div className={styles.lineCell}>{formatCurrency(line.total)}</div>
+                {room.monthly.length > 0 && (
+                  <div className={styles.subsection}>
+                    <div className={styles.subsectionTitle}>월 비용</div>
+                    <div className={styles.monthlyGrid}>
+                      <div className={styles.lineHeader}>항목</div>
+                      <div className={styles.lineHeader}>금액</div>
+
+                      {room.monthly.map((line) => (
+                        <Fragment key={line.id}>
+                          <div className={styles.lineCell}>{line.item}</div>
+                          <div className={styles.lineCell}>{formatCurrency(line.total)}</div>
+                        </Fragment>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className={styles.subsection}>
+                  <div className={styles.subsectionTitle}>회당 비용</div>
+                  <div className={styles.workGrid}>
+                    <div className={styles.lineHeader}>날짜</div>
+                    <div className={styles.lineHeader}>항목</div>
+                    <div className={styles.lineHeader}>단가</div>
+                    <div className={styles.lineHeader}>수량</div>
+                    <div className={styles.lineHeader}>합계금액</div>
+
+                    {room.perWork.length === 0 ? (
+                      <div className={styles.emptyState} style={{ gridColumn: '1 / -1' }}>
+                        회당 비용 항목이 없습니다.
+                      </div>
+                    ) : (
+                      room.perWork.map((line) => (
+                        <div key={line.id} className={styles.lineRow}>
+                          <div className={styles.lineCell}>{line.date}</div>
+                          <div className={styles.lineCell}>{line.item}</div>
+                          <div className={styles.lineCell}>{formatCurrency(line.amount)}</div>
+                          <div className={styles.lineCell}>{line.quantity}</div>
+                          <div className={styles.lineCell}>{formatCurrency(line.total)}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
 
             <hr className={styles.sectionDivider} />
             <div className={styles.businessInfo}>
