@@ -7,7 +7,13 @@ import { fetchLatestWorkByDateAndRoom, fetchRoomMeta, fetchWorkRowById, serializ
 import type { CleaningWork } from '@/src/server/workTypes';
 import { validateWorkInput, type WorkMutationValues } from '@/src/server/workValidation';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
-import { getKstNow, resolveWorkWindow, formatDateKey, type WorkWindowMeta } from '@/src/utils/workWindow';
+import {
+  getKstNow,
+  resolveWorkWindow,
+  formatDateKey,
+  isDateWithinRange,
+  type WorkWindowMeta
+} from '@/src/utils/workWindow';
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) ?? {};
@@ -25,8 +31,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: '작업을 생성할 권한이 없습니다.' }, { status: 403 });
   }
 
-  const meta = resolveWorkWindow();
-  const insertDate = isAdmin ? resolveAdminInsertDate(meta) : meta.targetDate;
+  const requestedDate = typeof body.date === 'string' ? body.date : undefined;
+
+  if (requestedDate && !isDateWithinRange(requestedDate, 7)) {
+    return NextResponse.json({ message: '날짜는 D0~D+7 범위에서만 선택할 수 있습니다.' }, { status: 400 });
+  }
+
+  const meta = resolveWorkWindow(undefined, requestedDate);
+  const insertDate = requestedDate ?? (isAdmin ? resolveAdminInsertDate(meta) : meta.targetDate);
 
   if (!isAdmin && !meta.hostCanAdd) {
     return NextResponse.json({ message: '현재 시간에는 작업을 추가할 수 없습니다.' }, { status: 403 });

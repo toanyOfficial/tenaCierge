@@ -7,7 +7,14 @@ import { findWorkerByProfile } from '@/src/server/workers';
 import { fetchWorkRowsByDate, serializeWorkRow } from '@/src/server/workQueries';
 import type { CleaningWork } from '@/src/server/workTypes';
 import type { ProfileSummary } from '@/src/utils/profile';
-import { formatDateKey, getKstNow, resolveWorkWindow, type WorkWindowMeta } from '@/src/utils/workWindow';
+import {
+  buildDateOptions,
+  formatDateKey,
+  getKstNow,
+  isDateWithinRange,
+  resolveWorkWindow,
+  type WorkWindowMeta
+} from '@/src/utils/workWindow';
 
 export type RoomOption = {
   roomId: number;
@@ -28,6 +35,7 @@ export type CleaningSnapshot = {
   window: WorkWindowMeta['window'];
   today: string;
   maxDate: string;
+  dateOptions: { value: string; label: string; tag: WorkWindowMeta['targetTag'] }[];
   hostCanEdit: boolean;
   hostCanAdd: boolean;
   works: CleaningWork[];
@@ -39,9 +47,11 @@ export type CleaningSnapshot = {
 };
 
 export async function getCleaningSnapshot(profile: ProfileSummary, targetDate?: string): Promise<CleaningSnapshot> {
-  const meta = resolveWorkWindow(undefined, targetDate);
-  const today = formatDateKey(getKstNow());
+  const now = getKstNow();
+  const today = formatDateKey(now);
   const maxDate = buildMaxDate(today, 7);
+  const dateOptions = buildDateOptions(7, now);
+  const meta = resolveWorkWindow(undefined, targetDate && isDateWithinRange(targetDate, 7, now) ? targetDate : undefined);
   const client = profile.roles.includes('host') ? await findClientByProfile(profile) : null;
   const worker = profile.roles.includes('cleaner') ? await findWorkerByProfile(profile) : null;
   const [works, hostRooms, adminRooms] = await Promise.all([
@@ -57,6 +67,7 @@ export async function getCleaningSnapshot(profile: ProfileSummary, targetDate?: 
     targetDate: meta.targetDate,
     today,
     maxDate,
+    dateOptions,
     window: meta.window,
     hostCanEdit: meta.hostCanEdit,
     hostCanAdd: meta.hostCanAdd,

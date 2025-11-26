@@ -23,6 +23,7 @@ type WorkField = keyof Pick<
 >;
 
 type AddFormState = {
+  date: string;
   buildingKey: string | '';
   roomId: number | '';
   checkoutTime: string;
@@ -66,6 +67,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
   const [selectedDate, setSelectedDate] = useState(snapshot.targetDate);
   const [collapsedSectors, setCollapsedSectors] = useState<Set<string>>(new Set());
   const [collapsedBuildings, setCollapsedBuildings] = useState<Record<string, Set<string>>>({});
+  const allowedDates = useMemo(() => new Set(snapshot.dateOptions.map((option) => option.value)), [snapshot.dateOptions]);
 
   const viewingAsHost = activeRole === 'host';
   const viewingAsAdmin = activeRole === 'admin';
@@ -126,7 +128,21 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
     setSelectedDate(snapshot.targetDate);
   }, [snapshot]);
 
+  useEffect(() => {
+    setAddForm((prev) => {
+      if (prev.date && !allowedDates.has(prev.date)) {
+        return { ...prev, date: '' };
+      }
+      return prev;
+    });
+  }, [allowedDates]);
+
   function handleDateChange(value: string) {
+    if (value && !allowedDates.has(value)) {
+      window.alert('조회 가능 기간(D0~D+7) 내에서 선택해 주세요.');
+      return;
+    }
+
     setSelectedDate(value);
 
     const params = new URLSearchParams(searchParams?.toString() ?? '');
@@ -144,7 +160,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
 
   useEffect(() => {
     if (!roomOptions.length) {
-      setAddForm(createAddFormState(null));
+      setAddForm((prev) => createAddFormState(null, undefined, prev.date));
       setIsAddOpen(false);
       return;
     }
@@ -162,10 +178,10 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
       }
 
       if (prev.buildingKey && roomsByBuilding[prev.buildingKey]?.length) {
-        return createAddFormState(roomsByBuilding[prev.buildingKey][0], prev.buildingKey);
+        return createAddFormState(roomsByBuilding[prev.buildingKey][0], prev.buildingKey, prev.date);
       }
 
-      return createAddFormState(roomOptions[0]);
+      return createAddFormState(roomOptions[0], undefined, prev.date);
     });
   }, [roomOptions, roomsByBuilding]);
 
@@ -374,12 +390,12 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
 
   function handleBuildingSelect(value: string) {
     if (!value) {
-      setAddForm(createAddFormState(null));
+      setAddForm((prev) => createAddFormState(null, undefined, prev.date));
       return;
     }
 
     const nextRoom = roomsByBuilding[value]?.[0] ?? null;
-    setAddForm(createAddFormState(nextRoom, value));
+    setAddForm((prev) => createAddFormState(nextRoom, value, prev.date));
   }
 
   function handleRoomSelect(value: string) {
@@ -391,11 +407,11 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
     const nextRoom = roomOptions.find((room) => room.roomId === Number(value));
 
     if (!nextRoom) {
-      setAddForm((prev) => ({ ...prev, roomId: '' }));
+      setAddForm((prev) => ({ ...prev, roomId: '', date: prev.date }));
       return;
     }
 
-    setAddForm(createAddFormState(nextRoom));
+    setAddForm((prev) => createAddFormState(nextRoom, undefined, prev.date));
   }
 
   const roomChoices =
@@ -416,6 +432,16 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
       return;
     }
 
+    if (!addForm.date) {
+      setAddError('작업 날짜를 선택해 주세요.');
+      return;
+    }
+
+    if (!allowedDates.has(addForm.date)) {
+      setAddError('조회 가능 기간(D0~D+7) 내의 날짜만 선택할 수 있습니다.');
+      return;
+    }
+
     setIsAdding(true);
     setAddStatus('');
     setAddError('');
@@ -426,6 +452,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           roomId: addForm.roomId,
+          date: addForm.date,
           checkoutTime: addForm.checkoutTime,
           checkinTime: addForm.checkinTime,
           blanketQty: addForm.blanketQty,
@@ -444,7 +471,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
       setWorks((prev) => sortWorks([...prev, created]));
       setBaseline((prev) => sortWorks([...prev, created]));
       setAddStatus('새 작업이 생성되었습니다.');
-      setAddForm(createAddFormState(addRoom));
+      setAddForm((prev) => createAddFormState(addRoom, undefined, prev.date));
     } catch (error) {
       setAddError(error instanceof Error ? error.message : '작업 생성 중 오류가 발생했습니다.');
     } finally {
@@ -591,13 +618,17 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
             </div>
             <label className={styles.datePicker}>
               <span>조회일</span>
-              <input
-                type="date"
-                min={snapshot.today}
-                max={snapshot.maxDate}
+              <select
+                className={styles.dateSelect}
                 value={selectedDate}
                 onChange={(event) => handleDateChange(event.target.value)}
-              />
+              >
+                {snapshot.dateOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {`${option.tag} · ${option.label}`}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
         </header>
@@ -678,6 +709,20 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
             {isAddOpen ? (
               <form className={styles.addForm} onSubmit={handleAddSubmit}>
                 <div className={styles.addSelectors}>
+                  <label className={styles.formControl}>
+                    <span>날짜</span>
+                    <select
+                      value={addForm.date}
+                      onChange={(event) =>
+                        setAddForm((prev) => ({ ...prev, date: event.target.value }))
+                      }
+                    >
+                      <option value="">날짜 선택</option>
+                      {snapshot.dateOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{`${option.tag} · ${option.label}`}</option>
+                      ))}
+                    </select>
+                  </label>
                   <label className={styles.formControl}>
                     <span>빌딩</span>
                     <select value={addForm.buildingKey} onChange={(event) => handleBuildingSelect(event.target.value)}>
@@ -805,9 +850,10 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
   );
 }
 
-function createAddFormState(room: RoomOption | null, forcedBuilding?: string): AddFormState {
+function createAddFormState(room: RoomOption | null, forcedBuilding?: string, presetDate = ''): AddFormState {
   if (!room) {
     return {
+      date: presetDate,
       buildingKey: forcedBuilding ?? '',
       roomId: '',
       checkoutTime: '00:00',
@@ -819,6 +865,7 @@ function createAddFormState(room: RoomOption | null, forcedBuilding?: string): A
   }
 
   return {
+    date: presetDate,
     buildingKey: forcedBuilding ?? buildBuildingKey(room),
     roomId: room.roomId,
     checkoutTime: room.defaultCheckout,

@@ -61,6 +61,32 @@ export function resolveWorkWindow(baseDate?: Date, forcedDate?: string): WorkWin
   };
 }
 
+export function buildDateOptions(maxDays = 7, baseDate = getKstNow()) {
+  const options: { value: string; label: string; tag: WorkWindowTag }[] = [];
+
+  for (let offset = 0; offset <= maxDays; offset += 1) {
+    const date = new Date(baseDate);
+    date.setDate(date.getDate() + offset);
+    const value = formatDateKey(date);
+    const tag = (offset === 0 ? 'D0' : (`D+${offset}` as WorkWindowTag)) ?? 'D0';
+
+    options.push({ value, tag, label: formatFullDateLabel(date) });
+  }
+
+  return options;
+}
+
+export function isDateWithinRange(targetKey: string, maxDays = 7, baseDate = getKstNow()) {
+  if (!targetKey) return false;
+
+  const parsed = parseDateKey(targetKey);
+  if (!parsed) return false;
+
+  const baseKey = formatDateKey(baseDate);
+  const diff = calculateDiffDays(baseKey, targetKey);
+  return diff >= 0 && diff <= maxDays;
+}
+
 export function formatDateKey(date: Date) {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, '0');

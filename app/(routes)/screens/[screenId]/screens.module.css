@@ -176,12 +176,18 @@
   color: #475569;
 }
 
+.datePicker select,
 .datePicker input[type='date'] {
   padding: 6px 10px;
   border: 1px solid #cbd5e1;
   border-radius: 10px;
   font-weight: 600;
   color: #0f172a;
+}
+
+.dateSelect {
+  min-width: 210px;
+  background: #fff;
 }
 
 .windowToggleRow {
