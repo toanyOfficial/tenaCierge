@@ -56,6 +56,14 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
   const requiredImageSlots = useMemo(() => imageSlots.filter((slot) => slot.required), [imageSlots]);
   const optionalImageSlots = useMemo(() => imageSlots.filter((slot) => !slot.required), [imageSlots]);
   const imageSlotKeys = useMemo(() => imageSlots.map((slot) => String(slot.id)), [imageSlots]);
+  const lockedCleaningCheckIds = useMemo(
+    () => new Set(cleaningChecklist.filter((item) => item.score > 0).map((item) => item.id)),
+    [cleaningChecklist]
+  );
+  const visibleCleaningChecklist = useMemo(
+    () => cleaningChecklist.filter((item) => item.score <= 0),
+    [cleaningChecklist]
+  );
   const initialImageSelections = useMemo(
     () => Object.fromEntries(imageSlotKeys.map((key) => [key, null])) as Record<string, File | null>,
     [imageSlotKeys]
@@ -72,7 +80,9 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     return mapping;
   }, [imageSlotKeys, savedImages]);
 
-  const [cleaningChecks, setCleaningChecks] = useState<Set<number>>(new Set(existingCleaningChecks ?? []));
+  const [cleaningChecks, setCleaningChecks] = useState<Set<number>>(
+    () => new Set([...lockedCleaningCheckIds, ...(existingCleaningChecks ?? [])])
+  );
   const [supplyChecks, setSupplyChecks] = useState<Set<number>>(new Set(existingSupplyChecks ?? []));
   const [imageSelections, setImageSelections] = useState<Record<string, File | null>>(initialImageSelections);
   const [imagePreviews, setImagePreviews] = useState<Record<string, string | null>>(initialImagePreviews);
@@ -97,13 +107,17 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
 
   const roomTitle = useMemo(() => `${work.buildingShortName}${work.roomNo}`, [work.buildingShortName, work.roomNo]);
 
-  const toggleCheck = (id: number, target: Set<number>, setter: (next: Set<number>) => void) => {
+  const toggleCheck = (id: number, target: Set<number>, setter: (next: Set<number>) => void, locked?: Set<number>) => {
+    if (locked?.has(id)) return;
+
     const next = new Set(target);
     if (next.has(id)) {
       next.delete(id);
     } else {
       next.add(id);
     }
+
+    locked?.forEach((lockedId) => next.add(lockedId));
     setter(next);
   };
 
@@ -184,17 +198,17 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
         <div className={styles.reportGridStacked}>
           <article className={styles.reportCardWide}>
             <header className={styles.reportCardHeader}>수퍼바이징 체크리스트</header>
-            {cleaningChecklist.length === 0 ? (
+            {visibleCleaningChecklist.length === 0 ? (
               <p className={styles.reportEmpty}>체크리스트가 없습니다.</p>
             ) : (
               <ul className={styles.checklist}>
-                {cleaningChecklist.map((item) => (
+                {visibleCleaningChecklist.map((item) => (
                   <li key={item.id} className={styles.checkItem}>
                     <label>
                       <input
                         type="checkbox"
                         checked={cleaningChecks.has(item.id)}
-                        onChange={() => toggleCheck(item.id, cleaningChecks, setCleaningChecks)}
+                        onChange={() => toggleCheck(item.id, cleaningChecks, setCleaningChecks, lockedCleaningCheckIds)}
                       />
                       <span>{item.title}</span>
                     </label>
