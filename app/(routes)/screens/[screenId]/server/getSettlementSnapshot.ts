@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import {
@@ -291,6 +291,44 @@ export async function getSettlementSnapshot(
       ? await loadCustomPrices(roomIds, start, end, month, hostFilterId ?? undefined)
       : [];
 
+    if (roomIds.length && priceRows.length < roomIds.length) {
+      const pricedRoomIds = new Set(priceRows.map((row) => row.roomId));
+      const missingRoomIds = roomIds.filter((id) => !pricedRoomIds.has(id));
+
+      if (missingRoomIds.length) {
+        const fallbackRows = await db
+          .select({
+            roomId: clientCustomPrice.roomId,
+            title: clientCustomPrice.title,
+            pricePerCleaning: sql`CAST(${clientCustomPrice.pricePerCleaning} AS DECIMAL(20,4))`,
+            pricePerMonth: sql`CAST(${clientCustomPrice.pricePerMonth} AS DECIMAL(20,4))`,
+            start: clientCustomPrice.startDate,
+            end: clientCustomPrice.endDate
+          })
+          .from(clientCustomPrice)
+          .where(inArray(clientCustomPrice.roomId, missingRoomIds))
+          .orderBy(desc(clientCustomPrice.endDate));
+
+        const seen = new Set<number>();
+
+        for (const row of fallbackRows) {
+          if (seen.has(row.roomId)) continue;
+          priceRows.push(row);
+          seen.add(row.roomId);
+        }
+
+        const stillMissing = roomIds.filter((id) => !priceRows.some((row) => row.roomId === id));
+
+        if (stillMissing.length) {
+          await logEtcError({
+            message: '정산용 요금이 설정되지 않은 객실이 있습니다.',
+            stacktrace: null,
+            context: { month, hostId: hostFilterId ?? null, roomIds: stillMissing }
+          });
+        }
+      }
+    }
+
     const additionalPriceColumn = roomIds.length
       ? await resolveAdditionalPriceColumn(month, hostFilterId ?? null)
       : null;
@@ -402,7 +440,7 @@ export async function getSettlementSnapshot(
     const hostStatement = room ? statementMap.get(room.hostId) : undefined;
     if (!room || !hostStatement) continue;
 
-    const date = work.workDate.toISOString().slice(0, 10);
+    const date = work.workDate instanceof Date ? work.workDate.toISOString().slice(0, 10) : String(work.workDate);
 
     if (rate.cleaningRate) {
       addLine(hostStatement.lines, {
