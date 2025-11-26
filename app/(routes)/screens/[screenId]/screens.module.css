@@ -298,14 +298,16 @@
 .statusCheckBadge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
-  background: #d1fae5;
-  border: 1px solid #a7f3d0;
-  color: #065f46;
+  gap: 6px;
+  padding: 5px 12px;
+  background: linear-gradient(90deg, #def7ec 0%, #c3f6db 100%);
+  border: 1px solid #34d399;
+  color: #046c4e;
   border-radius: 999px;
   font-weight: 700;
   font-size: 12px;
   line-height: 1.2;
+  box-shadow: 0 2px 6px rgba(4, 108, 78, 0.08);
 }
 
 .groupStack {

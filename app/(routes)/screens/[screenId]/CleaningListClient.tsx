@@ -464,7 +464,8 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(payload?.message ?? '작업 추가에 실패했습니다.');
+        const detail = payload?.message || payload?.error || payload?.reason;
+        throw new Error(detail ? String(detail) : `작업 추가에 실패했습니다. (코드 ${response.status})`);
       }
 
       const created = payload.work as CleaningWork;
@@ -472,8 +473,17 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
       setBaseline((prev) => sortWorks([...prev, created]));
       setAddStatus('새 작업이 생성되었습니다.');
       setAddForm((prev) => createAddFormState(addRoom, undefined, prev.date));
+      const search = new URLSearchParams(searchParams?.toString() ?? '');
+      if (created?.date) {
+        search.set('date', created.date);
+        setSelectedDate(created.date);
+      }
+      const query = search.toString();
+      router.push(query ? `${pathname}?${query}` : pathname);
+      router.refresh();
     } catch (error) {
-      setAddError(error instanceof Error ? error.message : '작업 생성 중 오류가 발생했습니다.');
+      const message = error instanceof Error ? error.message : '작업 생성 중 오류가 발생했습니다.';
+      setAddError(message);
     } finally {
       setIsAdding(false);
     }
