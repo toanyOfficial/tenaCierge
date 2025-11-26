@@ -868,6 +868,7 @@ class BatchRunner:
         )
         with self.conn.cursor() as cur:
             for pred, condition_check, cleaning in to_insert:
+                requirements_text = "상태확인" if condition_check else None
                 cur.execute(
                     """
                     INSERT INTO work_header
@@ -881,7 +882,7 @@ class BatchRunner:
                          %s, %s, %s,
                          %s, %s, %s,
                          0, 1, NULL,
-                         NULL, NULL, 0)
+                         NULL, %s, 0)
                     """,
                     (
                         pred.target_date,
@@ -891,7 +892,8 @@ class BatchRunner:
                         condition_check,
                         cleaning,
                         pred.room.checkin_time,
-                        pred.room.checkout_time
+                        pred.room.checkout_time,
+                        requirements_text,
                     ),
                 )
         self.conn.commit()

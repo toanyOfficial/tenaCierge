@@ -7,7 +7,13 @@ import { fetchLatestWorkByDateAndRoom, fetchRoomMeta, fetchWorkRowById, serializ
 import type { CleaningWork } from '@/src/server/workTypes';
 import { validateWorkInput, type WorkMutationValues } from '@/src/server/workValidation';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
-import { getKstNow, resolveWorkWindow, formatDateKey, type WorkWindowMeta } from '@/src/utils/workWindow';
+import {
+  getKstNow,
+  resolveWorkWindow,
+  formatDateKey,
+  isDateWithinRange,
+  type WorkWindowMeta
+} from '@/src/utils/workWindow';
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) ?? {};
@@ -25,8 +31,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: '작업을 생성할 권한이 없습니다.' }, { status: 403 });
   }
 
-  const meta = resolveWorkWindow();
-  const insertDate = isAdmin ? resolveAdminInsertDate(meta) : meta.targetDate;
+  const requestedDate = typeof body.date === 'string' ? body.date : undefined;
+
+  if (requestedDate && !isDateWithinRange(requestedDate, 7)) {
+    return NextResponse.json({ message: '날짜는 D0~D+7 범위에서만 선택할 수 있습니다.' }, { status: 400 });
+  }
+
+  const meta = resolveWorkWindow(undefined, requestedDate);
+  const insertDate = requestedDate ?? (isAdmin ? resolveAdminInsertDate(meta) : meta.targetDate);
 
   if (!isAdmin && !meta.hostCanAdd) {
     return NextResponse.json({ message: '현재 시간에는 작업을 추가할 수 없습니다.' }, { status: 403 });
@@ -64,6 +76,13 @@ export async function POST(request: Request) {
     defaultCheckout: roomMeta.defaultCheckout,
     defaultCheckin: roomMeta.defaultCheckin,
     clientId: roomMeta.clientId,
+    buildingId: 0,
+    sectorCode: '',
+    sectorValue: '',
+    cleanerId: null,
+    cleaningYn: false,
+    imagesSetId: null,
+    checklistSetId: null
   };
 
   const creationInput = {
@@ -79,6 +98,15 @@ export async function POST(request: Request) {
 
   if (!validation.ok) {
     return NextResponse.json({ message: validation.message }, { status: 400 });
+  }
+
+  const duplicate = await fetchLatestWorkByDateAndRoom(insertDate, roomMeta.roomId);
+
+  if (duplicate) {
+    return NextResponse.json(
+      { message: '해당 날짜에 이미 등록된 작업이 있습니다.', work: serializeWorkRow(duplicate) },
+      { status: 409 }
+    );
   }
 
   const insertPayload = buildInsertPayload(insertDate, roomMeta.roomId, validation.values);
@@ -100,12 +128,12 @@ export async function POST(request: Request) {
 
 function buildInsertPayload(date: string, roomId: number, values: WorkMutationValues) {
   return {
-    date,
+    date: new Date(`${date}T00:00:00+09:00`),
     roomId,
-    checkoutTime: values.checkoutTime,
-    checkinTime: values.checkinTime,
-    blanketQty: values.blanketQty,
-    amenitiesQty: values.amenitiesQty,
+    checkoutTime: values.checkoutTime ?? '00:00',
+    checkinTime: values.checkinTime ?? '00:00',
+    blanketQty: values.blanketQty ?? 0,
+    amenitiesQty: values.amenitiesQty ?? 0,
     cancelYn: values.cancelYn ?? false,
     requirements: typeof values.requirements === 'string' ? values.requirements : null,
     cleaningYn: true,
