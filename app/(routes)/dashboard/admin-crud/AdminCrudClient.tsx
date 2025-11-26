@@ -35,6 +35,9 @@ export default function AdminCrudClient({ tables }: Props) {
   const [editingKey, setEditingKey] = useState<Record<string, unknown>>({});
   const [feedback, setFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [referenceOptions, setReferenceOptions] = useState<Record<string, { value: string; label: string }[]>>({});
+  const [referenceSearch, setReferenceSearch] = useState<Record<string, string>>({});
+  const [referenceLoading, setReferenceLoading] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (selectedTable) {
@@ -43,6 +46,20 @@ export default function AdminCrudClient({ tables }: Props) {
   }, [selectedTable]);
 
   const columns = snapshot?.columns ?? [];
+
+  useEffect(() => {
+    setReferenceOptions({});
+    setReferenceSearch({});
+    setReferenceLoading({});
+  }, [selectedTable]);
+
+  useEffect(() => {
+    columns.forEach((column) => {
+      if (!column.references) return;
+      if (referenceOptions[column.name]) return;
+      void loadReferenceOptions(column.name, referenceSearch[column.name] ?? '');
+    });
+  }, [columns, referenceOptions, referenceSearch]);
 
   async function fetchSnapshot(table: string, offset: number) {
     setLoading(true);
@@ -57,6 +74,9 @@ export default function AdminCrudClient({ tables }: Props) {
       setMode('create');
       setEditingKey({});
       setFormValues({});
+      setReferenceOptions({});
+      setReferenceSearch({});
+      setReferenceLoading({});
     } catch (error) {
       console.error(error);
       setFeedback(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
@@ -134,6 +154,27 @@ export default function AdminCrudClient({ tables }: Props) {
     setEditingKey({});
     setFormValues({});
     setFeedback(null);
+  }
+
+  async function loadReferenceOptions(columnName: string, keyword: string) {
+    if (!selectedTable) return;
+    setReferenceLoading((prev) => ({ ...prev, [columnName]: true }));
+    try {
+      const response = await fetch(
+        `/api/admin/crud/reference?table=${encodeURIComponent(selectedTable)}&column=${encodeURIComponent(columnName)}&q=${encodeURIComponent(keyword)}`,
+        { cache: 'no-cache' }
+      );
+      if (!response.ok) {
+        throw new Error('연관 데이터를 불러오지 못했습니다.');
+      }
+      const payload = (await response.json()) as { options: { value: string; label: string }[] };
+      setReferenceOptions((prev) => ({ ...prev, [columnName]: payload.options ?? [] }));
+    } catch (error) {
+      console.error(error);
+      setFeedback(error instanceof Error ? error.message : '연관 데이터 조회 중 오류가 발생했습니다.');
+    } finally {
+      setReferenceLoading((prev) => ({ ...prev, [columnName]: false }));
+    }
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -234,6 +275,50 @@ export default function AdminCrudClient({ tables }: Props) {
           checked={value === '1' || value === true || value === 'true'}
           onChange={(event) => handleInputChange(column, event.target.checked)}
         />
+      );
+    }
+
+    if (column.references) {
+      const options = referenceOptions[column.name] ?? [];
+      const searchTerm = referenceSearch[column.name] ?? '';
+      const refLoading = referenceLoading[column.name] ?? false;
+
+      return (
+        <div className={styles.referenceInput}>
+          <div className={styles.referenceSearchRow}>
+            <input
+              type="text"
+              value={searchTerm}
+              placeholder="검색어 입력"
+              onChange={(event) => setReferenceSearch((prev) => ({ ...prev, [column.name]: event.target.value }))}
+              disabled={loading}
+            />
+            <button
+              type="button"
+              onClick={() => loadReferenceOptions(column.name, searchTerm)}
+              disabled={loading || refLoading}
+            >
+              검색
+            </button>
+            <button type="button" onClick={() => loadReferenceOptions(column.name, '')} disabled={loading || refLoading}>
+              초기화
+            </button>
+          </div>
+
+          <select
+            id={column.name}
+            value={value}
+            onChange={(event) => handleInputChange(column, event.target.value)}
+            disabled={loading || refLoading}
+          >
+            <option value="">선택하세요</option>
+            {options.map((option) => (
+              <option key={`${column.name}-${option.value}`} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
       );
     }
 

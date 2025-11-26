@@ -22,6 +22,8 @@ export type AdminColumnMeta = {
   references?: AdminReference;
 };
 
+export type AdminReferenceOption = { value: unknown; label: string };
+
 const adminTableConfigs: AdminTableConfig[] = [
   { name: 'client_custom_price', references: { room_id: { table: 'client_rooms', column: 'id' } } },
   { name: 'client_additional_price', references: { room_id: { table: 'client_rooms', column: 'id' } } },
@@ -126,6 +128,14 @@ export type TableSnapshot = {
   offset: number;
 };
 
+function pickLabelColumns(columns: AdminColumnMeta[]) {
+  const textualTypes = new Set(['varchar', 'text', 'char', 'mediumtext', 'longtext', 'tinytext']);
+  return columns
+    .filter((column) => textualTypes.has(column.dataType))
+    .map((column) => column.name)
+    .slice(0, 3);
+}
+
 export async function fetchTableSnapshot(table: string, offset = 0, limit = 20): Promise<TableSnapshot> {
   const columns = await fetchColumnMetadata(table);
   const primaryKey = columns.filter((column) => column.isPrimaryKey).map((column) => column.name);
@@ -138,6 +148,43 @@ export async function fetchTableSnapshot(table: string, offset = 0, limit = 20):
   );
 
   return { table, columns, primaryKey, rows, limit, offset };
+}
+
+export async function fetchReferenceOptions(
+  table: string,
+  column: string,
+  keyword: string,
+  limit = 20
+): Promise<AdminReferenceOption[]> {
+  const sourceConfig = getTableConfig(table);
+  const reference = sourceConfig?.references?.[column];
+
+  if (!reference) {
+    throw new Error('레퍼런스 정보가 없습니다.');
+  }
+
+  const refColumns = await fetchColumnMetadata(reference.table);
+  const labelColumns = pickLabelColumns(refColumns);
+  const displayColumns = labelColumns.length ? labelColumns : [reference.column];
+
+  const concatExpr = displayColumns.length > 1 ? `CONCAT_WS(' / ', ${displayColumns.map(() => '??').join(', ')})` : '??';
+  const whereClause = keyword ? displayColumns.map(() => '?? LIKE ?').join(' OR ') : '';
+  const sql = `SELECT ?? AS value, ${concatExpr} AS label FROM ?? ${whereClause ? `WHERE ${whereClause}` : ''} ORDER BY ?? DESC LIMIT ?`;
+
+  const params: unknown[] = [reference.column, ...displayColumns, reference.table];
+
+  if (keyword) {
+    displayColumns.forEach((columnName) => {
+      params.push(columnName, `%${keyword}%`);
+    });
+  }
+
+  params.push(reference.column, limit);
+
+  const pool = getPool();
+  const [rows] = await pool.query<RowDataPacket[]>(sql, params);
+
+  return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value) }));
 }
 
 function buildInsertParts(data: Record<string, unknown>, columns: AdminColumnMeta[]) {
