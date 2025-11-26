@@ -1,10 +1,11 @@
-import { and, asc, desc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import {
   clientAdditionalPrice,
-  clientCustomPrice,
   clientHeader,
+  clientPriceList,
+  clientPriceSetDetail,
   clientRooms,
   etcBuildings,
   workHeader
@@ -45,13 +46,11 @@ export type SettlementSnapshot = {
   appliedHostId: number | null;
 };
 
-type RateBundle = {
-  cleaningRate: Money;
-  amenityRate: Money;
-  monthlyRate: Money;
-  bedRentalRate: Money;
-  latePerMinute: Money;
-  earlyPerMinute: Money;
+type PriceItem = {
+  roomId: number;
+  type: number;
+  amount: Money;
+  title: string;
 };
 
 function normalizeRegisterNo(value: string | undefined | null) {
@@ -80,53 +79,6 @@ function getMonthBoundary(month: string) {
   return { start, end };
 }
 
-function pickRateBundle(prices: { title: string; pricePerCleaning: number; pricePerMonth: number }[]): RateBundle {
-  const result: RateBundle = {
-    cleaningRate: 0,
-    amenityRate: 0,
-    monthlyRate: 0,
-    bedRentalRate: 0,
-    latePerMinute: 0,
-    earlyPerMinute: 0
-  };
-
-  for (const row of prices) {
-    const title = row.title.toLowerCase();
-    const cleaningCandidate = row.pricePerCleaning ?? 0;
-    const monthlyCandidate = row.pricePerMonth ?? 0;
-
-    if (title.includes('체크아웃')) {
-      result.latePerMinute = cleaningCandidate || monthlyCandidate || result.latePerMinute;
-    }
-
-    if (title.includes('체크인')) {
-      result.earlyPerMinute = cleaningCandidate || monthlyCandidate || result.earlyPerMinute;
-    }
-
-    if (title.includes('어메니티')) {
-      result.amenityRate = cleaningCandidate || monthlyCandidate || result.amenityRate;
-    }
-
-    if (title.includes('침구') || title.includes('매트리스')) {
-      result.bedRentalRate = monthlyCandidate || cleaningCandidate || result.bedRentalRate;
-    }
-
-    if (title.includes('청소')) {
-      result.cleaningRate = cleaningCandidate || result.cleaningRate;
-    }
-
-    if (!result.monthlyRate && monthlyCandidate) {
-      result.monthlyRate = monthlyCandidate;
-    }
-
-    if (!result.cleaningRate && cleaningCandidate) {
-      result.cleaningRate = cleaningCandidate;
-    }
-  }
-
-  return result;
-}
-
 async function resolveAdditionalPriceColumn(month: string, hostId?: number | null) {
   try {
     const raw = await db.execute<{ column_name?: string; COLUMN_NAME?: string }>(
@@ -134,7 +86,10 @@ async function resolveAdditionalPriceColumn(month: string, hostId?: number | nul
     );
 
     const rows = Array.isArray(raw)
-      ? (Array.isArray(raw[0]) ? (raw[0] as typeof raw) : raw)
+      ? ((Array.isArray(raw[0]) ? (raw[0] as unknown) : (raw as unknown)) as {
+          column_name?: string;
+          COLUMN_NAME?: string;
+        }[])
       : Array.isArray((raw as any)?.rows)
         ? ((raw as any).rows as { column_name?: string; COLUMN_NAME?: string }[])
         : [];
@@ -188,46 +143,47 @@ function addLine(
   lines.push({ ...line, total, id: line.id ?? `${line.date}-${line.item}-${lines.length}` });
 }
 
-async function loadCustomPrices(
-  roomIds: number[],
-  start: Date,
-  end: Date,
-  month: string,
-  hostId?: number
-) {
-  try {
-    return await db
-      .select({
-        roomId: clientCustomPrice.roomId,
-        title: clientCustomPrice.title,
-        pricePerCleaning: sql`CAST(${clientCustomPrice.pricePerCleaning} AS DECIMAL(20,4))`,
-        pricePerMonth: sql`CAST(${clientCustomPrice.pricePerMonth} AS DECIMAL(20,4))`,
-        start: clientCustomPrice.startDate,
-        end: clientCustomPrice.endDate
-      })
-      .from(clientCustomPrice)
-      .where(
-        and(
-          inArray(clientCustomPrice.roomId, roomIds),
-          lte(clientCustomPrice.startDate, end),
-          gte(clientCustomPrice.endDate, start)
-        )
-      );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : '알 수 없는 오류';
-    const isMissingTable = message.includes("doesn't exist") || message.includes('does not exist');
+async function loadPriceItems(roomIds: number[], month: string, hostId?: number | null) {
+  if (!roomIds.length) return new Map<number, PriceItem[]>();
 
-    if (isMissingTable) {
-      await logEtcError({
-        message: `client_custom_price 누락으로 커스텀 요금을 생략합니다: ${message}`,
-        stacktrace: error instanceof Error ? error.stack ?? null : null,
-        context: { month, hostId: hostId ?? null, table: 'client_custom_price' }
-      });
-      return [];
-    }
+  const priceRows = await db
+    .select({
+      roomId: clientRooms.id,
+      priceSetId: clientRooms.priceSetId,
+      priceId: clientPriceSetDetail.priceId,
+      priceType: clientPriceList.type,
+      amount: sql`CAST(${clientPriceList.amount} AS DECIMAL(20,4))`,
+      title: clientPriceList.title
+    })
+    .from(clientRooms)
+    .leftJoin(clientPriceSetDetail, eq(clientRooms.priceSetId, clientPriceSetDetail.priceSetId))
+    .leftJoin(clientPriceList, eq(clientPriceSetDetail.priceId, clientPriceList.id))
+    .where(inArray(clientRooms.id, roomIds));
 
-    throw error;
+  const priceMap = new Map<number, PriceItem[]>();
+
+  for (const row of priceRows) {
+    if (!row.priceId || row.priceType == null || row.amount == null) continue;
+    const list = priceMap.get(row.roomId) ?? [];
+    list.push({
+      roomId: row.roomId,
+      type: Number(row.priceType),
+      amount: Number(row.amount),
+      title: row.title ?? '요금'
+    });
+    priceMap.set(row.roomId, list);
   }
+
+  const missingRooms = roomIds.filter((id) => !(priceMap.get(id)?.length));
+  if (missingRooms.length) {
+    await logEtcError({
+      message: '정산용 요금 세트가 지정되지 않은 객실이 있습니다.',
+      stacktrace: null,
+      context: { month, hostId: hostId ?? null, roomIds: missingRooms }
+    });
+  }
+
+  return priceMap;
 }
 
 export async function getSettlementSnapshot(
@@ -278,6 +234,7 @@ export async function getSettlementSnapshot(
         bedCount: clientRooms.bedCount,
         roomNo: clientRooms.roomNo,
         buildingShort: etcBuildings.shortName,
+        priceSetId: clientRooms.priceSetId,
         expectedCheckout: clientRooms.checkoutTime,
         expectedCheckin: clientRooms.checkinTime
       })
@@ -287,47 +244,7 @@ export async function getSettlementSnapshot(
 
     const roomIds = roomRows.map((row) => row.roomId);
 
-    const priceRows = roomIds.length
-      ? await loadCustomPrices(roomIds, start, end, month, hostFilterId ?? undefined)
-      : [];
-
-    if (roomIds.length && priceRows.length < roomIds.length) {
-      const pricedRoomIds = new Set(priceRows.map((row) => row.roomId));
-      const missingRoomIds = roomIds.filter((id) => !pricedRoomIds.has(id));
-
-      if (missingRoomIds.length) {
-        const fallbackRows = await db
-          .select({
-            roomId: clientCustomPrice.roomId,
-            title: clientCustomPrice.title,
-            pricePerCleaning: sql`CAST(${clientCustomPrice.pricePerCleaning} AS DECIMAL(20,4))`,
-            pricePerMonth: sql`CAST(${clientCustomPrice.pricePerMonth} AS DECIMAL(20,4))`,
-            start: clientCustomPrice.startDate,
-            end: clientCustomPrice.endDate
-          })
-          .from(clientCustomPrice)
-          .where(inArray(clientCustomPrice.roomId, missingRoomIds))
-          .orderBy(desc(clientCustomPrice.endDate));
-
-        const seen = new Set<number>();
-
-        for (const row of fallbackRows) {
-          if (seen.has(row.roomId)) continue;
-          priceRows.push(row);
-          seen.add(row.roomId);
-        }
-
-        const stillMissing = roomIds.filter((id) => !priceRows.some((row) => row.roomId === id));
-
-        if (stillMissing.length) {
-          await logEtcError({
-            message: '정산용 요금이 설정되지 않은 객실이 있습니다.',
-            stacktrace: null,
-            context: { month, hostId: hostFilterId ?? null, roomIds: stillMissing }
-          });
-        }
-      }
-    }
+    const priceMap = await loadPriceItems(roomIds, month, hostFilterId ?? null);
 
     const additionalPriceColumn = roomIds.length
       ? await resolveAdditionalPriceColumn(month, hostFilterId ?? null)
@@ -360,14 +277,15 @@ export async function getSettlementSnapshot(
       ? await db
           .select({
             hostId: clientRooms.clientId,
-            roomId: clientRooms.id,
-            workId: workHeader.id,
-            workDate: workHeader.date,
-            amenitiesQty: workHeader.amenitiesQty,
-            blanketQty: workHeader.blanketQty,
-            actualCheckin: workHeader.checkinTime,
-            actualCheckout: workHeader.checkoutTime
-          })
+        roomId: clientRooms.id,
+        workId: workHeader.id,
+        workDate: workHeader.date,
+        amenitiesQty: workHeader.amenitiesQty,
+        blanketQty: workHeader.blanketQty,
+        cleaningYn: workHeader.cleaningYn,
+        actualCheckin: workHeader.checkinTime,
+        actualCheckout: workHeader.checkoutTime
+      })
           .from(workHeader)
           .innerJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
           .where(
@@ -394,28 +312,6 @@ export async function getSettlementSnapshot(
     ])
   );
 
-  const priceMap = new Map<number, RateBundle>();
-
-  for (const roomId of roomIds) {
-    const prices = priceRows
-      .filter((row) => row.roomId === roomId)
-      .sort((a, b) => {
-        const aTime = a.start ? new Date(a.start).getTime() : 0;
-        const bTime = b.start ? new Date(b.start).getTime() : 0;
-        return bTime - aTime;
-      });
-
-    const rateBundle = pickRateBundle(
-      prices.map((row) => ({
-        title: row.title,
-        pricePerCleaning: Number(row.pricePerCleaning ?? 0),
-        pricePerMonth: Number(row.pricePerMonth ?? 0)
-      }))
-    );
-
-    priceMap.set(roomId, rateBundle);
-  }
-
   const statements: SettlementStatement[] = hostRows.map((host) => ({
     hostId: host.id,
     hostName: host.name,
@@ -428,111 +324,138 @@ export async function getSettlementSnapshot(
   // Per-work items
   for (const work of workRows) {
     const room = roomMap.get(work.roomId);
-    const rate = priceMap.get(work.roomId) ?? {
-      cleaningRate: 0,
-      amenityRate: 0,
-      monthlyRate: 0,
-      bedRentalRate: 0,
-      latePerMinute: 0,
-      earlyPerMinute: 0
-    };
+    const prices = priceMap.get(work.roomId) ?? [];
 
     const hostStatement = room ? statementMap.get(room.hostId) : undefined;
     if (!room || !hostStatement) continue;
 
     const date = work.workDate instanceof Date ? work.workDate.toISOString().slice(0, 10) : String(work.workDate);
 
-    if (rate.cleaningRate) {
-      addLine(hostStatement.lines, {
-        date,
-        item: `${room.label} 청소비`,
-        amount: rate.cleaningRate,
-        quantity: 1,
-        category: 'cleaning'
-      });
-      hostStatement.totals.cleaning += rate.cleaningRate;
+    for (const price of prices) {
+      switch (price.type) {
+        case 1: {
+          if (work.cleaningYn) {
+            addLine(hostStatement.lines, {
+              date,
+              item: `${room.label} ${price.title ?? '청소비'}`,
+              amount: price.amount,
+              quantity: 1,
+              category: 'cleaning'
+            });
+            hostStatement.totals.cleaning += price.amount;
+          }
+          break;
+        }
+        case 3: {
+          if (work.cleaningYn) {
+            const qty = room.bedCount ?? 1;
+            const total = price.amount * qty;
+            addLine(hostStatement.lines, {
+              date,
+              item: `${room.label} ${price.title ?? '침구/베드 청소비'}`,
+              amount: price.amount,
+              quantity: qty,
+              category: 'facility'
+            });
+            hostStatement.totals.facility += total;
+          }
+          break;
+        }
+        case 5: {
+          const expectedOut = toMinutes(room.expectedCheckout);
+          const actualOut = toMinutes(work.actualCheckout);
+          const expectedIn = toMinutes(room.expectedCheckin);
+          const actualIn = toMinutes(work.actualCheckin);
+          const varianceMinutes = Math.max(0, actualOut - expectedOut) + Math.max(0, expectedIn - actualIn);
+
+          if (varianceMinutes > 0) {
+            const total = price.amount * varianceMinutes;
+            addLine(hostStatement.lines, {
+              date,
+              item: `${room.label} ${price.title ?? '체크인/아웃 변동'}`,
+              amount: price.amount,
+              quantity: varianceMinutes,
+              category: 'facility'
+            });
+            hostStatement.totals.facility += total;
+          }
+          break;
+        }
+        case 6: {
+          const bedCount = room.bedCount ?? 0;
+          const extraAmenities = Math.max(0, (work.amenitiesQty ?? 0) - bedCount);
+          const extraBlankets = Math.max(0, (work.blanketQty ?? 0) - bedCount);
+          const extras = extraAmenities + extraBlankets;
+
+          if (extras > 0) {
+            const total = price.amount * extras;
+            addLine(hostStatement.lines, {
+              date,
+              item: `${room.label} ${price.title ?? '추가 어메니티/침구'}`,
+              amount: price.amount,
+              quantity: extras,
+              category: 'facility'
+            });
+            hostStatement.totals.facility += total;
+          }
+          break;
+        }
+        default:
+          break;
+      }
     }
-
-    if (rate.amenityRate) {
-      const qty = room.bedCount ?? 1;
-      const total = rate.amenityRate * qty;
-      addLine(hostStatement.lines, {
-        date,
-        item: `${room.label} 기본 어메니티`,
-        amount: rate.amenityRate,
-        quantity: qty,
-        category: 'facility'
-      });
-      hostStatement.totals.facility += total;
-    }
-
-    const expectedOut = toMinutes(room.expectedCheckout);
-    const actualOut = toMinutes(work.actualCheckout);
-    const lateMinutes = Math.max(0, actualOut - expectedOut);
-
-    if (rate.latePerMinute && lateMinutes > 0) {
-      const total = rate.latePerMinute * lateMinutes;
-      addLine(hostStatement.lines, {
-        date,
-        item: `${room.label} 레이트체크아웃`,
-        amount: rate.latePerMinute,
-        quantity: lateMinutes,
-        category: 'facility'
-      });
-      hostStatement.totals.facility += total;
-    }
-
-    const expectedIn = toMinutes(room.expectedCheckin);
-    const actualIn = toMinutes(work.actualCheckin);
-    const earlyMinutes = Math.max(0, expectedIn - actualIn);
-
-    if (rate.earlyPerMinute && earlyMinutes > 0) {
-      const total = rate.earlyPerMinute * earlyMinutes;
-      addLine(hostStatement.lines, {
-        date,
-        item: `${room.label} 얼리체크인`,
-        amount: rate.earlyPerMinute,
-        quantity: earlyMinutes,
-        category: 'facility'
-      });
-      hostStatement.totals.facility += total;
-    }
-
-    // Blanket rental by month later via monthly block
   }
 
   // Monthly items per room
   for (const room of roomRows) {
     const roomInfo = roomMap.get(room.roomId);
     const hostStatement = roomInfo ? statementMap.get(roomInfo.hostId) : undefined;
-    const rate = priceMap.get(room.roomId);
+    const prices = priceMap.get(room.roomId) ?? [];
 
-    if (!hostStatement || !rate || !roomInfo) continue;
+    if (!hostStatement || !roomInfo) continue;
 
     const monthDate = `${month}-01`;
 
-    if (rate.monthlyRate) {
-      addLine(hostStatement.lines, {
-        date: monthDate,
-        item: `${roomInfo.label} 월정액`,
-        amount: rate.monthlyRate,
-        quantity: 1,
-        category: 'monthly'
-      });
-      hostStatement.totals.monthly += rate.monthlyRate;
-    }
-
-    if (rate.bedRentalRate) {
-      const qty = roomInfo.bedCount ?? 1;
-      const total = rate.bedRentalRate * qty;
-      addLine(hostStatement.lines, {
-        date: monthDate,
-        item: `${roomInfo.label} 침구/매트리스 렌탈`,
-        amount: rate.bedRentalRate,
-        quantity: qty,
-        category: 'monthly'
-      });
-      hostStatement.totals.monthly += total;
+    for (const price of prices) {
+      switch (price.type) {
+        case 2: {
+          addLine(hostStatement.lines, {
+            date: monthDate,
+            item: `${roomInfo.label} ${price.title ?? '월정액'}`,
+            amount: price.amount,
+            quantity: 1,
+            category: 'monthly'
+          });
+          hostStatement.totals.monthly += price.amount;
+          break;
+        }
+        case 4: {
+          const qty = roomInfo.bedCount ?? 1;
+          const total = price.amount * qty;
+          addLine(hostStatement.lines, {
+            date: monthDate,
+            item: `${roomInfo.label} ${price.title ?? '침구 월정액'}`,
+            amount: price.amount,
+            quantity: qty,
+            category: 'monthly'
+          });
+          hostStatement.totals.monthly += total;
+          break;
+        }
+        case 7: {
+          addLine(hostStatement.lines, {
+            date: monthDate,
+            item: `${roomInfo.label} ${price.title ?? '임시 항목'}`,
+            amount: price.amount,
+            quantity: 1,
+            category: 'misc'
+          });
+          hostStatement.totals.misc += price.amount;
+          break;
+        }
+        default:
+          break;
+      }
     }
   }
 
