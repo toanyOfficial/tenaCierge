@@ -19,10 +19,12 @@ type SettlementLine = {
   id: string;
   date: string;
   item: string;
+  priceTitle?: string;
   amount: Money;
   quantity: number;
   total: Money;
   rawTotal: Money;
+  preDiscountBase?: Money;
   category: 'cleaning' | 'facility' | 'monthly' | 'misc';
   roomId: number;
   roomLabel: string;
@@ -189,7 +191,10 @@ function toMinutes(time: string | null | undefined) {
 function addLine(
   lines: SettlementLine[],
   room: { roomId: number; roomLabel: string },
-  line: Omit<SettlementLine, 'id' | 'total' | 'rawTotal' | 'roomId' | 'roomLabel'> & { id?: string }
+  line: Omit<
+    SettlementLine,
+    'id' | 'total' | 'rawTotal' | 'roomId' | 'roomLabel'
+  > & { id?: string }
 ) {
   const rawTotal = line.ratioYn ? 0 : line.amount * line.quantity;
   const total = line.minusYn ? -rawTotal : rawTotal;
@@ -203,6 +208,7 @@ function addLine(
     minusYn: !!line.minusYn,
     ratioYn: !!line.ratioYn,
     ratioValue: line.ratioValue,
+    preDiscountBase: line.preDiscountBase,
     id: line.id ?? `${room.roomLabel}-${line.date}-${line.item}-${lines.length}`
   });
 }
@@ -488,6 +494,7 @@ export async function getSettlementSnapshot(
               addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
                 date,
                 item: `${room.label} ${price.title ?? '청소비'}`,
+                priceTitle: price.title,
                 amount: price.amount,
                 quantity: 1,
                 category: 'cleaning',
@@ -504,6 +511,7 @@ export async function getSettlementSnapshot(
               addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
                 date,
                 item: `${room.label} ${price.title ?? '침구/베드 청소비'}`,
+                priceTitle: price.title,
                 amount: price.amount,
                 quantity: qty,
                 category: 'facility',
@@ -525,6 +533,7 @@ export async function getSettlementSnapshot(
               addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
                 date,
                 item: `${room.label} ${price.title ?? '체크인/아웃 변동'}`,
+                priceTitle: price.title,
                 amount: price.amount,
                 quantity: varianceMinutes,
                 category: 'facility',
@@ -545,6 +554,7 @@ export async function getSettlementSnapshot(
               addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
                 date,
                 item: `${room.label} ${price.title ?? '추가 어메니티/침구'}`,
+                priceTitle: price.title,
                 amount: price.amount,
                 quantity: extras,
                 category: 'facility',
@@ -576,13 +586,14 @@ export async function getSettlementSnapshot(
         switch (price.type) {
           case 2: {
             const perDay = price.amount / daysInMonth;
-            addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
-              date: monthDate,
-              item: `${roomInfo.label} ${price.title ?? '월정액'}`,
-              amount: perDay,
-              quantity: activeDays,
-              category: 'monthly',
-              minusYn: price.minusYn,
+              addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
+                date: monthDate,
+                item: `${roomInfo.label} ${price.title ?? '월정액'}`,
+                priceTitle: price.title,
+                amount: perDay,
+                quantity: activeDays,
+                category: 'monthly',
+                minusYn: price.minusYn,
               ratioYn: price.ratioYn,
               ratioValue: price.ratioValue
             });
@@ -592,26 +603,28 @@ export async function getSettlementSnapshot(
             const qty = roomInfo.bedCount ?? 1;
             const perDay = price.amount / daysInMonth;
             const totalQty = qty * activeDays;
-            addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
-              date: monthDate,
-              item: `${roomInfo.label} ${price.title ?? '침구 월정액'} (x${qty})`,
-              amount: perDay,
-              quantity: totalQty,
-              category: 'monthly',
-              minusYn: price.minusYn,
+              addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
+                date: monthDate,
+                item: `${roomInfo.label} ${price.title ?? '침구 월정액'} (x${qty})`,
+                priceTitle: price.title,
+                amount: perDay,
+                quantity: totalQty,
+                category: 'monthly',
+                minusYn: price.minusYn,
               ratioYn: price.ratioYn,
               ratioValue: price.ratioValue
             });
             break;
           }
           case 7: {
-            addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
-              date: monthDate,
-              item: `${roomInfo.label} ${price.title ?? '임시 항목'}`,
-              amount: price.amount,
-              quantity: 1,
-              category: 'misc',
-              minusYn: price.minusYn,
+              addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
+                date: monthDate,
+                item: `${roomInfo.label} ${price.title ?? '임시 항목'}`,
+                priceTitle: price.title,
+                amount: price.amount,
+                quantity: 1,
+                category: 'misc',
+                minusYn: price.minusYn,
               ratioYn: price.ratioYn,
               ratioValue: price.ratioValue
             });
@@ -657,6 +670,7 @@ export async function getSettlementSnapshot(
       const ratio = (line.ratioValue ?? line.amount) / 100;
       const computed = base * ratio;
 
+      line.preDiscountBase = base;
       line.rawTotal = computed;
       line.total = line.minusYn ? -computed : computed;
     }

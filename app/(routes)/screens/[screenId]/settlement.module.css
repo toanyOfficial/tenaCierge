@@ -230,6 +230,13 @@
   margin-top: 4px;
 }
 
+.noteSmall {
+  display: block;
+  font-size: 0.8rem;
+  color: #dc2626;
+  line-height: 1.2;
+}
+
 .ratioText {
   color: #dc2626;
   font-weight: 700;

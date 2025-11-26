@@ -48,8 +48,9 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
   const renderAmount = (line: SettlementSnapshot['statements'][number]['lines'][number]) => {
     if (line.ratioYn) {
       const percent = line.ratioValue ?? line.amount;
-      const applied = formatCurrency(Math.abs(line.rawTotal ?? line.total));
-      return `${percent}% (적용 ${applied})`;
+      const applied = formatCurrency(Math.abs(line.total));
+      const sign = line.total < 0 ? '-' : '+';
+      return `${percent}% / ${sign}${applied}`;
     }
 
     return formatCurrency(line.amount);
@@ -59,8 +60,11 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
     if (!line.ratioYn) return line.item;
 
     const percent = line.ratioValue ?? line.amount;
-    const applied = Math.abs(line.rawTotal ?? line.total);
-    return `${line.item} · ${percent}% · -${formatCurrency(applied)}원x${percent}%`;
+    const discountValue = line.total;
+    const sign = discountValue < 0 ? '-' : '+';
+    return `${line.priceTitle ?? line.item} · 할인율 ${percent}% · 할인금액 ${sign}${formatCurrency(
+      Math.abs(discountValue)
+    )}원`;
   };
 
   return (
@@ -235,10 +239,27 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
                             <span className={styles.muted}>할인 전</span>
                             <strong>{formatCurrency(roomBase)}</strong>원
                           </span>
-                          <span className={`${styles.totalValueRow} ${styles.negative}`}>
-                            <span className={styles.muted}>할인/공제</span>
-                            <strong>{formatCurrency(discountTotal)}</strong>원
-                          </span>
+                          {room.discounts.map((line) => {
+                            const percent = line.ratioValue ?? line.amount;
+                            const discountValue = line.total;
+                            const sign = discountValue < 0 ? '-' : '+';
+                            return (
+                              <span key={line.id} className={`${styles.totalValueRow} ${styles.negative}`}>
+                                <span className={styles.muted}>{line.priceTitle ?? line.item}</span>
+                                <strong>
+                                  {sign}
+                                  {formatCurrency(Math.abs(discountValue))}
+                                </strong>
+                                원
+                                {line.ratioYn && (
+                                  <span className={styles.noteSmall}>
+                                    할인율 {percent}% · 할인금액 {sign}
+                                    {formatCurrency(Math.abs(discountValue))}원
+                                  </span>
+                                )}
+                              </span>
+                            );
+                          })}
                           <span className={styles.totalValueRow}>
                             <span className={styles.muted}>최종</span>
                             <strong className={roomTotal < 0 ? styles.negative : styles.emphasis}>
