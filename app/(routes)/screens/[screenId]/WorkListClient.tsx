@@ -193,7 +193,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
         return;
       }
       const body = await res.json();
-      const mapped: AssignableWorker[] = (body?.workers ?? []).map((w: any) => ({
+      const mapped: AssignableWorker[] = (body?.results ?? []).map((w: any) => ({
         id: Number(w.id),
         name: w.name ?? '이름 미상',
         phone: w.phone ?? null,
