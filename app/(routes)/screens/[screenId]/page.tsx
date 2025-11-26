@@ -7,12 +7,14 @@ import ApplyClient from './ApplyClient';
 import WorkListClient from './WorkListClient';
 import CleaningReportClient from './CleaningReportClient';
 import SupervisingReportClient from './SupervisingReportClient';
+import EvaluationHistoryClient from './EvaluationHistoryClient';
 import { getCleaningSnapshot } from './server/getCleaningSnapshot';
 import { getApplySnapshot } from './server/getApplySnapshot';
 import { getWorkListSnapshot } from './server/getWorkListSnapshot';
 import { getCleaningReportSnapshot } from './server/getCleaningReportSnapshot';
 import { getSupervisingReportSnapshot } from './server/getSupervisingReportSnapshot';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
+import { getEvaluationSnapshot } from '@/src/server/evaluations';
 
 type Props = {
   params: {
@@ -29,10 +31,10 @@ export function generateMetadata({ params }: Props): Metadata {
 export default async function ScreenPage({
   params,
   searchParams
-}: Props & { searchParams?: { date?: string; window?: 'd0' | 'd1'; workId?: string } }) {
+}: Props & { searchParams?: { date?: string; window?: 'd0' | 'd1'; workId?: string; workerId?: string } }) {
   const { screenId } = params;
 
-  if (!['002', '003', '004', '005', '006'].includes(screenId)) {
+  if (!['002', '003', '004', '005', '006', '007'].includes(screenId)) {
     return (
       <section className={styles.placeholder}>
         <div className={styles.card}>
@@ -167,6 +169,33 @@ export default async function ScreenPage({
         </section>
       );
     }
+  }
+
+  if (screenId === '007') {
+    const allowedRoles = ['admin', 'butler', 'cleaner'];
+    const canAccess = profile.roles.some((role) => allowedRoles.includes(role));
+
+    if (!canAccess) {
+      return (
+        <section className={styles.placeholder}>
+          <div className={styles.card}>
+            <p className={styles.lead}>평가 이력은 관리자, 버틀러, 클리너만 조회할 수 있습니다.</p>
+            <Link className={styles.backLink} href="/dashboard">
+              대시보드로 돌아가기
+            </Link>
+          </div>
+        </section>
+      );
+    }
+
+    const workerId = searchParams?.workerId ? Number(searchParams.workerId) : undefined;
+    const snapshot = await getEvaluationSnapshot(profile, workerId);
+
+    return (
+      <div className={styles.screenWrapper}>
+        <EvaluationHistoryClient profile={profile} snapshot={snapshot} />
+      </div>
+    );
   }
 
   const snapshot = await getCleaningSnapshot(profile, searchParams?.date);

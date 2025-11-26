@@ -1931,3 +1931,232 @@
   color: #94a3b8;
   cursor: not-allowed;
 }
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.statCard {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.statBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #0f172a;
+  background: #e2e8f0;
+}
+
+.statAccentBlue {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.statAccentGreen {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.statAccentIndigo {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.statAccentPurple {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.statValue {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.evaluationList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.evaluationCard {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  padding: 14px 16px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+}
+
+.evaluationHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.evaluationTitle {
+  margin: 4px 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.evaluationComment {
+  margin: 4px 0 0;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.foldButton {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.workScoreList {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.workScoreItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.roomName {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.scoreBadge {
+  background: #0f172a;
+  color: #ffffff;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.loadMore {
+  text-align: center;
+  padding: 12px;
+  color: #475569;
+}
+
+.searchBar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.searchInputWrap {
+  display: flex;
+  gap: 8px;
+}
+
+.searchInputWrap input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  font-weight: 600;
+}
+
+.searchButton {
+  padding: 10px 14px;
+  background: #0f172a;
+  color: #ffffff;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.searchResults {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.searchResultRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.searchResultRow + .searchResultRow {
+  border-top: 1px solid #e2e8f0;
+}
+
+.searchResultMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+}
+
+.workerBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #0f172a;
+  color: #ffffff;
+  border-radius: 12px;
+  font-weight: 800;
+}
+
+.workerName {
+  font-weight: 800;
+}
+
+.workerCode {
+  opacity: 0.85;
+  font-weight: 700;
+}
+
+.workerTier {
+  font-weight: 700;
+  color: #475569;
+}
+
+.emptyState {
+  padding: 24px;
+  text-align: center;
+  border: 1px dashed #e2e8f0;
+  border-radius: 14px;
+  background: #f8fafc;
+}
