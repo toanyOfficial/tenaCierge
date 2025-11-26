@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import styles from './settlement.module.css';
 
 import type { SettlementSnapshot } from './server/getSettlementSnapshot';
-import { settlementBusinessInfo } from './settlementConstants';
+import { settlementBusinessInfo, settlementStampDataUrl } from './settlementConstants';
 
 type Props = {
   snapshot: SettlementSnapshot;
@@ -364,9 +364,9 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
               <span className={styles.businessInfoItem}>
                 사업체명: {business.company}
                 <img
-                  src="/company-stamp.svg"
+                  src={settlementStampDataUrl}
                   alt="회사 도장"
-                  className={styles.stamp}
+                  className={`${styles.stamp} ${styles.printOnly}`}
                   loading="lazy"
                 />
               </span>
