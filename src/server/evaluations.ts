@@ -3,6 +3,7 @@ import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
 import { db } from '@/src/db/client';
 import { clientRooms, etcBuildings, workHeader, workerEvaluateHistory } from '@/src/db/schema';
 import type { ProfileSummary } from '@/src/utils/profile';
+import { getTierLabel } from '@/src/utils/tier';
 import { formatFullDateLabel, getKstNow } from '@/src/utils/workWindow';
 import { findWorkerById, findWorkerByProfile, type WorkerRecord } from './workers';
 
@@ -30,6 +31,8 @@ export type EvaluationSummary = {
   rank: number | null;
   percentile: number | null;
   population: number;
+  tier: number | null;
+  tierLabel: string;
 };
 
 export type EvaluationSnapshot = {
@@ -76,7 +79,7 @@ export async function resolveEvaluationWorker(
   return { worker: target, reason: null };
 }
 
-export async function fetchEvaluationSummary(workerId: number): Promise<EvaluationSummary> {
+export async function fetchEvaluationSummary(worker: WorkerRecord): Promise<EvaluationSummary> {
   const now = getKstNow();
   const windowEnd = startOfKstDay(now);
   const windowStart = new Date(windowEnd);
@@ -89,7 +92,7 @@ export async function fetchEvaluationSummary(workerId: number): Promise<Evaluati
       total: sql<number>`COALESCE(SUM(${workerEvaluateHistory.checklistPointSum}), 0)`
     })
     .from(workerEvaluateHistory)
-    .where(eq(workerEvaluateHistory.workerId, workerId));
+    .where(eq(workerEvaluateHistory.workerId, worker.id));
 
   const recentRows = await db
     .select({
@@ -98,7 +101,7 @@ export async function fetchEvaluationSummary(workerId: number): Promise<Evaluati
     .from(workerEvaluateHistory)
     .where(
       and(
-        eq(workerEvaluateHistory.workerId, workerId),
+        eq(workerEvaluateHistory.workerId, worker.id),
         gte(workerEvaluateHistory.evaluatedAt, windowStart),
         lt(workerEvaluateHistory.evaluatedAt, windowNextDay)
       )
@@ -110,11 +113,16 @@ export async function fetchEvaluationSummary(workerId: number): Promise<Evaluati
       score: sql<number>`COALESCE(SUM(${workerEvaluateHistory.checklistPointSum}), 0)`
     })
     .from(workerEvaluateHistory)
-    .where(and(gte(workerEvaluateHistory.evaluatedAt, windowStart), lt(workerEvaluateHistory.evaluatedAt, windowNextDay)))
+    .where(
+      and(
+        gte(workerEvaluateHistory.evaluatedAt, windowStart),
+        lt(workerEvaluateHistory.evaluatedAt, windowNextDay)
+      )
+    )
     .groupBy(workerEvaluateHistory.workerId);
 
   const sorted = populationScores.sort((a, b) => Number(b.score) - Number(a.score));
-  const rankIndex = sorted.findIndex((row) => Number(row.workerId) === workerId);
+  const rankIndex = sorted.findIndex((row) => Number(row.workerId) === worker.id);
   const rank = rankIndex >= 0 ? rankIndex + 1 : null;
   const population = sorted.length;
   const percentile = rank && population
@@ -126,7 +134,9 @@ export async function fetchEvaluationSummary(workerId: number): Promise<Evaluati
     recentScore: Number(recentRows[0]?.total ?? 0),
     rank,
     percentile,
-    population
+    population,
+    tier: typeof worker.tier === 'number' ? worker.tier : null,
+    tierLabel: getTierLabel(worker.tier)
   };
 }
 
@@ -230,7 +240,7 @@ export async function getEvaluationSnapshot(
     };
   }
 
-  const summary = await fetchEvaluationSummary(worker.id);
+  const summary = await fetchEvaluationSummary(worker);
   const page = await fetchEvaluationPage(worker.id);
 
   return {
