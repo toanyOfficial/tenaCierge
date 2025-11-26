@@ -60,6 +60,12 @@ function normalizeRegisterNo(value: string | undefined | null) {
   return value.replace(/[^0-9]/g, '').slice(0, 6);
 }
 
+function normalizeDateOnly(value: Date | string | null | undefined) {
+  if (!value) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+}
+
 function ensureMonth(input?: string | null) {
   if (input && /^\d{4}-\d{2}$/.test(input)) {
     return input;
@@ -236,6 +242,7 @@ export async function getSettlementSnapshot(
   const month = ensureMonth(monthParam);
   try {
     const { start, end } = getMonthBoundary(month);
+    const daysInMonth = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     const normalizedRegister = normalizeRegisterNo(profile.registerNo);
 
     const parsedHostId = hostIdParam ? Number(hostIdParam) : null;
@@ -278,13 +285,31 @@ export async function getSettlementSnapshot(
         buildingShort: etcBuildings.shortName,
         priceSetId: clientRooms.priceSetId,
         expectedCheckout: clientRooms.checkoutTime,
-        expectedCheckin: clientRooms.checkinTime
+        expectedCheckin: clientRooms.checkinTime,
+        startDate: clientRooms.startDate,
+        endDate: clientRooms.endDate,
+        openYn: clientRooms.openYn
       })
       .from(clientRooms)
       .innerJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
       .where(inArray(clientRooms.clientId, hostIds));
 
-    const roomIds = roomRows.map((row) => row.roomId);
+    const eligibleRooms = roomRows.filter((row) => {
+      const startDate = normalizeDateOnly(row.startDate);
+      const endDate = normalizeDateOnly(row.endDate) ?? end;
+      const overlapsMonth = endDate.getTime() >= start.getTime() && (startDate ?? start).getTime() <= end.getTime();
+
+      if (row.openYn) {
+        return overlapsMonth;
+      }
+
+      const startInMonth = !!startDate && startDate.getTime() >= start.getTime() && startDate.getTime() <= end.getTime();
+      const endInMonth = !!row.endDate && endDate.getTime() >= start.getTime() && endDate.getTime() <= end.getTime();
+
+      return overlapsMonth && (startInMonth || endInMonth);
+    });
+
+    const roomIds = eligibleRooms.map((row) => row.roomId);
 
     const priceMap = await loadPriceItems(roomIds, month, hostFilterId ?? null);
 
@@ -319,15 +344,15 @@ export async function getSettlementSnapshot(
       ? await db
           .select({
             hostId: clientRooms.clientId,
-        roomId: clientRooms.id,
-        workId: workHeader.id,
-        workDate: workHeader.date,
-        amenitiesQty: workHeader.amenitiesQty,
-        blanketQty: workHeader.blanketQty,
-        cleaningYn: workHeader.cleaningYn,
-        actualCheckin: workHeader.checkinTime,
-        actualCheckout: workHeader.checkoutTime
-      })
+            roomId: clientRooms.id,
+            workId: workHeader.id,
+            workDate: workHeader.date,
+            amenitiesQty: workHeader.amenitiesQty,
+            blanketQty: workHeader.blanketQty,
+            cleaningYn: workHeader.cleaningYn,
+            actualCheckin: workHeader.checkinTime,
+            actualCheckout: workHeader.checkoutTime
+          })
           .from(workHeader)
           .innerJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
           .where(
@@ -341,167 +366,191 @@ export async function getSettlementSnapshot(
           .orderBy(asc(workHeader.date))
       : [];
 
-  const roomMap = new Map(
-    roomRows.map((row) => [
-      row.roomId,
-      {
-        roomId: row.roomId,
-        hostId: row.hostId,
-        bedCount: row.bedCount,
-        label: `${row.buildingShort}${row.roomNo}`,
-        expectedCheckout: row.expectedCheckout,
-        expectedCheckin: row.expectedCheckin
-      }
-    ])
-  );
+    const roomMap = new Map(
+      eligibleRooms.map((row) => {
+        const startDate = normalizeDateOnly(row.startDate) ?? start;
+        const endDate = normalizeDateOnly(row.endDate) ?? end;
+        const activeStart = startDate.getTime() > start.getTime() ? startDate : start;
+        const activeEnd = endDate.getTime() < end.getTime() ? endDate : end;
+        const activeDays = activeEnd.getTime() >= activeStart.getTime()
+          ? Math.floor((activeEnd.getTime() - activeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
+          : 0;
 
-  const statements: SettlementStatement[] = hostRows.map((host) => ({
-    hostId: host.id,
-    hostName: host.name,
-    lines: [],
-    totals: { cleaning: 0, facility: 0, monthly: 0, misc: 0, total: 0 }
-  }));
+        return [
+          row.roomId,
+          {
+            roomId: row.roomId,
+            hostId: row.hostId,
+            bedCount: row.bedCount,
+            label: `${row.buildingShort}${row.roomNo}`,
+            expectedCheckout: row.expectedCheckout,
+            expectedCheckin: row.expectedCheckin,
+            openYn: row.openYn,
+            activeDays,
+            activeDaysRatio: row.openYn ? 1 : Math.max(0, Math.min(1, activeDays / daysInMonth))
+          }
+        ];
+      })
+    );
 
-  const statementMap = new Map(statements.map((st) => [st.hostId, st]));
+    const eligibleHostIds = new Set(eligibleRooms.map((room) => room.hostId));
+
+    const filteredHosts = hostRows.filter((host) => eligibleHostIds.has(host.id));
+
+    if (!filteredHosts.length) {
+      return { month, summary: [], statements: [], hostOptions: [], appliedHostId: hostFilterId ?? null };
+    }
+
+    const statements: SettlementStatement[] = filteredHosts.map((host) => ({
+      hostId: host.id,
+      hostName: host.name,
+      lines: [],
+      totals: { cleaning: 0, facility: 0, monthly: 0, misc: 0, total: 0 }
+    }));
+
+    const statementMap = new Map(statements.map((st) => [st.hostId, st]));
 
   // Per-work items
-  for (const work of workRows) {
-    const room = roomMap.get(work.roomId);
-    const prices = priceMap.get(work.roomId) ?? [];
+    for (const work of workRows) {
+      const room = roomMap.get(work.roomId);
+      const prices = priceMap.get(work.roomId) ?? [];
 
-    const hostStatement = room ? statementMap.get(room.hostId) : undefined;
-    if (!room || !hostStatement) continue;
+      const hostStatement = room ? statementMap.get(room.hostId) : undefined;
+      if (!room || !hostStatement) continue;
 
-    const date = work.workDate instanceof Date ? work.workDate.toISOString().slice(0, 10) : String(work.workDate);
-    const isCleaningWork = work.cleaningYn === true;
+      const date = work.workDate instanceof Date ? work.workDate.toISOString().slice(0, 10) : String(work.workDate);
+      const isCleaningWork = work.cleaningYn === true;
 
-    for (const price of prices) {
-      switch (price.type) {
-        case 1: {
-          if (isCleaningWork) {
-            addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
-              date,
-              item: `${room.label} ${price.title ?? '청소비'}`,
-              amount: price.amount,
-              quantity: 1,
-              category: 'cleaning'
-            });
-            hostStatement.totals.cleaning += price.amount;
+      for (const price of prices) {
+        switch (price.type) {
+          case 1: {
+            if (isCleaningWork) {
+              addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
+                date,
+                item: `${room.label} ${price.title ?? '청소비'}`,
+                amount: price.amount,
+                quantity: 1,
+                category: 'cleaning'
+              });
+              hostStatement.totals.cleaning += price.amount;
+            }
+            break;
           }
-          break;
-        }
-        case 3: {
-          if (isCleaningWork) {
-            const qty = room.bedCount ?? 1;
-            const total = price.amount * qty;
-            addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
-              date,
-              item: `${room.label} ${price.title ?? '침구/베드 청소비'}`,
-              amount: price.amount,
-              quantity: qty,
-              category: 'facility'
-            });
-            hostStatement.totals.facility += total;
+          case 3: {
+            if (isCleaningWork) {
+              const qty = room.bedCount ?? 1;
+              const total = price.amount * qty;
+              addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
+                date,
+                item: `${room.label} ${price.title ?? '침구/베드 청소비'}`,
+                amount: price.amount,
+                quantity: qty,
+                category: 'facility'
+              });
+              hostStatement.totals.facility += total;
+            }
+            break;
           }
-          break;
-        }
-        case 5: {
-          const expectedOut = toMinutes(room.expectedCheckout);
-          const actualOut = toMinutes(work.actualCheckout);
-          const expectedIn = toMinutes(room.expectedCheckin);
-          const actualIn = toMinutes(work.actualCheckin);
-          const varianceMinutes = Math.max(0, actualOut - expectedOut) + Math.max(0, expectedIn - actualIn);
+          case 5: {
+            const expectedOut = toMinutes(room.expectedCheckout);
+            const actualOut = toMinutes(work.actualCheckout);
+            const expectedIn = toMinutes(room.expectedCheckin);
+            const actualIn = toMinutes(work.actualCheckin);
+            const varianceMinutes = Math.max(0, actualOut - expectedOut) + Math.max(0, expectedIn - actualIn);
 
-          if (varianceMinutes > 0) {
-            const total = price.amount * varianceMinutes;
-            addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
-              date,
-              item: `${room.label} ${price.title ?? '체크인/아웃 변동'}`,
-              amount: price.amount,
-              quantity: varianceMinutes,
-              category: 'facility'
-            });
-            hostStatement.totals.facility += total;
+            if (varianceMinutes > 0) {
+              const total = price.amount * varianceMinutes;
+              addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
+                date,
+                item: `${room.label} ${price.title ?? '체크인/아웃 변동'}`,
+                amount: price.amount,
+                quantity: varianceMinutes,
+                category: 'facility'
+              });
+              hostStatement.totals.facility += total;
+            }
+            break;
           }
-          break;
-        }
-        case 6: {
-          const bedCount = room.bedCount ?? 0;
-          const extraAmenities = Math.max(0, (work.amenitiesQty ?? 0) - bedCount);
-          const extraBlankets = Math.max(0, (work.blanketQty ?? 0) - bedCount);
-          const extras = extraAmenities + extraBlankets;
+          case 6: {
+            const bedCount = room.bedCount ?? 0;
+            const extraAmenities = Math.max(0, (work.amenitiesQty ?? 0) - bedCount);
+            const extraBlankets = Math.max(0, (work.blanketQty ?? 0) - bedCount);
+            const extras = extraAmenities + extraBlankets;
 
-          if (extras > 0) {
-            const total = price.amount * extras;
-            addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
-              date,
-              item: `${room.label} ${price.title ?? '추가 어메니티/침구'}`,
-              amount: price.amount,
-              quantity: extras,
-              category: 'facility'
-            });
-            hostStatement.totals.facility += total;
+            if (extras > 0) {
+              const total = price.amount * extras;
+              addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
+                date,
+                item: `${room.label} ${price.title ?? '추가 어메니티/침구'}`,
+                amount: price.amount,
+                quantity: extras,
+                category: 'facility'
+              });
+              hostStatement.totals.facility += total;
+            }
+            break;
           }
-          break;
+          default:
+            break;
         }
-        default:
-          break;
       }
     }
-  }
 
   // Monthly items per room
-  for (const room of roomRows) {
-    const roomInfo = roomMap.get(room.roomId);
-    const hostStatement = roomInfo ? statementMap.get(roomInfo.hostId) : undefined;
-    const prices = priceMap.get(room.roomId) ?? [];
+    for (const room of eligibleRooms) {
+      const roomInfo = roomMap.get(room.roomId);
+      const hostStatement = roomInfo ? statementMap.get(roomInfo.hostId) : undefined;
+      const prices = priceMap.get(room.roomId) ?? [];
 
-    if (!hostStatement || !roomInfo) continue;
+      if (!hostStatement || !roomInfo) continue;
 
-    const monthDate = `${month}-01`;
+      const monthDate = `${month}-01`;
+      const activeDays = roomInfo.activeDays ?? daysInMonth;
 
-    for (const price of prices) {
-      switch (price.type) {
-        case 2: {
-          addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
-            date: monthDate,
-            item: `${roomInfo.label} ${price.title ?? '월정액'}`,
-            amount: price.amount,
-            quantity: 1,
-            category: 'monthly'
-          });
-          hostStatement.totals.monthly += price.amount;
-          break;
+      for (const price of prices) {
+        switch (price.type) {
+          case 2: {
+            const perDay = price.amount / daysInMonth;
+            addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
+              date: monthDate,
+              item: `${roomInfo.label} ${price.title ?? '월정액'}`,
+              amount: perDay,
+              quantity: activeDays,
+              category: 'monthly'
+            });
+            hostStatement.totals.monthly += perDay * activeDays;
+            break;
+          }
+          case 4: {
+            const qty = roomInfo.bedCount ?? 1;
+            const perDay = price.amount / daysInMonth;
+            const totalQty = qty * activeDays;
+            addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
+              date: monthDate,
+              item: `${roomInfo.label} ${price.title ?? '침구 월정액'} (x${qty})`,
+              amount: perDay,
+              quantity: totalQty,
+              category: 'monthly'
+            });
+            hostStatement.totals.monthly += perDay * totalQty;
+            break;
+          }
+          case 7: {
+            addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
+              date: monthDate,
+              item: `${roomInfo.label} ${price.title ?? '임시 항목'}`,
+              amount: price.amount,
+              quantity: 1,
+              category: 'misc'
+            });
+            hostStatement.totals.misc += price.amount;
+            break;
+          }
+          default:
+            break;
         }
-        case 4: {
-          const qty = roomInfo.bedCount ?? 1;
-          const total = price.amount * qty;
-          addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
-            date: monthDate,
-            item: `${roomInfo.label} ${price.title ?? '침구 월정액'} (x${qty})`,
-            amount: price.amount,
-            quantity: qty,
-            category: 'monthly'
-          });
-          hostStatement.totals.monthly += total;
-          break;
-        }
-        case 7: {
-          addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
-            date: monthDate,
-            item: `${roomInfo.label} ${price.title ?? '임시 항목'}`,
-            amount: price.amount,
-            quantity: 1,
-            category: 'misc'
-          });
-          hostStatement.totals.misc += price.amount;
-          break;
-        }
-        default:
-          break;
       }
     }
-  }
 
   // Additional prices
   for (const extra of additionalRows) {
@@ -538,7 +587,7 @@ export async function getSettlementSnapshot(
       total: st.totals.total
     }));
 
-    const hostOptions = hostRows.map((row) => ({ id: row.id, name: row.name }));
+    const hostOptions = filteredHosts.map((row) => ({ id: row.id, name: row.name }));
 
     return {
       month,
