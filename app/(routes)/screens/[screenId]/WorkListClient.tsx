@@ -308,6 +308,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                           return (
                             <div key={work.id} className={`${styles.workCardMuted} ${styles.workCardMutedRow}`}>
                               <span className={styles.workTitle}>{work.roomName}</span>
+                              <span className={styles.statusCheckBadge}>상태확인</span>
                               <span className={styles.requirementsText}>{work.requirements || '요청사항 없음'}</span>
                             </div>
                           );
