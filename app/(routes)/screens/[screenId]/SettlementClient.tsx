@@ -29,13 +29,10 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
     const facility = snapshot.summary.reduce((sum, row) => sum + row.facility, 0);
     const monthly = snapshot.summary.reduce((sum, row) => sum + row.monthly, 0);
     const misc = snapshot.summary.reduce((sum, row) => sum + row.misc, 0);
-    return {
-      cleaning,
-      facility,
-      monthly,
-      misc,
-      total: cleaning + facility + monthly + misc
-    };
+    const total = snapshot.summary.reduce((sum, row) => sum + row.total, 0);
+    const vat = snapshot.summary.reduce((sum, row) => sum + row.vat, 0);
+    const grandTotal = snapshot.summary.reduce((sum, row) => sum + row.grandTotal, 0);
+    return { cleaning, facility, monthly, misc, total, vat, grandTotal };
   }, [snapshot.summary]);
 
   const handleFilterChange = (nextMonth: string, nextHostId: string) => {
@@ -49,7 +46,13 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
   const business = settlementBusinessInfo;
 
   const renderAmount = (line: SettlementSnapshot['statements'][number]['lines'][number]) => {
-    return line.ratioYn ? `${line.ratioValue ?? line.amount}%` : formatCurrency(line.amount);
+    if (line.ratioYn) {
+      const percent = line.ratioValue ?? line.amount;
+      const applied = formatCurrency(Math.abs(line.rawTotal ?? line.total));
+      return `${percent}% (적용 ${applied})`;
+    }
+
+    return formatCurrency(line.amount);
   };
 
   return (
@@ -99,6 +102,8 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
                   <th>월정액비용</th>
                   <th>기타비용</th>
                   <th>합계</th>
+                  <th>VAT(10%)</th>
+                  <th>총액(VAT포함)</th>
                 </tr>
               </thead>
               <tbody>
@@ -110,6 +115,8 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
                     <td>{formatCurrency(row.monthly)}</td>
                     <td>{formatCurrency(row.misc)}</td>
                     <td>{formatCurrency(row.total)}</td>
+                    <td>{formatCurrency(row.vat)}</td>
+                    <td>{formatCurrency(row.grandTotal)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -121,6 +128,8 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
                   <td>{formatCurrency(totalRow.monthly)}</td>
                   <td>{formatCurrency(totalRow.misc)}</td>
                   <td>{formatCurrency(totalRow.total)}</td>
+                  <td>{formatCurrency(totalRow.vat)}</td>
+                  <td>{formatCurrency(totalRow.grandTotal)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -140,6 +149,8 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
               <div>월정액비용: {formatCurrency(statement.totals.monthly)} 원</div>
               <div>기타비용: {formatCurrency(statement.totals.misc)} 원</div>
               <div>합계: {formatCurrency(statement.totals.total)} 원</div>
+              <div>VAT(10%): {formatCurrency(statement.totals.vat)} 원</div>
+              <div>총액(VAT포함): {formatCurrency(statement.totals.grandTotal)} 원</div>
             </div>
 
           {statement.lines.length === 0 && (

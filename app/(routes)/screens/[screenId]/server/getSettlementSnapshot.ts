@@ -41,6 +41,8 @@ export type SettlementStatement = {
     monthly: Money;
     misc: Money;
     total: Money;
+    vat: Money;
+    grandTotal: Money;
   };
 };
 
@@ -463,7 +465,7 @@ export async function getSettlementSnapshot(
       hostId: host.id,
       hostName: host.name,
       lines: [],
-      totals: { cleaning: 0, facility: 0, monthly: 0, misc: 0, total: 0 }
+      totals: { cleaning: 0, facility: 0, monthly: 0, misc: 0, total: 0, vat: 0, grandTotal: 0 }
     }));
 
     const statementMap = new Map(statements.map((st) => [st.hostId, st]));
@@ -678,6 +680,8 @@ export async function getSettlementSnapshot(
       statement.totals.cleaning + statement.totals.facility + statement.totals.monthly + statement.totals.misc;
 
     statement.totals.total = baseTotal + discountSum;
+    statement.totals.vat = Math.round(statement.totals.total * 0.1);
+    statement.totals.grandTotal = statement.totals.total + statement.totals.vat;
 
     statement.lines.sort((a, b) => a.date.localeCompare(b.date));
   }
@@ -689,7 +693,9 @@ export async function getSettlementSnapshot(
       facility: st.totals.facility,
       monthly: st.totals.monthly,
       misc: st.totals.misc,
-      total: st.totals.total
+      total: st.totals.total,
+      vat: st.totals.vat,
+      grandTotal: st.totals.grandTotal
     }));
 
     const hostOptions = filteredHosts.map((row) => ({ id: row.id, name: row.name }));
