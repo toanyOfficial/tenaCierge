@@ -13,7 +13,21 @@ export function getPool() {
   return globalForDb.mysqlPool;
 }
 
-export const db = drizzle(getPool());
+let cachedDb: ReturnType<typeof drizzle> | null = null;
+
+function getDbInstance() {
+  if (!cachedDb) {
+    cachedDb = drizzle(getPool());
+  }
+  return cachedDb;
+}
+
+export const db: ReturnType<typeof drizzle> = new Proxy({} as ReturnType<typeof drizzle>, {
+  get(_target, prop, receiver) {
+    const instance = getDbInstance();
+    return Reflect.get(instance as object, prop, receiver);
+  }
+});
 
 function createPoolFromEnv() {
   const connectionString = process.env.DATABASE_URL;
