@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
 import type { CleaningSnapshot, RoomOption } from './server/getCleaningSnapshot';
@@ -48,6 +49,9 @@ function buildTimeOptions(min: string, max: string, stepMinutes = 5) {
 }
 
 export default function CleaningListClient({ profile, snapshot }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const initialRole = profile.primaryRole ?? profile.roles[0] ?? null;
   const [activeRole, setActiveRole] = useState(initialRole);
   const [works, setWorks] = useState(() => sortWorks(snapshot.works));
@@ -59,6 +63,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
   const [addStatus, setAddStatus] = useState('');
   const [addError, setAddError] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(snapshot.targetDate);
   const [collapsedSectors, setCollapsedSectors] = useState<Set<string>>(new Set());
   const [collapsedBuildings, setCollapsedBuildings] = useState<Record<string, Set<string>>>({});
 
@@ -114,6 +119,28 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
   }, [roomOptions]);
 
   const [addForm, setAddForm] = useState<AddFormState>(() => createAddFormState(roomOptions[0] ?? null));
+
+  useEffect(() => {
+    setWorks(sortWorks(snapshot.works));
+    setBaseline(sortWorks(snapshot.works));
+    setSelectedDate(snapshot.targetDate);
+  }, [snapshot]);
+
+  function handleDateChange(value: string) {
+    setSelectedDate(value);
+
+    const params = new URLSearchParams(searchParams?.toString() ?? '');
+
+    if (value) {
+      params.set('date', value);
+    } else {
+      params.delete('date');
+    }
+
+    const query = params.toString();
+    const next = query ? `${pathname}?${query}` : pathname;
+    router.replace(next, { scroll: false });
+  }
 
   useEffect(() => {
     if (!roomOptions.length) {
@@ -174,7 +201,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
     snapshot.currentWorkerId
   ]);
 
-  const batchingOnly = snapshot.window === 'batching' && !viewingAsAdmin;
+  const batchingOnly = snapshot.window === 'edit' && !viewingAsAdmin;
   const hostRestrictionMessage = viewingAsHost
     ? snapshot.hostCanEdit
       ? '15:00~16:00 구간에서는 체크아웃/체크인·소모품 정보를 직접 조정할 수 있습니다.'
@@ -558,8 +585,20 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
             <h1 className={styles.sectionTitle}>오더관리</h1>
           </div>
           <div className={styles.windowMeta}>
-            <span className={styles.windowBadge}>{snapshot.targetTag}</span>
-            <span className={styles.windowDate}>{snapshot.targetDateLabel}</span>
+            <div className={styles.windowDateBlock}>
+              <span className={styles.windowBadge}>{snapshot.targetTag}</span>
+              <span className={styles.windowDate}>{snapshot.targetDateLabel}</span>
+            </div>
+            <label className={styles.datePicker}>
+              <span>조회일</span>
+              <input
+                type="date"
+                min={snapshot.today}
+                max={snapshot.maxDate}
+                value={selectedDate}
+                onChange={(event) => handleDateChange(event.target.value)}
+              />
+            </label>
           </div>
         </header>
 

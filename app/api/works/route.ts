@@ -64,6 +64,13 @@ export async function POST(request: Request) {
     defaultCheckout: roomMeta.defaultCheckout,
     defaultCheckin: roomMeta.defaultCheckin,
     clientId: roomMeta.clientId,
+    buildingId: 0,
+    sectorCode: '',
+    sectorValue: '',
+    cleanerId: null,
+    cleaningYn: false,
+    imagesSetId: null,
+    checklistSetId: null
   };
 
   const creationInput = {
@@ -79,6 +86,15 @@ export async function POST(request: Request) {
 
   if (!validation.ok) {
     return NextResponse.json({ message: validation.message }, { status: 400 });
+  }
+
+  const duplicate = await fetchLatestWorkByDateAndRoom(insertDate, roomMeta.roomId);
+
+  if (duplicate) {
+    return NextResponse.json(
+      { message: '해당 날짜에 이미 등록된 작업이 있습니다.', work: serializeWorkRow(duplicate) },
+      { status: 409 }
+    );
   }
 
   const insertPayload = buildInsertPayload(insertDate, roomMeta.roomId, validation.values);
@@ -100,12 +116,12 @@ export async function POST(request: Request) {
 
 function buildInsertPayload(date: string, roomId: number, values: WorkMutationValues) {
   return {
-    date,
+    date: new Date(`${date}T00:00:00+09:00`),
     roomId,
-    checkoutTime: values.checkoutTime,
-    checkinTime: values.checkinTime,
-    blanketQty: values.blanketQty,
-    amenitiesQty: values.amenitiesQty,
+    checkoutTime: values.checkoutTime ?? '00:00',
+    checkinTime: values.checkinTime ?? '00:00',
+    blanketQty: values.blanketQty ?? 0,
+    amenitiesQty: values.amenitiesQty ?? 0,
     cancelYn: values.cancelYn ?? false,
     requirements: typeof values.requirements === 'string' ? values.requirements : null,
     cleaningYn: true,
