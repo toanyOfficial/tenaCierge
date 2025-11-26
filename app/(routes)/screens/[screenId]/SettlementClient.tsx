@@ -48,6 +48,10 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
 
   const business = settlementBusinessInfo;
 
+  const renderAmount = (line: SettlementSnapshot['statements'][number]['lines'][number]) => {
+    return line.ratioYn ? `${line.ratioValue ?? line.amount}%` : formatCurrency(line.amount);
+  };
+
   return (
     <div className={styles.wrapper}>
       <div className={styles.panel}>
@@ -161,58 +165,111 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
                 },
                 new Map<number, { roomId: number; roomLabel: string; monthly: typeof statement.lines; perWork: typeof statement.lines }>()
               ).values()
-            ).map((room) => (
-              <div key={room.roomId} className={styles.roomSection}>
-                <div className={styles.roomHeader}>
-                  <h4 className={styles.roomTitle}>{room.roomLabel}</h4>
-                  <span className={styles.roomMeta}>{month}</span>
-                </div>
+            ).map((room) => {
+              const monthlyTotal = room.monthly.reduce((sum, line) => sum + line.total, 0);
+              const perWorkTotal = room.perWork.reduce((sum, line) => sum + line.total, 0);
+              const roomTotal = monthlyTotal + perWorkTotal;
 
-                {room.monthly.length > 0 && (
+              return (
+                <div key={room.roomId} className={styles.roomSection}>
+                  <div className={styles.roomHeader}>
+                    <h4 className={styles.roomTitle}>{room.roomLabel}</h4>
+                    <span className={styles.roomMeta}>{month}</span>
+                  </div>
+
+                  <div className={styles.roomTotals}>
+                    <span>
+                      월 비용 합계: <strong className={monthlyTotal < 0 ? styles.negative : ''}>{formatCurrency(monthlyTotal)}</strong> 원
+                    </span>
+                    <span>
+                      회당 비용 합계:{' '}
+                      <strong className={perWorkTotal < 0 ? styles.negative : ''}>{formatCurrency(perWorkTotal)}</strong> 원
+                    </span>
+                    <span>
+                      객실 총 합계:{' '}
+                      <strong className={roomTotal < 0 ? styles.negative : styles.emphasis}>{formatCurrency(roomTotal)}</strong> 원
+                    </span>
+                  </div>
+
+                  {room.monthly.length > 0 && (
+                    <div className={styles.subsection}>
+                      <div className={styles.subsectionTitle}>월 비용</div>
+                      <div className={styles.monthlyGrid}>
+                        <div className={styles.lineHeader}>항목</div>
+                        <div className={styles.lineHeader}>금액</div>
+
+                        {room.monthly.map((line) => (
+                          <Fragment key={line.id}>
+                            <div className={styles.lineCell}>
+                              {line.item}
+                              {line.ratioYn && (
+                                <div className={styles.note}>비율 {line.ratioValue ?? line.amount}% · 적용금액 {formatCurrency(line.total)}</div>
+                              )}
+                            </div>
+                            <div className={`${styles.lineCell} ${line.minusYn ? styles.negative : ''}`}>
+                              {formatCurrency(line.total)}
+                            </div>
+                          </Fragment>
+                        ))}
+
+                        <div className={styles.totalLabel}>합계</div>
+                        <div className={`${styles.totalValue} ${monthlyTotal < 0 ? styles.negative : ''}`}>
+                          {formatCurrency(monthlyTotal)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className={styles.subsection}>
-                    <div className={styles.subsectionTitle}>월 비용</div>
-                    <div className={styles.monthlyGrid}>
+                    <div className={styles.subsectionTitle}>회당 비용</div>
+                    <div className={styles.workGrid}>
+                      <div className={styles.lineHeader}>날짜</div>
                       <div className={styles.lineHeader}>항목</div>
-                      <div className={styles.lineHeader}>금액</div>
+                      <div className={styles.lineHeader}>단가</div>
+                      <div className={styles.lineHeader}>수량</div>
+                      <div className={styles.lineHeader}>합계금액</div>
 
-                      {room.monthly.map((line) => (
-                        <Fragment key={line.id}>
-                          <div className={styles.lineCell}>{line.item}</div>
-                          <div className={styles.lineCell}>{formatCurrency(line.total)}</div>
-                        </Fragment>
-                      ))}
+                      {room.perWork.length === 0 ? (
+                        <div className={styles.emptyState} style={{ gridColumn: '1 / -1' }}>
+                          회당 비용 항목이 없습니다.
+                        </div>
+                      ) : (
+                        <>
+                          {room.perWork.map((line) => (
+                            <div key={line.id} className={styles.lineRow}>
+                              <div className={styles.lineCell}>{line.date}</div>
+                              <div className={styles.lineCell}>
+                                {line.item}
+                                {line.ratioYn && (
+                                  <div className={styles.note}>비율 {line.ratioValue ?? line.amount}% · 적용금액 {formatCurrency(line.total)}</div>
+                                )}
+                              </div>
+                              <div className={styles.lineCell}>{renderAmount(line)}</div>
+                              <div className={styles.lineCell}>{line.quantity}</div>
+                              <div className={`${styles.lineCell} ${line.minusYn ? styles.negative : ''}`}>
+                                {formatCurrency(line.total)}
+                              </div>
+                            </div>
+                          ))}
+
+                          <div className={styles.totalRow}>
+                            <div className={styles.totalLabel}>합계</div>
+                            <div className={styles.totalLabel}></div>
+                            <div className={styles.totalLabel}></div>
+                            <div className={styles.totalLabel}></div>
+                            <div
+                              className={`${styles.totalValue} ${perWorkTotal < 0 ? styles.negative : ''}`}
+                            >
+                              {formatCurrency(perWorkTotal)}
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
-                )}
-
-                <div className={styles.subsection}>
-                  <div className={styles.subsectionTitle}>회당 비용</div>
-                  <div className={styles.workGrid}>
-                    <div className={styles.lineHeader}>날짜</div>
-                    <div className={styles.lineHeader}>항목</div>
-                    <div className={styles.lineHeader}>단가</div>
-                    <div className={styles.lineHeader}>수량</div>
-                    <div className={styles.lineHeader}>합계금액</div>
-
-                    {room.perWork.length === 0 ? (
-                      <div className={styles.emptyState} style={{ gridColumn: '1 / -1' }}>
-                        회당 비용 항목이 없습니다.
-                      </div>
-                    ) : (
-                      room.perWork.map((line) => (
-                        <div key={line.id} className={styles.lineRow}>
-                          <div className={styles.lineCell}>{line.date}</div>
-                          <div className={styles.lineCell}>{line.item}</div>
-                          <div className={styles.lineCell}>{formatCurrency(line.amount)}</div>
-                          <div className={styles.lineCell}>{line.quantity}</div>
-                          <div className={styles.lineCell}>{formatCurrency(line.total)}</div>
-                        </div>
-                      ))
-                    )}
-                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             <hr className={styles.sectionDivider} />
             <div className={styles.businessInfo}>

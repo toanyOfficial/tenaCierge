@@ -114,6 +114,18 @@
   gap: 8px;
 }
 
+.roomTotals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 6px 12px;
+  padding: 8px 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
 .roomTitle {
   margin: 0;
   font-size: 1rem;
@@ -170,6 +182,21 @@
   display: contents;
 }
 
+.totalRow {
+  display: contents;
+}
+
+.totalLabel {
+  font-weight: 700;
+  color: #0f172a;
+  padding-top: 8px;
+}
+
+.totalValue {
+  font-weight: 800;
+  color: #0f172a;
+}
+
 .lineCell {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -178,6 +205,13 @@
 
 .lineCell:hover {
   white-space: normal;
+}
+
+.note {
+  display: block;
+  font-size: 0.8rem;
+  color: #475569;
+  margin-top: 4px;
 }
 
 .sectionTitle {
@@ -195,6 +229,14 @@
   font-size: 0.8rem;
   background: #e0f2fe;
   color: #075985;
+}
+
+.negative {
+  color: #dc2626;
+}
+
+.emphasis {
+  color: #0ea5e9;
 }
 
 .meta {
