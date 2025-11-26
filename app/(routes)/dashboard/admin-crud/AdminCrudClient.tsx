@@ -86,12 +86,13 @@ export default function AdminCrudClient({ tables }: Props) {
   }
 
   function toInputType(column: AdminColumnMeta) {
-    if (column.dataType.includes('int') || column.dataType === 'decimal') return 'number';
+    if (column.dataType.includes('int') || column.dataType.includes('decimal')) return 'number';
     if (column.dataType === 'date') return 'date';
     if (column.dataType === 'datetime' || column.dataType === 'timestamp') return 'datetime-local';
     if (column.dataType === 'time') return 'time';
     if (column.dataType === 'json') return 'textarea';
-    if (column.dataType === 'tinyint' && column.columnType === 'tinyint(1)') return 'checkbox';
+    if (column.dataType === 'boolean') return 'checkbox';
+    if (column.dataType === 'tinyint' && column.columnType?.includes('(1)')) return 'checkbox';
     return 'text';
   }
 
@@ -99,7 +100,7 @@ export default function AdminCrudClient({ tables }: Props) {
     if (raw === '') {
       return null;
     }
-    if (column.dataType.includes('int') || column.dataType === 'decimal') {
+    if (column.dataType.includes('int') || column.dataType.includes('decimal')) {
       const numeric = Number(raw);
       return Number.isFinite(numeric) ? numeric : null;
     }
@@ -110,7 +111,10 @@ export default function AdminCrudClient({ tables }: Props) {
         return raw;
       }
     }
-    if (column.dataType === 'tinyint' && column.columnType === 'tinyint(1)') {
+    if (column.dataType === 'boolean') {
+      return raw === 'true' || raw === '1';
+    }
+    if (column.dataType === 'tinyint' && column.columnType?.includes('(1)')) {
       return raw === 'true' || raw === '1';
     }
     return raw;

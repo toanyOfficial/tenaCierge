@@ -2,14 +2,9 @@ import type { RowDataPacket } from 'mysql2';
 
 import { getPool } from '@/src/db/client';
 import { logServerError } from '@/src/server/errorLogger';
+import { getSchemaTable, getSchemaTables, type SchemaTable } from '@/src/server/schemaRegistry';
 
 export type AdminReference = { table: string; column: string };
-export type AdminTableConfig = {
-  name: string;
-  label?: string;
-  primaryKey?: string[];
-  references?: Record<string, AdminReference>;
-};
 
 export type AdminColumnMeta = {
   name: string;
@@ -24,99 +19,96 @@ export type AdminColumnMeta = {
 
 export type AdminReferenceOption = { value: unknown; label: string };
 
-const adminTableConfigs: AdminTableConfig[] = [
-  { name: 'client_custom_price', references: { room_id: { table: 'client_rooms', column: 'id' } } },
-  { name: 'client_additional_price', references: { room_id: { table: 'client_rooms', column: 'id' } } },
-  { name: 'client_detail', references: { client_id: { table: 'client_header', column: 'id' } } },
-  { name: 'client_header' },
-  {
-    name: 'client_rooms',
-    references: {
-      client_id: { table: 'client_header', column: 'id' },
-      building_id: { table: 'etc_buildings', column: 'id' },
-      price_set_id: { table: 'client_price_set_detail', column: 'id' },
-      images_set_id: { table: 'work_images_set_header', column: 'id' },
-      checklist_set_id: { table: 'work_checklist_set_header', column: 'id' }
-    }
+const referenceMap: Record<string, Record<string, AdminReference>> = {
+  client_additional_price: { room_id: { table: 'client_rooms', column: 'id' } },
+  client_custom_price: { room_id: { table: 'client_rooms', column: 'id' } },
+  client_detail: { client_id: { table: 'client_header', column: 'id' } },
+  client_rooms: {
+    client_id: { table: 'client_header', column: 'id' },
+    building_id: { table: 'etc_buildings', column: 'id' },
+    checklist_set_id: { table: 'work_checklist_set_header', column: 'id' },
+    images_set_id: { table: 'work_images_set_header', column: 'id' }
   },
-  { name: 'etc_baseCode' },
-  {
-    name: 'etc_buildings',
-    references: { basecode_sector: { table: 'etc_baseCode', column: 'code' }, basecode_code: { table: 'etc_baseCode', column: 'value' } }
+  etc_buildings: {
+    basecode_sector: { table: 'etc_baseCode', column: 'code' },
+    basecode_code: { table: 'etc_baseCode', column: 'value' }
   },
-  { name: 'etc_errorLogs' },
-  { name: 'etc_notice' },
-  { name: 'work_apply' },
-  { name: 'work_apply_rules' },
-  { name: 'work_assignment', references: { work_id: { table: 'work_header', column: 'id' }, worker_id: { table: 'worker_header', column: 'id' } } },
-  { name: 'work_fore_accuracy' },
-  { name: 'work_fore_d1', references: { room_id: { table: 'client_rooms', column: 'id' } } },
-  { name: 'work_fore_d7', references: { room_id: { table: 'client_rooms', column: 'id' } } },
-  { name: 'work_fore_tuning' },
-  { name: 'work_fore_variable' },
-  {
-    name: 'work_header',
-    references: {
-      butler_id: { table: 'worker_header', column: 'id' },
-      cleaner_id: { table: 'worker_header', column: 'id' },
-      room_id: { table: 'client_rooms', column: 'id' }
-    }
+  work_assignment: {
+    work_id: { table: 'work_header', column: 'id' },
+    worker_id: { table: 'worker_header', column: 'id' }
   },
-  { name: 'work_reports', references: { work_id: { table: 'work_header', column: 'id' } } },
-  { name: 'worker_detail', references: { worker_id: { table: 'worker_header', column: 'id' } } },
-  { name: 'worker_evaluateHistory', references: { worker_id: { table: 'worker_header', column: 'id' }, work_id: { table: 'work_header', column: 'id' } } },
-  { name: 'worker_header' },
-  { name: 'worker_penaltyHistory', references: { worker_id: { table: 'worker_header', column: 'id' } } },
-  { name: 'worker_schedule_exception', references: { worker_id: { table: 'worker_header', column: 'id' } } },
-  { name: 'worker_tier_rules' },
-  { name: 'worker_weekly_pattern', references: { worker_id: { table: 'worker_header', column: 'id' } } },
-  { name: 'client_price_set_detail', references: { price_set_id: { table: 'client_price_set_header', column: 'id' }, price_id: { table: 'client_price_list', column: 'id' } } },
-  { name: 'work_images_set_detail', references: { images_set_id: { table: 'work_images_set_header', column: 'id' }, images_list_id: { table: 'work_images_list', column: 'id' } } },
-  {
-    name: 'work_checklist_set_detail',
-    references: { checklist_header_id: { table: 'work_checklist_set_header', column: 'id' }, checklist_list_id: { table: 'work_checklist_list', column: 'id' } }
+  work_fore_d1: { room_id: { table: 'client_rooms', column: 'id' } },
+  work_fore_d7: { room_id: { table: 'client_rooms', column: 'id' } },
+  work_header: {
+    butler_id: { table: 'worker_header', column: 'id' },
+    cleaner_id: { table: 'worker_header', column: 'id' },
+    room_id: { table: 'client_rooms', column: 'id' }
   },
-  { name: 'work_images_set_header' },
-  { name: 'work_images_list' },
-  { name: 'work_checklist_set_header' },
-  { name: 'work_checklist_list' }
-];
+  work_reports: { work_id: { table: 'work_header', column: 'id' } },
+  worker_detail: { worker_id: { table: 'worker_header', column: 'id' } },
+  worker_evaluateHistory: {
+    worker_id: { table: 'worker_header', column: 'id' },
+    work_id: { table: 'work_header', column: 'id' }
+  },
+  worker_penaltyHistory: { worker_id: { table: 'worker_header', column: 'id' } },
+  worker_schedule_exception: { worker_id: { table: 'worker_header', column: 'id' } },
+  worker_weekly_pattern: { worker_id: { table: 'worker_header', column: 'id' } },
+  work_checklist_set_detail: {
+    checklist_header_id: { table: 'work_checklist_set_header', column: 'id' },
+    checklist_list_id: { table: 'work_checklist_list', column: 'id' }
+  },
+  work_images_set_detail: {
+    images_set_id: { table: 'work_images_set_header', column: 'id' },
+    images_list_id: { table: 'work_images_list', column: 'id' }
+  }
+};
 
-const allowedTables = new Set(adminTableConfigs.map((table) => table.name));
-
-export function listAdminTables() {
-  return adminTableConfigs.map(({ name, label, references }) => ({ name, label: label ?? name, references: references ?? {} }));
+function getSchemaTableOrThrow(table: string): SchemaTable {
+  const schemaTable = getSchemaTable(table);
+  if (!schemaTable) {
+    throw new Error(`허용되지 않은 테이블: ${table}`);
+  }
+  return schemaTable;
 }
 
-export function getTableConfig(table: string): AdminTableConfig | null {
-  return adminTableConfigs.find((entry) => entry.name === table) ?? null;
+export function listAdminTables() {
+  return getSchemaTables().map(({ name }) => ({ name, label: name, references: referenceMap[name] ?? {} }));
 }
 
 async function fetchColumnMetadata(table: string): Promise<AdminColumnMeta[]> {
-  if (!allowedTables.has(table)) {
-    throw new Error(`허용되지 않은 테이블: ${table}`);
-  }
-
+  const schemaTable = getSchemaTableOrThrow(table);
   const pool = getPool();
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_KEY, EXTRA
+    `SELECT COLUMN_NAME, COLUMN_KEY, EXTRA, COLUMN_DEFAULT
      FROM INFORMATION_SCHEMA.COLUMNS
      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?
      ORDER BY ORDINAL_POSITION`,
     [table]
   );
 
-  const config = getTableConfig(table);
-  return rows.map((row) => ({
-    name: String(row.COLUMN_NAME),
-    dataType: String(row.DATA_TYPE),
-    columnType: String(row.COLUMN_TYPE),
-    nullable: row.IS_NULLABLE === 'YES',
-    defaultValue: row.COLUMN_DEFAULT,
-    isPrimaryKey: row.COLUMN_KEY === 'PRI',
-    autoIncrement: typeof row.EXTRA === 'string' && row.EXTRA.includes('auto_increment'),
-    references: config?.references?.[String(row.COLUMN_NAME)]
-  }));
+  const metaFromDb = new Map(
+    rows.map((row) => [String(row.COLUMN_NAME), { key: String(row.COLUMN_KEY), extra: String(row.EXTRA ?? ''), defaultValue: row.COLUMN_DEFAULT }])
+  );
+
+  return schemaTable.columns.map((column) => {
+    const dbMeta = metaFromDb.get(column.name);
+    return {
+      name: column.name,
+      dataType: normalizeDataType(column.dataType),
+      columnType: column.dataType,
+      nullable: column.nullable,
+      defaultValue: dbMeta?.defaultValue ?? null,
+      isPrimaryKey: dbMeta?.key === 'PRI',
+      autoIncrement: typeof dbMeta?.extra === 'string' && dbMeta.extra.includes('auto_increment'),
+      references: referenceMap[table]?.[column.name]
+    } satisfies AdminColumnMeta;
+  });
+}
+
+function normalizeDataType(raw: string) {
+  const lowered = raw.toLowerCase();
+  const match = lowered.match(/^[a-z]+/);
+  return match ? match[0] : lowered;
 }
 
 export type TableSnapshot = {
