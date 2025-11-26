@@ -48,16 +48,17 @@ export async function POST(request: Request) {
   try {
     const { db } = await import('@/src/db/client');
     const today = formatDateKey(getKstNow());
+    const todayValue = new Date(`${today}T00:00:00+09:00`);
 
     if (requestedId) {
-      await db.update(etcNotice).set({ notice: noticeInput, noticeDate: today }).where(eq(etcNotice.id, requestedId));
+      await db.update(etcNotice).set({ notice: noticeInput, noticeDate: todayValue }).where(eq(etcNotice.id, requestedId));
     } else {
       const [latest] = await db.select({ id: etcNotice.id }).from(etcNotice).orderBy(desc(etcNotice.updatedAt)).limit(1);
 
       if (latest) {
-        await db.update(etcNotice).set({ notice: noticeInput, noticeDate: today }).where(eq(etcNotice.id, latest.id));
+        await db.update(etcNotice).set({ notice: noticeInput, noticeDate: todayValue }).where(eq(etcNotice.id, latest.id));
       } else {
-        await db.insert(etcNotice).values({ notice: noticeInput, noticeDate: today });
+        await db.insert(etcNotice).values({ notice: noticeInput, noticeDate: todayValue });
       }
     }
 
