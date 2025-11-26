@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server';
 import { fetchEvaluationPage, resolveEvaluationWorker } from '@/src/server/evaluations';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: Request) {
   const profile = await getProfileWithDynamicRoles();
   const { searchParams } = new URL(request.url);

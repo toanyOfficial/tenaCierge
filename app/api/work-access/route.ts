@@ -8,6 +8,9 @@ import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { formatDateKey, getKstNow } from '@/src/utils/workWindow';
 import { logServerError } from '@/src/server/errorLogger';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: Request) {
   const profile = await getProfileWithDynamicRoles();
   const url = new URL(request.url);
