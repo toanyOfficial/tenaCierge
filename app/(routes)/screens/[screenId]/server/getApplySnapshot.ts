@@ -7,7 +7,7 @@ import { listApplyRows, type ApplyRow } from '@/src/server/workApply';
 import { workerTierRules } from '@/src/db/schema';
 
 const ALLOWED_ROLES = ['admin', 'butler', 'cleaner'] as const;
-const CUTOFF_MINUTES = 13 * 60;
+const CUTOFF_MINUTES = 9 * 60;
 const FETCH_DAYS = 7;
 
 export type ApplySnapshot = {
