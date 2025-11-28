@@ -11,6 +11,7 @@ type Props = {
 };
 
 const adminLinks = [
+  { id: 'admin-crud', label: '전체 테이블 관리', href: '/dashboard/admin-crud' },
   { id: '002', label: '오더관리' },
   { id: '003', label: '업무신청' },
   { id: '004', label: '과업지시서' },
@@ -114,7 +115,12 @@ export default function AdminPanel({ notice }: Props) {
 
       <div className={styles.quickLinkGrid}>
         {adminLinks.map((screen) => (
-          <Link key={screen.id} href={`/screens/${screen.id}`} className={styles.linkButton} prefetch={false}>
+          <Link
+            key={screen.id}
+            href={screen.href ?? `/screens/${screen.id}`}
+            className={styles.linkButton}
+            prefetch={false}
+          >
             {screen.label}
           </Link>
         ))}
