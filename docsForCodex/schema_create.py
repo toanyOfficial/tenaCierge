@@ -10,6 +10,15 @@ import mysql.connector
 SCHEMA_FILE = Path(__file__).with_name("schema.csv")
 SUMMARY_FILE = Path(__file__).with_name("schema_summary.md")
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+ENV_FILES = [
+    PROJECT_ROOT / ".env",
+    PROJECT_ROOT / ".env.development",
+    PROJECT_ROOT / ".env.production",
+    PROJECT_ROOT / ".env.local",
+]
+
 SchemaRow = Dict[str, str]
 
 
@@ -25,7 +34,41 @@ def load_existing_schema() -> Dict[Tuple[str, str], SchemaRow]:
         }
 
 
+def _parse_env_line(line: str) -> Tuple[str, str]:
+    if "=" not in line:
+        return "", ""
+    key, value = line.split("=", 1)
+    key = key.strip()
+    value = value.strip().strip("\"'")
+    return key, value
+
+
+def load_env_files() -> None:
+    """Load DB connection env vars from the main project's .env files.
+
+    The main web app uses .env/.env.local style variables (DATABASE_URL or
+    DB_HOST/DB_USER/DB_PASSWORD/DB_NAME[/DB_PORT]). We mirror that here so the
+    schema generator uses the same credentials without manual export.
+    Later files in ENV_FILES override earlier ones to follow Next.js precedence
+    (.env then .env.local, etc.).
+    """
+
+    for env_path in ENV_FILES:
+        if not env_path.exists():
+            continue
+        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            key, value = _parse_env_line(line)
+            if not key:
+                continue
+            os.environ[key] = value
+
+
 def parse_db_config() -> Dict[str, str]:
+    load_env_files()
+
     url = os.getenv("DATABASE_URL")
     if url:
         parsed = urlparse(url)
