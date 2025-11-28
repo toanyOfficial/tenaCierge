@@ -2,15 +2,17 @@
   width: 100%;
   display: flex;
   justify-content: center;
+  padding: clamp(8px, 2vw, 16px);
+  box-sizing: border-box;
 }
 
 .panel {
   width: 100%;
-  max-width: 1080px;
+  max-width: 1100px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 8px;
+  padding: clamp(6px, 1vw + 4px, 14px);
   box-sizing: border-box;
 }
 
@@ -24,6 +26,9 @@
   border-radius: 14px;
   padding: 12px 14px;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .filters label {
@@ -59,12 +64,13 @@
 .card {
   background: #ffffff;
   border-radius: 16px;
-  padding: 16px;
+  padding: clamp(12px, 2vw, 16px);
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
   border: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
 }
 
 .summaryTable {
@@ -157,6 +163,8 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  overflow-x: auto;
+  max-width: 100%;
 }
 
 .subsectionTitle {
@@ -317,6 +325,82 @@
 .metaLabel {
   font-weight: 700;
   font-size: 0.95rem;
+}
+
+@media (max-width: 960px) {
+  .filters {
+    position: static;
+    width: 100%;
+  }
+
+  .summaryTable th,
+  .summaryTable td {
+    white-space: nowrap;
+  }
+
+  .roomTotals {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .filters {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .panel {
+    gap: 12px;
+  }
+
+  .roomHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .monthlyGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .workGrid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+  }
+
+  .lineHeader,
+  .lineCell {
+    white-space: normal;
+  }
+
+  .lineRow {
+    display: contents;
+  }
+}
+
+@media (max-width: 540px) {
+  .workGrid {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  }
+
+  .summaryTable {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .summaryTable table,
+  .summaryTable tbody,
+  .summaryTable thead,
+  .summaryTable tfoot,
+  .summaryTable tr,
+  .summaryTable th,
+  .summaryTable td {
+    display: revert;
+  }
+
+  .metaHighlight {
+    grid-template-columns: 1fr;
+  }
 }
 
 .metaValue {
