@@ -12,11 +12,10 @@ import { getKstNow } from '@/src/utils/workWindow';
 import type { ProfileSummary } from '@/src/utils/profile';
 import { getActivePenalty } from '@/src/server/penalties';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// Next.js route config (must be declared once)
+const routeConfig = { dynamic: 'force-dynamic' as const, revalidate: 0 as const };
+export const dynamic = routeConfig.dynamic;
+export const revalidate = routeConfig.revalidate;
 
 const ALLOWED_ROLES = ['admin', 'butler', 'cleaner'] as const;
 const CUTOFF_MINUTES = 10 * 60;
