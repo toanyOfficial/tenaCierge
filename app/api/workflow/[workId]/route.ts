@@ -7,6 +7,9 @@ import { findWorkerByProfile } from '@/src/server/workers';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { getKstNow } from '@/src/utils/workWindow';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function PATCH(request: Request, { params }: { params: { workId: string } }) {
   const workId = Number(params.workId);
   if (!Number.isFinite(workId)) {
@@ -118,6 +121,8 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
   if (!Object.keys(updates).length) {
     return NextResponse.json({ message: '변경할 항목이 없습니다.' }, { status: 400 });
   }
+
+  updates.manualUptYn = true;
 
   await db.update(workHeader).set(updates).where(eq(workHeader.id, workId));
 

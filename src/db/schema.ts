@@ -75,6 +75,7 @@ export const clientRooms = mysqlTable('client_rooms', {
   clientId: mediumint('client_id', { unsigned: true }).notNull(),
   buildingId: tinyint('building_id').notNull(),
   roomNo: char('room_no', { length: 5 }).notNull(),
+  priceSetId: int('price_set_id'),
   centralPassword: varchar('central_password', { length: 20 }),
   doorPassword: varchar('door_password', { length: 15 }).notNull(),
   startDate: date('start_date').notNull(),
@@ -91,6 +92,31 @@ export const clientRooms = mysqlTable('client_rooms', {
   imagesSetId: int('images_set_id').notNull(),
   settleFlag: tinyint('settle_flag').default(1).notNull(),
   weight: tinyint('weight').default(10).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const clientPriceSetHeader = mysqlTable('client_price_set_header', {
+  id: int('id', { unsigned: true }).autoincrement().notNull(),
+  title: varchar('title', { length: 30 }),
+  description: varchar('dscpt', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const clientPriceList = mysqlTable('client_price_list', {
+  id: int('id', { unsigned: true }).autoincrement().notNull(),
+  title: varchar('title', { length: 30 }),
+  amount: decimal('amount', { precision: 11, scale: 2 }).notNull(),
+  type: tinyint('type').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const clientPriceSetDetail = mysqlTable('client_price_set_detail', {
+  id: int('id', { unsigned: true }).autoincrement().notNull(),
+  priceSetId: int('price_set_id').notNull(),
+  priceId: int('price_id').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
@@ -322,6 +348,7 @@ export const workHeader = mysqlTable('work_header', {
   supervisingEndTime: time('supervising_end_time'),
   requirements: varchar('requirements', { length: 30 }),
   cancelYn: boolean('cancel_yn').default(false).notNull(),
+  manualUptYn: boolean('manual_upt_yn').default(false).notNull(),
   supervisingYn: boolean('supervising_yn').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()

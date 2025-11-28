@@ -66,11 +66,8 @@ export default function EvaluationHistoryClient({ profile, snapshot }: Props) {
         accent: styles.statAccentIndigo
       },
       {
-        label: '현재 랭킹',
-        value:
-          snapshot.summary?.rank && snapshot.summary.population
-            ? `${snapshot.summary.rank}위 / ${snapshot.summary.population}명`
-            : '집계 중',
+        label: '현재 티어',
+        value: snapshot.summary?.tierLabel ?? '미정',
         accent: styles.statAccentPurple
       }
     ],

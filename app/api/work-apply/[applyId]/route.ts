@@ -10,6 +10,10 @@ import { parseTimeString } from '@/src/utils/time';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { getKstNow } from '@/src/utils/workWindow';
 import type { ProfileSummary } from '@/src/utils/profile';
+import { getActivePenalty } from '@/src/server/penalties';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const ALLOWED_ROLES = ['admin', 'butler', 'cleaner'] as const;
 const CUTOFF_MINUTES = 10 * 60;
@@ -88,6 +92,13 @@ async function handleApply({ profile, slot, now, daysUntil, isButlerSlot, occupa
     const applyStartLabel = getApplyStartLabel(worker.tier);
     const startMinutes = parseTimeString(applyStartLabel) ?? 0;
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const penaltyWindow = await getActivePenalty(worker.id, now);
+
+    if (penaltyWindow.active) {
+      const span = `${penaltyWindow.start ?? ''}${penaltyWindow.end ? `~${penaltyWindow.end}` : ''}`;
+      return NextResponse.json({ message: `패널티 기간(${span})에는 신청할 수 없습니다.` }, { status: 403 });
+    }
 
     if (daysUntil === 0 && nowMinutes >= CUTOFF_MINUTES) {
       return NextResponse.json({ message: 'D0 업무는 10:00 이후에 신청할 수 없습니다.' }, { status: 400 });
