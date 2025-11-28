@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server';
 import { searchWorkersByTerm } from '@/src/server/workers';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: Request) {
   const profile = await getProfileWithDynamicRoles();
 
