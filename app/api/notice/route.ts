@@ -3,6 +3,9 @@ import { desc, eq } from 'drizzle-orm';
 
 import { etcNotice } from '@/src/db/schema';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET() {
   try {
     const { db } = await import('@/src/db/client');
