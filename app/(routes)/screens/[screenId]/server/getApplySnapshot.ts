@@ -4,6 +4,7 @@ import { parseTimeString } from '@/src/utils/time';
 import { formatDateKey, getKstNow } from '@/src/utils/workWindow';
 import { findWorkerByProfile } from '@/src/server/workers';
 import { listApplyRows, type ApplyRow } from '@/src/server/workApply';
+import { getActivePenalty } from '@/src/server/penalties';
 import { workerTierRules } from '@/src/db/schema';
 
 const ALLOWED_ROLES = ['admin', 'butler', 'cleaner'] as const;
@@ -25,6 +26,7 @@ export type ApplySnapshot = {
   isAdmin: boolean;
   tierRules: TierRuleDisplay[];
   applyWindowHint: string;
+  penaltyMessage: string | null;
 };
 
 export type ApplySlot = {
@@ -83,6 +85,7 @@ export async function getApplySnapshot(profile: ProfileSummary): Promise<ApplySn
     ? '관리자는 시간·날짜 제한 없이 신청/배정이 가능합니다.'
     : `최대 D+${horizonDays}까지, ${rawApplyLabel}부터 신청 가능합니다.`;
   const guardMessage = hasAccess ? null : '화면 003은 Admin, Butler, Cleaner 역할에게만 제공됩니다. 역할을 전환해 주세요.';
+  const penaltyInfo = !isAdmin && workerId ? await getActivePenalty(workerId, now) : { active: false };
   const rows = await listApplyRows(todayKey, endKey);
   const slots = rows
     .map((row) => buildSlot(row, {
@@ -95,7 +98,10 @@ export async function getApplySnapshot(profile: ProfileSummary): Promise<ApplySn
       nowMinutes,
       canApplyNow,
       horizonDays,
-      applyLabel: rawApplyLabel
+      applyLabel: rawApplyLabel,
+      penaltyMessage: penaltyInfo.active
+        ? `패널티 기간(${penaltyInfo.start ?? ''}${penaltyInfo.end ? `~${penaltyInfo.end}` : ''})에는 업무를 신청할 수 없습니다.`
+        : null
     }))
     .filter((slot): slot is ApplySlot => Boolean(slot));
 
@@ -113,7 +119,10 @@ export async function getApplySnapshot(profile: ProfileSummary): Promise<ApplySn
     workerTier,
     isAdmin,
     tierRules,
-    applyWindowHint
+    applyWindowHint,
+    penaltyMessage: penaltyInfo.active
+      ? `패널티 기간(${penaltyInfo.start ?? ''}${penaltyInfo.end ? `~${penaltyInfo.end}` : ''})에는 업무를 신청할 수 없습니다.`
+      : null
   };
 }
 
@@ -128,6 +137,7 @@ type SlotBuildContext = {
   canApplyNow: boolean;
   horizonDays: number;
   applyLabel: string;
+  penaltyMessage: string | null;
 };
 
 function buildSlot(row: ApplyRow, context: SlotBuildContext) {
@@ -169,13 +179,15 @@ function buildSlot(row: ApplyRow, context: SlotBuildContext) {
     withinWindow: context.isAdmin || daysUntil <= context.horizonDays,
     timeOpen: context.canApplyNow,
     available,
-    applyLabel: context.applyLabel
+    applyLabel: context.applyLabel,
+    penaltyMessage: context.penaltyMessage
   });
 
   const canApply =
     context.hasAccess &&
     roleAllowed &&
     available &&
+    !context.penaltyMessage &&
     (context.isAdmin || (context.canApplyNow && daysUntil <= context.horizonDays));
   const sectorLabel = row.sectorName || row.sectorValue || row.sectorCode || '미지정 섹터';
   const positionLabel = isButlerSlot ? '버틀러' : '클리너';
@@ -205,14 +217,20 @@ function computeDisabledReason({
   withinWindow,
   timeOpen,
   available,
-  applyLabel
+  applyLabel,
+  penaltyMessage
 }: {
   roleAllowed: boolean;
   withinWindow: boolean;
   timeOpen: boolean;
   available: boolean;
   applyLabel: string;
+  penaltyMessage: string | null;
 }) {
+  if (penaltyMessage) {
+    return penaltyMessage;
+  }
+
   if (!roleAllowed) {
     return '해당 역할만 신청할 수 있습니다.';
   }
