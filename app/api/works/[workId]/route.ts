@@ -10,6 +10,9 @@ import { validateWorkInput, type WorkMutationValues } from '@/src/server/workVal
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { resolveWorkWindow } from '@/src/utils/workWindow';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function PATCH(request: Request, { params }: { params: { workId: string } }) {
   const workId = Number(params.workId);
 
@@ -55,6 +58,10 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
   }
 
   const updatePayload = buildUpdatePayload(validation.values);
+
+  if (updatePayload) {
+    updatePayload.manualUptYn = true;
+  }
 
   if (!updatePayload) {
     return NextResponse.json({ message: '변경할 값이 없습니다.' }, { status: 400 });
