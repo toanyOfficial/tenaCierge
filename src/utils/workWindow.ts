@@ -30,7 +30,7 @@ export function resolveWorkWindow(baseDate?: Date, forcedDate?: string): WorkWin
 
   if (forcedDate) {
     if (diffDays >= 1) {
-      tag = (`D+${Math.min(diffDays, 7)}` as WorkWindowTag) ?? 'D0';
+      tag = `D+${Math.min(diffDays, 7)}` as WorkWindowTag;
       window = 'locked';
     } else {
       tag = 'D0';
@@ -68,7 +68,7 @@ export function buildDateOptions(maxDays = 7, baseDate = getKstNow()) {
     const date = new Date(baseDate);
     date.setDate(date.getDate() + offset);
     const value = formatDateKey(date);
-    const tag = (offset === 0 ? 'D0' : (`D+${offset}` as WorkWindowTag)) ?? 'D0';
+    const tag = offset === 0 ? 'D0' : (`D+${offset}` as WorkWindowTag);
 
     options.push({ value, tag, label: formatFullDateLabel(date) });
   }
