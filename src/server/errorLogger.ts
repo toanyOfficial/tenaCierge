@@ -1,30 +1,74 @@
 import { db } from '@/src/db/client';
 import { etcErrorLogs } from '@/src/db/schema';
 
-type ErrorLogInput = {
-  appName: string;
-  errorCode?: string;
+type LogPayload = {
   message: string;
-  error?: unknown;
-  requestId?: string;
+  errorCode?: string | null;
+  stacktrace?: string | null;
+  level?: number;
+  context?: Record<string, unknown> | null;
+  userId?: number | null;
+  requestId?: string | null;
+  appName?: string;
 };
 
-export async function logServerError({ appName, errorCode, message, error, requestId }: ErrorLogInput) {
+export async function logEtcError({
+  message,
+  errorCode = null,
+  stacktrace = null,
+  level = 2,
+  context = null,
+  userId = null,
+  requestId = null,
+  appName = 'web'
+}: LogPayload): Promise<void> {
   try {
-    const err = error instanceof Error ? error : undefined;
-    const stacktrace = err?.stack?.slice(0, 2000) ?? null;
-    const summary = err?.message ? `${message}: ${err.message}` : message;
-
     await db.insert(etcErrorLogs).values({
-      level: 2,
+      level,
       appName,
       errorCode: errorCode ?? null,
-      message: summary.slice(0, 500),
-      stacktrace,
+      message: message.slice(0, 500),
+      stacktrace: stacktrace ?? null,
       requestId: requestId ?? null,
-      contextJson: err ? JSON.stringify({ name: err.name }) : null
+      userId: userId ?? null,
+      contextJson: context ? JSON.stringify(context) : null
     });
-  } catch (loggingError) {
-    console.error('Failed to log server error', loggingError);
+  } catch (error) {
+    console.error('errorLogs 저장 실패', error);
   }
+}
+
+type ServerErrorPayload = {
+  appName?: string;
+  message: string;
+  error?: unknown;
+  errorCode?: string;
+  context?: Record<string, unknown> | null;
+  requestId?: string | null;
+  userId?: number | null;
+  level?: number;
+};
+
+export async function logServerError({
+  appName = 'web',
+  message,
+  error,
+  errorCode,
+  context = null,
+  requestId = null,
+  userId = null,
+  level = 2
+}: ServerErrorPayload): Promise<void> {
+  const stacktrace = error instanceof Error ? error.stack ?? null : null;
+  const contextPayload = { ...(context ?? {}), rawError: error instanceof Error ? undefined : error };
+  await logEtcError({
+    appName,
+    message,
+    errorCode: errorCode ?? null,
+    stacktrace,
+    context: Object.keys(contextPayload).length ? contextPayload : null,
+    requestId,
+    userId,
+    level
+  });
 }
