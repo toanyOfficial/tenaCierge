@@ -4,6 +4,9 @@ import { NextResponse } from 'next/server';
 import { getSeoul1630Expiry } from '@/src/utils/cookie';
 const roleOrder = ['admin', 'host', 'butler', 'cleaner'] as const;
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 function normalizeRoleList(list: string[]) {
   const unique = Array.from(new Set(list.map((role) => role.toLowerCase())));
 
