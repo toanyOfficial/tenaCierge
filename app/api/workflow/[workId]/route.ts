@@ -122,6 +122,8 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
     return NextResponse.json({ message: '변경할 항목이 없습니다.' }, { status: 400 });
   }
 
+  updates.manualUptYn = true;
+
   await db.update(workHeader).set(updates).where(eq(workHeader.id, workId));
 
   const refreshed = await db
