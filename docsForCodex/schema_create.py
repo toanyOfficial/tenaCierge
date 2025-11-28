@@ -93,6 +93,18 @@ def parse_db_config() -> Dict[str, str]:
     return {"host": host, "user": user, "password": password, "database": database, "port": port}
 
 
+def _get_case_insensitive(row: Dict[str, str], key: str, default: str = "") -> str:
+    if key in row:
+        return row[key]
+    upper_key = key.upper()
+    if upper_key in row:
+        return row[upper_key]
+    lower_key = key.lower()
+    if lower_key in row:
+        return row[lower_key]
+    return default
+
+
 def fetch_schema_rows(conn) -> List[SchemaRow]:
     cursor = conn.cursor(dictionary=True)
     cursor.execute("SELECT DATABASE() AS db")
@@ -112,12 +124,12 @@ def fetch_schema_rows(conn) -> List[SchemaRow]:
 
     return [
         {
-            "table_schema": row["table_schema"],
-            "table_name": row["table_name"],
-            "column_name": row["column_name"],
-            "data_type": row["data_type"],
-            "is_nullable": row["is_nullable"],
-            "column_comment": row.get("column_comment") or "",
+            "table_schema": _get_case_insensitive(row, "table_schema"),
+            "table_name": _get_case_insensitive(row, "table_name"),
+            "column_name": _get_case_insensitive(row, "column_name"),
+            "data_type": _get_case_insensitive(row, "data_type"),
+            "is_nullable": _get_case_insensitive(row, "is_nullable"),
+            "column_comment": (row.get("column_comment") or row.get("COLUMN_COMMENT") or ""),
         }
         for row in rows
     ]
