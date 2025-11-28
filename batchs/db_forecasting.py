@@ -429,6 +429,29 @@ def fetch_sector_weights(
     return [(sector, value, weight) for (sector, value), weight in totals.items()]
 
 
+def fetch_sector_weights_from_headers(
+    conn, target_date: dt.date
+) -> List[Tuple[str, str, int]]:
+    """work_header 기반 가중치 합계를 계산한다 (cleaning only, cancel 제외)."""
+
+    sql = """
+        SELECT eb.basecode_sector AS sector, eb.basecode_code AS code,
+               SUM(COALESCE(cr.weight, 10)) AS weight_sum
+        FROM work_header wh
+        JOIN client_rooms cr ON cr.id = wh.room_id
+        JOIN etc_buildings eb ON eb.id = cr.building_id
+        WHERE wh.date = %s AND wh.cancel_yn = 0 AND wh.cleaning_yn = 1
+        GROUP BY eb.basecode_sector, eb.basecode_code
+    """
+    with conn.cursor(dictionary=True) as cur:
+        cur.execute(sql, (target_date,))
+        rows = cur.fetchall()
+    return [
+        (row["sector"], row["code"], int(row.get("weight_sum") or 0)) for row in rows
+        if row.get("weight_sum")
+    ]
+
+
 def fetch_available_workers(conn, target_date: dt.date) -> List[WorkerAvailability]:
     weekday = (target_date.weekday() + 1) % 7  # Python Mon=0 → DB Sun=0
     with conn.cursor(dictionary=True) as cur:
@@ -752,9 +775,12 @@ class BatchRunner:
         if not rules:
             logging.info("work_apply_rules 데이터가 없어 apply 생성이 스킵됩니다.")
             return
-        sector_weights = fetch_sector_weights(predictions, target_date)
+        sector_weights = fetch_sector_weights_from_headers(self.conn, target_date)
         if not sector_weights:
-            logging.info("sector 가중치 합계가 없어 apply 생성이 스킵됩니다 (target=%s)", target_date)
+            logging.info(
+                "sector 가중치 합계가 없어 apply 생성이 스킵됩니다 (target=%s)",
+                target_date,
+            )
             return
 
         existing_counts: Dict[Tuple[str, int], Tuple[int, int]] = {}
@@ -807,96 +833,126 @@ class BatchRunner:
         self.conn.commit()
 
     def _persist_work_header(self, predictions: Sequence[Prediction]) -> None:
-        target_date = self.run_date if self.today_only else self.run_date + dt.timedelta(days=1)
-        desired_offset = 0 if self.today_only else 1
-        room_flags: Dict[int, Tuple[Prediction, bool, bool]] = {}
+        if self.today_only:
+            offsets = [0]
+        else:
+            offsets = list(range(self.start_offset, self.end_offset + 1))
+
+        desired: Dict[dt.date, Dict[Tuple[int, int], Tuple[Prediction, int, int]]] = {}
         for pred in predictions:
-            if pred.horizon != desired_offset or pred.target_date != target_date:
+            offset = (pred.target_date - self.run_date).days
+            if offset not in offsets:
                 continue
-            base_pred, has_checkout, has_checkin = room_flags.get(
-                pred.room.id, (pred, False, False)
-            )
 
-            # checkout 이벤트가 우선, 없으면 최초 pred를 유지하면서 체크인 플래그만 합산
+            include_checkin = offset in (0, 1)
             if pred.has_checkout:
-                base_pred = pred
-            elif has_checkout:
-                pred = base_pred
+                desired.setdefault(pred.target_date, {})[(pred.room.id, 1)] = (
+                    pred,
+                    0,
+                    1,
+                )
+            if include_checkin and pred.has_checkin:
+                desired.setdefault(pred.target_date, {})[(pred.room.id, 0)] = (
+                    pred,
+                    1,
+                    0,
+                )
 
-            has_checkout = has_checkout or pred.has_checkout
-            has_checkin = has_checkin or pred.has_checkin
-            room_flags[pred.room.id] = (base_pred, has_checkout, has_checkin)
-
-        entries: List[Tuple[Prediction, int, int]] = []
-        for pred, has_checkout, has_checkin in room_flags.values():
-            if has_checkout:
-                entries.append((pred, 0, 1))
-            elif has_checkin:
-                entries.append((pred, 1, 0))
-
-        if not entries:
-            logging.info("work_header 대상 없음 (target=%s)", target_date)
+        if not desired:
+            logging.info("work_header 생성/보정 대상 없음")
             return
 
-        existing_rooms: set[int] = set()
         with self.conn.cursor(dictionary=True) as cur:
-            cur.execute("SELECT room_id FROM work_header WHERE date=%s", (target_date,))
-            existing_rooms = {int(row["room_id"]) for row in cur.fetchall()}
-
-        seen: set[int] = set(existing_rooms)
-        to_insert: List[Tuple[Prediction, int, int]] = []
-        for entry in entries:
-            room_id = entry[0].room.id
-            if room_id in seen:
-                continue
-            seen.add(room_id)
-            to_insert.append(entry)
-
-        if not to_insert:
-            logging.info(
-                "work_header 신규 삽입 대상이 없습니다 (target=%s, 기존 %s건)",
-                target_date,
-                len(existing_rooms),
-            )
-            return
-
-        logging.info(
-            "work_header 신규 삽입 (target=%s, 추가 %s건, 기존 %s건)",
-            target_date,
-            len(to_insert),
-            len(existing_rooms),
-        )
-        with self.conn.cursor() as cur:
-            for pred, condition_check, cleaning in to_insert:
-                requirements_text = "상태확인" if condition_check else None
+            for target_date, entries in desired.items():
                 cur.execute(
                     """
-                    INSERT INTO work_header
-                        (date, room_id, cleaner_id, butler_id,
-                         amenities_qty, blanket_qty, conditionCheckYn,
-                         cleaning_yn, checkin_time, ceckout_time,
-                         supply_yn, clening_flag, cleaning_end_time,
-                         supervising_end_time, requirements, cancel_yn)
-                    VALUES
-                        (%s, %s, NULL, NULL,
-                         %s, %s, %s,
-                         %s, %s, %s,
-                         0, 1, NULL,
-                         NULL, %s, 0)
+                    SELECT id, room_id, cleaning_yn, cancel_yn, manual_upt_yn
+                    FROM work_header
+                    WHERE date=%s
                     """,
-                    (
-                        pred.target_date,
-                        pred.room.id,
-                        pred.room.bed_count,
-                        pred.room.bed_count,
-                        condition_check,
-                        cleaning,
-                        pred.room.checkin_time,
-                        pred.room.checkout_time,
-                        requirements_text,
-                    ),
+                    (target_date,),
                 )
-        self.conn.commit()
+                existing_rows = cur.fetchall()
+                existing_map: Dict[Tuple[int, int], Dict] = {}
+                for row in existing_rows:
+                    key = (int(row["room_id"]), int(row["cleaning_yn"]))
+                    if key not in existing_map:
+                        existing_map[key] = row
+
+                to_insert: List[Tuple[Prediction, int, int]] = []
+                to_cancel: List[int] = []
+                to_reopen: List[int] = []
+
+                for key, entry in entries.items():
+                    existing = existing_map.get(key)
+                    if not existing:
+                        to_insert.append(entry)
+                        continue
+                    if existing.get("manual_upt_yn") == 1:
+                        continue
+                    if existing.get("cancel_yn"):
+                        to_reopen.append(int(existing["id"]))
+
+                for key, row in existing_map.items():
+                    if key in entries:
+                        continue
+                    if row.get("manual_upt_yn") == 1:
+                        continue
+                    if not row.get("cancel_yn"):
+                        to_cancel.append(int(row["id"]))
+
+                if not (to_insert or to_cancel or to_reopen):
+                    logging.info("work_header 변경 없음 (target=%s)", target_date)
+                    continue
+
+                logging.info(
+                    "work_header 보정(target=%s): 신규 %s건, 취소 %s건, 재오픈 %s건",
+                    target_date,
+                    len(to_insert),
+                    len(to_cancel),
+                    len(to_reopen),
+                )
+
+                if to_cancel:
+                    cur.executemany(
+                        "UPDATE work_header SET cancel_yn=1 WHERE id=%s",
+                        [(pk,) for pk in to_cancel],
+                    )
+                if to_reopen:
+                    cur.executemany(
+                        "UPDATE work_header SET cancel_yn=0 WHERE id=%s",
+                        [(pk,) for pk in to_reopen],
+                    )
+                for pred, condition_check, cleaning in to_insert:
+                    requirements_text = "상태확인" if condition_check else None
+                    cur.execute(
+                        """
+                        INSERT INTO work_header
+                            (date, room_id, cleaner_id, butler_id,
+                             amenities_qty, blanket_qty, conditionCheckYn,
+                             cleaning_yn, checkin_time, ceckout_time,
+                             supply_yn, clening_flag, cleaning_end_time,
+                             supervising_end_time, requirements, cancel_yn, manual_upt_yn)
+                        VALUES
+                            (%s, %s, NULL, NULL,
+                             %s, %s, %s,
+                             %s, %s, %s,
+                             0, 1, NULL,
+                             NULL, %s, 0, 0)
+                        """,
+                        (
+                            pred.target_date,
+                            pred.room.id,
+                            pred.room.bed_count,
+                            pred.room.bed_count,
+                            condition_check,
+                            cleaning,
+                            pred.room.checkin_time,
+                            pred.room.checkout_time,
+                            requirements_text,
+                        ),
+                    )
+                self.conn.commit()
 
     def _persist_accuracy(self, predictions: Sequence[Prediction]) -> None:
         buckets: Dict[str, List[Prediction]] = {"D-1": [], "D-7": []}

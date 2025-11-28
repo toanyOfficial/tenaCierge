@@ -11,6 +11,9 @@ import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { getKstNow } from '@/src/utils/workWindow';
 import type { ProfileSummary } from '@/src/utils/profile';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const ALLOWED_ROLES = ['admin', 'butler', 'cleaner'] as const;
 const CUTOFF_MINUTES = 10 * 60;
 const PENALTY_COMMENT = '업무 신청 취소 패널티';
