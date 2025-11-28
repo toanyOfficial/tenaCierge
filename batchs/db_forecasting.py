@@ -838,7 +838,7 @@ class BatchRunner:
         else:
             offsets = list(range(self.start_offset, self.end_offset + 1))
 
-        desired: Dict[dt.date, Dict[Tuple[int, int], Tuple[Prediction, int, int]]] = {}
+        desired: Dict[dt.date, Dict[int, Tuple[Prediction, int, int]]] = {}
         for pred in predictions:
             offset = (pred.target_date - self.run_date).days
             if offset not in offsets:
@@ -846,17 +846,20 @@ class BatchRunner:
 
             include_checkin = offset in (0, 1)
             if pred.has_checkout:
-                desired.setdefault(pred.target_date, {})[(pred.room.id, 1)] = (
+                desired.setdefault(pred.target_date, {})[pred.room.id] = (
                     pred,
                     0,
                     1,
                 )
             if include_checkin and pred.has_checkin:
-                desired.setdefault(pred.target_date, {})[(pred.room.id, 0)] = (
-                    pred,
-                    1,
-                    0,
-                )
+                room_entries = desired.setdefault(pred.target_date, {})
+                # 동일 일자/객실에 대해 청소 작업을 우선 반영하고, 없을 때만 상태확인 작업을 기록한다.
+                if pred.room.id not in room_entries:
+                    room_entries[pred.room.id] = (
+                        pred,
+                        1,
+                        0,
+                    )
 
         if not desired:
             logging.info("work_header 생성/보정 대상 없음")
@@ -866,51 +869,86 @@ class BatchRunner:
             for target_date, entries in desired.items():
                 cur.execute(
                     """
-                    SELECT id, room_id, cleaning_yn, cancel_yn, manual_upt_yn
+                    SELECT id, room_id, cleaning_yn, cancel_yn, manual_upt_yn,
+                           conditionCheckYn, checkin_time, ceckout_time,
+                           amenities_qty, blanket_qty, requirements
                     FROM work_header
                     WHERE date=%s
                     """,
                     (target_date,),
                 )
                 existing_rows = cur.fetchall()
-                existing_map: Dict[Tuple[int, int], Dict] = {}
+                existing_map: Dict[int, Dict] = {}
                 for row in existing_rows:
-                    key = (int(row["room_id"]), int(row["cleaning_yn"]))
-                    if key not in existing_map:
-                        existing_map[key] = row
+                    room_id = int(row["room_id"])
+                    if room_id not in existing_map:
+                        existing_map[room_id] = row
 
                 to_insert: List[Tuple[Prediction, int, int]] = []
                 to_cancel: List[int] = []
-                to_reopen: List[int] = []
+                to_update: List[Tuple[int, int, int, int, dt.time, dt.time, Optional[str], int]] = []
 
-                for key, entry in entries.items():
-                    existing = existing_map.get(key)
+                for room_id, entry in entries.items():
+                    existing = existing_map.get(room_id)
                     if not existing:
                         to_insert.append(entry)
                         continue
                     if existing.get("manual_upt_yn") == 1:
                         continue
-                    if existing.get("cancel_yn"):
-                        to_reopen.append(int(existing["id"]))
 
-                for key, row in existing_map.items():
-                    if key in entries:
+                    pred, condition_check, cleaning = entry
+                    requirements_text = "상태확인" if condition_check else None
+                    needs_update = False
+
+                    if existing.get("cancel_yn"):
+                        needs_update = True
+                    if int(existing.get("cleaning_yn", -1)) != cleaning:
+                        needs_update = True
+                    if existing.get("conditionCheckYn") != condition_check:
+                        needs_update = True
+                    if existing.get("checkin_time") != pred.room.checkin_time:
+                        needs_update = True
+                    if existing.get("ceckout_time") != pred.room.checkout_time:
+                        needs_update = True
+                    if int(existing.get("amenities_qty") or 0) != pred.room.bed_count:
+                        needs_update = True
+                    if int(existing.get("blanket_qty") or 0) != pred.room.bed_count:
+                        needs_update = True
+                    if (existing.get("requirements") or None) != requirements_text:
+                        needs_update = True
+
+                    if needs_update:
+                        to_update.append(
+                            (
+                                cleaning,
+                                condition_check,
+                                pred.room.bed_count,
+                                pred.room.bed_count,
+                                pred.room.checkin_time,
+                                pred.room.checkout_time,
+                                requirements_text,
+                                int(existing["id"]),
+                            )
+                        )
+
+                for room_id, row in existing_map.items():
+                    if room_id in entries:
                         continue
                     if row.get("manual_upt_yn") == 1:
                         continue
                     if not row.get("cancel_yn"):
                         to_cancel.append(int(row["id"]))
 
-                if not (to_insert or to_cancel or to_reopen):
+                if not (to_insert or to_cancel or to_update):
                     logging.info("work_header 변경 없음 (target=%s)", target_date)
                     continue
 
                 logging.info(
-                    "work_header 보정(target=%s): 신규 %s건, 취소 %s건, 재오픈 %s건",
+                    "work_header 보정(target=%s): 신규 %s건, 취소 %s건, 수정 %s건",
                     target_date,
                     len(to_insert),
                     len(to_cancel),
-                    len(to_reopen),
+                    len(to_update),
                 )
 
                 if to_cancel:
@@ -918,10 +956,21 @@ class BatchRunner:
                         "UPDATE work_header SET cancel_yn=1 WHERE id=%s",
                         [(pk,) for pk in to_cancel],
                     )
-                if to_reopen:
+                if to_update:
                     cur.executemany(
-                        "UPDATE work_header SET cancel_yn=0 WHERE id=%s",
-                        [(pk,) for pk in to_reopen],
+                        """
+                        UPDATE work_header
+                        SET cleaning_yn=%s,
+                            conditionCheckYn=%s,
+                            amenities_qty=%s,
+                            blanket_qty=%s,
+                            checkin_time=%s,
+                            ceckout_time=%s,
+                            requirements=%s,
+                            cancel_yn=0
+                        WHERE id=%s
+                        """,
+                        to_update,
                     )
                 for pred, condition_check, cleaning in to_insert:
                     requirements_text = "상태확인" if condition_check else None
