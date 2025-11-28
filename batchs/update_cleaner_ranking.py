@@ -63,6 +63,7 @@ class CleanerRankingBatch:
         self.openai_calls = 0
 
     def run(self) -> None:
+        self._award_butler_bonus()
         scores = self._fetch_scores()
         workers = self._load_workers(scores)
         if not workers:
@@ -78,9 +79,71 @@ class CleanerRankingBatch:
         comments = self._generate_comments(daily_evals, daily_trend)
         if comments:
             self._persist_comments(comments, daily_evals)
+        self._persist_score_20days(scores, workers)
         tier_updates = self._calculate_tiers(workers, tier_rules)
         self._persist_tiers(tier_updates)
         self.conn.commit()
+
+    def _award_butler_bonus(self) -> None:
+        """Position=2 버틀러 근무자에게 당일 가산점을 부여한다."""
+
+        start_dt = dt.datetime.combine(self.target_date, dt.time.min)
+        end_dt = start_dt + dt.timedelta(days=1)
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(
+                """
+                SELECT DISTINCT worker_id
+                FROM work_apply
+                WHERE work_date = %s
+                  AND position = 2
+                  AND worker_id IS NOT NULL
+                """,
+                (self.target_date,),
+            )
+            workers = [int(row["worker_id"]) for row in cur]
+
+        if not workers:
+            return
+
+        bonus_label = "버틀러 근무 가산점"
+        checklist_json = json.dumps([bonus_label], ensure_ascii=False)
+        now_kst = dt.datetime.now(KST).replace(tzinfo=None)
+
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(
+                """
+                SELECT DISTINCT worker_id
+                FROM worker_evaluateHistory
+                WHERE evaluate_dttm >= %s
+                  AND evaluate_dttm < %s
+                  AND comment = %s
+                """,
+                (start_dt, end_dt, bonus_label),
+            )
+            existing = {int(row["worker_id"]) for row in cur}
+
+        targets = [w for w in workers if w not in existing]
+        if not targets:
+            return
+
+        with self.conn.cursor() as cur:
+            for worker_id in targets:
+                cur.execute(
+                    """
+                    INSERT INTO worker_evaluateHistory
+                        (worker_id, evaluate_dttm, work_id, checklist_title_array, checklist_point_sum, comment)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        worker_id,
+                        now_kst,
+                        0,
+                        checklist_json,
+                        75,
+                        bonus_label,
+                    ),
+                )
+        logging.info("버틀러 근무 가산점 부여: %s명", len(targets))
 
     def _fetch_scores(self) -> Dict[int, float]:
         start_date = self.target_date - dt.timedelta(days=19)
@@ -256,7 +319,7 @@ class CleanerRankingBatch:
         tier_rules: Sequence[Dict[str, int]],
     ) -> Dict[int, int]:
         assigned: Dict[int, int] = {}
-        population = [w for w in workers if w["tier"] != 1]
+        population = [w for w in workers if w["tier"] is not None and 2 <= int(w["tier"]) <= 7]
         population.sort(key=lambda w: w["score"], reverse=True)
         n = len(population)
         if not n:
@@ -518,6 +581,42 @@ class CleanerRankingBatch:
                 sql = "UPDATE worker_evaluateHistory SET comment=%s WHERE id=%s"
                 cur.execute(sql, (comment[:COMMENT_DB_LIMIT], latest_entry["id"]))
         logging.info("AI 코멘트 업데이트 %s명", len(comments))
+
+    def _persist_score_20days(
+        self, scores: Dict[int, float], workers: Sequence[Dict[str, Optional[float]]]
+    ) -> None:
+        """최근 20일 점수를 worker_header.score_20days에 적재."""
+
+        eligible_ids = {int(w["id"]) for w in workers if w.get("tier") is not None and 2 <= int(w["tier"]) <= 7}
+        if not eligible_ids:
+            return
+
+        # column 존재 여부 확인
+        has_column = False
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(
+                """
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'worker_header'
+                  AND column_name = 'score_20days'
+                LIMIT 1
+                """
+            )
+            has_column = cur.fetchone() is not None
+
+        if not has_column:
+            logging.warning("worker_header.score_20days 컬럼이 없어 점수 누적을 건너뜁니다.")
+            return
+
+        with self.conn.cursor() as cur:
+            for worker_id in eligible_ids:
+                cur.execute(
+                    "UPDATE worker_header SET score_20days=%s WHERE id=%s",
+                    (float(scores.get(worker_id, 0.0)), worker_id),
+                )
+        logging.info("score_20days 업데이트 %s건", len(eligible_ids))
 
     def _persist_tiers(self, updates: Dict[int, int]) -> None:
         if not updates:
