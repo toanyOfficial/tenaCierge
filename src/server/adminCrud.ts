@@ -259,9 +259,17 @@ function buildInsertParts(data: Record<string, unknown>, columns: AdminColumnMet
   return { names, values };
 }
 
+function withManualFlag(table: string, data: Record<string, unknown>) {
+  if (table === 'work_header') {
+    return { ...data, manual_upt_yn: 1 };
+  }
+  return data;
+}
+
 export async function insertRow(table: string, data: Record<string, unknown>) {
   const columns = await fetchColumnMetadata(table);
-  const { names, values } = buildInsertParts(data, columns);
+  const normalized = withManualFlag(table, data);
+  const { names, values } = buildInsertParts(normalized, columns);
 
   if (names.length === 0) {
     throw new Error('입력할 컬럼이 없습니다.');
@@ -283,7 +291,8 @@ export async function updateRow(table: string, key: Record<string, unknown>, dat
     throw new Error('기본키가 정의되지 않은 테이블입니다.');
   }
 
-  const { names, values } = buildInsertParts(data, columns);
+  const normalized = withManualFlag(table, data);
+  const { names, values } = buildInsertParts(normalized, columns);
 
   if (names.length === 0) {
     throw new Error('수정할 컬럼이 없습니다.');

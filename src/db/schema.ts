@@ -348,6 +348,7 @@ export const workHeader = mysqlTable('work_header', {
   supervisingEndTime: time('supervising_end_time'),
   requirements: varchar('requirements', { length: 30 }),
   cancelYn: boolean('cancel_yn').default(false).notNull(),
+  manualUptYn: boolean('manual_upt_yn').default(false).notNull(),
   supervisingYn: boolean('supervising_yn').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
