@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import type { MouseEvent } from 'react';
+import type { KeyboardEvent, MouseEvent } from 'react';
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -21,7 +21,13 @@ type ImageTileProps = {
   previewUrl?: string | null;
   onChange: (slotKey: string, files: FileList | null) => void;
   required?: boolean;
-  onRequestFile: (slotKey: string, inputEl: HTMLInputElement | null) => void;
+  onRequestFile: (
+    slotKey: string,
+    inputEl: HTMLInputElement | null,
+    options?: {
+      triggerClick?: boolean;
+    }
+  ) => void;
   captureMode: 'camera' | 'album';
   isDesktop: boolean;
 };
@@ -31,21 +37,36 @@ function ImageTile({ slot, selectedFile, previewUrl, onChange, onRequestFile, re
   const hintText = selectedFile?.name ?? (previewUrl ? '기존 이미지' : '파일을 선택하세요');
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleOpen = (event: MouseEvent) => {
+  const handleInputClick = (event: MouseEvent<HTMLInputElement>) => {
+    if (captureMode !== 'album' && !isDesktop) {
+      event.preventDefault();
+      event.stopPropagation();
+      onRequestFile(slotKey, inputRef.current, { triggerClick: true });
+      return;
+    }
+
+    onRequestFile(slotKey, inputRef.current, { triggerClick: false });
+  };
+
+  const handleKeyOpen = (event: KeyboardEvent<HTMLLabelElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
-    onRequestFile(slotKey, inputRef.current);
+    event.stopPropagation();
+    onRequestFile(slotKey, inputRef.current, { triggerClick: true });
   };
 
   return (
     <label
       className={`${styles.imageTile} ${required ? styles.imageTileRequired : styles.imageTileOptional}`.trim()}
       aria-label={`${required ? '필수' : '선택'} 이미지 ${slot.title}`}
-      onClick={handleOpen}
+      onKeyDown={handleKeyOpen}
+      tabIndex={0}
     >
       <input
         type="file"
         accept="image/*"
         onChange={(e) => onChange(slotKey, e.target.files)}
+        onClick={handleInputClick}
         ref={inputRef}
         capture={captureMode === 'camera' && !isDesktop ? 'environment' : undefined}
         className={styles.imageInput}
@@ -62,8 +83,17 @@ function ImageTile({ slot, selectedFile, previewUrl, onChange, onRequestFile, re
 }
 
 export default function SupervisingReportClient({ profile, snapshot }: Props) {
-  const { work, cleaningChecklist, suppliesChecklist, imageSlots, existingCleaningChecks, existingSupplyChecks, savedImages } =
-    snapshot;
+  const {
+    work,
+    cleaningChecklist,
+    suppliesChecklist,
+    imageSlots,
+    existingSupervisingFindingChecks,
+    existingSupervisingCompletionChecks,
+    existingSupplyChecks,
+    existingSupplyNotes,
+    savedImages
+  } = snapshot;
   const router = useRouter();
   const [activeRole, setActiveRole] = useState(profile.primaryRole ?? profile.roles[0] ?? null);
   const requiredImageSlots = useMemo(() => imageSlots.filter((slot) => slot.required), [imageSlots]);
@@ -77,14 +107,6 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
   useEffect(() => {
     setCaptureMode(isDesktop ? 'album' : 'camera');
   }, [isDesktop]);
-  const lockedCleaningCheckIds = useMemo(
-    () => new Set(cleaningChecklist.filter((item) => item.score > 0).map((item) => item.id)),
-    [cleaningChecklist]
-  );
-  const visibleCleaningChecklist = useMemo(
-    () => cleaningChecklist.filter((item) => item.score <= 0),
-    [cleaningChecklist]
-  );
   const initialImageSelections = useMemo(
     () => Object.fromEntries(imageSlotKeys.map((key) => [key, null])) as Record<string, File | null>,
     [imageSlotKeys]
@@ -101,15 +123,26 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     return mapping;
   }, [imageSlotKeys, savedImages]);
 
-  const [cleaningChecks, setCleaningChecks] = useState<Set<number>>(
-    () => new Set([...lockedCleaningCheckIds, ...(existingCleaningChecks ?? [])])
+  const [supervisingFindingChecks, setSupervisingFindingChecks] = useState<Record<number, boolean>>(
+    existingSupervisingFindingChecks
+  );
+  const [supervisingCompletionChecks, setSupervisingCompletionChecks] = useState<Record<number, boolean>>(
+    existingSupervisingCompletionChecks
   );
   const [supplyChecks, setSupplyChecks] = useState<Set<number>>(new Set(existingSupplyChecks ?? []));
+  const [supplyNotes, setSupplyNotes] = useState<Record<number, string>>(existingSupplyNotes ?? {});
   const [imageSelections, setImageSelections] = useState<Record<string, File | null>>(initialImageSelections);
   const [imagePreviews, setImagePreviews] = useState<Record<string, string | null>>(initialImagePreviews);
   const [status, setStatus] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
+  const [noteModal, setNoteModal] = useState<{ open: boolean; targetId: number | null; draft: string }>(
+    {
+      open: false,
+      targetId: null,
+      draft: ''
+    }
+  );
 
   const requiredImagesReady = useMemo(
     () => requiredImageSlots.every((slot) => imageSelections[String(slot.id)] || imagePreviews[String(slot.id)]),
@@ -120,17 +153,17 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     const messages: string[] = [];
 
     if (!requiredImagesReady && requiredImageSlots.length > 0) messages.push('필수 사진 항목을 확인하세요.');
+    const hasIncomplete = cleaningChecklist.some((item) => !supervisingCompletionChecks[item.id]);
+    if (hasIncomplete) messages.push('완료여부를 모두 체크해주세요.');
 
     return messages;
-  }, [requiredImagesReady, requiredImageSlots]);
+  }, [requiredImagesReady, requiredImageSlots, supervisingCompletionChecks, cleaningChecklist]);
 
   const isReadyToSubmit = readinessMessages.length === 0;
 
   const roomTitle = useMemo(() => `${work.buildingShortName}${work.roomNo}`, [work.buildingShortName, work.roomNo]);
 
-  const toggleCheck = (id: number, target: Set<number>, setter: (next: Set<number>) => void, locked?: Set<number>) => {
-    if (locked?.has(id)) return;
-
+  const toggleCheck = (id: number, target: Set<number>, setter: (next: Set<number>) => void) => {
     const next = new Set(target);
     if (next.has(id)) {
       next.delete(id);
@@ -138,8 +171,51 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
       next.add(id);
     }
 
-    locked?.forEach((lockedId) => next.add(lockedId));
     setter(next);
+  };
+
+  const openNoteModal = (id: number) => {
+    setNoteModal({
+      open: true,
+      targetId: id,
+      draft: supplyNotes[id] ?? ''
+    });
+  };
+
+  const closeNoteModal = () => {
+    setNoteModal({ open: false, targetId: null, draft: '' });
+  };
+
+  const saveNote = () => {
+    if (noteModal.targetId == null) return;
+    const targetId = noteModal.targetId;
+    const trimmed = noteModal.draft.trim();
+
+    setSupplyNotes((prev) => {
+      const next = { ...prev };
+      if (trimmed) {
+        next[targetId] = trimmed;
+      } else {
+        delete next[targetId];
+      }
+      return next;
+    });
+
+    setSupplyChecks((prev) => {
+      const next = new Set(prev);
+      next.add(targetId);
+      return next;
+    });
+
+    closeNoteModal();
+  };
+
+  const toggleFindingFlag = (id: number) => {
+    setSupervisingFindingChecks((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleCompletionFlag = (id: number) => {
+    setSupervisingCompletionChecks((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const handleImageChange = (slotKey: string, files: FileList | null) => {
@@ -149,15 +225,20 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     setImagePreviews((prev) => ({ ...prev, [slotKey]: URL.createObjectURL(file) }));
   };
 
-  const handleRequestFile = async (_slotKey: string, inputEl: HTMLInputElement | null) => {
+  const handleRequestFile = async (
+    _slotKey: string,
+    inputEl: HTMLInputElement | null,
+    options?: { triggerClick?: boolean }
+  ) => {
     if (!inputEl) return;
 
+    const shouldTrigger = options?.triggerClick ?? false;
     inputEl.value = '';
     const effectiveMode = isDesktop ? 'album' : captureMode;
 
     if (effectiveMode === 'album') {
       inputEl.removeAttribute('capture');
-      inputEl.click();
+      if (shouldTrigger) inputEl.click();
       return;
     }
 
@@ -169,12 +250,12 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       stream.getTracks().forEach((track) => track.stop());
       inputEl.setAttribute('capture', 'environment');
-      inputEl.click();
+      if (shouldTrigger) inputEl.click();
     } catch (err) {
       window.alert('카메라 앱 실행에 실패하여 앨범 모드로 전환합니다.');
       setCaptureMode('album');
       inputEl.removeAttribute('capture');
-      inputEl.click();
+      if (shouldTrigger) inputEl.click();
     }
   };
 
@@ -196,8 +277,21 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
         .filter((entry) => Boolean(entry.file)) as { key: string; file: File }[];
 
       formData.append('workId', String(work.id));
-      formData.append('cleaningChecks', JSON.stringify(Array.from(cleaningChecks)));
+      formData.append('supervisingFindings', JSON.stringify(supervisingFindingChecks));
+      formData.append('supervisingCompletion', JSON.stringify(supervisingCompletionChecks));
       formData.append('supplyChecks', JSON.stringify(Array.from(supplyChecks)));
+
+      const normalizedNotes = Object.entries(supplyNotes).reduce((acc, [key, val]) => {
+        const trimmed = val.trim();
+        if (trimmed) {
+          acc[key] = trimmed;
+        }
+        return acc;
+      }, {} as Record<string, string>);
+
+      if (Object.keys(normalizedNotes).length) {
+        formData.append('supplyNotes', JSON.stringify(normalizedNotes));
+      }
       selectedImages.forEach((entry) => formData.append('images', entry.file));
       formData.append(
         'imageFileSlots',
@@ -248,20 +342,42 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
         <div className={styles.reportGridStacked}>
           <article className={styles.reportCardWide}>
             <header className={styles.reportCardHeader}>수퍼바이징 체크리스트</header>
-            {visibleCleaningChecklist.length === 0 ? (
+            {cleaningChecklist.length === 0 ? (
               <p className={styles.reportEmpty}>체크리스트가 없습니다.</p>
             ) : (
               <ul className={styles.checklist}>
-                {visibleCleaningChecklist.map((item) => (
+                {cleaningChecklist.map((item) => (
                   <li key={item.id} className={styles.checkItem}>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={cleaningChecks.has(item.id)}
-                        onChange={() => toggleCheck(item.id, cleaningChecks, setCleaningChecks, lockedCleaningCheckIds)}
-                      />
-                      <span>{item.title}</span>
-                    </label>
+                    <div className={styles.supervisingRow}>
+                      <div className={styles.checkTitleBlock}>
+                        <span className={styles.checkTitle}>{item.title}</span>
+                        {item.description ? <span className={styles.checkDescription}>{item.description}</span> : null}
+                      </div>
+                      <div className={styles.checkColumns}>
+                        <label className={styles.checkColumnLabel}>
+                          <input
+                            type="checkbox"
+                            checked={supervisingFindingChecks[item.id] ?? false}
+                            onChange={() => toggleFindingFlag(item.id)}
+                          />
+                          <div className={styles.checkColumnText}>
+                            <span className={styles.checkColumnTitle}>미흡여부</span>
+                            <p className={styles.checkDescription}>청소완료상태가 미흡한 경우 체크합니다.</p>
+                          </div>
+                        </label>
+                        <label className={styles.checkColumnLabel}>
+                          <input
+                            type="checkbox"
+                            checked={supervisingCompletionChecks[item.id] ?? false}
+                            onChange={() => toggleCompletionFlag(item.id)}
+                          />
+                          <div className={styles.checkColumnText}>
+                            <span className={styles.checkColumnTitle}>완료여부</span>
+                            <p className={styles.checkDescription}>하나하나 체크하며 점검해주세요</p>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -269,21 +385,34 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
           </article>
 
           <article className={styles.reportCardWide}>
-            <header className={styles.reportCardHeader}>소모품 체크리스트</header>
+            <header className={styles.reportCardHeader}>부족한 소모품을 체크해주세요.</header>
             {suppliesChecklist.length === 0 ? (
               <p className={styles.reportEmpty}>소모품 체크리스트가 없습니다.</p>
             ) : (
               <ul className={styles.checklist}>
                 {suppliesChecklist.map((item) => (
                   <li key={item.id} className={styles.checkItem}>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={supplyChecks.has(item.id)}
-                        onChange={() => toggleCheck(item.id, supplyChecks, setSupplyChecks)}
-                      />
-                      <span>{item.title}</span>
-                    </label>
+                    <div className={styles.checkRow}>
+                      <label className={styles.checkLabel}>
+                        <input
+                          type="checkbox"
+                          checked={supplyChecks.has(item.id)}
+                          onChange={() => toggleCheck(item.id, supplyChecks, setSupplyChecks)}
+                        />
+                        <span>{item.title}</span>
+                      </label>
+                      {!item.description ? (
+                        <button type="button" className={styles.noteButton} onClick={() => openNoteModal(item.id)}>
+                          내용입력
+                        </button>
+                      ) : null}
+                      {supplyNotes[item.id] ? (
+                        <p className={styles.checkNote}>
+                          <strong>입력내용</strong>
+                          <span>{supplyNotes[item.id]}</span>
+                        </p>
+                      ) : null}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -380,6 +509,37 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
           {error ? <p className={styles.errorText}>{error}</p> : null}
         </footer>
       </section>
+
+      {noteModal.open ? (
+        <div className={styles.modalBackdrop} role="dialog" aria-modal="true" aria-label="소모품 내용 입력">
+          <div className={styles.modalCard}>
+            <div className={styles.modalHead}>
+              <span>소모품 내용 입력</span>
+              <button type="button" onClick={closeNoteModal} aria-label="닫기">
+                ×
+              </button>
+            </div>
+            <div className={styles.modalBody}>
+              <p className={styles.modalSub}>필요한 내용을 입력하면 해당 소모품 항목에 기록됩니다.</p>
+              <textarea
+                className={styles.noteTextarea}
+                rows={4}
+                value={noteModal.draft}
+                onChange={(e) => setNoteModal((prev) => ({ ...prev, draft: e.target.value }))}
+                placeholder="필요한 내용을 입력하세요"
+              />
+            </div>
+            <div className={styles.modalFoot}>
+              <button type="button" className={styles.secondaryButton} onClick={closeNoteModal}>
+                취소
+              </button>
+              <button type="button" className={styles.primaryButton} onClick={saveNote}>
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

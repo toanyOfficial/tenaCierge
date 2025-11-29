@@ -90,6 +90,8 @@ export const clientRooms = mysqlTable('client_rooms', {
   icalUrl2: varchar('ical_url_2', { length: 2083 }),
   checklistSetId: int('checklist_set_id'),
   imagesSetId: int('images_set_id').notNull(),
+  realtimeOverviewYn: boolean('realtime_overview_yn').default(false).notNull(),
+  imagesYn: boolean('images_yn').default(false).notNull(),
   settleFlag: tinyint('settle_flag').default(1).notNull(),
   weight: tinyint('weight').default(10).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
