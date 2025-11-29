@@ -95,6 +95,8 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const canToggleSupervising = activeRole === 'admin' || activeRole === 'butler';
   const canAssignCleaner = canToggleSupervising;
 
+  const sortedWorks = useMemo(() => sortWorks(works, sortMode), [works, sortMode]);
+
   const groupedBySector = useMemo(() => {
     const sectors = new Map<
       string,
