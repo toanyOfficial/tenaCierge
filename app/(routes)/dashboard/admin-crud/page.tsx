@@ -17,5 +17,5 @@ export default async function AdminCrudPage() {
 
   const tables = listAdminTables();
 
-  return <AdminCrudClient tables={tables} />;
+  return <AdminCrudClient tables={tables} profile={profile} />;
 }

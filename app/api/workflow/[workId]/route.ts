@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { eq, or } from 'drizzle-orm';
+import { and, desc, eq, inArray, or } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
-import { workHeader, workerHeader } from '@/src/db/schema';
+import { workHeader, workReports, workerHeader } from '@/src/db/schema';
 import { findWorkerByProfile } from '@/src/server/workers';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { getKstNow } from '@/src/utils/workWindow';
@@ -25,7 +25,9 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
   const workRows = await db
     .select({
       id: workHeader.id,
+      roomId: workHeader.roomId,
       cleanerId: workHeader.cleanerId,
+      butlerId: workHeader.butlerId,
       supplyYn: workHeader.supplyYn,
       cleaningFlag: workHeader.cleaningFlag,
       supervisingYn: workHeader.supervisingYn,
@@ -39,6 +41,102 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
 
   if (!current) {
     return NextResponse.json({ message: '대상을 찾을 수 없습니다.' }, { status: 404 });
+  }
+
+  if (body.noShow === true) {
+    if (!isAdmin && !isButler) {
+      return NextResponse.json({ message: '노쇼 처리 권한이 없습니다.' }, { status: 403 });
+    }
+
+    const previousReports = await db
+      .select({
+        workId: workReports.workId,
+        type: workReports.type,
+        contents1: workReports.contents1,
+        contents2: workReports.contents2,
+        createdAt: workReports.createdAt
+      })
+      .from(workReports)
+      .innerJoin(workHeader, eq(workReports.workId, workHeader.id))
+      .where(eq(workHeader.roomId, current.roomId))
+      .orderBy(desc(workReports.createdAt))
+      .limit(50);
+
+    const latestByType = new Map<number, { contents1: unknown; contents2: unknown | null }>();
+    previousReports.forEach((report) => {
+      if (report.workId === workId) return;
+      if (!latestByType.has(report.type)) {
+        latestByType.set(report.type, {
+          contents1: report.contents1,
+          contents2: report.contents2 ?? report.contents1
+        });
+      }
+    });
+
+    const nowTime = getKstNow().toTimeString().slice(0, 8);
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(workReports)
+        .where(and(eq(workReports.workId, workId), inArray(workReports.type, [3, 5])));
+
+      const rowsToInsert: { workId: number; type: number; contents1: unknown; contents2?: unknown | null }[] = [];
+      [3, 5].forEach((type) => {
+        const payload = latestByType.get(type);
+        if (payload) {
+          rowsToInsert.push({
+            workId,
+            type,
+            contents1: payload.contents1,
+            contents2: payload.contents2
+          });
+        }
+      });
+
+      if (rowsToInsert.length) {
+        await tx.insert(workReports).values(rowsToInsert);
+      }
+
+      await tx
+        .update(workHeader)
+        .set({
+          cleanerId: null,
+          butlerId: null,
+          manualUptYn: true,
+          cleaningFlag: 4,
+          cleaningEndTime: nowTime,
+          supervisingYn: true,
+          supervisingEndTime: nowTime
+        })
+        .where(eq(workHeader.id, workId));
+    });
+
+    const refreshed = await db
+      .select({
+        id: workHeader.id,
+        supplyYn: workHeader.supplyYn,
+        cleaningFlag: workHeader.cleaningFlag,
+        supervisingYn: workHeader.supervisingYn,
+        supervisingEndTime: workHeader.supervisingEndTime,
+        cleanerId: workHeader.cleanerId,
+        cleanerName: workerHeader.name
+      })
+      .from(workHeader)
+      .leftJoin(workerHeader, eq(workHeader.cleanerId, workerHeader.id))
+      .where(eq(workHeader.id, workId))
+      .limit(1);
+
+    const next = refreshed[0];
+
+    return NextResponse.json({
+      work: {
+        supplyYn: Boolean(next?.supplyYn),
+        cleaningFlag: Number(next?.cleaningFlag ?? 4),
+        supervisingYn: Boolean(next?.supervisingYn ?? true),
+        supervisingEndTime: next?.supervisingEndTime ?? null,
+        cleanerId: next?.cleanerId ?? null,
+        cleanerName: next?.cleanerName ?? ''
+      }
+    });
   }
 
   if (!isAdmin && !isButler) {

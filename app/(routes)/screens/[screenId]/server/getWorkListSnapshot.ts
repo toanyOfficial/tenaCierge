@@ -4,6 +4,7 @@ import { unstable_noStore as noStore } from 'next/cache';
 
 import { db } from '@/src/db/client';
 import {
+  clientHeader,
   clientRooms,
   etcBaseCode,
   etcBuildings,
@@ -24,6 +25,7 @@ export type WorkListEntry = {
   roomName: string;
   buildingShortName: string;
   roomNo: string;
+  clientName: string;
   buildingAddressNew: string;
   generalTrashInfo: string;
   foodTrashInfo: string;
@@ -105,6 +107,7 @@ export async function getWorkListSnapshot(
         supervisingEndTime: workHeader.supervisingEndTime,
         cleanerId: workHeader.cleanerId,
         roomNo: clientRooms.roomNo,
+        clientName: clientHeader.name,
         centralPassword: clientRooms.centralPassword,
         doorPassword: clientRooms.doorPassword,
         buildingId: clientRooms.buildingId,
@@ -120,6 +123,7 @@ export async function getWorkListSnapshot(
       })
       .from(workHeader)
       .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
+      .leftJoin(clientHeader, eq(clientRooms.clientId, clientHeader.id))
       .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
       .leftJoin(
         buildingSector,
@@ -224,6 +228,7 @@ function normalizeRow(row: any): WorkListEntry {
     roomName: `${row.buildingShortName ?? ''}${row.roomNo ?? ''}`.trim() || '미지정 객실',
     buildingShortName: row.buildingShortName ?? '',
     roomNo: row.roomNo ?? '',
+    clientName: row.clientName ?? '',
     buildingAddressNew: row.buildingAddressNew ?? '',
     generalTrashInfo: row.generalTrashInfo ?? '',
     foodTrashInfo: row.foodTrashInfo ?? '',
