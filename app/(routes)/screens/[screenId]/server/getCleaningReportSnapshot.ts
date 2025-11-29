@@ -20,6 +20,7 @@ export type CleaningReportSnapshot = {
   imageSlots: ImageSlot[];
   existingCleaningChecks: number[];
   existingSupplyChecks: number[];
+  existingSupplyNotes: Record<number, string>;
   savedImages: SavedImage[];
 };
 
@@ -28,6 +29,7 @@ export type ChecklistItem = {
   title: string;
   type: number;
   score: number;
+  description: string | null;
 };
 
 export type ImageSlot = {
@@ -70,6 +72,8 @@ export async function getCleaningReportSnapshot(
         id: workChecklistSetDetail.id,
         title: workChecklistSetDetail.title,
         fallbackTitle: workChecklistList.title,
+        description: workChecklistSetDetail.description,
+        fallbackDescription: workChecklistList.description,
         type: workChecklistList.type,
         score: workChecklistSetDetail.score
       })
@@ -80,20 +84,22 @@ export async function getCleaningReportSnapshot(
 
     const cleaningChecklist = checklistRows
       .filter((item) => item.type === 1)
-      .map(({ id, title, fallbackTitle, type, score }) => ({
+      .map(({ id, title, fallbackTitle, type, score, description, fallbackDescription }) => ({
         id,
         title: title ?? fallbackTitle ?? '',
         type: Number(type ?? 0),
-        score: Number(score) || 0
+        score: Number(score) || 0,
+        description: description ?? fallbackDescription ?? null
       }));
 
     const suppliesChecklist = checklistRows
       .filter((item) => item.type === 3)
-      .map(({ id, title, fallbackTitle, type, score }) => ({
+      .map(({ id, title, fallbackTitle, type, score, description, fallbackDescription }) => ({
         id,
         title: title ?? fallbackTitle ?? '',
         type: Number(type ?? 0),
-        score: Number(score) || 0
+        score: Number(score) || 0,
+        description: description ?? fallbackDescription ?? null
       }));
 
     const imageSlots = await (async () => {
@@ -140,8 +146,32 @@ export async function getCleaningReportSnapshot(
       return value.map((v) => Number(v)).filter((v) => Number.isFinite(v));
     };
 
+    const parseSupplyNotes = (value: unknown) => {
+      if (!value || typeof value !== 'object') return {} as Record<number, string>;
+
+      if (Array.isArray(value)) {
+        return value.reduce((acc, entry, idx) => {
+          const normalized = typeof entry === 'string' ? entry.trim() : '';
+          if (normalized) {
+            acc[idx + 1] = normalized;
+          }
+          return acc;
+        }, {} as Record<number, string>);
+      }
+
+      return Object.entries(value as Record<string, unknown>).reduce((acc, [key, val]) => {
+        const note = typeof val === 'string' ? val.trim() : '';
+        const numericKey = Number.parseInt(key, 10);
+        if (note && Number.isFinite(numericKey)) {
+          acc[numericKey] = note;
+        }
+        return acc;
+      }, {} as Record<number, string>);
+    };
+
     const rawCleaningChecks = latestReports.get(1)?.contents1 ?? [];
     const rawSupplyChecks = latestReports.get(2)?.contents1 ?? [];
+    const rawSupplyNotes = latestReports.get(2)?.contents2 ?? {};
 
     const savedImages = (() => {
       const rawImages = latestReports.get(3)?.contents1;
@@ -175,6 +205,7 @@ export async function getCleaningReportSnapshot(
       imageSlots,
       existingCleaningChecks: parseIdArray(rawCleaningChecks),
       existingSupplyChecks: parseIdArray(rawSupplyChecks),
+      existingSupplyNotes: parseSupplyNotes(rawSupplyNotes),
       savedImages
     } satisfies CleaningReportSnapshot;
   } catch (error) {
