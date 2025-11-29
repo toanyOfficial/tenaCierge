@@ -267,13 +267,8 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     }
 
     try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error('카메라를 초기화할 수 없습니다.');
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      stream.getTracks().forEach((track) => track.stop());
       inputEl.setAttribute('capture', 'environment');
+      inputEl.setAttribute('accept', 'image/*');
       if (shouldTrigger) inputEl.click();
     } catch (err) {
       window.alert('카메라 앱 실행에 실패하여 앨범 모드로 전환합니다.');
