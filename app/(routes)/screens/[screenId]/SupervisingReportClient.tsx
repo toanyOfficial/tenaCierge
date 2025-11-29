@@ -85,10 +85,11 @@ function ImageTile({ slot, selectedFile, previewUrl, onChange, onRequestFile, re
 export default function SupervisingReportClient({ profile, snapshot }: Props) {
   const {
     work,
+    cleaningChecklist,
     suppliesChecklist,
     imageSlots,
-    existingSupervisingFindingChecked,
-    existingSupervisingCompletionChecked,
+    existingSupervisingFindingChecks,
+    existingSupervisingCompletionChecks,
     existingSupplyChecks,
     existingSupplyNotes,
     savedImages
@@ -122,11 +123,11 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     return mapping;
   }, [imageSlotKeys, savedImages]);
 
-  const [supervisingFindingChecked, setSupervisingFindingChecked] = useState<boolean>(
-    existingSupervisingFindingChecked ?? false
+  const [supervisingFindingChecks, setSupervisingFindingChecks] = useState<Record<number, boolean>>(
+    existingSupervisingFindingChecks
   );
-  const [supervisingCompletionChecked, setSupervisingCompletionChecked] = useState<boolean>(
-    existingSupervisingCompletionChecked ?? false
+  const [supervisingCompletionChecks, setSupervisingCompletionChecks] = useState<Record<number, boolean>>(
+    existingSupervisingCompletionChecks
   );
   const [supplyChecks, setSupplyChecks] = useState<Set<number>>(new Set(existingSupplyChecks ?? []));
   const [supplyNotes, setSupplyNotes] = useState<Record<number, string>>(existingSupplyNotes ?? {});
@@ -152,10 +153,11 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     const messages: string[] = [];
 
     if (!requiredImagesReady && requiredImageSlots.length > 0) messages.push('필수 사진 항목을 확인하세요.');
-    if (!supervisingCompletionChecked) messages.push('완료여부를 모두 체크해주세요.');
+    const hasIncomplete = cleaningChecklist.some((item) => !supervisingCompletionChecks[item.id]);
+    if (hasIncomplete) messages.push('완료여부를 모두 체크해주세요.');
 
     return messages;
-  }, [requiredImagesReady, requiredImageSlots, supervisingCompletionChecked]);
+  }, [requiredImagesReady, requiredImageSlots, supervisingCompletionChecks, cleaningChecklist]);
 
   const isReadyToSubmit = readinessMessages.length === 0;
 
@@ -206,6 +208,14 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     });
 
     closeNoteModal();
+  };
+
+  const toggleFindingFlag = (id: number) => {
+    setSupervisingFindingChecks((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleCompletionFlag = (id: number) => {
+    setSupervisingCompletionChecks((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const handleImageChange = (slotKey: string, files: FileList | null) => {
@@ -267,8 +277,8 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
         .filter((entry) => Boolean(entry.file)) as { key: string; file: File }[];
 
       formData.append('workId', String(work.id));
-      formData.append('supervisingFindings', JSON.stringify({ checked: supervisingFindingChecked }));
-      formData.append('supervisingCompletion', JSON.stringify({ checked: supervisingCompletionChecked }));
+      formData.append('supervisingFindings', JSON.stringify(supervisingFindingChecks));
+      formData.append('supervisingCompletion', JSON.stringify(supervisingCompletionChecks));
       formData.append('supplyChecks', JSON.stringify(Array.from(supplyChecks)));
 
       const normalizedNotes = Object.entries(supplyNotes).reduce((acc, [key, val]) => {
@@ -332,34 +342,46 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
         <div className={styles.reportGridStacked}>
           <article className={styles.reportCardWide}>
             <header className={styles.reportCardHeader}>수퍼바이징 체크리스트</header>
-            <ul className={styles.checklist}>
-              <li className={styles.checkItem}>
-                <div className={styles.checkRow}>
-                  <label className={styles.checkLabel}>
-                    <input
-                      type="checkbox"
-                      checked={supervisingFindingChecked}
-                      onChange={(e) => setSupervisingFindingChecked(e.target.checked)}
-                    />
-                    <span>미흡여부</span>
-                  </label>
-                  <p className={styles.checkDescription}>청소완료상태가 미흡한 경우 체크합니다.</p>
-                </div>
-              </li>
-              <li className={styles.checkItem}>
-                <div className={styles.checkRow}>
-                  <label className={styles.checkLabel}>
-                    <input
-                      type="checkbox"
-                      checked={supervisingCompletionChecked}
-                      onChange={(e) => setSupervisingCompletionChecked(e.target.checked)}
-                    />
-                    <span>완료여부</span>
-                  </label>
-                  <p className={styles.checkDescription}>하나하나 체크하며 점검해주세요</p>
-                </div>
-              </li>
-            </ul>
+            {cleaningChecklist.length === 0 ? (
+              <p className={styles.reportEmpty}>체크리스트가 없습니다.</p>
+            ) : (
+              <ul className={styles.checklist}>
+                {cleaningChecklist.map((item) => (
+                  <li key={item.id} className={styles.checkItem}>
+                    <div className={styles.supervisingRow}>
+                      <div className={styles.checkTitleBlock}>
+                        <span className={styles.checkTitle}>{item.title}</span>
+                        {item.description ? <span className={styles.checkDescription}>{item.description}</span> : null}
+                      </div>
+                      <div className={styles.checkColumns}>
+                        <label className={styles.checkColumnLabel}>
+                          <input
+                            type="checkbox"
+                            checked={supervisingFindingChecks[item.id] ?? false}
+                            onChange={() => toggleFindingFlag(item.id)}
+                          />
+                          <div className={styles.checkColumnText}>
+                            <span className={styles.checkColumnTitle}>미흡여부</span>
+                            <p className={styles.checkDescription}>청소완료상태가 미흡한 경우 체크합니다.</p>
+                          </div>
+                        </label>
+                        <label className={styles.checkColumnLabel}>
+                          <input
+                            type="checkbox"
+                            checked={supervisingCompletionChecks[item.id] ?? false}
+                            onChange={() => toggleCompletionFlag(item.id)}
+                          />
+                          <div className={styles.checkColumnText}>
+                            <span className={styles.checkColumnTitle}>완료여부</span>
+                            <p className={styles.checkDescription}>하나하나 체크하며 점검해주세요</p>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </article>
 
           <article className={styles.reportCardWide}>

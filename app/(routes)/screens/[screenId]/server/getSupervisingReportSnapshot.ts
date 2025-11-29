@@ -18,8 +18,8 @@ export type SupervisingReportSnapshot = {
   cleaningChecklist: ChecklistItem[];
   suppliesChecklist: ChecklistItem[];
   imageSlots: ImageSlot[];
-  existingSupervisingFindingChecked: boolean;
-  existingSupervisingCompletionChecked: boolean;
+  existingSupervisingFindingChecks: Record<number, boolean>;
+  existingSupervisingCompletionChecks: Record<number, boolean>;
   existingSupplyChecks: number[];
   existingSupplyNotes: Record<number, string>;
   savedImages: SavedImage[];
@@ -175,17 +175,46 @@ export async function getSupervisingReportSnapshot(
     const rawSupplyChecks = latestReports.get(2)?.contents1 ?? [];
     const rawSupplyNotes = latestReports.get(2)?.contents2 ?? {};
 
-    const parseBooleanFlag = (value: unknown) => {
-      if (typeof value === 'boolean') return value;
-      if (value && typeof value === 'object') {
-        if ('checked' in value && typeof (value as { checked?: unknown }).checked === 'boolean') {
-          return Boolean((value as { checked?: boolean }).checked);
+    const parseChecklistFlags = (value: unknown, targetChecklist: ChecklistItem[]) => {
+      const defaults = Object.fromEntries(targetChecklist.map(({ id }) => [id, false])) as Record<number, boolean>;
+
+      if (typeof value === 'boolean') {
+        return Object.fromEntries(targetChecklist.map(({ id }) => [id, value])) as Record<number, boolean>;
+      }
+
+      if (!value) return defaults;
+
+      if (Array.isArray(value)) {
+        const set = new Set<number>();
+        value.forEach((entry) => {
+          const num = Number(entry);
+          if (Number.isFinite(num)) set.add(num);
+        });
+        return Object.fromEntries(targetChecklist.map(({ id }) => [id, set.has(id)])) as Record<number, boolean>;
+      }
+
+      if (typeof value === 'object') {
+        if ('checked' in (value as Record<string, unknown>) && typeof (value as { checked?: unknown }).checked === 'boolean') {
+          return Object.fromEntries(
+            targetChecklist.map(({ id }) => [id, Boolean((value as { checked?: boolean }).checked)])
+          ) as Record<number, boolean>;
         }
 
-        const boolEntry = Object.values(value as Record<string, unknown>).find((v) => typeof v === 'boolean');
-        if (typeof boolEntry === 'boolean') return boolEntry;
+        const entries = Object.entries(value as Record<string, unknown>);
+        const mapped = entries.reduce((acc, [key, val]) => {
+          const numKey = Number.parseInt(key, 10);
+          if (!Number.isFinite(numKey)) return acc;
+          acc[numKey] = Boolean(val);
+          return acc;
+        }, {} as Record<number, boolean>);
+
+        return Object.fromEntries(targetChecklist.map(({ id }) => [id, mapped[id] ?? false])) as Record<
+          number,
+          boolean
+        >;
       }
-      return false;
+
+      return defaults;
     };
 
     const savedImages = (() => {
@@ -218,8 +247,8 @@ export async function getSupervisingReportSnapshot(
       cleaningChecklist,
       suppliesChecklist,
       imageSlots,
-      existingSupervisingFindingChecked: parseBooleanFlag(rawSupervisingFindings),
-      existingSupervisingCompletionChecked: parseBooleanFlag(rawSupervisingCompletion),
+      existingSupervisingFindingChecks: parseChecklistFlags(rawSupervisingFindings, cleaningChecklist),
+      existingSupervisingCompletionChecks: parseChecklistFlags(rawSupervisingCompletion, cleaningChecklist),
       existingSupplyChecks: parseIdArray(rawSupplyChecks),
       existingSupplyNotes: parseSupplyNotes(rawSupplyNotes),
       savedImages

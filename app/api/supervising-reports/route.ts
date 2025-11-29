@@ -33,8 +33,8 @@ export async function POST(req: Request) {
   try {
     const form = await req.formData();
     const workId = Number(form.get('workId'));
-    const supervisingFindings = safeParseFlag(form.get('supervisingFindings'));
-    const supervisingCompletion = safeParseFlag(form.get('supervisingCompletion'));
+    const supervisingFindings = safeParseChecklistFlags(form.get('supervisingFindings'));
+    const supervisingCompletion = safeParseChecklistFlags(form.get('supervisingCompletion'));
     const supplyChecks = safeParseIds(form.get('supplyChecks'));
     const supplyNotes = safeParseSupplyNotes(form.get('supplyNotes'));
     const imageFiles = form.getAll('images').filter((f): f is File => f instanceof File);
@@ -79,6 +79,8 @@ export async function POST(req: Request) {
         : Promise.resolve([])
     ]);
 
+    const supervisingChecklistIds = checklistRows.filter((row) => row.type === 2).map((row) => row.id);
+
     const requiredImageIds = imageSlotRows
       .filter((row) => row.listRequired ?? row.required)
       .map((row) => row.id);
@@ -115,7 +117,8 @@ export async function POST(req: Request) {
 
     const readinessMessages: string[] = [];
 
-    if (!supervisingCompletion) {
+    const incompleteIds = supervisingChecklistIds.filter((id) => !supervisingCompletion[id]);
+    if (incompleteIds.length) {
       readinessMessages.push('완료여부를 모두 체크해주세요.');
     }
 
@@ -139,8 +142,8 @@ export async function POST(req: Request) {
     rowsToInsert.push({
       workId,
       type: 4,
-      contents1: { checked: supervisingFindings },
-      contents2: { checked: supervisingCompletion }
+      contents1: supervisingFindings,
+      contents2: supervisingCompletion
     });
 
     if (validSupplyChecks.length || hasSupplyNotes(supplyNotes)) {
@@ -209,25 +212,34 @@ function safeParseIds(value: FormDataEntryValue | null): number[] {
   }
 }
 
-function safeParseFlag(value: FormDataEntryValue | null): boolean {
-  if (typeof value !== 'string') return false;
+function safeParseChecklistFlags(value: FormDataEntryValue | null): Record<number, boolean> {
+  if (typeof value !== 'string') return {};
 
   try {
     const parsed = JSON.parse(value);
 
-    if (typeof parsed === 'boolean') return parsed;
-    if (parsed && typeof parsed === 'object') {
-      if ('checked' in parsed && typeof (parsed as { checked?: unknown }).checked === 'boolean') {
-        return Boolean((parsed as { checked?: boolean }).checked);
-      }
-
-      const boolEntry = Object.values(parsed as Record<string, unknown>).find((entry) => typeof entry === 'boolean');
-      if (typeof boolEntry === 'boolean') return boolEntry;
+    if (typeof parsed === 'boolean') return {};
+    if (Array.isArray(parsed)) {
+      const set = new Set<number>();
+      parsed.forEach((entry) => {
+        const num = Number(entry);
+        if (Number.isFinite(num)) set.add(num);
+      });
+      return Array.from(set.values()).reduce((acc, id) => ({ ...acc, [id]: true }), {} as Record<number, boolean>);
     }
 
-    return false;
+    if (parsed && typeof parsed === 'object') {
+      return Object.entries(parsed as Record<string, unknown>).reduce((acc, [key, val]) => {
+        const numKey = Number.parseInt(key, 10);
+        if (!Number.isFinite(numKey)) return acc;
+        acc[numKey] = Boolean(val);
+        return acc;
+      }, {} as Record<number, boolean>);
+    }
+
+    return {};
   } catch {
-    return false;
+    return {};
   }
 }
 
