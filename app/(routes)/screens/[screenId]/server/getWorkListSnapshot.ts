@@ -4,13 +4,16 @@ import { unstable_noStore as noStore } from 'next/cache';
 
 import { db } from '@/src/db/client';
 import {
+  clientHeader,
   clientRooms,
   etcBaseCode,
   etcBuildings,
   etcNotice,
+  workChecklistList,
   workApply,
   workAssignment,
   workHeader,
+  workReports,
   workerHeader
 } from '@/src/db/schema';
 import type { ProfileSummary } from '@/src/utils/profile';
@@ -24,6 +27,7 @@ export type WorkListEntry = {
   roomName: string;
   buildingShortName: string;
   roomNo: string;
+  clientName: string;
   buildingAddressNew: string;
   generalTrashInfo: string;
   foodTrashInfo: string;
@@ -47,7 +51,17 @@ export type WorkListEntry = {
   buildingId: number;
   sectorCode: string;
   sectorValue: string;
+  hasSupplyReport: boolean;
+  supplyRecommendations: SupplyRecommendation[];
+  hasPhotoReport: boolean;
+  photos: WorkImage[];
+  realtimeOverviewYn: boolean;
+  imagesYn: boolean;
 };
+
+export type SupplyRecommendation = { title: string; description: string; href?: string };
+
+export type WorkImage = { slotId?: number; url: string };
 
 export type AssignableWorker = {
   id: number;
@@ -66,6 +80,7 @@ export type WorkListSnapshot = {
   works: WorkListEntry[];
   assignableWorkers: AssignableWorker[];
   emptyMessage?: string;
+  currentMinutes: number;
 };
 
 export async function getWorkListSnapshot(
@@ -105,6 +120,7 @@ export async function getWorkListSnapshot(
         supervisingEndTime: workHeader.supervisingEndTime,
         cleanerId: workHeader.cleanerId,
         roomNo: clientRooms.roomNo,
+        clientName: clientHeader.name,
         centralPassword: clientRooms.centralPassword,
         doorPassword: clientRooms.doorPassword,
         buildingId: clientRooms.buildingId,
@@ -116,10 +132,13 @@ export async function getWorkListSnapshot(
         generalTrashInfo: etcBuildings.buildingGeneral,
         foodTrashInfo: etcBuildings.buildingFood,
         recycleTrashInfo: etcBuildings.buildingRecycle,
-        cleanerName: workerHeader.name
+        cleanerName: workerHeader.name,
+        realtimeOverviewYn: clientRooms.realtimeOverviewYn,
+        imagesYn: clientRooms.imagesYn
       })
       .from(workHeader)
       .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
+      .leftJoin(clientHeader, eq(clientRooms.clientId, clientHeader.id))
       .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
       .leftJoin(
         buildingSector,
@@ -161,6 +180,8 @@ export async function getWorkListSnapshot(
     }
 
   const normalized = (rows ?? []).map((row) => normalizeRow(row));
+  const supplyMap = await fetchLatestSupplyReports(normalized.map((row) => row.id));
+  const photoMap = await fetchLatestPhotoReports(normalized.map((row) => row.id));
   const assignableWorkers =
     profile.roles.includes('admin') || profile.roles.includes('butler')
       ? await fetchAssignableWorkers(targetDate)
@@ -170,7 +191,15 @@ export async function getWorkListSnapshot(
     return acc;
   }, {});
 
-  const works = normalized.sort((a, b) => sortRows(a, b, buildingCounts));
+  const works = normalized
+    .map((work) => ({
+      ...work,
+      hasSupplyReport: supplyMap.has(work.id),
+      supplyRecommendations: supplyMap.get(work.id)?.recommendations ?? [],
+      hasPhotoReport: photoMap.has(work.id),
+      photos: photoMap.get(work.id)?.images ?? []
+    }))
+    .sort((a, b) => sortRows(a, b, buildingCounts));
 
     return {
       notice,
@@ -181,7 +210,8 @@ export async function getWorkListSnapshot(
         window === 'd0' ? `D0 (${windowDates.d0})` : window === 'd1' ? `D+1 (${windowDates.d1})` : targetDate,
       works,
       assignableWorkers,
-      emptyMessage
+      emptyMessage,
+      currentMinutes: minutes
     };
   } catch (error) {
     await logServerError({
@@ -224,6 +254,7 @@ function normalizeRow(row: any): WorkListEntry {
     roomName: `${row.buildingShortName ?? ''}${row.roomNo ?? ''}`.trim() || '미지정 객실',
     buildingShortName: row.buildingShortName ?? '',
     roomNo: row.roomNo ?? '',
+    clientName: row.clientName ?? '',
     buildingAddressNew: row.buildingAddressNew ?? '',
     generalTrashInfo: row.generalTrashInfo ?? '',
     foodTrashInfo: row.foodTrashInfo ?? '',
@@ -246,7 +277,9 @@ function normalizeRow(row: any): WorkListEntry {
     cleanerName: row.cleanerName ?? '',
     buildingId: Number(row.buildingId ?? 0),
     sectorCode: row.sectorCode ?? '',
-    sectorValue: row.sectorValue ?? row.sectorCode ?? ''
+    sectorValue: row.sectorValue ?? row.sectorCode ?? '',
+    realtimeOverviewYn: Boolean(row.realtimeOverviewYn),
+    imagesYn: Boolean(row.imagesYn)
   };
 }
 
@@ -278,6 +311,180 @@ async function fetchAssignableWorkers(targetDate: string): Promise<AssignableWor
   });
 
   return Array.from(deduped.values());
+}
+
+async function fetchLatestSupplyReports(workIds: number[]) {
+  const map = new Map<number, { recommendations: SupplyRecommendation[] }>();
+
+  if (!workIds.length) return map;
+
+  const rows = await db
+    .select({
+      workId: workReports.workId,
+      contents1: workReports.contents1,
+      contents2: workReports.contents2,
+      createdAt: workReports.createdAt
+    })
+    .from(workReports)
+    .where(and(inArray(workReports.workId, workIds), eq(workReports.type, 2)))
+    .orderBy(desc(workReports.createdAt));
+
+  const latestByWorkId = new Map<number, { contents1: unknown; contents2: unknown }>();
+
+  rows.forEach((row) => {
+    const workId = Number(row.workId);
+    if (latestByWorkId.has(workId)) return;
+    latestByWorkId.set(workId, { contents1: row.contents1, contents2: row.contents2 });
+  });
+
+  const checklistIds = Array.from(
+    new Set(
+      Array.from(latestByWorkId.values())
+        .flatMap((row) => parseChecklistIds(row.contents1))
+        .filter((id) => typeof id === 'number')
+    )
+  ) as number[];
+
+  const checklistLookup = await fetchChecklistLookup(checklistIds);
+
+  latestByWorkId.forEach((row, workId) => {
+    map.set(workId, {
+      recommendations: parseSupplyRecommendations(row.contents1, row.contents2, checklistLookup)
+    });
+  });
+
+  return map;
+}
+
+async function fetchLatestPhotoReports(workIds: number[]) {
+  const map = new Map<number, { images: WorkImage[] }>();
+
+  if (!workIds.length) return map;
+
+  const rows = await db
+    .select({ workId: workReports.workId, contents1: workReports.contents1, createdAt: workReports.createdAt })
+    .from(workReports)
+    .where(and(inArray(workReports.workId, workIds), eq(workReports.type, 3)))
+    .orderBy(desc(workReports.createdAt));
+
+  rows.forEach((row) => {
+    const workId = Number(row.workId);
+    if (map.has(workId)) return;
+    map.set(workId, { images: parseWorkImages(row.contents1) });
+  });
+
+  return map;
+}
+
+async function fetchChecklistLookup(ids: number[]) {
+  if (!ids.length) return new Map<number, { title: string; description: string | null }>();
+
+  const rows = await db
+    .select({ id: workChecklistList.id, title: workChecklistList.title, description: workChecklistList.description })
+    .from(workChecklistList)
+    .where(inArray(workChecklistList.id, ids));
+
+  return rows.reduce((acc, row) => {
+    acc.set(Number(row.id), { title: row.title, description: row.description ?? null });
+    return acc;
+  }, new Map<number, { title: string; description: string | null }>());
+}
+
+function parseChecklistIds(raw: unknown): number[] {
+  if (typeof raw === 'string') {
+    try {
+      return parseChecklistIds(JSON.parse(raw));
+    } catch {
+      return [];
+    }
+  }
+
+  if (typeof raw === 'number') {
+    return Number.isFinite(raw) ? [Number(raw)] : [];
+  }
+
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .map((value) => {
+      if (typeof value === 'number' && Number.isFinite(value)) return Number(value);
+      if (typeof value === 'string') {
+        const parsed = Number.parseInt(value, 10);
+        return Number.isFinite(parsed) ? parsed : null;
+      }
+      return null;
+    })
+    .filter((id): id is number => id !== null);
+}
+
+function parseWorkImages(raw: unknown): WorkImage[] {
+  const payload = typeof raw === 'string' ? safeParseJson(raw) : raw;
+  if (!Array.isArray(payload)) return [];
+
+  return payload
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const slotId = Number((item as Record<string, unknown>).slotId);
+      const url = (item as Record<string, unknown>).url;
+      if (typeof url !== 'string' || !url.trim()) return null;
+      return { slotId: Number.isFinite(slotId) ? slotId : undefined, url } satisfies WorkImage;
+    })
+    .filter((img): img is WorkImage => Boolean(img));
+}
+
+function parseSupplyRecommendations(
+  contents1: unknown,
+  contents2: unknown,
+  checklistLookup: Map<number, { title: string; description: string | null }>
+) {
+  const ids = parseChecklistIds(contents1);
+  if (!ids.length) return [];
+
+  return ids.map((id, idx) => {
+    const checklist = checklistLookup.get(id);
+    const title = checklist?.title || `항목 ${idx + 1}`;
+    const note = resolveSupplyNote(contents2, id);
+    const description = checklist?.description ?? note ?? '정보 없음';
+
+    return formatSupplyRecommendation(title, description);
+  });
+}
+
+function formatSupplyRecommendation(title: string, description: string) {
+  const normalized = description?.toString().trim() ?? '';
+  const href = /^https?:\/\//i.test(normalized) ? normalized : undefined;
+
+  return {
+    title: title || '항목',
+    description: href ? '링크 바로가기' : normalized || '정보 없음',
+    href
+  } satisfies SupplyRecommendation;
+}
+
+function normalizeText(value: unknown) {
+  if (typeof value === 'string') return value;
+  return undefined;
+}
+
+function safeParseJson(value: string) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function resolveSupplyNote(contents2: unknown, checklistId: number) {
+  if (contents2 && typeof contents2 === 'object') {
+    if (!Array.isArray(contents2)) {
+      const value = (contents2 as Record<string, unknown>)[String(checklistId)];
+      if (typeof value === 'string' && value.trim()) {
+        return value.trim();
+      }
+    }
+  }
+
+  return normalizeText(contents2);
 }
 
 function sortRows(a: WorkListEntry, b: WorkListEntry, buildingCounts: Record<number, number>) {
