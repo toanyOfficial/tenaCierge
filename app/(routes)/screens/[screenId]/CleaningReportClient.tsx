@@ -36,9 +36,9 @@ function ImageTile({ slot, selectedFile, previewUrl, onChange, onRequestFile, re
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const handleInputClick = (event: MouseEvent<HTMLInputElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    onRequestFile(slotKey, inputRef.current, { triggerClick: true });
+    // Allow the native click to open the system file picker while still resetting attributes
+    // so desktop browsers (e.g., Windows) open their explorer dialogs normally.
+    onRequestFile(slotKey, inputRef.current);
   };
 
   const handleKeyOpen = (event: KeyboardEvent<HTMLLabelElement>) => {

@@ -36,9 +36,9 @@ function ImageTile({ slot, selectedFile, previewUrl, onChange, onRequestFile, re
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const handleInputClick = (event: MouseEvent<HTMLInputElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    onRequestFile(slotKey, inputRef.current, { triggerClick: true });
+    // Preserve the native click behavior so desktop browsers open the OS file picker
+    // while still resetting the input attributes for album-first uploads.
+    onRequestFile(slotKey, inputRef.current);
   };
 
   const handleKeyOpen = (event: KeyboardEvent<HTMLLabelElement>) => {
