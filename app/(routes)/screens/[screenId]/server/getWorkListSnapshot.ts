@@ -55,6 +55,8 @@ export type WorkListEntry = {
   supplyRecommendations: SupplyRecommendation[];
   hasPhotoReport: boolean;
   photos: WorkImage[];
+  realtimeOverviewYn: boolean;
+  imagesYn: boolean;
 };
 
 export type SupplyRecommendation = { title: string; description: string; href?: string };
@@ -78,6 +80,7 @@ export type WorkListSnapshot = {
   works: WorkListEntry[];
   assignableWorkers: AssignableWorker[];
   emptyMessage?: string;
+  currentMinutes: number;
 };
 
 export async function getWorkListSnapshot(
@@ -129,7 +132,9 @@ export async function getWorkListSnapshot(
         generalTrashInfo: etcBuildings.buildingGeneral,
         foodTrashInfo: etcBuildings.buildingFood,
         recycleTrashInfo: etcBuildings.buildingRecycle,
-        cleanerName: workerHeader.name
+        cleanerName: workerHeader.name,
+        realtimeOverviewYn: clientRooms.realtimeOverviewYn,
+        imagesYn: clientRooms.imagesYn
       })
       .from(workHeader)
       .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
@@ -205,7 +210,8 @@ export async function getWorkListSnapshot(
         window === 'd0' ? `D0 (${windowDates.d0})` : window === 'd1' ? `D+1 (${windowDates.d1})` : targetDate,
       works,
       assignableWorkers,
-      emptyMessage
+      emptyMessage,
+      currentMinutes: minutes
     };
   } catch (error) {
     await logServerError({
@@ -271,7 +277,9 @@ function normalizeRow(row: any): WorkListEntry {
     cleanerName: row.cleanerName ?? '',
     buildingId: Number(row.buildingId ?? 0),
     sectorCode: row.sectorCode ?? '',
-    sectorValue: row.sectorValue ?? row.sectorCode ?? ''
+    sectorValue: row.sectorValue ?? row.sectorCode ?? '',
+    realtimeOverviewYn: Boolean(row.realtimeOverviewYn),
+    imagesYn: Boolean(row.imagesYn)
   };
 }
 
