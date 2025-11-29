@@ -26,6 +26,39 @@ const tierLabels: Record<number, string> = {
   1: '블랙'
 };
 
+function compareTimes(a: string, b: string) {
+  const [aH, aM] = a?.split(':').map((v) => Number(v)) ?? [];
+  const [bH, bM] = b?.split(':').map((v) => Number(v)) ?? [];
+  const aMinutes = Number.isFinite(aH) && Number.isFinite(aM) ? aH * 60 + aM : Number.MAX_SAFE_INTEGER;
+  const bMinutes = Number.isFinite(bH) && Number.isFinite(bM) ? bH * 60 + bM : Number.MAX_SAFE_INTEGER;
+  return aMinutes - bMinutes;
+}
+
+function sortBuildingWorks(works: WorkListEntry[], mode: 'checkout' | 'roomDesc') {
+  const noCleaning = works.filter((w) => !w.cleaningYn);
+  const cleaning = works.filter((w) => w.cleaningYn);
+
+  const byRoomDesc = (a: WorkListEntry, b: WorkListEntry) => {
+    const aRoom = parseInt(a.roomNo ?? '', 10);
+    const bRoom = parseInt(b.roomNo ?? '', 10);
+    if (!Number.isNaN(aRoom) && !Number.isNaN(bRoom) && aRoom !== bRoom) {
+      return bRoom - aRoom;
+    }
+    return (b.roomNo || '').localeCompare(a.roomNo || '');
+  };
+
+  noCleaning.sort(byRoomDesc);
+  cleaning.sort((a, b) => {
+    if (mode === 'checkout') {
+      const timeDiff = compareTimes(a.checkoutTime, b.checkoutTime);
+      if (timeDiff !== 0) return timeDiff;
+    }
+    return byRoomDesc(a, b);
+  });
+
+  return [...noCleaning, ...cleaning];
+}
+
 export default function WorkListClient({ profile, snapshot }: Props) {
   const router = useRouter();
   const params = useSearchParams();
@@ -43,6 +76,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const [infoTarget, setInfoTarget] = useState<WorkListEntry | null>(null);
   const [searchResults, setSearchResults] = useState<AssignableWorker[]>([]);
   const [assignOptions, setAssignOptions] = useState<AssignableWorker[]>(snapshot.assignableWorkers);
+  const [sortMode, setSortMode] = useState<'checkout' | 'roomDesc'>('checkout');
 
   useEffect(() => {
     setWorks(snapshot.works);
@@ -62,17 +96,52 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const canAssignCleaner = canToggleSupervising;
 
   const groupedBySector = useMemo(() => {
-    const groups = new Map<string, { label: string; works: WorkListEntry[] }>();
-    works.forEach((work) => {
-      const key = work.sectorValue || work.sectorCode || '미지정';
-      const label = work.sectorValue || work.sectorCode || '미지정';
-      if (!groups.has(key)) {
-        groups.set(key, { label, works: [] });
+    const sectors = new Map<
+      string,
+      {
+        label: string;
+        buildings: Map<
+          number,
+          {
+            buildingId: number;
+            buildingLabel: string;
+            works: WorkListEntry[];
+          }
+        >;
       }
-      groups.get(key)!.works.push(work);
+    >();
+
+    works.forEach((work) => {
+      const sectorKey = work.sectorValue || work.sectorCode || '미지정';
+      const sectorLabel = work.sectorValue || work.sectorCode || '미지정';
+      if (!sectors.has(sectorKey)) {
+        sectors.set(sectorKey, { label: sectorLabel, buildings: new Map() });
+      }
+      const sector = sectors.get(sectorKey)!;
+      const buildingId = work.buildingId || 0;
+      const buildingLabel = work.buildingShortName || '미지정 건물';
+      if (!sector.buildings.has(buildingId)) {
+        sector.buildings.set(buildingId, { buildingId, buildingLabel, works: [] });
+      }
+      sector.buildings.get(buildingId)!.works.push(work);
     });
-    return Array.from(groups.entries()).map(([key, value]) => ({ key, ...value }));
-  }, [works]);
+
+    return Array.from(sectors.entries())
+      .sort(([aKey], [bKey]) => aKey.localeCompare(bKey))
+      .map(([key, value]) => {
+        const buildings = Array.from(value.buildings.values())
+          .map((b) => ({
+            ...b,
+            works: sortBuildingWorks(b.works, sortMode)
+          }))
+          .sort((a, b) => {
+            if (b.works.length !== a.works.length) return b.works.length - a.works.length;
+            return a.buildingLabel.localeCompare(b.buildingLabel);
+          });
+
+        return { key, label: value.label, buildings };
+      });
+  }, [works, sortMode]);
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -89,6 +158,23 @@ export default function WorkListClient({ profile, snapshot }: Props) {
         if (typeof next[g.key] === 'undefined') {
           next[g.key] = true;
         }
+      });
+    return next;
+  });
+}, [groupedBySector]);
+
+  const [openBuildings, setOpenBuildings] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setOpenBuildings((prev) => {
+      const next = { ...prev };
+      groupedBySector.forEach((sector) => {
+        sector.buildings.forEach((b) => {
+          const key = `${sector.key}-${b.buildingId}`;
+          if (typeof next[key] === 'undefined') {
+            next[key] = true;
+          }
+        });
       });
       return next;
     });
@@ -193,7 +279,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
         return;
       }
       const body = await res.json();
-      const mapped: AssignableWorker[] = (body?.workers ?? []).map((w: any) => ({
+      const mapped: AssignableWorker[] = (body?.results ?? []).map((w: any) => ({
         id: Number(w.id),
         name: w.name ?? '이름 미상',
         phone: w.phone ?? null,
@@ -269,6 +355,24 @@ export default function WorkListClient({ profile, snapshot }: Props) {
 
         <p className={styles.notice}>{snapshot.notice}</p>
 
+        <div className={styles.sortRow}>
+          <div>
+            <p className={styles.sectionLabel}>정렬 기준</p>
+            <p className={styles.subtle}>퇴실시간 기준 ↔ 방순서 기준을 한 번에 전환합니다.</p>
+          </div>
+          <div className={styles.singleToggleGroup}>
+            <button
+              type="button"
+              className={`${styles.singleToggle} ${sortMode === 'checkout' ? styles.singleToggleActive : ''}`}
+              onClick={() => setSortMode(sortMode === 'checkout' ? 'roomDesc' : 'checkout')}
+            >
+              {sortMode === 'checkout'
+                ? '퇴실시간기준 (체크아웃 오름차순·호실 내림차순)'
+                : '방순서기준 (호실 내림차순)'}
+            </button>
+          </div>
+        </div>
+
         {!canSee ? (
           <p className={styles.helper}>화면 004는 관리자, 버틀러, 호스트, 클리너만 접근 가능합니다.</p>
         ) : null}
@@ -278,133 +382,160 @@ export default function WorkListClient({ profile, snapshot }: Props) {
             <p className={styles.helper}>{snapshot.emptyMessage ?? '표시할 업무가 없습니다.'}</p>
           ) : (
             <div className={styles.workList}>
-            {groupedBySector.map((group) => {
-              const opened = openGroups[group.key] ?? true;
-              return (
-                <article key={group.key} className={styles.groupCard}>
-                  <header className={styles.groupHeader}>
-                    <div>
-                      <p className={styles.groupTitle}>{group.label}</p>
-                      <p className={styles.subtle}>{group.works.length}건</p>
-                    </div>
-                    <button
-                      type="button"
-                      className={styles.iconButton}
-                      aria-label={opened ? '섹터 접기' : '섹터 펼치기'}
-                      onClick={() => setOpenGroups({ ...openGroups, [group.key]: !opened })}
-                    >
-                      {opened ? '▾' : '▸'}
-                    </button>
-                  </header>
+              {groupedBySector.map((group) => {
+                const opened = openGroups[group.key] ?? true;
+                return (
+                  <article key={group.key} className={styles.groupCard}>
+                    <header className={styles.groupHeader}>
+                      <div>
+                        <p className={styles.groupTitle}>{group.label}</p>
+                        <p className={styles.subtle}>{group.buildings.reduce((acc, b) => acc + b.works.length, 0)}건</p>
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.iconButton}
+                        aria-label={opened ? '섹터 접기' : '섹터 펼치기'}
+                        onClick={() => setOpenGroups({ ...openGroups, [group.key]: !opened })}
+                      >
+                        {opened ? '▾' : '▸'}
+                      </button>
+                    </header>
 
-                  {opened ? (
-                    <div className={styles.groupBody}>
-                      {group.works.map((work) => {
-                        const cleaningLabel = cleaningLabels[(work.cleaningFlag || 1) - 1] ?? cleaningLabels[0];
-                        const supervisingLabel = work.supervisingYn ? '검수완료' : '검수대기';
-                        const disabledLine = !work.cleaningYn;
-
-                        if (disabledLine) {
+                    {opened ? (
+                      <div className={styles.groupBody}>
+                        {group.buildings.map((building) => {
+                          const buildingKey = `${group.key}-${building.buildingId}`;
+                          const buildingOpen = openBuildings[buildingKey] ?? true;
                           return (
-                            <div key={work.id} className={`${styles.workCardMuted} ${styles.workCardMutedRow}`}>
-                              <span className={styles.workTitle}>{work.roomName}</span>
-                              <span className={styles.statusCheckBadge}>상태확인</span>
-                              <span className={styles.requirementsText}>{work.requirements || '요청사항 없음'}</span>
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <div key={work.id} className={styles.workCard}>
-                            <div className={styles.workCardHeader}>
-                              <div className={styles.workTitleRow}>
-                                <p className={styles.workTitle}>{work.roomName}</p>
+                            <div key={buildingKey} className={styles.buildingCard}>
+                              <header className={styles.buildingHeader}>
+                                <div>
+                                  <p className={styles.buildingTitle}>{building.buildingLabel}</p>
+                                  <p className={styles.subtle}>{building.works.length}건</p>
+                                </div>
                                 <button
                                   type="button"
-                                  className={styles.infoButton}
-                                  onClick={() => setInfoTarget(work)}
-                                  aria-label="호실 정보 보기"
+                                  className={styles.iconButton}
+                                  aria-label={buildingOpen ? '건물 접기' : '건물 펼치기'}
+                                  onClick={() => setOpenBuildings({ ...openBuildings, [buildingKey]: !buildingOpen })}
                                 >
-                                  호실 정보
+                                  {buildingOpen ? '▾' : '▸'}
                                 </button>
-                              </div>
-                              <p className={styles.workSubtitle}>
-                                체크아웃 {work.checkoutTime} · 체크인 {work.checkinTime} · 침구 {work.blanketQty} · 어메니티
-                                {` ${work.amenitiesQty}`}
-                              </p>
-                            </div>
+                              </header>
 
-                            <p className={styles.requirementsText}>{work.requirements || '요청사항 없음'}</p>
+                              {buildingOpen ? (
+                                <div className={styles.groupBody}>
+                                  {building.works.map((work) => {
+                                    const cleaningLabel = cleaningLabels[(work.cleaningFlag || 1) - 1] ?? cleaningLabels[0];
+                                    const supervisingLabel = work.supervisingYn ? '검수완료' : '검수대기';
+                                    const disabledLine = !work.cleaningYn;
 
-                            <div className={styles.workRowCompact}>
-                              <button
-                                className={`${styles.toggleButton} ${work.supplyYn ? styles.supplyOn : styles.supplyOff}`}
-                                disabled={!canToggleSupply}
-                                onClick={() => updateWork(work.id, { supplyYn: !work.supplyYn })}
-                              >
-                                배급 {work.supplyYn ? '완료' : '대기'}
-                              </button>
-
-                              <button
-                                className={canAssignCleaner ? styles.toggleButton : styles.toggleButtonDisabled}
-                                disabled={!canAssignCleaner}
-                                onClick={() => {
-                                  setAssignTarget(work);
-                                  setAssignSelection(work.cleanerId ?? null);
-                                  setAssignQuery('');
-                                  setAssignError('');
-                                }}
-                              >
-                                {work.cleanerName ? `담당자 ${work.cleanerName}` : '배정하기'}
-                              </button>
-
-                              <button
-                                className={`${styles.toggleButton} ${cleaningTone(work.cleaningFlag)}`}
-                                disabled={!canToggleCleaning}
-                                onClick={() => {
-                                  if (work.cleaningFlag === 3) {
-                                    const ok = window.confirm(
-                                      `${work.buildingShortName}${work.roomNo} 호실에 대하여 클리닝 완료 보고를 진행하시겠습니까?`
-                                    );
-                                    if (ok) {
-                                      router.push(`/screens/005?workId=${work.id}`);
+                                    if (disabledLine) {
+                                      return (
+                                        <div key={work.id} className={`${styles.workCardMuted} ${styles.workCardMutedRow}`}>
+                                          <span className={styles.workTitle}>{work.roomName}</span>
+                                          <span className={styles.statusCheckBadge}>상태확인</span>
+                                          <span className={styles.requirementsText}>{work.requirements || '요청사항 없음'}</span>
+                                        </div>
+                                      );
                                     }
-                                    return;
-                                  }
-                                  updateWork(work.id, { cleaningFlag: cycleCleaning(work.cleaningFlag) });
-                                }}
-                              >
-                                {cleaningLabel}
-                              </button>
 
-                              <button
-                                className={`${styles.toggleButton} ${work.supervisingYn ? styles.superviseOn : styles.superviseOff}`}
-                                disabled={!canToggleSupervising}
-                                onClick={() => {
-                                  if (!work.supervisingYn) {
-                                    const ok = window.confirm(
-                                      `${work.buildingShortName}${work.roomNo} 호실에 대하여 수퍼바이징 완료 보고를 진행하시겠습니까?`
+                                    return (
+                                      <div key={work.id} className={styles.workCard}>
+                                        <div className={styles.workCardHeader}>
+                                          <div className={styles.workTitleRow}>
+                                            <p className={styles.workTitle}>{work.roomName}</p>
+                                            <button
+                                              type="button"
+                                              className={styles.infoButton}
+                                              onClick={() => setInfoTarget(work)}
+                                              aria-label="호실 정보 보기"
+                                            >
+                                              호실 정보
+                                            </button>
+                                          </div>
+                                          <p className={styles.workSubtitle}>
+                                            체크아웃 {work.checkoutTime} · 체크인 {work.checkinTime} · 침구 {work.blanketQty} · 어메니티
+                                            {` ${work.amenitiesQty}`}
+                                          </p>
+                                        </div>
+
+                                        <p className={styles.requirementsText}>{work.requirements || '요청사항 없음'}</p>
+
+                                        <div className={styles.workRowCompact}>
+                                          <button
+                                            className={`${styles.toggleButton} ${work.supplyYn ? styles.supplyOn : styles.supplyOff}`}
+                                            disabled={!canToggleSupply}
+                                            onClick={() => updateWork(work.id, { supplyYn: !work.supplyYn })}
+                                          >
+                                            배급 {work.supplyYn ? '완료' : '대기'}
+                                          </button>
+
+                                          <button
+                                            className={canAssignCleaner ? styles.toggleButton : styles.toggleButtonDisabled}
+                                            disabled={!canAssignCleaner}
+                                            onClick={() => {
+                                              setAssignTarget(work);
+                                              setAssignSelection(work.cleanerId ?? null);
+                                              setAssignQuery('');
+                                              setAssignError('');
+                                            }}
+                                          >
+                                            {work.cleanerName ? `담당자 ${work.cleanerName}` : '배정하기'}
+                                          </button>
+
+                                          <button
+                                            className={`${styles.toggleButton} ${cleaningTone(work.cleaningFlag)}`}
+                                            disabled={!canToggleCleaning}
+                                            onClick={() => {
+                                              if (work.cleaningFlag === 3) {
+                                                const ok = window.confirm(
+                                                  `${work.buildingShortName}${work.roomNo} 호실에 대하여 클리닝 완료 보고를 진행하시겠습니까?`
+                                                );
+                                                if (ok) {
+                                                  router.push(`/screens/005?workId=${work.id}`);
+                                                }
+                                                return;
+                                              }
+                                              updateWork(work.id, { cleaningFlag: cycleCleaning(work.cleaningFlag) });
+                                            }}
+                                          >
+                                            {cleaningLabel}
+                                          </button>
+
+                                          <button
+                                            className={`${styles.toggleButton} ${work.supervisingYn ? styles.superviseOn : styles.superviseOff}`}
+                                            disabled={!canToggleSupervising}
+                                            onClick={() => {
+                                              if (!work.supervisingYn) {
+                                                const ok = window.confirm(
+                                                  `${work.buildingShortName}${work.roomNo} 호실에 대하여 수퍼바이징 완료 보고를 진행하시겠습니까?`
+                                                );
+                                                if (ok) {
+                                                  router.push(`/screens/006?workId=${work.id}`);
+                                                }
+                                                return;
+                                              }
+
+                                              updateWork(work.id, { supervisingDone: !work.supervisingYn });
+                                            }}
+                                          >
+                                            {supervisingLabel}
+                                          </button>
+                                        </div>
+                                      </div>
                                     );
-                                    if (ok) {
-                                      router.push(`/screens/006?workId=${work.id}`);
-                                    }
-                                    return;
-                                  }
-
-                                  updateWork(work.id, { supervisingDone: !work.supervisingYn });
-                                }}
-                              >
-                                {supervisingLabel}
-                              </button>
+                                  })}
+                                </div>
+                              ) : null}
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-                </article>
-              );
-            })}
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
             </div>
           )
         ) : null}

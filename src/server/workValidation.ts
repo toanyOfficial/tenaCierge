@@ -8,6 +8,8 @@ export type WorkFieldInput = {
   amenitiesQty?: number;
   cancelYn?: boolean;
   requirements?: string;
+  cleaningYn?: boolean;
+  conditionCheckYn?: boolean;
 };
 
 export type ValidationOptions = {
@@ -21,6 +23,8 @@ export type WorkMutationValues = {
   amenitiesQty?: number;
   cancelYn?: boolean;
   requirements?: string;
+  cleaningYn?: boolean;
+  conditionCheckYn?: boolean;
 };
 
 export type ValidationResult =
@@ -88,6 +92,29 @@ export function validateWorkInput(
     }
 
     update.cancelYn = input.cancelYn;
+  }
+
+  if ('cleaningYn' in input || 'conditionCheckYn' in input) {
+    const cleaningYn = 'cleaningYn' in input ? Boolean(input.cleaningYn) : undefined;
+    const conditionYn = 'conditionCheckYn' in input ? Boolean(input.conditionCheckYn) : undefined;
+
+    if (cleaningYn === true && conditionYn === true) {
+      return { ok: false, message: '청소 여부와 상태 확인 여부는 동시에 선택할 수 없습니다.' };
+    }
+
+    if (cleaningYn !== undefined) {
+      update.cleaningYn = cleaningYn;
+      if (conditionYn === undefined) {
+        update.conditionCheckYn = !cleaningYn;
+      }
+    }
+
+    if (conditionYn !== undefined) {
+      update.conditionCheckYn = conditionYn;
+      if (cleaningYn === undefined) {
+        update.cleaningYn = !conditionYn;
+      }
+    }
   }
 
   if ('requirements' in input) {
