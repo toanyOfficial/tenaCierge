@@ -352,7 +352,7 @@ export default function CleaningReportClient({ profile, snapshot }: Props) {
           </article>
 
           <article className={styles.reportCardWide}>
-            <header className={styles.reportCardHeader}>소모품 체크리스트</header>
+            <header className={styles.reportCardHeader}>부족한 소모품을 체크해주세요.</header>
             {suppliesChecklist.length === 0 ? (
               <p className={styles.reportEmpty}>소모품 체크리스트가 없습니다.</p>
             ) : (
