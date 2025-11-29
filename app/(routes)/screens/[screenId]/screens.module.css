@@ -571,9 +571,10 @@
   border-color: #1d4ed8;
 }
 
+
 .cleaningIdle {
-  background: #e0f2fe;
-  color: #0f172a;
+  background: #e2e8f0;
+  color: #334155;
 }
 
 .cleaningProgress {
@@ -587,7 +588,7 @@
 }
 
 .cleaningDone {
-  background: #1d4ed8;
+  background: #3b82f6;
   color: #ffffff;
 }
 
