@@ -61,8 +61,10 @@ class CleanerRankingBatch:
         self.openai_api_key = os.environ.get("OPENAI_API_KEY")
         self.disable_ai_comment = disable_ai_comment
         self.openai_calls = 0
+        self.admin_worker_ids: set[int] = set()
 
     def run(self) -> None:
+        self.admin_worker_ids = self._load_admin_workers()
         self._award_butler_bonus()
         scores = self._fetch_scores()
         workers = self._load_workers(scores)
@@ -101,6 +103,8 @@ class CleanerRankingBatch:
                 (self.target_date,),
             )
             workers = [int(row["worker_id"]) for row in cur]
+
+        workers = [wid for wid in workers if wid not in self.admin_worker_ids]
 
         if not workers:
             return
@@ -160,7 +164,10 @@ class CleanerRankingBatch:
         with self.conn.cursor(dictionary=True) as cur:
             cur.execute(sql, (start_dt, end_dt))
             for row in cur:
-                scores[row["worker_id"]] = float(row["total"] or 0)
+                worker_id = int(row["worker_id"])
+                if worker_id in self.admin_worker_ids:
+                    continue
+                scores[worker_id] = float(row["total"] or 0)
         logging.info(
             "%s ~ %s 점수 수집: %s명",
             start_dt.date(),
@@ -169,12 +176,25 @@ class CleanerRankingBatch:
         )
         return scores
 
+    def _load_admin_workers(self) -> set[int]:
+        sql = "SELECT id FROM worker_header WHERE tier = 99"
+        admin_ids: set[int] = set()
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(sql)
+            for row in cur:
+                admin_ids.add(int(row["id"]))
+        if admin_ids:
+            logging.info("관리자(tier=99) 제외 대상: %s명", len(admin_ids))
+        return admin_ids
+
     def _load_workers(self, scores: Dict[int, float]) -> List[Dict[str, Optional[float]]]:
         with self.conn.cursor(dictionary=True) as cur:
             cur.execute("SELECT id, tier FROM worker_header")
             workers: List[Dict[str, Optional[float]]] = []
             for row in cur:
                 wid = row["id"]
+                if wid in self.admin_worker_ids:
+                    continue
                 row["score"] = float(scores.get(wid, 0.0))
                 workers.append(row)
         return workers
@@ -203,6 +223,8 @@ class CleanerRankingBatch:
             cur.execute(sql, (start_dt, end_dt))
             for row in cur:
                 worker_id = int(row["worker_id"])
+                if worker_id in self.admin_worker_ids:
+                    continue
                 trend.setdefault(worker_id, []).append(
                     {
                         "date": str(row["eval_date"]),
@@ -262,6 +284,8 @@ class CleanerRankingBatch:
             cur.execute(sql, (start_dt, end_dt))
             for row in cur:
                 worker_id = int(row["worker_id"])
+                if worker_id in self.admin_worker_ids:
+                    continue
                 checklist_raw = row.get("checklist_title_array")
                 try:
                     checklist_ids: Iterable[int] = json.loads(checklist_raw) if checklist_raw else []
