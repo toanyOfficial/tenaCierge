@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import ChunkLoadRecovery from './components/ChunkLoadRecovery';
 
 export const metadata: Metadata = {
   title: 'TenaCierge Ops',
@@ -14,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body>
+        <ChunkLoadRecovery />
         <main className="app-shell">
           {children}
         </main>
