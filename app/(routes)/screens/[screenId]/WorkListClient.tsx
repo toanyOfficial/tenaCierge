@@ -244,15 +244,15 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   );
 
   const groupedByBuilding = useMemo(() => {
-    const mapList = (list: WorkWithRelations[]) =>
-      list.reduce<Record<string, WorkWithRelations[]>>((acc, work) => {
+    const mapList = (list: WorkListEntry[]) =>
+      list.reduce<Record<string, WorkListEntry[]>>((acc, work) => {
         const key = work.buildingShortName || '기타';
         if (!acc[key]) acc[key] = [];
         acc[key].push(work);
         return acc;
       }, {});
 
-    const sortEntries = (entries: [string, WorkWithRelations[]][]) =>
+    const sortEntries = (entries: [string, WorkListEntry[]][]) =>
       entries.sort(([a], [b]) => a.localeCompare(b));
 
     return {

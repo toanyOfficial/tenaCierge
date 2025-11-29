@@ -278,6 +278,10 @@ function normalizeRow(row: any): WorkListEntry {
     buildingId: Number(row.buildingId ?? 0),
     sectorCode: row.sectorCode ?? '',
     sectorValue: row.sectorValue ?? row.sectorCode ?? '',
+    hasSupplyReport: false,
+    supplyRecommendations: [],
+    hasPhotoReport: false,
+    photos: [],
     realtimeOverviewYn: Boolean(row.realtimeOverviewYn),
     imagesYn: Boolean(row.imagesYn)
   };
@@ -421,15 +425,17 @@ function parseWorkImages(raw: unknown): WorkImage[] {
   const payload = typeof raw === 'string' ? safeParseJson(raw) : raw;
   if (!Array.isArray(payload)) return [];
 
-  return payload
-    .map((item) => {
-      if (!item || typeof item !== 'object') return null;
-      const slotId = Number((item as Record<string, unknown>).slotId);
-      const url = (item as Record<string, unknown>).url;
-      if (typeof url !== 'string' || !url.trim()) return null;
-      return { slotId: Number.isFinite(slotId) ? slotId : undefined, url } satisfies WorkImage;
-    })
-    .filter((img): img is WorkImage => Boolean(img));
+  const images: WorkImage[] = [];
+
+  payload.forEach((item) => {
+    if (!item || typeof item !== 'object') return;
+    const slotId = Number((item as Record<string, unknown>).slotId);
+    const url = (item as Record<string, unknown>).url;
+    if (typeof url !== 'string' || !url.trim()) return;
+    images.push({ slotId: Number.isFinite(slotId) ? slotId : undefined, url });
+  });
+
+  return images;
 }
 
 function parseSupplyRecommendations(
