@@ -266,6 +266,21 @@ export default function AdminCrudClient({ tables, profile }: Props) {
     const value = formValues[column.name] ?? '';
     const isCheckbox = type === 'checkbox';
 
+    if (selectedTable === 'work_apply' && column.name === 'position') {
+      return (
+        <select
+          id={column.name}
+          value={value}
+          onChange={(event) => handleInputChange(column, event.target.value)}
+          disabled={loading}
+        >
+          <option value="">선택하세요</option>
+          <option value="1">클리너 (1)</option>
+          <option value="2">버틀러 (2)</option>
+        </select>
+      );
+    }
+
     if (type === 'textarea') {
       return (
         <textarea
