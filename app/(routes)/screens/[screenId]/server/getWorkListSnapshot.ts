@@ -12,6 +12,7 @@ import {
   workApply,
   workAssignment,
   workHeader,
+  workReports,
   workerHeader
 } from '@/src/db/schema';
 import type { ProfileSummary } from '@/src/utils/profile';
@@ -49,7 +50,11 @@ export type WorkListEntry = {
   buildingId: number;
   sectorCode: string;
   sectorValue: string;
+  hasSupplyReport: boolean;
+  supplyRecommendations: SupplyRecommendation[];
 };
+
+export type SupplyRecommendation = { title: string; description: string; href?: string };
 
 export type AssignableWorker = {
   id: number;
@@ -165,6 +170,7 @@ export async function getWorkListSnapshot(
     }
 
   const normalized = (rows ?? []).map((row) => normalizeRow(row));
+  const supplyMap = await fetchLatestSupplyReports(normalized.map((row) => row.id));
   const assignableWorkers =
     profile.roles.includes('admin') || profile.roles.includes('butler')
       ? await fetchAssignableWorkers(targetDate)
@@ -174,7 +180,13 @@ export async function getWorkListSnapshot(
     return acc;
   }, {});
 
-  const works = normalized.sort((a, b) => sortRows(a, b, buildingCounts));
+  const works = normalized
+    .map((work) => ({
+      ...work,
+      hasSupplyReport: supplyMap.has(work.id),
+      supplyRecommendations: supplyMap.get(work.id)?.recommendations ?? []
+    }))
+    .sort((a, b) => sortRows(a, b, buildingCounts));
 
     return {
       notice,
@@ -283,6 +295,76 @@ async function fetchAssignableWorkers(targetDate: string): Promise<AssignableWor
   });
 
   return Array.from(deduped.values());
+}
+
+async function fetchLatestSupplyReports(workIds: number[]) {
+  const map = new Map<number, { recommendations: SupplyRecommendation[] }>();
+
+  if (!workIds.length) return map;
+
+  const rows = await db
+    .select({ workId: workReports.workId, contents2: workReports.contents2, createdAt: workReports.createdAt })
+    .from(workReports)
+    .where(and(inArray(workReports.workId, workIds), eq(workReports.type, 2)))
+    .orderBy(desc(workReports.createdAt));
+
+  rows.forEach((row) => {
+    const workId = Number(row.workId);
+    if (map.has(workId)) return;
+
+    map.set(workId, { recommendations: parseSupplyRecommendations(row.contents2) });
+  });
+
+  return map;
+}
+
+function parseSupplyRecommendations(raw: unknown): SupplyRecommendation[] {
+  if (!raw) return [];
+
+  const entries = Array.isArray(raw) ? raw : [raw];
+
+  return entries
+    .map((item, idx) => {
+      const fallbackTitle = `항목 ${idx + 1}`;
+
+      if (typeof item === 'string') {
+        return formatSupplyRecommendation(fallbackTitle, item);
+      }
+
+      if (item && typeof item === 'object') {
+        const title = getString((item as Record<string, unknown>).title) ||
+          getString((item as Record<string, unknown>).name) ||
+          getString((item as Record<string, unknown>).label) ||
+          fallbackTitle;
+
+        const description =
+          getString((item as Record<string, unknown>).dscpt) ||
+          getString((item as Record<string, unknown>).description) ||
+          getString((item as Record<string, unknown>).desc) ||
+          getString((item as Record<string, unknown>).link) ||
+          '';
+
+        return formatSupplyRecommendation(title, description);
+      }
+
+      return null;
+    })
+    .filter(Boolean) as SupplyRecommendation[];
+}
+
+function formatSupplyRecommendation(title: string, description: string) {
+  const normalized = description?.toString().trim() ?? '';
+  const href = /^https?:\/\//i.test(normalized) ? normalized : undefined;
+
+  return {
+    title: title || '항목',
+    description: href ? '링크 바로가기' : normalized || '정보 없음',
+    href
+  } satisfies SupplyRecommendation;
+}
+
+function getString(value: unknown) {
+  return typeof value === 'string' ? value : undefined;
 }
 
 function sortRows(a: WorkListEntry, b: WorkListEntry, buildingCounts: Record<number, number>) {
