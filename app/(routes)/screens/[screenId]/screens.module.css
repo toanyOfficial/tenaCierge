@@ -2107,16 +2107,6 @@
   height: 18px;
 }
 
-.supervisingGridHeader {
-  align-items: center;
-}
-
-.supervisingCheckCell input {
-  margin: 0;
-  width: 18px;
-  height: 18px;
-}
-
 .noteButton {
   border: 1px solid #0f172a;
   background: #ffffff;
