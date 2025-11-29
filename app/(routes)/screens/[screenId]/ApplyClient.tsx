@@ -101,6 +101,7 @@ export default function ApplyClient({ profile, snapshot }: Props) {
   }, [dateGroups]);
 
   const guard = snapshot.guardMessage;
+  const penaltyNotice = snapshot.penaltyMessage;
   const disabledMessage = !snapshot.isAdmin && !snapshot.canApplyNow ? snapshot.applyStartLabel : null;
   const emptyMessage = snapshot.hasAccess && slots.length === 0 ? '표시할 신청 가능 업무가 없습니다.' : null;
 
@@ -278,6 +279,7 @@ export default function ApplyClient({ profile, snapshot }: Props) {
 
         <p className={styles.applyWindow}>{snapshot.applyWindowHint}</p>
         {guard ? <p className={styles.guardNotice}>{guard}</p> : null}
+        {penaltyNotice && !guard ? <p className={styles.guardNotice}>{penaltyNotice}</p> : null}
         {disabledMessage && !guard ? <p className={styles.guardNotice}>현재 시각에는 신청 버튼이 비활성화됩니다. ({disabledMessage})</p> : null}
 
         {snapshot.hasAccess && !guard ? (
