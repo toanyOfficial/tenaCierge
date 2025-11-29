@@ -186,17 +186,26 @@ export default function CleaningReportClient({ profile, snapshot }: Props) {
   };
 
   const saveNote = () => {
-    if (!noteModal.targetId) return;
+    if (noteModal.targetId == null) return;
+    const targetId = noteModal.targetId;
     const trimmed = noteModal.draft.trim();
+
     setSupplyNotes((prev) => {
       const next = { ...prev };
       if (trimmed) {
-        next[noteModal.targetId!] = trimmed;
+        next[targetId] = trimmed;
       } else {
-        delete next[noteModal.targetId!];
+        delete next[targetId];
       }
       return next;
     });
+
+    setSupplyChecks((prev) => {
+      const next = new Set(prev);
+      next.add(targetId);
+      return next;
+    });
+
     closeNoteModal();
   };
 
