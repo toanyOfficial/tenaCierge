@@ -922,6 +922,32 @@
   align-self: flex-start;
 }
 
+.addTypeRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.addTypeButton {
+  flex: 1;
+  min-width: 140px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.addTypeButtonActive {
+  border-color: #0f172a;
+  background: #0f172a;
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.16);
+}
+
 .addSelectors {
   display: flex;
   gap: 12px;

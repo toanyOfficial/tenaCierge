@@ -86,6 +86,7 @@ export async function POST(request: Request) {
       sectorValue: '',
       cleanerId: null,
       cleaningYn: false,
+      conditionCheckYn: false,
       imagesSetId: null,
       checklistSetId: null
     };
@@ -96,7 +97,9 @@ export async function POST(request: Request) {
       blanketQty: typeof body.blanketQty === 'number' ? body.blanketQty : current.bedCount,
       amenitiesQty: typeof body.amenitiesQty === 'number' ? body.amenitiesQty : current.bedCount,
       cancelYn: typeof body.cancelYn === 'boolean' ? body.cancelYn : false,
-      requirements: isAdmin && typeof body.requirements === 'string' ? body.requirements : undefined
+      requirements: isAdmin && typeof body.requirements === 'string' ? body.requirements : undefined,
+      cleaningYn: typeof body.cleaningYn === 'boolean' ? body.cleaningYn : undefined,
+      conditionCheckYn: typeof body.conditionCheckYn === 'boolean' ? body.conditionCheckYn : undefined
     };
 
     const validation = validateWorkInput(creationInput, current, { canEditRequirements: isAdmin });
@@ -141,6 +144,9 @@ export async function POST(request: Request) {
 }
 
 function buildInsertPayload(date: string, roomId: number, values: WorkMutationValues) {
+  const cleaningYn = values.cleaningYn !== undefined ? values.cleaningYn : !(values.conditionCheckYn ?? false);
+  const conditionCheckYn = values.conditionCheckYn !== undefined ? values.conditionCheckYn : !cleaningYn;
+
   return {
     date: new Date(`${date}T00:00:00+09:00`),
     roomId,
@@ -150,7 +156,8 @@ function buildInsertPayload(date: string, roomId: number, values: WorkMutationVa
     amenitiesQty: values.amenitiesQty ?? 0,
     cancelYn: values.cancelYn ?? false,
     requirements: typeof values.requirements === 'string' ? values.requirements : null,
-    cleaningYn: true,
+    cleaningYn,
+    conditionCheckYn,
     supplyYn: true,
     manualUptYn: false
   };

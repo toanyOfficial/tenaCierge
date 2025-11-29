@@ -98,6 +98,14 @@ function buildUpdatePayload(values: WorkMutationValues) {
     payload.cancelYn = values.cancelYn;
   }
 
+  if ('cleaningYn' in values) {
+    payload.cleaningYn = values.cleaningYn;
+  }
+
+  if ('conditionCheckYn' in values) {
+    payload.conditionCheckYn = values.conditionCheckYn;
+  }
+
   if ('requirements' in values) {
     payload.requirements = values.requirements;
   }
