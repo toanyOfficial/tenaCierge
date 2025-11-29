@@ -18,8 +18,10 @@ export type SupervisingReportSnapshot = {
   cleaningChecklist: ChecklistItem[];
   suppliesChecklist: ChecklistItem[];
   imageSlots: ImageSlot[];
-  existingCleaningChecks: number[];
+  existingSupervisingFindingChecked: boolean;
+  existingSupervisingCompletionChecked: boolean;
   existingSupplyChecks: number[];
+  existingSupplyNotes: Record<number, string>;
   savedImages: SavedImage[];
 };
 
@@ -28,6 +30,7 @@ export type ChecklistItem = {
   title: string;
   type: number;
   score: number;
+  description: string | null;
 };
 
 export type ImageSlot = {
@@ -70,6 +73,8 @@ export async function getSupervisingReportSnapshot(
         id: workChecklistSetDetail.id,
         title: workChecklistSetDetail.title,
         fallbackTitle: workChecklistList.title,
+        description: workChecklistSetDetail.description,
+        fallbackDescription: workChecklistList.description,
         type: workChecklistList.type,
         score: workChecklistSetDetail.score
       })
@@ -80,20 +85,22 @@ export async function getSupervisingReportSnapshot(
 
     const cleaningChecklist = checklistRows
       .filter((item) => item.type === 2)
-      .map(({ id, title, fallbackTitle, type, score }) => ({
+      .map(({ id, title, fallbackTitle, type, score, description, fallbackDescription }) => ({
         id,
         title: title ?? fallbackTitle ?? '',
         type: Number(type ?? 0),
-        score: Number(score) || 0
+        score: Number(score) || 0,
+        description: description ?? fallbackDescription ?? null
       }));
 
     const suppliesChecklist = checklistRows
       .filter((item) => item.type === 3)
-      .map(({ id, title, fallbackTitle, type, score }) => ({
+      .map(({ id, title, fallbackTitle, type, score, description, fallbackDescription }) => ({
         id,
         title: title ?? fallbackTitle ?? '',
         type: Number(type ?? 0),
-        score: Number(score) || 0
+        score: Number(score) || 0,
+        description: description ?? fallbackDescription ?? null
       }));
 
     const imageSlots = await (async () => {
@@ -140,8 +147,46 @@ export async function getSupervisingReportSnapshot(
       return value.map((v) => Number(v)).filter((v) => Number.isFinite(v));
     };
 
-    const rawCleaningChecks = latestReports.get(4)?.contents1 ?? [];
+    const parseSupplyNotes = (value: unknown) => {
+      if (!value || typeof value !== 'object') return {} as Record<number, string>;
+
+      if (Array.isArray(value)) {
+        return value.reduce((acc, entry, idx) => {
+          const normalized = typeof entry === 'string' ? entry.trim() : '';
+          if (normalized) {
+            acc[idx + 1] = normalized;
+          }
+          return acc;
+        }, {} as Record<number, string>);
+      }
+
+      return Object.entries(value as Record<string, unknown>).reduce((acc, [key, val]) => {
+        const note = typeof val === 'string' ? val.trim() : '';
+        const numericKey = Number.parseInt(key, 10);
+        if (note && Number.isFinite(numericKey)) {
+          acc[numericKey] = note;
+        }
+        return acc;
+      }, {} as Record<number, string>);
+    };
+
+    const rawSupervisingFindings = latestReports.get(4)?.contents1;
+    const rawSupervisingCompletion = latestReports.get(4)?.contents2;
     const rawSupplyChecks = latestReports.get(2)?.contents1 ?? [];
+    const rawSupplyNotes = latestReports.get(2)?.contents2 ?? {};
+
+    const parseBooleanFlag = (value: unknown) => {
+      if (typeof value === 'boolean') return value;
+      if (value && typeof value === 'object') {
+        if ('checked' in value && typeof (value as { checked?: unknown }).checked === 'boolean') {
+          return Boolean((value as { checked?: boolean }).checked);
+        }
+
+        const boolEntry = Object.values(value as Record<string, unknown>).find((v) => typeof v === 'boolean');
+        if (typeof boolEntry === 'boolean') return boolEntry;
+      }
+      return false;
+    };
 
     const savedImages = (() => {
       const rawImages = latestReports.get(5)?.contents1;
@@ -173,8 +218,10 @@ export async function getSupervisingReportSnapshot(
       cleaningChecklist,
       suppliesChecklist,
       imageSlots,
-      existingCleaningChecks: parseIdArray(rawCleaningChecks),
+      existingSupervisingFindingChecked: parseBooleanFlag(rawSupervisingFindings),
+      existingSupervisingCompletionChecked: parseBooleanFlag(rawSupervisingCompletion),
       existingSupplyChecks: parseIdArray(rawSupplyChecks),
+      existingSupplyNotes: parseSupplyNotes(rawSupplyNotes),
       savedImages
     } satisfies SupervisingReportSnapshot;
   } catch (error) {
