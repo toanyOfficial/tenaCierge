@@ -1215,7 +1215,7 @@
 
 @media (max-width: 720px) {
   .cleaningSection {
-    padding: 20px;
+    padding: 16px 12px;
   }
 
   .cardGrid {
@@ -1225,6 +1225,72 @@
   .cardActions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .screenShell {
+    padding: 0;
+  }
+
+  .workList {
+    gap: 10px;
+  }
+
+  .groupCard {
+    border: none;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .groupHeader {
+    background: #ffffff;
+    border-color: #e2e8f0;
+    border-radius: 14px;
+    padding: 12px 14px;
+  }
+
+  .groupBody {
+    gap: 10px;
+  }
+
+  .buildingCard {
+    border: none;
+    padding: 0;
+    background: transparent;
+  }
+
+  .buildingHeader {
+    background: #ffffff;
+    border-color: #e2e8f0;
+    border-radius: 14px;
+    padding: 12px 14px;
+  }
+
+  .buildingCard > .groupBody {
+    gap: 10px;
+  }
+
+  .buildingCard > .groupBody .workCard,
+  .buildingCard > .groupBody .workCardMuted,
+  .buildingCard > .groupBody .workCardMutedRow {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .workCard {
+    border-radius: 14px;
+    padding: 14px 12px 16px;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+  }
+
+  .workCardMuted,
+  .workCardMutedRow {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .requirementsText {
+    padding: 8px 10px;
   }
 }
 .applySection {
