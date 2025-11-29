@@ -234,7 +234,11 @@ export default async function ScreenPage({
 
     return (
       <div className={styles.screenWrapper}>
-        <SettlementClient snapshot={snapshot} isAdmin={profile.roles.includes('admin')} />
+        <SettlementClient
+          snapshot={snapshot}
+          isAdmin={profile.roles.includes('admin')}
+          profile={profile}
+        />
       </div>
     );
   }
