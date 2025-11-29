@@ -76,11 +76,13 @@ export default function SettlementClient({ snapshot, isAdmin, profile }: Props) 
     );
   };
 
-  return (
-    <div className={styles.screenShell}>
-      <div className={styles.headerRow}>
-        <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} compact />
-      </div>
+    return (
+      <div className={styles.screenShell}>
+        <div className={styles.headerRow}>
+          <div className={styles.headerInner}>
+            <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} compact />
+          </div>
+        </div>
 
       <div className={styles.wrapper}>
         <div className={styles.panel}>
