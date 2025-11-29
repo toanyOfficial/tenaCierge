@@ -240,6 +240,39 @@
   color: #64748b;
 }
 
+.sortRow {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sortToggleGroup {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sortToggle {
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sortToggleActive {
+  border-color: #0f172a;
+  background: #0f172a;
+  color: #fff;
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.15);
+}
+
 .cardGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));

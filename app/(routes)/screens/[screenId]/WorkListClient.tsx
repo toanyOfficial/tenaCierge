@@ -26,6 +26,31 @@ const tierLabels: Record<number, string> = {
   1: '블랙'
 };
 
+function sortWorks(works: WorkListEntry[], mode: 'time' | 'roomDesc') {
+  const copy = [...works];
+  copy.sort((a, b) => {
+    const buildingCompare = (a.buildingShortName || '').localeCompare(b.buildingShortName || '');
+    if (buildingCompare !== 0) return buildingCompare;
+
+    if (mode === 'time') {
+      const timeDiff = compareTimes(a.checkoutTime, b.checkoutTime);
+      if (timeDiff !== 0) return timeDiff;
+      return b.roomNo.localeCompare(a.roomNo || '');
+    }
+
+    return b.roomNo.localeCompare(a.roomNo || '');
+  });
+  return copy;
+}
+
+function compareTimes(a: string, b: string) {
+  const [aH, aM] = a?.split(':').map((v) => Number(v)) ?? [];
+  const [bH, bM] = b?.split(':').map((v) => Number(v)) ?? [];
+  const aMinutes = Number.isFinite(aH) && Number.isFinite(aM) ? aH * 60 + aM : Number.MAX_SAFE_INTEGER;
+  const bMinutes = Number.isFinite(bH) && Number.isFinite(bM) ? bH * 60 + bM : Number.MAX_SAFE_INTEGER;
+  return aMinutes - bMinutes;
+}
+
 export default function WorkListClient({ profile, snapshot }: Props) {
   const router = useRouter();
   const params = useSearchParams();
@@ -43,6 +68,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const [infoTarget, setInfoTarget] = useState<WorkListEntry | null>(null);
   const [searchResults, setSearchResults] = useState<AssignableWorker[]>([]);
   const [assignOptions, setAssignOptions] = useState<AssignableWorker[]>(snapshot.assignableWorkers);
+  const [sortMode, setSortMode] = useState<'time' | 'roomDesc'>('time');
 
   useEffect(() => {
     setWorks(snapshot.works);
@@ -61,9 +87,11 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const canToggleSupervising = activeRole === 'admin' || activeRole === 'butler';
   const canAssignCleaner = canToggleSupervising;
 
+  const sortedWorks = useMemo(() => sortWorks(works, sortMode), [works, sortMode]);
+
   const groupedBySector = useMemo(() => {
     const groups = new Map<string, { label: string; works: WorkListEntry[] }>();
-    works.forEach((work) => {
+    sortedWorks.forEach((work) => {
       const key = work.sectorValue || work.sectorCode || '미지정';
       const label = work.sectorValue || work.sectorCode || '미지정';
       if (!groups.has(key)) {
@@ -72,7 +100,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
       groups.get(key)!.works.push(work);
     });
     return Array.from(groups.entries()).map(([key, value]) => ({ key, ...value }));
-  }, [works]);
+  }, [sortedWorks]);
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -268,6 +296,29 @@ export default function WorkListClient({ profile, snapshot }: Props) {
         </div>
 
         <p className={styles.notice}>{snapshot.notice}</p>
+
+        <div className={styles.sortRow}>
+          <div>
+            <p className={styles.sectionLabel}>정렬 기준</p>
+            <p className={styles.subtle}>건물별로 시간대 또는 호실 기준으로 정렬합니다.</p>
+          </div>
+          <div className={styles.sortToggleGroup} role="group" aria-label="정렬 기준 선택">
+            <button
+              type="button"
+              className={`${styles.sortToggle} ${sortMode === 'time' ? styles.sortToggleActive : ''}`}
+              onClick={() => setSortMode('time')}
+            >
+              시간대별 (체크아웃 오름차순·호실 내림차순)
+            </button>
+            <button
+              type="button"
+              className={`${styles.sortToggle} ${sortMode === 'roomDesc' ? styles.sortToggleActive : ''}`}
+              onClick={() => setSortMode('roomDesc')}
+            >
+              호실 내림차순
+            </button>
+          </div>
+        </div>
 
         {!canSee ? (
           <p className={styles.helper}>화면 004는 관리자, 버틀러, 호스트, 클리너만 접근 가능합니다.</p>
