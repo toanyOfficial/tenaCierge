@@ -366,7 +366,7 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
         <div className={styles.reportGridStacked}>
           <article className={styles.reportCardWide}>
             <header className={styles.reportCardHeader}>수퍼바이징 체크리스트</header>
-            {visibleCleaningChecklist.length === 0 ? (
+            {cleaningChecklist.length === 0 ? (
               <p className={styles.reportEmpty}>체크리스트가 없습니다.</p>
             ) : (
               <div className={styles.supervisingChecklistWrapper}>
