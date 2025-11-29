@@ -20,6 +20,7 @@ export type CleaningWork = {
   clientId: number | null;
   cleanerId: number | null;
   cleaningYn: boolean;
+  conditionCheckYn: boolean;
   date: string;
   imagesSetId: number | null;
   checklistSetId: number | null;
