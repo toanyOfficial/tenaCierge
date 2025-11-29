@@ -450,6 +450,7 @@
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .workTitle {
@@ -468,6 +469,9 @@
   font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .infoButton:hover {
@@ -481,6 +485,7 @@
   gap: 8px;
   font-size: 0.95rem;
   color: #0f172a;
+  flex-wrap: wrap;
 }
 
 .requirementsText {
@@ -1152,6 +1157,59 @@
 @media (max-width: 640px) {
   .workMetaRow {
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 560px) {
+  .workCard {
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .groupCard {
+    padding: 10px 12px;
+  }
+
+  .groupHeader {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .workTitleRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .workTitleActions {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  .workTitleActions .infoButton {
+    flex: 1 1 130px;
+    justify-content: center;
+  }
+
+  .workSubtitle {
+    white-space: normal;
+    line-height: 1.35;
+  }
+
+  .requirementsText {
+    padding: 8px 10px;
+  }
+
+  .workRowCompact {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .workRowCompact .toggleButton,
+  .workRowCompact .toggleButtonDisabled {
+    width: 100%;
   }
 }
 
