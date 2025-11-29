@@ -105,7 +105,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [activeWindow, setActiveWindow] = useState<'d0' | 'd1' | undefined>(snapshot.window);
   const [assignTarget, setAssignTarget] = useState<WorkListEntry | null>(null);
-  const [assignSelection, setAssignSelection] = useState<number | null>(null);
+  const [assignSelection, setAssignSelection] = useState<number | 'noShow' | null>(null);
   const [assignQuery, setAssignQuery] = useState('');
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState('');
@@ -120,6 +120,17 @@ export default function WorkListClient({ profile, snapshot }: Props) {
     setAssignOptions(snapshot.assignableWorkers);
     setSearchResults([]);
   }, [snapshot]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const saved = window.sessionStorage.getItem('worklist-scroll');
+    if (!saved) return;
+    const value = Number(saved);
+    window.sessionStorage.removeItem('worklist-scroll');
+    if (!Number.isNaN(value)) {
+      window.scrollTo({ top: value, behavior: 'auto' });
+    }
+  }, []);
 
   const canSee = useMemo(
     () => ['admin', 'butler', 'host', 'cleaner'].some((role) => activeRole === role),
@@ -298,9 +309,20 @@ export default function WorkListClient({ profile, snapshot }: Props) {
     setSearchResults([]);
   }
 
+  function handleRefresh() {
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem('worklist-scroll', String(window.scrollY));
+    }
+    router.refresh();
+  }
+
   async function handleAssignSave() {
     if (!assignTarget) return;
-    await updateWork(assignTarget.id, { cleanerId: assignSelection ?? null });
+    if (assignSelection === 'noShow') {
+      await updateWork(assignTarget.id, { noShow: true });
+    } else {
+      await updateWork(assignTarget.id, { cleanerId: assignSelection ?? null });
+    }
     resetAssignModal();
   }
 
@@ -674,6 +696,12 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                 <p className={styles.infoLabel}>객실</p>
                 <p className={`${styles.infoValue} ${styles.infoRoomName}`}>{infoTarget.roomName}</p>
               </div>
+              {activeRole === 'admin' ? (
+                <div>
+                  <p className={styles.infoLabel}>고객사</p>
+                  <p className={styles.infoValue}>{infoTarget.clientName || '정보 없음'}</p>
+                </div>
+              ) : null}
               <div>
                 <p className={styles.infoLabel}>도로명 주소</p>
                 <button
@@ -764,6 +792,19 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                 />
                 <span className={styles.assignName}>배정취소</span>
               </label>
+              <label className={styles.assignRow}>
+                <input
+                  type="radio"
+                  name="assign"
+                  value="no-show"
+                  checked={assignSelection === 'noShow'}
+                  onChange={() => setAssignSelection('noShow')}
+                />
+                <div className={styles.assignMeta}>
+                  <span className={styles.assignName}>노쇼 처리</span>
+                  <span className={styles.assignDetail}>담당자를 해제하고 이전 사진으로 완료 처리</span>
+                </div>
+              </label>
               {sortedWorkers.map((worker) => (
                 <label key={worker.id} className={styles.assignRow}>
                   <input
@@ -795,6 +836,10 @@ export default function WorkListClient({ profile, snapshot }: Props) {
           </div>
         </div>
       ) : null}
+
+      <button type="button" className={styles.refreshBubble} onClick={handleRefresh} aria-label="새로고침">
+        ↻
+      </button>
     </div>
   );
 }
