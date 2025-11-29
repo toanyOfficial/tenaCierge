@@ -1,4 +1,5 @@
 import { asc, and, eq } from 'drizzle-orm';
+import { unstable_noStore as noStore } from 'next/cache';
 
 import { db } from '@/src/db/client';
 import { clientRooms, etcBuildings, workHeader } from '@/src/db/schema';
@@ -47,6 +48,7 @@ export type CleaningSnapshot = {
 };
 
 export async function getCleaningSnapshot(profile: ProfileSummary, targetDate?: string): Promise<CleaningSnapshot> {
+  noStore();
   const now = getKstNow();
   const today = formatDateKey(now);
   const maxDate = buildMaxDate(today, 7);

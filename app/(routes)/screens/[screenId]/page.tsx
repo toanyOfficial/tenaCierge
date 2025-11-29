@@ -8,6 +8,7 @@ import WorkListClient from './WorkListClient';
 import CleaningReportClient from './CleaningReportClient';
 import SupervisingReportClient from './SupervisingReportClient';
 import EvaluationHistoryClient from './EvaluationHistoryClient';
+import SettlementClient from './SettlementClient';
 import { getCleaningSnapshot } from './server/getCleaningSnapshot';
 import { getApplySnapshot } from './server/getApplySnapshot';
 import { getWorkListSnapshot } from './server/getWorkListSnapshot';
@@ -15,6 +16,11 @@ import { getCleaningReportSnapshot } from './server/getCleaningReportSnapshot';
 import { getSupervisingReportSnapshot } from './server/getSupervisingReportSnapshot';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { getEvaluationSnapshot } from '@/src/server/evaluations';
+import { getSettlementSnapshot } from './server/getSettlementSnapshot';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
 
 type Props = {
   params: {
@@ -31,10 +37,19 @@ export function generateMetadata({ params }: Props): Metadata {
 export default async function ScreenPage({
   params,
   searchParams
-}: Props & { searchParams?: { date?: string; window?: 'd0' | 'd1'; workId?: string; workerId?: string } }) {
+}: Props & {
+  searchParams?: {
+    date?: string;
+    window?: 'd0' | 'd1';
+    workId?: string;
+    workerId?: string;
+    month?: string;
+    hostId?: string;
+  };
+}) {
   const { screenId } = params;
 
-  if (!['002', '003', '004', '005', '006', '007'].includes(screenId)) {
+  if (!['002', '003', '004', '005', '006', '007', '008'].includes(screenId)) {
     return (
       <section className={styles.placeholder}>
         <div className={styles.card}>
@@ -194,6 +209,32 @@ export default async function ScreenPage({
     return (
       <div className={styles.screenWrapper}>
         <EvaluationHistoryClient profile={profile} snapshot={snapshot} />
+      </div>
+    );
+  }
+
+  if (screenId === '008') {
+    const allowedRoles = ['admin', 'host'];
+    const canAccess = profile.roles.some((role) => allowedRoles.includes(role));
+
+    if (!canAccess) {
+      return (
+        <section className={styles.placeholder}>
+          <div className={styles.card}>
+            <p className={styles.lead}>정산관리 화면은 관리자와 호스트만 볼 수 있습니다.</p>
+            <Link className={styles.backLink} href="/dashboard">
+              대시보드로 돌아가기
+            </Link>
+          </div>
+        </section>
+      );
+    }
+
+    const snapshot = await getSettlementSnapshot(profile, searchParams?.month, searchParams?.hostId);
+
+    return (
+      <div className={styles.screenWrapper}>
+        <SettlementClient snapshot={snapshot} isAdmin={profile.roles.includes('admin')} />
       </div>
     );
   }
