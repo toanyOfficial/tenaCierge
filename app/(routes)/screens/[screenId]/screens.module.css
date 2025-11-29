@@ -1789,6 +1789,55 @@
   gap: 8px;
 }
 
+.captureToggleRow {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 12px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.captureToggleLabel {
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.captureToggleGroup {
+  display: inline-flex;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  width: fit-content;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.captureToggleButton {
+  background: #f8fafc;
+  border: none;
+  padding: 6px 12px;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.captureToggleButton + .captureToggleButton {
+  border-left: 1px solid #e2e8f0;
+}
+
+.captureToggleActive {
+  background: #0ea5e9;
+  color: #fff;
+}
+
+.captureToggleHint {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
 .imageBadgeRequired,
 .imageBadgeOptional {
   display: inline-flex;
