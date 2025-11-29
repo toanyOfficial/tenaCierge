@@ -1,3 +1,19 @@
+.screenShell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.headerRow {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 8px clamp(8px, 2vw, 16px) 0;
+  box-sizing: border-box;
+}
+
 .wrapper {
   width: 100%;
   display: flex;

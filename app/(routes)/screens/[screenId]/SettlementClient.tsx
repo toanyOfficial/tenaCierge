@@ -1,23 +1,27 @@
 "use client";
 
-import { Fragment, useMemo } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import styles from './settlement.module.css';
 
 import type { SettlementSnapshot } from './server/getSettlementSnapshot';
 import { settlementBusinessInfo, settlementStampDataUrl } from './settlementConstants';
+import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
+import type { ProfileSummary } from '@/src/utils/profile';
 
 type Props = {
   snapshot: SettlementSnapshot;
   isAdmin: boolean;
+  profile: ProfileSummary;
 };
 
 function formatCurrency(value: number) {
   return value.toLocaleString('ko-KR', { maximumFractionDigits: 0 });
 }
 
-export default function SettlementClient({ snapshot, isAdmin }: Props) {
+export default function SettlementClient({ snapshot, isAdmin, profile }: Props) {
+  const [activeRole, setActiveRole] = useState<string | null>(profile.roles[0] ?? null);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -73,85 +77,90 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
   };
 
   return (
-    <div className={styles.wrapper}>
-      <div className={styles.panel}>
-        <div className={styles.filters}>
-          <label>
-            정산 월
-            <input
-              type="month"
-              value={month}
-              onChange={(e) => handleFilterChange(e.target.value, hostId)}
-            />
-          </label>
-          {isAdmin && (
-            <label>
-              호스트
-              <select value={hostId} onChange={(e) => handleFilterChange(month, e.target.value)}>
-                <option value="">전체</option>
-                {snapshot.hostOptions.map((host) => (
-                  <option key={host.id} value={host.id}>
-                    {host.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          <button className={styles.printButton} type="button" onClick={() => window.print()}>
-            PDF 다운로드
-          </button>
-        </div>
+    <div className={styles.screenShell}>
+      <div className={styles.headerRow}>
+        <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} compact />
+      </div>
 
-        <div className={styles.card}>
-          <div className={styles.badgeRow}>
-            <h3 className={styles.sectionTitle}>호스트별 합계</h3>
-            <span className={styles.chip}>청소비용 · 시설관리비용 · 월정액 · 기타</span>
+      <div className={styles.wrapper}>
+        <div className={styles.panel}>
+          <div className={styles.filters}>
+            <label>
+              정산 월
+              <input
+                type="month"
+                value={month}
+                onChange={(e) => handleFilterChange(e.target.value, hostId)}
+              />
+            </label>
+            {isAdmin && (
+              <label>
+                호스트
+                <select value={hostId} onChange={(e) => handleFilterChange(month, e.target.value)}>
+                  <option value="">전체</option>
+                  {snapshot.hostOptions.map((host) => (
+                    <option key={host.id} value={host.id}>
+                      {host.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <button className={styles.printButton} type="button" onClick={() => window.print()}>
+              PDF 다운로드
+            </button>
           </div>
-          {snapshot.summary.length === 0 ? (
-            <div className={styles.emptyState}>표시할 정산 데이터가 없습니다.</div>
-          ) : (
-            <table className={styles.summaryTable}>
-              <thead>
-                <tr>
-                  <th>호스트</th>
-                  <th>청소비용</th>
-                  <th>시설관리비용</th>
-                  <th>월정액비용</th>
-                  <th>기타비용</th>
-                  <th>합계</th>
-                  <th>VAT(10%)</th>
-                  <th>총액(VAT포함)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {snapshot.summary.map((row) => (
-                  <tr key={row.hostId}>
-                    <td>{row.hostName}</td>
-                    <td>{formatCurrency(row.cleaning)}</td>
-                    <td>{formatCurrency(row.facility)}</td>
-                    <td>{formatCurrency(row.monthly)}</td>
-                    <td>{formatCurrency(row.misc)}</td>
-                    <td>{formatCurrency(row.total)}</td>
-                    <td>{formatCurrency(row.vat)}</td>
-                    <td>{formatCurrency(row.grandTotal)}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td>합계</td>
-                  <td>{formatCurrency(totalRow.cleaning)}</td>
-                  <td>{formatCurrency(totalRow.facility)}</td>
-                  <td>{formatCurrency(totalRow.monthly)}</td>
-                  <td>{formatCurrency(totalRow.misc)}</td>
-                  <td>{formatCurrency(totalRow.total)}</td>
-                  <td>{formatCurrency(totalRow.vat)}</td>
-                  <td>{formatCurrency(totalRow.grandTotal)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          )}
-        </div>
+
+            <div className={styles.card}>
+              <div className={styles.badgeRow}>
+                <h3 className={styles.sectionTitle}>호스트별 합계</h3>
+                <span className={styles.chip}>청소비용 · 시설관리비용 · 월정액 · 기타</span>
+              </div>
+              {snapshot.summary.length === 0 ? (
+                <div className={styles.emptyState}>표시할 정산 데이터가 없습니다.</div>
+              ) : (
+                <table className={styles.summaryTable}>
+                  <thead>
+                    <tr>
+                      <th>호스트</th>
+                      <th>청소비용</th>
+                      <th>시설관리비용</th>
+                      <th>월정액비용</th>
+                      <th>기타비용</th>
+                      <th>합계</th>
+                      <th>VAT(10%)</th>
+                      <th>총액(VAT포함)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {snapshot.summary.map((row) => (
+                      <tr key={row.hostId}>
+                        <td>{row.hostName}</td>
+                        <td>{formatCurrency(row.cleaning)}</td>
+                        <td>{formatCurrency(row.facility)}</td>
+                        <td>{formatCurrency(row.monthly)}</td>
+                        <td>{formatCurrency(row.misc)}</td>
+                        <td>{formatCurrency(row.total)}</td>
+                        <td>{formatCurrency(row.vat)}</td>
+                        <td>{formatCurrency(row.grandTotal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td>합계</td>
+                      <td>{formatCurrency(totalRow.cleaning)}</td>
+                      <td>{formatCurrency(totalRow.facility)}</td>
+                      <td>{formatCurrency(totalRow.monthly)}</td>
+                      <td>{formatCurrency(totalRow.misc)}</td>
+                      <td>{formatCurrency(totalRow.total)}</td>
+                      <td>{formatCurrency(totalRow.vat)}</td>
+                      <td>{formatCurrency(totalRow.grandTotal)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              )}
+            </div>
 
         {snapshot.statements.map((statement) => (
           <div key={statement.hostId} className={styles.card}>
@@ -375,6 +384,7 @@ export default function SettlementClient({ snapshot, isAdmin }: Props) {
             </div>
           </div>
         ))}
+        </div>
       </div>
     </div>
   );
