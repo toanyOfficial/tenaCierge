@@ -1,6 +1,28 @@
 import { db } from '@/src/db/client';
 import { etcErrorLogs } from '@/src/db/schema';
 
+function sanitizeContext(context: Record<string, unknown> | null): Record<string, unknown> | null {
+  if (!context) {
+    return null;
+  }
+
+  try {
+    JSON.stringify(context);
+    return context;
+  } catch (error) {
+    console.warn('errorLogs context stringify 실패', error);
+    const fallback = { fallback: 'stringify_failed', keys: Object.keys(context) };
+
+    try {
+      JSON.stringify(fallback);
+      return fallback;
+    } catch (fallbackError) {
+      console.error('errorLogs fallback stringify 실패', fallbackError);
+      return { fallback: 'stringify_failed' };
+    }
+  }
+}
+
 type LogPayload = {
   message: string;
   errorCode?: string | null;
@@ -22,15 +44,7 @@ export async function logEtcError({
   requestId = null,
   appName = 'web'
 }: LogPayload): Promise<void> {
-  let contextJson: string | null = null;
-  if (context) {
-    try {
-      contextJson = JSON.stringify(context);
-    } catch (error) {
-      console.warn('errorLogs context stringify 실패', error);
-      contextJson = JSON.stringify({ fallback: 'stringify_failed', keys: Object.keys(context) });
-    }
-  }
+  const contextJson = sanitizeContext(context);
 
   try {
     await db.insert(etcErrorLogs).values({

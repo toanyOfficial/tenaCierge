@@ -244,10 +244,11 @@ export default async function ScreenPage({
   }
 
   const snapshot = await getCleaningSnapshot(profile, searchParams?.date);
+  const basePath = `/screens/${screenId}`;
 
   return (
     <div className={styles.screenWrapper}>
-      <CleaningListClient profile={profile} snapshot={snapshot} />
+      <CleaningListClient profile={profile} snapshot={snapshot} basePath={basePath} />
     </div>
   );
 }

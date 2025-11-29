@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
 import type { CleaningSnapshot, RoomOption } from './server/getCleaningSnapshot';
@@ -15,6 +15,7 @@ import { addMinutes, minutesToTimeString, parseTimeString } from '@/src/utils/ti
 type Props = {
   profile: ProfileSummary;
   snapshot: CleaningSnapshot;
+  basePath: string;
 };
 
 type WorkField = keyof Pick<
@@ -51,9 +52,8 @@ function buildTimeOptions(min: string, max: string, stepMinutes = 5) {
   return options;
 }
 
-export default function CleaningListClient({ profile, snapshot }: Props) {
+export default function CleaningListClient({ profile, snapshot, basePath }: Props) {
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const initialRole = profile.primaryRole ?? profile.roles[0] ?? null;
   const [activeRole, setActiveRole] = useState(initialRole);
@@ -156,7 +156,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
     }
 
     const query = params.toString();
-    const next = query ? `${pathname}?${query}` : pathname;
+    const next = query ? `${basePath}?${query}` : basePath;
     router.replace(next, { scroll: false });
   }
 
@@ -503,7 +503,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
         setSelectedDate(created.date);
       }
       const query = search.toString();
-      router.push(query ? `${pathname}?${query}` : pathname);
+      router.push(query ? `${basePath}?${query}` : basePath);
       router.refresh();
     } catch (error) {
       const message = error instanceof Error ? error.message : '작업 생성 중 오류가 발생했습니다.';
