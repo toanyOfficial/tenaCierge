@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
+import { unstable_noStore as noStore } from 'next/cache';
 
 import { db } from '@/src/db/client';
 import {
@@ -72,6 +73,7 @@ export async function getWorkListSnapshot(
   dateParam?: string,
   windowParam?: 'd0' | 'd1'
 ): Promise<WorkListSnapshot> {
+  noStore();
   try {
     const now = getKstNow();
     const minutes = now.getHours() * 60 + now.getMinutes();
