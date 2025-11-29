@@ -131,6 +131,12 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
   }, [snapshot]);
 
   useEffect(() => {
+    if (viewingAsHost) {
+      setAddForm((prev) => ({ ...prev, cleaningYn: true, conditionCheckYn: false }));
+    }
+  }, [viewingAsHost]);
+
+  useEffect(() => {
     setAddForm((prev) => {
       if (prev.date && !allowedDates.has(prev.date)) {
         return { ...prev, date: '' };
@@ -417,6 +423,10 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
   }
 
   function handleAddTypeToggle() {
+    if (viewingAsHost) {
+      return;
+    }
+
     setAddForm((prev) => {
       const nextCleaning = !prev.cleaningYn;
       return {
@@ -795,13 +805,20 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
                 </div>
                 <AddField label="작업 유형" hint="청소/상태확인 중 한 가지만 선택">
                   <div className={styles.addTypeRow}>
-                    <button
-                      type="button"
-                      className={`${styles.addTypeButton} ${styles.addTypeButtonActive}`}
-                      onClick={handleAddTypeToggle}
-                    >
-                      {addForm.cleaningYn ? '청소 포함' : '상태 확인만' }
-                    </button>
+                    {viewingAsHost ? null : (
+                      <label className={styles.addTypeSwitch}>
+                        <input
+                          type="checkbox"
+                          role="switch"
+                          aria-label="작업 유형 토글"
+                          checked={addForm.cleaningYn}
+                          onChange={handleAddTypeToggle}
+                        />
+                        <span className={styles.addTypeSwitchTrack} aria-hidden="true">
+                          <span className={styles.addTypeSwitchThumb} />
+                        </span>
+                      </label>
+                    )}
                     <p className={styles.addTypeNote}>
                       {addForm.cleaningYn ? '이 건은 청소 대상입니다.' : '이 건은 상태확인 대상입니다.'}
                     </p>
