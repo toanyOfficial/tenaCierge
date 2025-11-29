@@ -2,9 +2,12 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 
+import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
+
 import styles from './adminCrud.module.css';
 
 import type { AdminColumnMeta, AdminReference } from '@/src/server/adminCrud';
+import type { ProfileSummary } from '@/src/utils/profile';
 
 type TableOption = {
   name: string;
@@ -14,6 +17,7 @@ type TableOption = {
 
 type Props = {
   tables: TableOption[];
+  profile: ProfileSummary;
 };
 
 type Snapshot = {
@@ -27,7 +31,8 @@ type Snapshot = {
 
 const DEFAULT_LIMIT = 20;
 
-export default function AdminCrudClient({ tables }: Props) {
+export default function AdminCrudClient({ tables, profile }: Props) {
+  const [activeRole, setActiveRole] = useState<string | null>(profile.roles[0] ?? null);
   const [selectedTable, setSelectedTable] = useState<string>(tables[0]?.name ?? '');
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
@@ -347,6 +352,8 @@ export default function AdminCrudClient({ tables }: Props) {
 
   return (
     <main className={styles.container}>
+      <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} compact />
+
       <header className={styles.header}>전체 테이블 CRUD</header>
 
       <section className={styles.panel}>
