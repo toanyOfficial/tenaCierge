@@ -9,6 +9,7 @@ import {
   etcBaseCode,
   etcBuildings,
   etcNotice,
+  workChecklistList,
   workApply,
   workAssignment,
   workHeader,
@@ -303,53 +304,102 @@ async function fetchLatestSupplyReports(workIds: number[]) {
   if (!workIds.length) return map;
 
   const rows = await db
-    .select({ workId: workReports.workId, contents2: workReports.contents2, createdAt: workReports.createdAt })
+    .select({
+      workId: workReports.workId,
+      contents1: workReports.contents1,
+      contents2: workReports.contents2,
+      createdAt: workReports.createdAt
+    })
     .from(workReports)
     .where(and(inArray(workReports.workId, workIds), eq(workReports.type, 2)))
     .orderBy(desc(workReports.createdAt));
 
+  const latestByWorkId = new Map<number, { contents1: unknown; contents2: unknown }>();
+
   rows.forEach((row) => {
     const workId = Number(row.workId);
-    if (map.has(workId)) return;
+    if (latestByWorkId.has(workId)) return;
+    latestByWorkId.set(workId, { contents1: row.contents1, contents2: row.contents2 });
+  });
 
-    map.set(workId, { recommendations: parseSupplyRecommendations(row.contents2) });
+  const checklistIds = Array.from(
+    new Set(
+      Array.from(latestByWorkId.values())
+        .flatMap((row) => parseChecklistIds(row.contents1))
+        .filter((id) => typeof id === 'number')
+    )
+  ) as number[];
+
+  const checklistLookup = await fetchChecklistLookup(checklistIds);
+
+  latestByWorkId.forEach((row, workId) => {
+    map.set(workId, {
+      recommendations: parseSupplyRecommendations(row.contents1, row.contents2, checklistLookup)
+    });
   });
 
   return map;
 }
 
-function parseSupplyRecommendations(raw: unknown): SupplyRecommendation[] {
-  if (!raw) return [];
+async function fetchChecklistLookup(ids: number[]) {
+  if (!ids.length) return new Map<number, { title: string; description: string | null }>();
 
-  const entries = Array.isArray(raw) ? raw : [raw];
+  const rows = await db
+    .select({ id: workChecklistList.id, title: workChecklistList.title, description: workChecklistList.description })
+    .from(workChecklistList)
+    .where(inArray(workChecklistList.id, ids));
 
-  return entries
-    .map((item, idx) => {
-      const fallbackTitle = `항목 ${idx + 1}`;
+  return rows.reduce((acc, row) => {
+    acc.set(Number(row.id), { title: row.title, description: row.description ?? null });
+    return acc;
+  }, new Map<number, { title: string; description: string | null }>());
+}
 
-      if (typeof item === 'string') {
-        return formatSupplyRecommendation(fallbackTitle, item);
+function parseChecklistIds(raw: unknown): number[] {
+  if (typeof raw === 'string') {
+    try {
+      return parseChecklistIds(JSON.parse(raw));
+    } catch {
+      return [];
+    }
+  }
+
+  if (typeof raw === 'number') {
+    return Number.isFinite(raw) ? [Number(raw)] : [];
+  }
+
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .map((value) => {
+      if (typeof value === 'number' && Number.isFinite(value)) return Number(value);
+      if (typeof value === 'string') {
+        const parsed = Number.parseInt(value, 10);
+        return Number.isFinite(parsed) ? parsed : null;
       }
-
-      if (item && typeof item === 'object') {
-        const title = getString((item as Record<string, unknown>).title) ||
-          getString((item as Record<string, unknown>).name) ||
-          getString((item as Record<string, unknown>).label) ||
-          fallbackTitle;
-
-        const description =
-          getString((item as Record<string, unknown>).dscpt) ||
-          getString((item as Record<string, unknown>).description) ||
-          getString((item as Record<string, unknown>).desc) ||
-          getString((item as Record<string, unknown>).link) ||
-          '';
-
-        return formatSupplyRecommendation(title, description);
-      }
-
       return null;
     })
-    .filter(Boolean) as SupplyRecommendation[];
+    .filter((id): id is number => id !== null);
+}
+
+function parseSupplyRecommendations(
+  contents1: unknown,
+  contents2: unknown,
+  checklistLookup: Map<number, { title: string; description: string | null }>
+) {
+  const ids = parseChecklistIds(contents1);
+  if (!ids.length) return [];
+
+  const otherText = normalizeText(contents2);
+
+  return ids
+    .map((id, idx) => {
+      const checklist = checklistLookup.get(id);
+      const title = checklist?.title || `항목 ${idx + 1}`;
+      const description = checklist?.description ?? otherText ?? '정보 없음';
+
+      return formatSupplyRecommendation(title, description);
+    });
 }
 
 function formatSupplyRecommendation(title: string, description: string) {
@@ -363,8 +413,9 @@ function formatSupplyRecommendation(title: string, description: string) {
   } satisfies SupplyRecommendation;
 }
 
-function getString(value: unknown) {
-  return typeof value === 'string' ? value : undefined;
+function normalizeText(value: unknown) {
+  if (typeof value === 'string') return value;
+  return undefined;
 }
 
 function sortRows(a: WorkListEntry, b: WorkListEntry, buildingCounts: Record<number, number>) {
