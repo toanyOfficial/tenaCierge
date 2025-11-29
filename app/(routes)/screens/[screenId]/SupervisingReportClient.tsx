@@ -368,13 +368,11 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
                         />
                         <span>{item.title}</span>
                       </label>
-                      {item.description ? (
-                        <p className={styles.checkDescription}>{item.description}</p>
-                      ) : (
+                      {!item.description ? (
                         <button type="button" className={styles.noteButton} onClick={() => openNoteModal(item.id)}>
                           내용입력
                         </button>
-                      )}
+                      ) : null}
                       {supplyNotes[item.id] ? (
                         <p className={styles.checkNote}>
                           <strong>입력내용</strong>
