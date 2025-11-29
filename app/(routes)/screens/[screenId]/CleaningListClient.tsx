@@ -416,12 +416,15 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
     setAddForm((prev) => createAddFormState(nextRoom, undefined, prev.date, prev));
   }
 
-  function handleAddTypeChange(mode: 'cleaning' | 'condition') {
-    setAddForm((prev) => ({
-      ...prev,
-      cleaningYn: mode === 'cleaning',
-      conditionCheckYn: mode === 'condition'
-    }));
+  function handleAddTypeToggle() {
+    setAddForm((prev) => {
+      const nextCleaning = !prev.cleaningYn;
+      return {
+        ...prev,
+        cleaningYn: nextCleaning,
+        conditionCheckYn: !nextCleaning
+      };
+    });
   }
 
   const roomChoices =
@@ -790,26 +793,18 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                     </select>
                   </label>
                 </div>
-                <AddField label="작업 유형" hint="청소 또는 상태 확인 중 하나만 선택">
+                <AddField label="작업 유형" hint="청소/상태확인 중 한 가지만 선택">
                   <div className={styles.addTypeRow}>
                     <button
                       type="button"
-                      className={`${styles.addTypeButton} ${
-                        addForm.cleaningYn ? styles.addTypeButtonActive : ''
-                      }`.trim()}
-                      onClick={() => handleAddTypeChange('cleaning')}
+                      className={`${styles.addTypeButton} ${styles.addTypeButtonActive}`}
+                      onClick={handleAddTypeToggle}
                     >
-                      청소 포함
+                      {addForm.cleaningYn ? '청소 포함' : '상태 확인만' }
                     </button>
-                    <button
-                      type="button"
-                      className={`${styles.addTypeButton} ${
-                        addForm.conditionCheckYn ? styles.addTypeButtonActive : ''
-                      }`.trim()}
-                      onClick={() => handleAddTypeChange('condition')}
-                    >
-                      상태 확인만
-                    </button>
+                    <p className={styles.addTypeNote}>
+                      {addForm.cleaningYn ? '이 건은 청소 대상입니다.' : '이 건은 상태확인 대상입니다.'}
+                    </p>
                   </div>
                 </AddField>
                   <div className={styles.addGrid}>

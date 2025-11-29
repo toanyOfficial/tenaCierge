@@ -148,7 +148,7 @@ function buildInsertPayload(date: string, roomId: number, values: WorkMutationVa
   const conditionCheckYn = values.conditionCheckYn !== undefined ? values.conditionCheckYn : !cleaningYn;
 
   return {
-    date: new Date(`${date}T00:00:00+09:00`),
+    date: new Date(`${date}T12:00:00+09:00`),
     roomId,
     checkoutTime: values.checkoutTime ?? '00:00',
     checkinTime: values.checkinTime ?? '00:00',

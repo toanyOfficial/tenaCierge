@@ -924,14 +924,15 @@
 
 .addTypeRow {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .addTypeButton {
-  flex: 1;
-  min-width: 140px;
-  padding: 10px 12px;
+  flex: 0 0 auto;
+  min-width: 160px;
+  padding: 10px 14px;
   border-radius: 10px;
   border: 1px solid #cbd5e1;
   background: #f8fafc;
@@ -946,6 +947,13 @@
   background: #0f172a;
   color: #ffffff;
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.16);
+}
+
+.addTypeNote {
+  margin: 0;
+  color: #0f172a;
+  font-weight: 600;
+  font-size: 0.95rem;
 }
 
 .addSelectors {
