@@ -1938,6 +1938,61 @@
   font-size: 0.95rem;
 }
 
+.checkRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.checkLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkDescription {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.noteButton {
+  border: 1px solid #0f172a;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.checkNote {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0;
+  font-size: 0.9rem;
+  color: #0f172a;
+  background: #f8fafc;
+  padding: 6px 10px;
+  border-radius: 10px;
+}
+
+.checkNote strong {
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.noteTextarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  resize: vertical;
+}
+
 .uploadBox {
   border: 1px dashed var(--gray-400);
   border-radius: 10px;

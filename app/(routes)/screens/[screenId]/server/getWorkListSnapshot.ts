@@ -390,16 +390,14 @@ function parseSupplyRecommendations(
   const ids = parseChecklistIds(contents1);
   if (!ids.length) return [];
 
-  const otherText = normalizeText(contents2);
+  return ids.map((id, idx) => {
+    const checklist = checklistLookup.get(id);
+    const title = checklist?.title || `항목 ${idx + 1}`;
+    const note = resolveSupplyNote(contents2, id);
+    const description = checklist?.description ?? note ?? '정보 없음';
 
-  return ids
-    .map((id, idx) => {
-      const checklist = checklistLookup.get(id);
-      const title = checklist?.title || `항목 ${idx + 1}`;
-      const description = checklist?.description ?? otherText ?? '정보 없음';
-
-      return formatSupplyRecommendation(title, description);
-    });
+    return formatSupplyRecommendation(title, description);
+  });
 }
 
 function formatSupplyRecommendation(title: string, description: string) {
@@ -416,6 +414,19 @@ function formatSupplyRecommendation(title: string, description: string) {
 function normalizeText(value: unknown) {
   if (typeof value === 'string') return value;
   return undefined;
+}
+
+function resolveSupplyNote(contents2: unknown, checklistId: number) {
+  if (contents2 && typeof contents2 === 'object') {
+    if (!Array.isArray(contents2)) {
+      const value = (contents2 as Record<string, unknown>)[String(checklistId)];
+      if (typeof value === 'string' && value.trim()) {
+        return value.trim();
+      }
+    }
+  }
+
+  return normalizeText(contents2);
 }
 
 function sortRows(a: WorkListEntry, b: WorkListEntry, buildingCounts: Record<number, number>) {

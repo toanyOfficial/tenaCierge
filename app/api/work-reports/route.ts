@@ -34,6 +34,7 @@ export async function POST(req: Request) {
     const workId = Number(form.get('workId'));
     const cleaningChecks = safeParseIds(form.get('cleaningChecks'));
     const supplyChecks = safeParseIds(form.get('supplyChecks'));
+    const supplyNotes = safeParseSupplyNotes(form.get('supplyNotes'));
     const imageFiles = form.getAll('images').filter((f): f is File => f instanceof File);
     const imageFileSlots = safeParseIds(form.get('imageFileSlots'));
     const existingImages = safeParseImageMappings(form.get('existingImages'));
@@ -138,8 +139,8 @@ export async function POST(req: Request) {
       rowsToInsert.push({ workId, type: 1, contents1: cleaningOnly });
     }
 
-    if (supplyOnly.length) {
-      rowsToInsert.push({ workId, type: 2, contents1: supplyOnly });
+    if (supplyOnly.length || hasSupplyNotes(supplyNotes)) {
+      rowsToInsert.push({ workId, type: 2, contents1: supplyOnly, contents2: hasSupplyNotes(supplyNotes) ? supplyNotes : null });
     }
 
     if (imageMap.size) {
@@ -200,4 +201,28 @@ function safeParseImageMappings(value: FormDataEntryValue | null): { slotId: num
   } catch {
     return [];
   }
+}
+
+function safeParseSupplyNotes(value: FormDataEntryValue | null): Record<number, string> {
+  if (!value || typeof value !== 'string') return {};
+
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object') return {};
+
+    return Object.entries(parsed as Record<string, unknown>).reduce((acc, [key, val]) => {
+      const note = typeof val === 'string' ? val.trim() : '';
+      const numericKey = Number.parseInt(key, 10);
+      if (note && Number.isFinite(numericKey)) {
+        acc[numericKey] = note;
+      }
+      return acc;
+    }, {} as Record<number, string>);
+  } catch {
+    return {};
+  }
+}
+
+function hasSupplyNotes(notes: Record<number, string>) {
+  return Object.values(notes).some((val) => Boolean(val?.trim()));
 }
