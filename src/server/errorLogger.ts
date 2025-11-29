@@ -22,6 +22,16 @@ export async function logEtcError({
   requestId = null,
   appName = 'web'
 }: LogPayload): Promise<void> {
+  let contextJson: string | null = null;
+  if (context) {
+    try {
+      contextJson = JSON.stringify(context);
+    } catch (error) {
+      console.warn('errorLogs context stringify 실패', error);
+      contextJson = JSON.stringify({ fallback: 'stringify_failed', keys: Object.keys(context) });
+    }
+  }
+
   try {
     await db.insert(etcErrorLogs).values({
       level,
@@ -31,7 +41,7 @@ export async function logEtcError({
       stacktrace: stacktrace ?? null,
       requestId: requestId ?? null,
       userId: userId ?? null,
-      contextJson: context ? JSON.stringify(context) : null
+      contextJson
     });
   } catch (error) {
     console.error('errorLogs 저장 실패', error);

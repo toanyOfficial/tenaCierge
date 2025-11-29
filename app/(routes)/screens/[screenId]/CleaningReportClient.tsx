@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import type { MouseEvent } from 'react';
+import type { KeyboardEvent, MouseEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -31,8 +31,12 @@ function ImageTile({ slot, selectedFile, previewUrl, onChange, onRequestFile, re
   const hintText = selectedFile?.name ?? (previewUrl ? '기존 이미지' : '파일을 선택하세요');
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleOpen = (event: MouseEvent) => {
-    event.preventDefault();
+  const handleOpen = (event: MouseEvent | KeyboardEvent<HTMLLabelElement>) => {
+    if ('key' in event) {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+    }
+
     onRequestFile(slotKey, inputRef.current);
   };
 
@@ -41,6 +45,8 @@ function ImageTile({ slot, selectedFile, previewUrl, onChange, onRequestFile, re
       className={`${styles.imageTile} ${required ? styles.imageTileRequired : styles.imageTileOptional}`.trim()}
       aria-label={`${required ? '필수' : '선택'} 이미지 ${slot.title}`}
       onClick={handleOpen}
+      onKeyDown={handleOpen}
+      tabIndex={0}
     >
       <input
         type="file"
