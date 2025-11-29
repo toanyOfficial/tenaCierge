@@ -34,6 +34,42 @@ function compareTimes(a: string, b: string) {
   return aMinutes - bMinutes;
 }
 
+function sortWorks(list: WorkListEntry[], mode: 'checkout' | 'roomDesc') {
+  const buildingCounts = list.reduce<Record<number, number>>((acc, work) => {
+    acc[work.buildingId] = (acc[work.buildingId] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  return [...list].sort((a, b) => {
+    if (a.cleaningYn !== b.cleaningYn) {
+      return Number(a.cleaningYn) - Number(b.cleaningYn);
+    }
+
+    const aSector = a.sectorValue || a.sectorCode;
+    const bSector = b.sectorValue || b.sectorCode;
+    if (aSector !== bSector) {
+      return aSector.localeCompare(bSector, 'ko');
+    }
+
+    const countDiff = (buildingCounts[b.buildingId] ?? 0) - (buildingCounts[a.buildingId] ?? 0);
+    if (countDiff !== 0) return countDiff;
+
+    if (mode === 'checkout') {
+      const checkoutDiff = compareTimes(a.checkoutTime, b.checkoutTime);
+      if (checkoutDiff !== 0) return checkoutDiff;
+    }
+
+    const aRoom = parseInt(a.roomNo ?? '', 10);
+    const bRoom = parseInt(b.roomNo ?? '', 10);
+
+    if (!Number.isNaN(aRoom) && !Number.isNaN(bRoom) && aRoom !== bRoom) {
+      return bRoom - aRoom;
+    }
+
+    return b.roomNo.localeCompare(a.roomNo, 'ko', { numeric: true, sensitivity: 'base' });
+  });
+}
+
 function sortBuildingWorks(works: WorkListEntry[], mode: 'checkout' | 'roomDesc') {
   const noCleaning = works.filter((w) => !w.cleaningYn);
   const cleaning = works.filter((w) => w.cleaningYn);
@@ -113,7 +149,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
       }
     >();
 
-    works.forEach((work) => {
+    sortedWorks.forEach((work) => {
       const sectorKey = work.sectorValue || work.sectorCode || '미지정';
       const sectorLabel = work.sectorValue || work.sectorCode || '미지정';
       if (!sectors.has(sectorKey)) {
@@ -143,7 +179,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
 
         return { key, label: value.label, buildings };
       });
-  }, [works, sortMode]);
+  }, [sortedWorks, sortMode]);
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
