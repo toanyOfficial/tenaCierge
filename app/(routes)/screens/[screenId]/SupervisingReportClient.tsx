@@ -345,42 +345,48 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
             {cleaningChecklist.length === 0 ? (
               <p className={styles.reportEmpty}>체크리스트가 없습니다.</p>
             ) : (
-              <ul className={styles.checklist}>
-                {cleaningChecklist.map((item) => (
-                  <li key={item.id} className={styles.checkItem}>
-                    <div className={styles.supervisingRow}>
-                      <div className={styles.checkTitleBlock}>
+              <div className={styles.supervisingChecklistWrapper}>
+                <div className={styles.supervisingGuide}>
+                  <div className={styles.supervisingGuideItem}>
+                    <span className={styles.checkColumnTitle}>미흡여부</span>
+                    <span className={styles.checkDescription}>청소완료상태가 미흡한 경우 체크합니다.</span>
+                  </div>
+                  <div className={styles.supervisingGuideItem}>
+                    <span className={styles.checkColumnTitle}>완료여부</span>
+                    <span className={styles.checkDescription}>하나하나 체크하며 점검해주세요</span>
+                  </div>
+                </div>
+
+                <div className={styles.supervisingGrid}>
+                  <div className={`${styles.supervisingGridRow} ${styles.supervisingGridHeader}`}>
+                    <div className={styles.supervisingItemHead}>항목</div>
+                    <div className={styles.supervisingColumnHead}>미흡여부</div>
+                    <div className={styles.supervisingColumnHead}>완료여부</div>
+                  </div>
+                  {cleaningChecklist.map((item) => (
+                    <div key={item.id} className={styles.supervisingGridRow}>
+                      <div className={styles.supervisingItemCell}>
                         <span className={styles.checkTitle}>{item.title}</span>
                         {item.description ? <span className={styles.checkDescription}>{item.description}</span> : null}
                       </div>
-                      <div className={styles.checkColumns}>
-                        <label className={styles.checkColumnLabel}>
-                          <input
-                            type="checkbox"
-                            checked={supervisingFindingChecks[item.id] ?? false}
-                            onChange={() => toggleFindingFlag(item.id)}
-                          />
-                          <div className={styles.checkColumnText}>
-                            <span className={styles.checkColumnTitle}>미흡여부</span>
-                            <p className={styles.checkDescription}>청소완료상태가 미흡한 경우 체크합니다.</p>
-                          </div>
-                        </label>
-                        <label className={styles.checkColumnLabel}>
-                          <input
-                            type="checkbox"
-                            checked={supervisingCompletionChecks[item.id] ?? false}
-                            onChange={() => toggleCompletionFlag(item.id)}
-                          />
-                          <div className={styles.checkColumnText}>
-                            <span className={styles.checkColumnTitle}>완료여부</span>
-                            <p className={styles.checkDescription}>하나하나 체크하며 점검해주세요</p>
-                          </div>
-                        </label>
-                      </div>
+                      <label className={styles.supervisingCheckCell}>
+                        <input
+                          type="checkbox"
+                          checked={supervisingFindingChecks[item.id] ?? false}
+                          onChange={() => toggleFindingFlag(item.id)}
+                        />
+                      </label>
+                      <label className={styles.supervisingCheckCell}>
+                        <input
+                          type="checkbox"
+                          checked={supervisingCompletionChecks[item.id] ?? false}
+                          onChange={() => toggleCompletionFlag(item.id)}
+                        />
+                      </label>
                     </div>
-                  </li>
-                ))}
-              </ul>
+                  ))}
+                </div>
+              </div>
             )}
           </article>
 
