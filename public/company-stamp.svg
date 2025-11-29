@@ -1,0 +1,19 @@
+<svg width="240" height="240" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="roughen" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="2" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+  <rect width="240" height="240" fill="transparent"/>
+  <g filter="url(#roughen)" stroke="#d7261b" fill="none" stroke-width="10">
+    <circle cx="120" cy="120" r="100"/>
+    <circle cx="120" cy="120" r="76" stroke-width="6"/>
+  </g>
+  <g font-family="'Noto Sans KR', 'Noto Sans CJK KR', 'Noto Serif JP', serif" font-weight="800" fill="#d7261b">
+    <text x="120" y="90" text-anchor="middle" font-size="22">테너시티즈</text>
+    <text x="120" y="125" text-anchor="middle" font-size="18">정산확인</text>
+    <text x="120" y="158" text-anchor="middle" font-size="32">認</text>
+  </g>
+  <polygon points="120,36 128,56 149,56 132,70 139,91 120,79 101,91 108,70 91,56 112,56" fill="#d7261b"/>
+</svg>
