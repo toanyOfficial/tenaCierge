@@ -123,12 +123,36 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     return mapping;
   }, [imageSlotKeys, savedImages]);
 
-  const [supervisingFindingChecks, setSupervisingFindingChecks] = useState<Record<number, boolean>>(
-    existingSupervisingFindingChecks
+  const scoredChecklistIds = useMemo(
+    () => cleaningChecklist.filter((item) => Number(item.score) > 0).map(({ id }) => id),
+    [cleaningChecklist]
   );
-  const [supervisingCompletionChecks, setSupervisingCompletionChecks] = useState<Record<number, boolean>>(
-    existingSupervisingCompletionChecks
+
+  const visibleCleaningChecklist = useMemo(
+    () => cleaningChecklist.filter((item) => Number(item.score) <= 0),
+    [cleaningChecklist]
   );
+
+  const findingDefaults = useMemo(
+    () => ({
+      ...Object.fromEntries(cleaningChecklist.map(({ id }) => [id, false] as const)),
+      ...existingSupervisingFindingChecks,
+      ...Object.fromEntries(scoredChecklistIds.map((id) => [id, true] as const))
+    }),
+    [cleaningChecklist, existingSupervisingFindingChecks, scoredChecklistIds]
+  );
+
+  const completionDefaults = useMemo(
+    () => ({
+      ...Object.fromEntries(cleaningChecklist.map(({ id }) => [id, false] as const)),
+      ...existingSupervisingCompletionChecks,
+      ...Object.fromEntries(scoredChecklistIds.map((id) => [id, true] as const))
+    }),
+    [cleaningChecklist, existingSupervisingCompletionChecks, scoredChecklistIds]
+  );
+
+  const [supervisingFindingChecks, setSupervisingFindingChecks] = useState<Record<number, boolean>>(findingDefaults);
+  const [supervisingCompletionChecks, setSupervisingCompletionChecks] = useState<Record<number, boolean>>(completionDefaults);
   const [supplyChecks, setSupplyChecks] = useState<Set<number>>(new Set(existingSupplyChecks ?? []));
   const [supplyNotes, setSupplyNotes] = useState<Record<number, string>>(existingSupplyNotes ?? {});
   const [imageSelections, setImageSelections] = useState<Record<string, File | null>>(initialImageSelections);
@@ -153,11 +177,11 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     const messages: string[] = [];
 
     if (!requiredImagesReady && requiredImageSlots.length > 0) messages.push('필수 사진 항목을 확인하세요.');
-    const hasIncomplete = cleaningChecklist.some((item) => !supervisingCompletionChecks[item.id]);
+    const hasIncomplete = visibleCleaningChecklist.some((item) => !supervisingCompletionChecks[item.id]);
     if (hasIncomplete) messages.push('완료여부를 모두 체크해주세요.');
 
     return messages;
-  }, [requiredImagesReady, requiredImageSlots, supervisingCompletionChecks, cleaningChecklist]);
+  }, [requiredImagesReady, requiredImageSlots, supervisingCompletionChecks, visibleCleaningChecklist]);
 
   const isReadyToSubmit = readinessMessages.length === 0;
 
@@ -359,16 +383,12 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
 
                 <div className={styles.supervisingGrid}>
                   <div className={`${styles.supervisingGridRow} ${styles.supervisingGridHeader}`}>
-                    <div className={styles.supervisingItemHead}>항목</div>
                     <div className={styles.supervisingColumnHead}>미흡여부</div>
                     <div className={styles.supervisingColumnHead}>완료여부</div>
+                    <div className={styles.supervisingItemHead}>항목</div>
                   </div>
-                  {cleaningChecklist.map((item) => (
+                  {visibleCleaningChecklist.map((item) => (
                     <div key={item.id} className={styles.supervisingGridRow}>
-                      <div className={styles.supervisingItemCell}>
-                        <span className={styles.checkTitle}>{item.title}</span>
-                        {item.description ? <span className={styles.checkDescription}>{item.description}</span> : null}
-                      </div>
                       <label className={styles.supervisingCheckCell}>
                         <input
                           type="checkbox"
@@ -383,6 +403,10 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
                           onChange={() => toggleCompletionFlag(item.id)}
                         />
                       </label>
+                      <div className={styles.supervisingItemCell}>
+                        <span className={styles.checkTitle}>{item.title}</span>
+                        {item.description ? <span className={styles.checkDescription}>{item.description}</span> : null}
+                      </div>
                     </div>
                   ))}
                 </div>

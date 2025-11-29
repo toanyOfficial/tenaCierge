@@ -2058,8 +2058,8 @@
 
 .supervisingGridRow {
   display: grid;
-  grid-template-columns: 1.5fr 0.8fr 0.8fr;
-  gap: 8px;
+  grid-template-columns: minmax(110px, auto) minmax(110px, auto) 1fr;
+  gap: 10px;
   align-items: stretch;
   padding: 10px 12px;
   border: 1px solid #e2e8f0;
@@ -2094,6 +2094,7 @@
   border: 1px solid #cbd5e1;
   border-radius: 10px;
   padding: 10px;
+  min-width: 110px;
 }
 
 .noteButton {
