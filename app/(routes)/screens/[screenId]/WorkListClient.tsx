@@ -111,6 +111,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const [assignError, setAssignError] = useState('');
   const [infoTarget, setInfoTarget] = useState<WorkListEntry | null>(null);
   const [supplyTarget, setSupplyTarget] = useState<WorkListEntry | null>(null);
+  const [photoTarget, setPhotoTarget] = useState<WorkListEntry | null>(null);
   const [searchResults, setSearchResults] = useState<AssignableWorker[]>([]);
   const [assignOptions, setAssignOptions] = useState<AssignableWorker[]>(snapshot.assignableWorkers);
   const [sortMode, setSortMode] = useState<'checkout' | 'roomDesc'>('checkout');
@@ -525,6 +526,16 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                           <div className={styles.workTitleRow}>
                                             <p className={styles.workTitle}>{work.roomName}</p>
                                             <div className={styles.workTitleActions}>
+                                              {work.hasPhotoReport ? (
+                                                <button
+                                                  type="button"
+                                                  className={styles.infoButton}
+                                                  onClick={() => setPhotoTarget(work)}
+                                                  aria-label="업무 사진 보기"
+                                                >
+                                                  사진보기
+                                                </button>
+                                              ) : null}
                                               {work.hasSupplyReport ? (
                                                 <button
                                                   type="button"
@@ -779,6 +790,50 @@ export default function WorkListClient({ profile, snapshot }: Props) {
 
             <div className={styles.modalFoot}>
               <button type="button" className={styles.primaryButton} onClick={() => setInfoTarget(null)}>
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {photoTarget ? (
+        <div className={styles.modalBackdrop}>
+          <div className={styles.modalCard} role="dialog" aria-modal="true">
+            <div className={styles.modalHead}>
+              <span>사진 보기</span>
+              <button onClick={() => setPhotoTarget(null)} aria-label="닫기" className={styles.iconButton}>
+                ✕
+              </button>
+            </div>
+
+            <div className={styles.photoModalBody}>
+              {photoTarget.photos.length ? (
+                <div className={styles.photoGrid}>
+                  {photoTarget.photos.map((img, idx) => (
+                    <figure key={`${img.url}-${idx}`} className={styles.photoTile}>
+                      <img src={img.url} alt={`${photoTarget.roomName} 사진 ${idx + 1}`} className={styles.photoImage} />
+                      <figcaption className={styles.photoActions}>
+                        <a
+                          className={styles.infoButton}
+                          href={img.url}
+                          download
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          다운로드
+                        </a>
+                      </figcaption>
+                    </figure>
+                  ))}
+                </div>
+              ) : (
+                <p className={styles.helper}>표시할 사진이 없습니다.</p>
+              )}
+            </div>
+
+            <div className={styles.modalFoot}>
+              <button type="button" className={styles.primaryButton} onClick={() => setPhotoTarget(null)}>
                 닫기
               </button>
             </div>

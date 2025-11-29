@@ -53,9 +53,13 @@ export type WorkListEntry = {
   sectorValue: string;
   hasSupplyReport: boolean;
   supplyRecommendations: SupplyRecommendation[];
+  hasPhotoReport: boolean;
+  photos: WorkImage[];
 };
 
 export type SupplyRecommendation = { title: string; description: string; href?: string };
+
+export type WorkImage = { slotId?: number; url: string };
 
 export type AssignableWorker = {
   id: number;
@@ -172,6 +176,7 @@ export async function getWorkListSnapshot(
 
   const normalized = (rows ?? []).map((row) => normalizeRow(row));
   const supplyMap = await fetchLatestSupplyReports(normalized.map((row) => row.id));
+  const photoMap = await fetchLatestPhotoReports(normalized.map((row) => row.id));
   const assignableWorkers =
     profile.roles.includes('admin') || profile.roles.includes('butler')
       ? await fetchAssignableWorkers(targetDate)
@@ -185,7 +190,9 @@ export async function getWorkListSnapshot(
     .map((work) => ({
       ...work,
       hasSupplyReport: supplyMap.has(work.id),
-      supplyRecommendations: supplyMap.get(work.id)?.recommendations ?? []
+      supplyRecommendations: supplyMap.get(work.id)?.recommendations ?? [],
+      hasPhotoReport: photoMap.has(work.id),
+      photos: photoMap.get(work.id)?.images ?? []
     }))
     .sort((a, b) => sortRows(a, b, buildingCounts));
 
@@ -341,6 +348,26 @@ async function fetchLatestSupplyReports(workIds: number[]) {
   return map;
 }
 
+async function fetchLatestPhotoReports(workIds: number[]) {
+  const map = new Map<number, { images: WorkImage[] }>();
+
+  if (!workIds.length) return map;
+
+  const rows = await db
+    .select({ workId: workReports.workId, contents1: workReports.contents1, createdAt: workReports.createdAt })
+    .from(workReports)
+    .where(and(inArray(workReports.workId, workIds), eq(workReports.type, 3)))
+    .orderBy(desc(workReports.createdAt));
+
+  rows.forEach((row) => {
+    const workId = Number(row.workId);
+    if (map.has(workId)) return;
+    map.set(workId, { images: parseWorkImages(row.contents1) });
+  });
+
+  return map;
+}
+
 async function fetchChecklistLookup(ids: number[]) {
   if (!ids.length) return new Map<number, { title: string; description: string | null }>();
 
@@ -382,6 +409,21 @@ function parseChecklistIds(raw: unknown): number[] {
     .filter((id): id is number => id !== null);
 }
 
+function parseWorkImages(raw: unknown): WorkImage[] {
+  const payload = typeof raw === 'string' ? safeParseJson(raw) : raw;
+  if (!Array.isArray(payload)) return [];
+
+  return payload
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const slotId = Number((item as Record<string, unknown>).slotId);
+      const url = (item as Record<string, unknown>).url;
+      if (typeof url !== 'string' || !url.trim()) return null;
+      return { slotId: Number.isFinite(slotId) ? slotId : undefined, url } satisfies WorkImage;
+    })
+    .filter((img): img is WorkImage => Boolean(img));
+}
+
 function parseSupplyRecommendations(
   contents1: unknown,
   contents2: unknown,
@@ -414,6 +456,14 @@ function formatSupplyRecommendation(title: string, description: string) {
 function normalizeText(value: unknown) {
   if (typeof value === 'string') return value;
   return undefined;
+}
+
+function safeParseJson(value: string) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
 }
 
 function resolveSupplyNote(contents2: unknown, checklistId: number) {
