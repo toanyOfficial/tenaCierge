@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import type { KeyboardEvent, MouseEvent } from 'react';
+import type { KeyboardEvent } from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -35,10 +35,9 @@ function ImageTile({ slot, selectedFile, previewUrl, onChange, onRequestFile, re
   const hintText = selectedFile?.name ?? (previewUrl ? '기존 이미지' : '파일을 선택하세요');
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleInputClick = (event: MouseEvent<HTMLInputElement>) => {
-    // Preserve the native click behavior so desktop browsers open the OS file picker
-    // while still resetting the input attributes for album-first uploads.
-    onRequestFile(slotKey, inputRef.current);
+  const handleOpen = () => {
+    // Reset attributes and explicitly open the picker for better mobile support.
+    onRequestFile(slotKey, inputRef.current, { triggerClick: true });
   };
 
   const handleKeyOpen = (event: KeyboardEvent<HTMLLabelElement>) => {
@@ -53,13 +52,13 @@ function ImageTile({ slot, selectedFile, previewUrl, onChange, onRequestFile, re
       className={`${styles.imageTile} ${required ? styles.imageTileRequired : styles.imageTileOptional}`.trim()}
       aria-label={`${required ? '필수' : '선택'} 이미지 ${slot.title}`}
       onKeyDown={handleKeyOpen}
+      onClick={handleOpen}
       tabIndex={0}
     >
       <input
         type="file"
         accept="image/*"
         onChange={(e) => onChange(slotKey, e.target.files)}
-        onClick={handleInputClick}
         ref={inputRef}
         className={styles.imageInput}
       />
