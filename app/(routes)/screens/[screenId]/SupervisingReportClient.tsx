@@ -21,7 +21,13 @@ type ImageTileProps = {
   previewUrl?: string | null;
   onChange: (slotKey: string, files: FileList | null) => void;
   required?: boolean;
-  onRequestFile: (slotKey: string, inputEl: HTMLInputElement | null) => void;
+  onRequestFile: (
+    slotKey: string,
+    inputEl: HTMLInputElement | null,
+    options?: {
+      triggerClick?: boolean;
+    }
+  ) => void;
   captureMode: 'camera' | 'album';
   isDesktop: boolean;
 };
@@ -31,30 +37,36 @@ function ImageTile({ slot, selectedFile, previewUrl, onChange, onRequestFile, re
   const hintText = selectedFile?.name ?? (previewUrl ? '기존 이미지' : '파일을 선택하세요');
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleOpen = (event: MouseEvent | KeyboardEvent<HTMLLabelElement>) => {
-    if ('key' in event) {
-      if (event.key !== 'Enter' && event.key !== ' ') return;
+  const handleInputClick = (event: MouseEvent<HTMLInputElement>) => {
+    if (captureMode !== 'album' && !isDesktop) {
       event.preventDefault();
-    } else {
-      event.preventDefault();
+      event.stopPropagation();
+      onRequestFile(slotKey, inputRef.current, { triggerClick: true });
+      return;
     }
 
+    onRequestFile(slotKey, inputRef.current, { triggerClick: false });
+  };
+
+  const handleKeyOpen = (event: KeyboardEvent<HTMLLabelElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
     event.stopPropagation();
-    onRequestFile(slotKey, inputRef.current);
+    onRequestFile(slotKey, inputRef.current, { triggerClick: true });
   };
 
   return (
     <label
       className={`${styles.imageTile} ${required ? styles.imageTileRequired : styles.imageTileOptional}`.trim()}
       aria-label={`${required ? '필수' : '선택'} 이미지 ${slot.title}`}
-      onClick={handleOpen}
-      onKeyDown={handleOpen}
+      onKeyDown={handleKeyOpen}
       tabIndex={0}
     >
       <input
         type="file"
         accept="image/*"
         onChange={(e) => onChange(slotKey, e.target.files)}
+        onClick={handleInputClick}
         ref={inputRef}
         capture={captureMode === 'camera' && !isDesktop ? 'environment' : undefined}
         className={styles.imageInput}
@@ -158,15 +170,20 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     setImagePreviews((prev) => ({ ...prev, [slotKey]: URL.createObjectURL(file) }));
   };
 
-  const handleRequestFile = async (_slotKey: string, inputEl: HTMLInputElement | null) => {
+  const handleRequestFile = async (
+    _slotKey: string,
+    inputEl: HTMLInputElement | null,
+    options?: { triggerClick?: boolean }
+  ) => {
     if (!inputEl) return;
 
+    const shouldTrigger = options?.triggerClick ?? false;
     inputEl.value = '';
     const effectiveMode = isDesktop ? 'album' : captureMode;
 
     if (effectiveMode === 'album') {
       inputEl.removeAttribute('capture');
-      inputEl.click();
+      if (shouldTrigger) inputEl.click();
       return;
     }
 
@@ -178,12 +195,12 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       stream.getTracks().forEach((track) => track.stop());
       inputEl.setAttribute('capture', 'environment');
-      inputEl.click();
+      if (shouldTrigger) inputEl.click();
     } catch (err) {
       window.alert('카메라 앱 실행에 실패하여 앨범 모드로 전환합니다.');
       setCaptureMode('album');
       inputEl.removeAttribute('capture');
-      inputEl.click();
+      if (shouldTrigger) inputEl.click();
     }
   };
 
