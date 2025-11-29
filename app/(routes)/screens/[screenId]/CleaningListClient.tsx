@@ -31,6 +31,8 @@ type AddFormState = {
   blanketQty: number;
   amenitiesQty: number;
   requirements: string;
+  cleaningYn: boolean;
+  conditionCheckYn: boolean;
 };
 
 function buildTimeOptions(min: string, max: string, stepMinutes = 5) {
@@ -160,7 +162,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
 
   useEffect(() => {
     if (!roomOptions.length) {
-      setAddForm((prev) => createAddFormState(null, undefined, prev.date));
+      setAddForm((prev) => createAddFormState(null, undefined, prev.date, prev));
       setIsAddOpen(false);
       return;
     }
@@ -178,10 +180,10 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
       }
 
       if (prev.buildingKey && roomsByBuilding[prev.buildingKey]?.length) {
-        return createAddFormState(roomsByBuilding[prev.buildingKey][0], prev.buildingKey, prev.date);
+        return createAddFormState(roomsByBuilding[prev.buildingKey][0], prev.buildingKey, prev.date, prev);
       }
 
-      return createAddFormState(roomOptions[0], undefined, prev.date);
+      return createAddFormState(roomOptions[0], undefined, prev.date, prev);
     });
   }, [roomOptions, roomsByBuilding]);
 
@@ -390,12 +392,12 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
 
   function handleBuildingSelect(value: string) {
     if (!value) {
-      setAddForm((prev) => createAddFormState(null, undefined, prev.date));
+      setAddForm((prev) => createAddFormState(null, undefined, prev.date, prev));
       return;
     }
 
     const nextRoom = roomsByBuilding[value]?.[0] ?? null;
-    setAddForm((prev) => createAddFormState(nextRoom, value, prev.date));
+    setAddForm((prev) => createAddFormState(nextRoom, value, prev.date, prev));
   }
 
   function handleRoomSelect(value: string) {
@@ -411,7 +413,18 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
       return;
     }
 
-    setAddForm((prev) => createAddFormState(nextRoom, undefined, prev.date));
+    setAddForm((prev) => createAddFormState(nextRoom, undefined, prev.date, prev));
+  }
+
+  function handleAddTypeToggle() {
+    setAddForm((prev) => {
+      const nextCleaning = !prev.cleaningYn;
+      return {
+        ...prev,
+        cleaningYn: nextCleaning,
+        conditionCheckYn: !nextCleaning
+      };
+    });
   }
 
   const roomChoices =
@@ -442,6 +455,11 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
       return;
     }
 
+    if (addForm.cleaningYn === addForm.conditionCheckYn) {
+      setAddError('청소 또는 상태 확인 중 하나만 선택해 주세요.');
+      return;
+    }
+
     setIsAdding(true);
     setAddStatus('');
     setAddError('');
@@ -457,7 +475,9 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
           checkinTime: addForm.checkinTime,
           blanketQty: addForm.blanketQty,
           amenitiesQty: addForm.amenitiesQty,
-          requirements: addForm.requirements
+          requirements: addForm.requirements,
+          cleaningYn: addForm.cleaningYn,
+          conditionCheckYn: addForm.conditionCheckYn
         })
       });
 
@@ -468,11 +488,15 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
         throw new Error(detail ? String(detail) : `작업 추가에 실패했습니다. (코드 ${response.status})`);
       }
 
-      const created = payload.work as CleaningWork;
+      const created = payload.work as CleaningWork | undefined;
+
+      if (!created || !created.id) {
+        throw new Error('생성 결과를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      }
       setWorks((prev) => sortWorks([...prev, created]));
       setBaseline((prev) => sortWorks([...prev, created]));
       setAddStatus('새 작업이 생성되었습니다.');
-      setAddForm((prev) => createAddFormState(addRoom, undefined, prev.date));
+      setAddForm(() => createAddFormState(null));
       const search = new URLSearchParams(searchParams?.toString() ?? '');
       if (created?.date) {
         search.set('date', created.date);
@@ -499,6 +523,11 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
     const isMine = snapshot.currentWorkerId && work.cleanerId === snapshot.currentWorkerId;
     const isInspection = work.cleaningYn === false;
     const statusLabel = isInspection ? '상태 확인' : work.cancelYn ? '취소 상태' : '예약 유지';
+    const statusClass = isInspection
+      ? styles.statusCheckBadge
+      : work.cancelYn
+        ? styles.badgeDanger
+        : styles.badgeMuted;
 
     return (
       <article key={work.id} className={`${styles.workCard} ${isMine ? styles.workCardOwned : ''}`.trim()}>
@@ -506,9 +535,7 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
           <div className={styles.workHeaderRow}>
             <p className={styles.workTitle}>{work.roomName}</p>
             <div className={styles.workMetaRow}>
-              <span className={isInspection ? styles.badgeMuted : work.cancelYn ? styles.badgeDanger : styles.badgeMuted}>
-                {statusLabel}
-              </span>
+              <span className={statusClass}>{statusLabel}</span>
               {!isInspection ? (
                 canEdit ? (
                   <button
@@ -766,6 +793,20 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
                     </select>
                   </label>
                 </div>
+                <AddField label="작업 유형" hint="청소/상태확인 중 한 가지만 선택">
+                  <div className={styles.addTypeRow}>
+                    <button
+                      type="button"
+                      className={`${styles.addTypeButton} ${styles.addTypeButtonActive}`}
+                      onClick={handleAddTypeToggle}
+                    >
+                      {addForm.cleaningYn ? '청소 포함' : '상태 확인만' }
+                    </button>
+                    <p className={styles.addTypeNote}>
+                      {addForm.cleaningYn ? '이 건은 청소 대상입니다.' : '이 건은 상태확인 대상입니다.'}
+                    </p>
+                  </div>
+                </AddField>
                   <div className={styles.addGrid}>
                     <AddField label="체크아웃" hint="L.C.최대2시간">
                       <select
@@ -860,7 +901,19 @@ export default function CleaningListClient({ profile, snapshot }: Props) {
   );
 }
 
-function createAddFormState(room: RoomOption | null, forcedBuilding?: string, presetDate = ''): AddFormState {
+function createAddFormState(
+  room: RoomOption | null,
+  forcedBuilding?: string,
+  presetDate = '',
+  base?: Partial<Pick<AddFormState, 'cleaningYn' | 'conditionCheckYn'>>
+): AddFormState {
+  let cleaningYn = base?.cleaningYn ?? true;
+  let conditionCheckYn = base?.conditionCheckYn ?? !cleaningYn;
+
+  if (cleaningYn && conditionCheckYn) {
+    conditionCheckYn = false;
+  }
+
   if (!room) {
     return {
       date: presetDate,
@@ -870,7 +923,9 @@ function createAddFormState(room: RoomOption | null, forcedBuilding?: string, pr
       checkinTime: '00:00',
       blanketQty: 0,
       amenitiesQty: 0,
-      requirements: ''
+      requirements: '',
+      cleaningYn,
+      conditionCheckYn
     };
   }
 
@@ -882,7 +937,9 @@ function createAddFormState(room: RoomOption | null, forcedBuilding?: string, pr
     checkinTime: room.defaultCheckin,
     blanketQty: room.bedCount,
     amenitiesQty: room.bedCount,
-    requirements: ''
+    requirements: '',
+    cleaningYn,
+    conditionCheckYn
   };
 }
 
