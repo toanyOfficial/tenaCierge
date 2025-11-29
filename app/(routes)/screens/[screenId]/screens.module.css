@@ -572,22 +572,22 @@
 }
 
 .cleaningIdle {
-  background: #e2e8f0;
+  background: #e0f2fe;
   color: #0f172a;
 }
 
 .cleaningProgress {
-  background: #cbd5e1;
-  color: #0f172a;
-}
-
-.cleaningNearDone {
   background: #bfdbfe;
   color: #0f172a;
 }
 
+.cleaningNearDone {
+  background: #93c5fd;
+  color: #0f172a;
+}
+
 .cleaningDone {
-  background: linear-gradient(135deg, #0f172a, #2563eb);
+  background: #1d4ed8;
   color: #ffffff;
 }
 

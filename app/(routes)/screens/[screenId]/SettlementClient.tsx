@@ -78,13 +78,15 @@ export default function SettlementClient({ snapshot, isAdmin, profile }: Props) 
 
   return (
     <div className={styles.screenShell}>
-      <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} compact />
+      <div className={styles.headerRow}>
+        <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} compact />
+      </div>
 
-        <div className={styles.wrapper}>
-          <div className={styles.panel}>
-            <div className={styles.filters}>
-              <label>
-                정산 월
+      <div className={styles.wrapper}>
+        <div className={styles.panel}>
+          <div className={styles.filters}>
+            <label>
+              정산 월
               <input
                 type="month"
                 value={month}
@@ -104,10 +106,10 @@ export default function SettlementClient({ snapshot, isAdmin, profile }: Props) 
                 </select>
               </label>
             )}
-              <button className={styles.printButton} type="button" onClick={() => window.print()}>
-                PDF 다운로드
-              </button>
-            </div>
+            <button className={styles.printButton} type="button" onClick={() => window.print()}>
+              PDF 다운로드
+            </button>
+          </div>
 
             <div className={styles.card}>
               <div className={styles.badgeRow}>

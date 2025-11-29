@@ -35,8 +35,11 @@ function ImageTile({ slot, selectedFile, previewUrl, onChange, onRequestFile, re
     if ('key' in event) {
       if (event.key !== 'Enter' && event.key !== ' ') return;
       event.preventDefault();
+    } else {
+      event.preventDefault();
     }
 
+    event.stopPropagation();
     onRequestFile(slotKey, inputRef.current);
   };
 
