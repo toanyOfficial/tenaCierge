@@ -273,6 +273,29 @@
   box-shadow: 0 8px 16px rgba(15, 23, 42, 0.15);
 }
 
+.singleToggleGroup {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.singleToggle {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 700;
+  min-width: 220px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.singleToggleActive {
+  background: #dbeafe;
+  border-color: #2563eb;
+  color: #1d4ed8;
+}
+
 .cardGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -495,6 +518,27 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.buildingCard {
+  border: 1px dashed #e2e8f0;
+  border-radius: 12px;
+  padding: 10px;
+  background: #f8fafc;
+}
+
+.buildingHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.buildingTitle {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
 }
 
 .toggleButton,
