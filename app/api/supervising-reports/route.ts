@@ -33,7 +33,8 @@ export async function POST(req: Request) {
   try {
     const form = await req.formData();
     const workId = Number(form.get('workId'));
-    const cleaningChecks = safeParseIds(form.get('cleaningChecks'));
+    const supervisingFindings = safeParseFlag(form.get('supervisingFindings'));
+    const supervisingCompletion = safeParseFlag(form.get('supervisingCompletion'));
     const supplyChecks = safeParseIds(form.get('supplyChecks'));
     const supplyNotes = safeParseSupplyNotes(form.get('supplyNotes'));
     const imageFiles = form.getAll('images').filter((f): f is File => f instanceof File);
@@ -114,6 +115,10 @@ export async function POST(req: Request) {
 
     const readinessMessages: string[] = [];
 
+    if (!supervisingCompletion) {
+      readinessMessages.push('완료여부를 모두 체크해주세요.');
+    }
+
     if (requiredImageIds.some((id) => !imageMap.has(id))) {
       readinessMessages.push('필수 사진 항목을 확인하세요.');
     }
@@ -129,12 +134,14 @@ export async function POST(req: Request) {
       contents2?: unknown | null;
     }[];
 
-    const validCleaningChecks = cleaningChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 2));
     const validSupplyChecks = supplyChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 3));
 
-    if (validCleaningChecks.length) {
-      rowsToInsert.push({ workId, type: 4, contents1: validCleaningChecks });
-    }
+    rowsToInsert.push({
+      workId,
+      type: 4,
+      contents1: { checked: supervisingFindings },
+      contents2: { checked: supervisingCompletion }
+    });
 
     if (validSupplyChecks.length || hasSupplyNotes(supplyNotes)) {
       rowsToInsert.push({
@@ -166,7 +173,7 @@ export async function POST(req: Request) {
         .set({ supervisingYn: true, supervisingEndTime: nowTime })
         .where(eq(workHeader.id, workId));
 
-      const scoredIds = [...new Set([...validCleaningChecks, ...validSupplyChecks])];
+      const scoredIds = [...new Set(validSupplyChecks)];
       const scoreMap = new Map<number, number>(checklistRows.map((row) => [row.id, Number(row.score) || 0]));
       const checklistPointSum = scoredIds.reduce((sum, id) => sum + (scoreMap.get(id) ?? 0), 0);
 
@@ -199,6 +206,28 @@ function safeParseIds(value: FormDataEntryValue | null): number[] {
     return [];
   } catch {
     return [];
+  }
+}
+
+function safeParseFlag(value: FormDataEntryValue | null): boolean {
+  if (typeof value !== 'string') return false;
+
+  try {
+    const parsed = JSON.parse(value);
+
+    if (typeof parsed === 'boolean') return parsed;
+    if (parsed && typeof parsed === 'object') {
+      if ('checked' in parsed && typeof (parsed as { checked?: unknown }).checked === 'boolean') {
+        return Boolean((parsed as { checked?: boolean }).checked);
+      }
+
+      const boolEntry = Object.values(parsed as Record<string, unknown>).find((entry) => typeof entry === 'boolean');
+      if (typeof boolEntry === 'boolean') return boolEntry;
+    }
+
+    return false;
+  } catch {
+    return false;
   }
 }
 

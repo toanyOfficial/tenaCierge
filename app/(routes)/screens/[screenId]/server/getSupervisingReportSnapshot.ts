@@ -18,7 +18,8 @@ export type SupervisingReportSnapshot = {
   cleaningChecklist: ChecklistItem[];
   suppliesChecklist: ChecklistItem[];
   imageSlots: ImageSlot[];
-  existingCleaningChecks: number[];
+  existingSupervisingFindingChecked: boolean;
+  existingSupervisingCompletionChecked: boolean;
   existingSupplyChecks: number[];
   existingSupplyNotes: Record<number, string>;
   savedImages: SavedImage[];
@@ -169,9 +170,23 @@ export async function getSupervisingReportSnapshot(
       }, {} as Record<number, string>);
     };
 
-    const rawCleaningChecks = latestReports.get(4)?.contents1 ?? [];
+    const rawSupervisingFindings = latestReports.get(4)?.contents1;
+    const rawSupervisingCompletion = latestReports.get(4)?.contents2;
     const rawSupplyChecks = latestReports.get(2)?.contents1 ?? [];
     const rawSupplyNotes = latestReports.get(2)?.contents2 ?? {};
+
+    const parseBooleanFlag = (value: unknown) => {
+      if (typeof value === 'boolean') return value;
+      if (value && typeof value === 'object') {
+        if ('checked' in value && typeof (value as { checked?: unknown }).checked === 'boolean') {
+          return Boolean((value as { checked?: boolean }).checked);
+        }
+
+        const boolEntry = Object.values(value as Record<string, unknown>).find((v) => typeof v === 'boolean');
+        if (typeof boolEntry === 'boolean') return boolEntry;
+      }
+      return false;
+    };
 
     const savedImages = (() => {
       const rawImages = latestReports.get(5)?.contents1;
@@ -203,7 +218,8 @@ export async function getSupervisingReportSnapshot(
       cleaningChecklist,
       suppliesChecklist,
       imageSlots,
-      existingCleaningChecks: parseIdArray(rawCleaningChecks),
+      existingSupervisingFindingChecked: parseBooleanFlag(rawSupervisingFindings),
+      existingSupervisingCompletionChecked: parseBooleanFlag(rawSupervisingCompletion),
       existingSupplyChecks: parseIdArray(rawSupplyChecks),
       existingSupplyNotes: parseSupplyNotes(rawSupplyNotes),
       savedImages
