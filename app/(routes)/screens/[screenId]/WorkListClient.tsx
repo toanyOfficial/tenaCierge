@@ -239,6 +239,24 @@ export default function WorkListClient({ profile, snapshot }: Props) {
     [modalWorks, finishedWorks]
   );
 
+  const groupedByBuilding = useMemo(() => {
+    const mapList = (list: WorkWithRelations[]) =>
+      list.reduce<Record<string, WorkWithRelations[]>>((acc, work) => {
+        const key = work.buildingShortName || '기타';
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(work);
+        return acc;
+      }, {});
+
+    const sortEntries = (entries: [string, WorkWithRelations[]][]) =>
+      entries.sort(([a], [b]) => a.localeCompare(b));
+
+    return {
+      inProgress: sortEntries(Object.entries(mapList(inProgressWorks))),
+      finished: sortEntries(Object.entries(mapList(finishedWorks))),
+    };
+  }, [finishedWorks, inProgressWorks]);
+
   const combinedWorkers = useMemo(() => {
     const map = new Map<number, AssignableWorker>();
     assignOptions.forEach((w) => map.set(w.id, w));
@@ -615,66 +633,68 @@ export default function WorkListClient({ profile, snapshot }: Props) {
             </header>
             <div className={styles.detailSection}>
               <p className={styles.sectionLabel}>진행중</p>
-              <div className={styles.detailGridHeader}>
-                <span>호실</span>
-                <span>쳌아웃</span>
-                <span>체크인</span>
-                <span>배급</span>
-                <span>청소</span>
-                <span>검수</span>
-              </div>
               <div className={styles.detailGridBody}>
-                {inProgressWorks.map((work) => {
-                  const cleaningLabel = cleaningLabels[(work.cleaningFlag || 1) - 1] ?? cleaningLabels[0];
-                  const cleaningClass = (() => {
-                    if (work.cleaningFlag >= 4) return styles.detailCleanDone;
-                    if (work.cleaningFlag === 3) return styles.detailCleanNearDone;
-                    return styles.detailCleanIdle;
-                  })();
-
-                  const checkoutClass = work.checkoutTime === '12:00' ? '' : styles.timeWarning;
-                  const checkinClass = work.checkinTime === '16:00' ? '' : styles.timeWarning;
-
-                  return (
-                    <div key={work.id} className={styles.detailGridRow}>
-                      <span>{work.roomName}</span>
-                      <span className={checkoutClass}>{work.checkoutTime}</span>
-                      <span className={checkinClass}>{work.checkinTime}</span>
-                      <span className={work.supplyYn ? styles.stateOn : styles.stateOff}>{work.supplyYn ? '완료' : '대기'}</span>
-                      <span className={cleaningClass}>{cleaningLabel}</span>
-                      <span className={work.supervisingYn ? styles.stateOn : styles.stateOff}>
-                        {work.supervisingYn ? '완료' : '대기'}
-                      </span>
+                {groupedByBuilding.inProgress.map(([building, works]) => (
+                  <div key={building} className={styles.detailBuildingBlock}>
+                    <div className={styles.detailGridHeader}>
+                      <span className={styles.buildingLabel}>{building}</span>
+                      <span>쳌아웃</span>
+                      <span>체크인</span>
+                      <span>배급</span>
+                      <span>청소</span>
                     </div>
-                  );
-                })}
+                    {works.map((work) => {
+                      const cleaningLabel = cleaningLabels[(work.cleaningFlag || 1) - 1] ?? cleaningLabels[0];
+                      const cleaningClass = (() => {
+                        if (work.cleaningFlag >= 4) return styles.detailCleanDone;
+                        if (work.cleaningFlag === 3) return styles.detailCleanNearDone;
+                        return styles.detailCleanIdle;
+                      })();
+
+                      const checkoutClass = work.checkoutTime === '12:00' ? '' : styles.timeWarning;
+                      const checkinClass = work.checkinTime === '16:00' ? '' : styles.timeWarning;
+
+                      return (
+                        <div key={work.id} className={styles.detailGridRow}>
+                          <span>{work.roomNo}</span>
+                          <span className={checkoutClass}>{work.checkoutTime}</span>
+                          <span className={checkinClass}>{work.checkinTime}</span>
+                          <span className={work.supplyYn ? styles.stateOn : styles.stateOff}>
+                            {work.supplyYn ? '완료' : '대기'}
+                          </span>
+                          <span className={cleaningClass}>{cleaningLabel}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             </div>
 
             <div className={styles.detailSection}>
               <p className={styles.sectionLabel}>완료</p>
-              <div className={styles.detailGridHeader}>
-                <span>호실</span>
-                <span>쳌아웃</span>
-                <span>체크인</span>
-                <span>배급</span>
-                <span>청소</span>
-                <span>검수</span>
-              </div>
               <div className={styles.detailGridBody}>
-                {finishedWorks.map((work) => (
-                  <div key={work.id} className={styles.detailGridRow}>
-                    <span>{work.roomName}</span>
-                    <span className={work.checkoutTime === '12:00' ? '' : styles.timeWarning}>{work.checkoutTime}</span>
-                    <span className={work.checkinTime === '16:00' ? '' : styles.timeWarning}>{work.checkinTime}</span>
-                    <span className={styles.finishedValue}>완료</span>
-                    <span className={styles.finishedValue}>청소종료</span>
-                    <span className={styles.finishedValue}>완료</span>
+                {groupedByBuilding.finished.map(([building, works]) => (
+                  <div key={building} className={styles.detailBuildingBlock}>
+                    <div className={styles.detailGridHeader}>
+                      <span className={styles.buildingLabel}>{building}</span>
+                      <span>쳌아웃</span>
+                      <span>체크인</span>
+                      <span>배급</span>
+                      <span>청소</span>
+                    </div>
+                    {works.map((work) => (
+                      <div key={work.id} className={styles.detailGridRow}>
+                        <span>{work.roomNo}</span>
+                        <span className={work.checkoutTime === '12:00' ? '' : styles.timeWarning}>{work.checkoutTime}</span>
+                        <span className={work.checkinTime === '16:00' ? '' : styles.timeWarning}>{work.checkinTime}</span>
+                        <span className={styles.finishedValue}>완료</span>
+                        <span className={styles.finishedValue}>청소종료</span>
+                      </div>
+                    ))}
                   </div>
                 ))}
-                {!finishedWorks.length ? (
-                  <p className={styles.helper}>완료된 업무가 없습니다.</p>
-                ) : null}
+                {!finishedWorks.length ? <p className={styles.helper}>완료된 업무가 없습니다.</p> : null}
               </div>
             </div>
           </div>
