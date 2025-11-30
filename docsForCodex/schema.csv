@@ -215,7 +215,7 @@ tenaCierge,work_header,blanket_qty,tinyint,NO,
 tenaCierge,work_header,condition_check_yn,tinyint(1),NO,0:대상아님/1:대상
 tenaCierge,work_header,cleaning_yn,tinyint(1),NO,0:대상아님/1:대상
 tenaCierge,work_header,checkin_time,time,NO,
-tenaCierge,work_header,ceckout_time,time,NO,
+tenaCierge,work_header,checkout_time,time,NO,
 tenaCierge,work_header,supply_yn,tinyint(1),NO,0:미배급/1:배급
 tenaCierge,work_header,clening_flag,tinyint,NO,1:대기/2:시작/3:완료5분전/4:완료
 tenaCierge,work_header,supervising_yn,tinyint(1),NO,0:수퍼바이징미완료 / 1:수퍼바이징완료

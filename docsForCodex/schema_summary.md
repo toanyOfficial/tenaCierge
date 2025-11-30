@@ -1,4 +1,9 @@
 ## 2025-12-01 스키마 변경 요약
+- 추가된 컬럼: work_header.checkout_time
+- 제거된 컬럼: work_header.ceckout_time
+- 테이블 수: 35개, 컬럼 수: 310개
+
+## 2025-12-01 스키마 변경 요약
 - 추가된 컬럼: model_variable.name, model_variable.value, model_variable.description, model_variable.updated_at, work_header.condition_check_yn
 - 제거된 컬럼: work_header.conditionCheckYn
 - 테이블 수: 35개, 컬럼 수: 310개
