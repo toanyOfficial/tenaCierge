@@ -343,7 +343,7 @@ export const workHeader = mysqlTable('work_header', {
   conditionCheckYn: boolean('conditionCheckYn').default(false).notNull(),
   cleaningYn: boolean('cleaning_yn').default(true).notNull(),
   checkinTime: time('checkin_time').notNull(),
-  checkoutTime: time('ceckout_time').notNull(),
+  checkoutTime: time('checkout_time').notNull(),
   supplyYn: boolean('supply_yn').default(true).notNull(),
   cleaningFlag: tinyint('clening_flag').default(1).notNull(),
   cleaningEndTime: time('cleaning_end_time'),
