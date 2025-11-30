@@ -526,10 +526,21 @@ function buildKstDate(dateKey: string) {
 
 async function buildDateOptions(targetDate: string, now: Date) {
   const today = formatDateKey(now);
-  const dates = new Set<string>([today]);
-  dates.add(formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000)));
-  (await fetchAvailableWorkDates()).forEach((date) => dates.add(date));
-  dates.add(targetDate);
+  const todayDate = new Date(`${today}T00:00:00+09:00`);
+  const tomorrow = formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+  const dates = new Set<string>();
+
+  const addIfValid = (value: string, allowPast = false) => {
+    const parsed = new Date(`${value}T00:00:00+09:00`);
+    if (Number.isNaN(parsed.getTime())) return;
+    if (!allowPast && parsed < todayDate) return;
+    dates.add(value);
+  };
+
+  addIfValid(today, true);
+  addIfValid(tomorrow, true);
+  (await fetchAvailableWorkDates()).forEach((date) => addIfValid(date));
+  addIfValid(targetDate, true);
 
   return Array.from(dates)
     .map((value) => ({ value, label: formatFullDateLabel(new Date(`${value}T00:00:00+09:00`)) }))
