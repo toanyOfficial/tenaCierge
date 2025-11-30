@@ -65,6 +65,8 @@ type PriceItem = {
   minusYn?: boolean;
   ratioYn?: boolean;
   ratioValue?: number;
+  perBedYn?: boolean;
+  perRoomYn?: boolean;
 };
 
 function normalizeRegisterNo(value: string | undefined | null) {
@@ -167,7 +169,13 @@ async function resolveAdditionalPriceColumn(month: string, hostId?: number | nul
 }
 
 async function resolvePriceListFlags(month: string, hostId?: number | null) {
-  const result = { hasMinus: false, hasRatio: false, amountColumn: null as string | null };
+  const result = {
+    hasMinus: false,
+    hasRatio: false,
+    hasPerBed: false,
+    hasPerRoom: false,
+    amountColumn: null as string | null
+  };
 
   try {
     const raw = await db.execute<{ column_name?: string; COLUMN_NAME?: string }>(
@@ -193,6 +201,8 @@ async function resolvePriceListFlags(month: string, hostId?: number | null) {
       columns.find((col) =>
         ['amount', 'amount_per_cleaning', 'amount_per_room', 'price', 'value'].includes(col)
       ) ?? null;
+    result.hasPerBed = columns.includes('per_bed_yn');
+    result.hasPerRoom = columns.includes('per_room_yn');
   } catch (error) {
     await logEtcError({
       message: `client_price_list 플래그 컬럼 조회 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`,
@@ -283,6 +293,31 @@ function addLine(
   });
 }
 
+function applyRoomMultipliers(
+  base: { item: string; amount: Money; quantity: number },
+  price: PriceItem,
+  room: { bedCount?: number | null; roomCount?: number | null }
+) {
+  let quantity = base.quantity;
+  const noteParts: string[] = [];
+
+  if (price.perBedYn) {
+    const beds = Math.max(1, Number(room.bedCount ?? 0));
+    quantity *= beds;
+    noteParts.push(`침대수 x${beds}`);
+  }
+
+  if (price.perRoomYn) {
+    const rooms = Math.max(1, Number(room.roomCount ?? 0));
+    quantity *= rooms;
+    noteParts.push(`객실수 x${rooms}`);
+  }
+
+  const item = noteParts.length ? `${base.item} (${noteParts.join(' · ')})` : base.item;
+
+  return { ...base, quantity, item };
+}
+
 async function loadPriceItems(roomIds: number[], month: string, hostId?: number | null) {
   if (!roomIds.length) return new Map<number, PriceItem[]>();
 
@@ -324,11 +359,11 @@ async function loadPriceItems(roomIds: number[], month: string, hostId?: number 
           priceType: priceDetailColumns.hasType
             ? sql`COALESCE(${sql.raw('client_price_set_detail.type')}, ${clientPriceList.type})`
             : clientPriceList.type,
-          amount: priceDetailColumns.hasAmount
-            ? sql`CAST(COALESCE(${sql.raw(
-                `client_price_set_detail.${priceDetailAmountColumn}`
-              )}, ${priceListAmountColumn}) AS DECIMAL(20,4))`
-            : sql`CAST(${priceListAmountColumn} AS DECIMAL(20,4))`,
+      amount: priceDetailColumns.hasAmount
+        ? sql`CAST(COALESCE(${sql.raw(
+            `client_price_set_detail.${priceDetailAmountColumn}`
+          )}, ${priceListAmountColumn}) AS DECIMAL(20,4))`
+        : sql`CAST(${priceListAmountColumn} AS DECIMAL(20,4))`,
           title: priceDetailColumns.hasTitle
             ? sql`COALESCE(${sql.raw('client_price_set_detail.title')}, ${clientPriceList.title})`
             : clientPriceList.title,
@@ -347,7 +382,13 @@ async function loadPriceItems(roomIds: number[], month: string, hostId?: number 
                 ? sql`COALESCE(${sql.raw('client_price_set_detail.ratio_yn')}, 0)`
                 : priceFlags.hasRatio
                   ? sql`COALESCE(${sql.raw('client_price_list.ratio_yn')}, 0)`
-                  : sql`CAST(0 AS SIGNED)`
+                  : sql`CAST(0 AS SIGNED)`,
+          perBedYn: priceFlags.hasPerBed
+            ? sql`COALESCE(${sql.raw('client_price_list.per_bed_yn')}, 0)`
+            : sql`CAST(0 AS SIGNED)`,
+          perRoomYn: priceFlags.hasPerRoom
+            ? sql`COALESCE(${sql.raw('client_price_list.per_room_yn')}, 0)`
+            : sql`CAST(0 AS SIGNED)`
         })
         .from(clientPriceSetDetail)
         .innerJoin(clientPriceList, eq(clientPriceSetDetail.priceId, clientPriceList.id))
@@ -367,7 +408,9 @@ async function loadPriceItems(roomIds: number[], month: string, hostId?: number 
       title: typeof row.title === 'string' ? row.title : String(row.title ?? '요금'),
       minusYn: !!Number((row as any).minusYn ?? 0),
       ratioYn: !!Number((row as any).ratioYn ?? 0),
-      ratioValue: !!Number((row as any).ratioYn ?? 0) ? Number(row.amount) : undefined
+      ratioValue: !!Number((row as any).ratioYn ?? 0) ? Number(row.amount) : undefined,
+      perBedYn: !!Number((row as any).perBedYn ?? 0),
+      perRoomYn: !!Number((row as any).perRoomYn ?? 0)
     });
     priceSetMap.set(row.priceSetId, list);
   }
@@ -446,6 +489,7 @@ export async function getSettlementSnapshot(
         roomId: clientRooms.id,
         hostId: clientRooms.clientId,
         bedCount: clientRooms.bedCount,
+        roomCount: clientRooms.roomCount,
         roomNo: clientRooms.roomNo,
         buildingShort: etcBuildings.shortName,
         priceSetId: clientRooms.priceSetId,
@@ -550,6 +594,7 @@ export async function getSettlementSnapshot(
             roomId: row.roomId,
             hostId: row.hostId,
             bedCount: row.bedCount,
+            roomCount: row.roomCount,
             label: `${row.buildingShort}${row.roomNo}`,
             expectedCheckout: row.expectedCheckout,
             expectedCheckin: row.expectedCheckin,
@@ -593,12 +638,17 @@ export async function getSettlementSnapshot(
         switch (price.type) {
           case 1: {
             if (isCleaningWork) {
+              const base = applyRoomMultipliers(
+                { item: `${room.label} ${price.title ?? '청소비'}`, amount: price.amount, quantity: 1 },
+                price,
+                room
+              );
               addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
                 date,
-                item: `${room.label} ${price.title ?? '청소비'}`,
+                item: base.item,
                 priceTitle: price.title,
-                amount: price.amount,
-                quantity: 1,
+                amount: base.amount,
+                quantity: base.quantity,
                 category: 'cleaning',
                 minusYn: price.minusYn,
                 ratioYn: price.ratioYn,
@@ -609,13 +659,18 @@ export async function getSettlementSnapshot(
           }
           case 3: {
             if (isCleaningWork) {
-              const qty = room.bedCount ?? 1;
+              const baseQty = room.bedCount ?? 1;
+              const base = applyRoomMultipliers(
+                { item: `${room.label} ${price.title ?? '침구/베드 청소비'}`, amount: price.amount, quantity: baseQty },
+                price,
+                room
+              );
               addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
                 date,
-                item: `${room.label} ${price.title ?? '침구/베드 청소비'}`,
+                item: base.item,
                 priceTitle: price.title,
-                amount: price.amount,
-                quantity: qty,
+                amount: base.amount,
+                quantity: base.quantity,
                 category: 'facility',
                 minusYn: price.minusYn,
                 ratioYn: price.ratioYn,
@@ -632,12 +687,17 @@ export async function getSettlementSnapshot(
             const varianceMinutes = Math.max(0, actualOut - expectedOut) + Math.max(0, expectedIn - actualIn);
 
             if (varianceMinutes > 0) {
+              const base = applyRoomMultipliers(
+                { item: `${room.label} ${price.title ?? '체크인/아웃 변동'}`, amount: price.amount, quantity: varianceMinutes },
+                price,
+                room
+              );
               addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
                 date,
-                item: `${room.label} ${price.title ?? '체크인/아웃 변동'}`,
+                item: base.item,
                 priceTitle: price.title,
-                amount: price.amount,
-                quantity: varianceMinutes,
+                amount: base.amount,
+                quantity: base.quantity,
                 category: 'facility',
                 minusYn: price.minusYn,
                 ratioYn: price.ratioYn,
@@ -653,12 +713,17 @@ export async function getSettlementSnapshot(
             const extras = extraAmenities + extraBlankets;
 
             if (extras > 0) {
+              const base = applyRoomMultipliers(
+                { item: `${room.label} ${price.title ?? '추가 어메니티/침구'}`, amount: price.amount, quantity: extras },
+                price,
+                room
+              );
               addLine(hostStatement.lines, { roomId: work.roomId, roomLabel: room.label }, {
                 date,
-                item: `${room.label} ${price.title ?? '추가 어메니티/침구'}`,
+                item: base.item,
                 priceTitle: price.title,
-                amount: price.amount,
-                quantity: extras,
+                amount: base.amount,
+                quantity: base.quantity,
                 category: 'facility',
                 minusYn: price.minusYn,
                 ratioYn: price.ratioYn,
@@ -688,14 +753,19 @@ export async function getSettlementSnapshot(
         switch (price.type) {
           case 2: {
             const perDay = price.amount / daysInMonth;
-              addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
-                date: monthDate,
-                item: `${roomInfo.label} ${price.title ?? '월정액'}`,
-                priceTitle: price.title,
-                amount: perDay,
-                quantity: activeDays,
-                category: 'monthly',
-                minusYn: price.minusYn,
+            const base = applyRoomMultipliers(
+              { item: `${roomInfo.label} ${price.title ?? '월정액'}`, amount: perDay, quantity: activeDays },
+              price,
+              roomInfo
+            );
+            addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
+              date: monthDate,
+              item: base.item,
+              priceTitle: price.title,
+              amount: base.amount,
+              quantity: base.quantity,
+              category: 'monthly',
+              minusYn: price.minusYn,
               ratioYn: price.ratioYn,
               ratioValue: price.ratioValue
             });
@@ -705,28 +775,42 @@ export async function getSettlementSnapshot(
             const qty = roomInfo.bedCount ?? 1;
             const perDay = price.amount / daysInMonth;
             const totalQty = qty * activeDays;
-              addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
-                date: monthDate,
+            const base = applyRoomMultipliers(
+              {
                 item: `${roomInfo.label} ${price.title ?? '침구 월정액'} (x${qty})`,
-                priceTitle: price.title,
                 amount: perDay,
-                quantity: totalQty,
-                category: 'monthly',
-                minusYn: price.minusYn,
+                quantity: totalQty
+              },
+              price,
+              roomInfo
+            );
+            addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
+              date: monthDate,
+              item: base.item,
+              priceTitle: price.title,
+              amount: base.amount,
+              quantity: base.quantity,
+              category: 'monthly',
+              minusYn: price.minusYn,
               ratioYn: price.ratioYn,
               ratioValue: price.ratioValue
             });
             break;
           }
           case 7: {
-              addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
-                date: monthDate,
-                item: `${roomInfo.label} ${price.title ?? '임시 항목'}`,
-                priceTitle: price.title,
-                amount: price.amount,
-                quantity: 1,
-                category: 'misc',
-                minusYn: price.minusYn,
+            const base = applyRoomMultipliers(
+              { item: `${roomInfo.label} ${price.title ?? '임시 항목'}`, amount: price.amount, quantity: 1 },
+              price,
+              roomInfo
+            );
+            addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: roomInfo.label }, {
+              date: monthDate,
+              item: base.item,
+              priceTitle: price.title,
+              amount: base.amount,
+              quantity: base.quantity,
+              category: 'misc',
+              minusYn: price.minusYn,
               ratioYn: price.ratioYn,
               ratioValue: price.ratioValue
             });
