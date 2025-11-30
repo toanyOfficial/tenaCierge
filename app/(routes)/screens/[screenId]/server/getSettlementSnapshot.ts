@@ -358,7 +358,7 @@ async function loadPriceItems(roomIds: number[], month: string, hostId?: number 
       roomId: 0,
       type: Number(row.priceType),
       amount: Number(row.amount),
-      title: row.title ?? '요금',
+      title: typeof row.title === 'string' ? row.title : String(row.title ?? '요금'),
       minusYn: !!Number((row as any).minusYn ?? 0),
       ratioYn: !!Number((row as any).ratioYn ?? 0),
       ratioValue: !!Number((row as any).ratioYn ?? 0) ? Number(row.amount) : undefined
