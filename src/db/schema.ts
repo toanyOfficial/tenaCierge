@@ -340,7 +340,7 @@ export const workHeader = mysqlTable('work_header', {
   butlerId: int('butler_id'),
   amenitiesQty: tinyint('amenities_qty').notNull(),
   blanketQty: tinyint('blanket_qty').notNull(),
-  conditionCheckYn: boolean('conditionCheckYn').default(false).notNull(),
+  conditionCheckYn: boolean('condition_check_yn').default(false).notNull(),
   cleaningYn: boolean('cleaning_yn').default(true).notNull(),
   checkinTime: time('checkin_time').notNull(),
   checkoutTime: time('checkout_time').notNull(),
