@@ -182,9 +182,14 @@ export async function getWorkListSnapshot(
         emptyMessage = '근무자 정보를 찾을 수 없습니다.';
       } else {
         const assignedWorkIds = await fetchAssignedWorkIds(worker.id, targetDate);
+        const windowLabel = window === 'd1' ? '내일' : '오늘';
+        const hasApplication = await hasWorkApplication(worker.id, targetDate);
+
         if (!assignedWorkIds.length) {
           rows = [];
-          emptyMessage = '아직 할당된 업무가 없습니다.';
+          emptyMessage = hasApplication
+            ? `${windowLabel}자 신청 내역은 있으나 아직 배정되지 않았습니다.`
+            : '아직 할당된 업무가 없습니다.';
         } else {
           rows = await baseQueryBuilder
             .where(and(eq(workHeader.date, targetDateValue), inArray(workHeader.id, assignedWorkIds)))
