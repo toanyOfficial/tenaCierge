@@ -93,7 +93,7 @@ export async function getWorkListSnapshot(
     const now = getKstNow();
     const minutes = now.getHours() * 60 + now.getMinutes();
     const { targetDate, window, windowDates } = resolveWindow(now, minutes, dateParam, windowParam);
-    const targetDateValue = new Date(`${targetDate}T00:00:00Z`);
+    const targetDateValue = buildKstDate(targetDate);
 
     const notice = await fetchLatestNotice();
 
@@ -230,7 +230,7 @@ async function fetchLatestNotice() {
 }
 
 async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
-  const targetDateValue = new Date(`${targetDate}T00:00:00Z`);
+  const targetDateValue = buildKstDate(targetDate);
   const rows = await db
     .select({ workId: workAssignment.workId })
     .from(workAssignment)
@@ -288,7 +288,7 @@ function normalizeRow(row: any): WorkListEntry {
 }
 
 async function fetchAssignableWorkers(targetDate: string): Promise<AssignableWorker[]> {
-  const targetDateValue = new Date(`${targetDate}T00:00:00Z`);
+  const targetDateValue = buildKstDate(targetDate);
   const rows = await db
     .select({
       id: workApply.workerId,
@@ -470,6 +470,10 @@ function formatSupplyRecommendation(title: string, description: string) {
 function normalizeText(value: unknown) {
   if (typeof value === 'string') return value;
   return undefined;
+}
+
+function buildKstDate(dateKey: string) {
+  return new Date(`${dateKey}T00:00:00+09:00`);
 }
 
 function safeParseJson(value: string) {
