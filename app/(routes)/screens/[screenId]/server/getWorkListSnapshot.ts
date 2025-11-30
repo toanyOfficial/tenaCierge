@@ -168,9 +168,14 @@ export async function getWorkListSnapshot(
         emptyMessage = '근무자 정보를 찾을 수 없습니다.';
       } else {
         const assignedWorkIds = await fetchAssignedWorkIds(worker.id, targetDate);
+        const windowLabel = window === 'd1' ? '내일' : '오늘';
+        const hasApplication = await hasWorkApplication(worker.id, targetDate);
+
         if (!assignedWorkIds.length) {
           rows = [];
-          emptyMessage = '아직 할당된 업무가 없습니다.';
+          emptyMessage = hasApplication
+            ? `${windowLabel}자 신청 내역은 있으나 아직 배정되지 않았습니다.`
+            : '아직 할당된 업무가 없습니다.';
         } else {
           rows = await baseQueryBuilder
             .where(and(eq(workHeader.date, targetDateValue), inArray(workHeader.id, assignedWorkIds)))
@@ -227,6 +232,17 @@ export async function getWorkListSnapshot(
 async function fetchLatestNotice() {
   const rows = await db.select().from(etcNotice).orderBy(desc(etcNotice.noticeDate)).limit(1);
   return rows[0]?.notice ?? '공지사항이 없습니다.';
+}
+
+async function hasWorkApplication(workerId: number, targetDate: string) {
+  const targetDateValue = buildKstDate(targetDate);
+  const rows = await db
+    .select({ id: workApply.id })
+    .from(workApply)
+    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateValue)))
+    .limit(1);
+
+  return rows.length > 0;
 }
 
 async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
