@@ -5,14 +5,14 @@ import { db } from '@/src/db/client';
 import { clientRooms, etcBuildings, workHeader } from '@/src/db/schema';
 import { findClientByProfile } from '@/src/server/clients';
 import { findWorkerByProfile } from '@/src/server/workers';
-import { fetchWorkRowsByDate, serializeWorkRow } from '@/src/server/workQueries';
+import { fetchAvailableWorkDates, fetchWorkRowsByDate, serializeWorkRow } from '@/src/server/workQueries';
 import type { CleaningWork } from '@/src/server/workTypes';
 import type { ProfileSummary } from '@/src/utils/profile';
 import {
   buildDateOptions,
   formatDateKey,
   getKstNow,
-  isDateWithinRange,
+  formatFullDateLabel,
   resolveWorkWindow,
   type WorkWindowMeta
 } from '@/src/utils/workWindow';
@@ -52,8 +52,9 @@ export async function getCleaningSnapshot(profile: ProfileSummary, targetDate?: 
   const now = getKstNow();
   const today = formatDateKey(now);
   const maxDate = buildMaxDate(today, 7);
-  const dateOptions = buildDateOptions(7, now);
-  const meta = resolveWorkWindow(undefined, targetDate && isDateWithinRange(targetDate, 7, now) ? targetDate : undefined);
+  const meta = resolveWorkWindow(undefined, targetDate || undefined);
+  const availableDates = await fetchAvailableWorkDates();
+  const dateOptions = buildExtendedOptions(buildDateOptions(7, now), availableDates, meta.targetDate, now);
   const client = profile.roles.includes('host') ? await findClientByProfile(profile) : null;
   const worker = profile.roles.includes('cleaner') ? await findWorkerByProfile(profile) : null;
   const [works, hostRooms, adminRooms] = await Promise.all([
@@ -86,6 +87,43 @@ function buildMaxDate(today: string, days: number) {
   const base = new Date(`${today}T00:00:00+09:00`);
   base.setDate(base.getDate() + days);
   return formatDateKey(base);
+}
+
+function buildExtendedOptions(
+  options: { value: string; label: string; tag: WorkWindowMeta['targetTag'] }[],
+  availableDates: string[],
+  targetDate: string,
+  now: Date
+) {
+  const today = formatDateKey(now);
+  const seen = new Set(options.map((option) => option.value));
+
+  const withAvailable = [
+    ...options,
+    ...availableDates
+      .filter((date) => !seen.has(date))
+      .map((date) => ({ value: date, tag: resolveTag(today, date), label: formatFullDateLabel(new Date(`${date}T00:00:00+09:00`)) }))
+  ];
+
+  if (!seen.has(targetDate)) {
+    withAvailable.unshift({
+      value: targetDate,
+      tag: resolveTag(today, targetDate),
+      label: formatFullDateLabel(new Date(`${targetDate}T00:00:00+09:00`))
+    });
+  }
+
+  return withAvailable.sort((a, b) => a.value.localeCompare(b.value));
+}
+
+function resolveTag(today: string, target: string): WorkWindowMeta['targetTag'] {
+  const todayDate = new Date(`${today}T00:00:00+09:00`);
+  const targetDate = new Date(`${target}T00:00:00+09:00`);
+  const diff = Math.round((targetDate.getTime() - todayDate.getTime()) / (24 * 60 * 60 * 1000));
+
+  if (diff <= 0) return 'D0';
+  const offset = Math.min(diff, 7);
+  return (`D+${offset}` as WorkWindowMeta['targetTag']);
 }
 
 async function getWorks(targetDate: string): Promise<CleaningWork[]> {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, gte, lte } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import { workApply } from '@/src/db/schema';
@@ -29,13 +29,16 @@ export async function GET(request: Request) {
 
     const now = getKstNow();
     const today = formatDateKey(now);
+    const todayValue = new Date(`${today}T00:00:00+09:00`);
     const tomorrow = formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
-    const targetDates = [today, tomorrow].map((value) => new Date(`${value}T00:00:00+09:00`));
+    const tomorrowValue = new Date(`${tomorrow}T00:00:00+09:00`);
 
     const applyRows = await db
       .select({ date: workApply.workDate })
       .from(workApply)
-      .where(and(eq(workApply.workerId, worker.id), inArray(workApply.workDate, targetDates)));
+      .where(
+        and(eq(workApply.workerId, worker.id), gte(workApply.workDate, todayValue), lte(workApply.workDate, tomorrowValue))
+      );
 
     if (!applyRows.length) {
       return NextResponse.json({ allowed: false, message: '오늘,내일 중 업무 신청 사항이 없습니다.' });
