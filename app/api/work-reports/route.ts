@@ -88,7 +88,7 @@ export async function POST(req: Request) {
     }
 
     const requiredImageIds = imageSlotRows
-      .map((row) => ({ id: row.id, required: row.listRequired ?? row.required }))
+      .map((row) => ({ id: row.id, required: row.required ?? row.listRequired }))
       .filter((row) => row.required)
       .map((row) => row.id);
 
