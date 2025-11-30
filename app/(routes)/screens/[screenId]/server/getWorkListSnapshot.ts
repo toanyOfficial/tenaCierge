@@ -89,6 +89,10 @@ function buildKstDate(dateKey: string) {
   return new Date(`${dateKey}T00:00:00Z`);
 }
 
+function buildDateParam(dateKey: string) {
+  return dateKey as unknown as Date;
+}
+
 function normalizeDate(input?: string) {
   if (!input) return '';
 
@@ -222,7 +226,7 @@ export async function getWorkListSnapshot(
     const targetDate = preferToday ? initialWindow.windowDates.d0 : initialWindow.targetDate;
     const window = preferToday ? 'd0' : initialWindow.window;
     const windowDates = initialWindow.windowDates;
-    const targetDateValue = buildKstDate(targetDate);
+    const targetDateValue = buildDateParam(targetDate);
     const dateOptions = await buildDateOptions(targetDate, now);
 
     const notice = await fetchLatestNotice();
@@ -377,7 +381,7 @@ async function fetchLatestNotice() {
 }
 
 async function hasButlerApplication(workerId: number, targetDate: string) {
-  const targetDateValue = buildKstDate(targetDate);
+  const targetDateValue = buildDateParam(targetDate);
   const rows = await db
     .select({ id: workApply.id })
     .from(workApply)
@@ -388,7 +392,7 @@ async function hasButlerApplication(workerId: number, targetDate: string) {
 }
 
 async function hasWorkApplication(workerId: number, targetDate: string) {
-  const targetDateValue = buildKstDate(targetDate);
+  const targetDateValue = buildDateParam(targetDate);
   const rows = await db
     .select({ id: workApply.id })
     .from(workApply)
@@ -399,7 +403,7 @@ async function hasWorkApplication(workerId: number, targetDate: string) {
 }
 
 async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
-  const targetDateValue = buildKstDate(targetDate);
+  const targetDateValue = buildDateParam(targetDate);
   const rows = await db
     .select({ workId: workAssignment.workId })
     .from(workAssignment)
@@ -457,7 +461,7 @@ function normalizeRow(row: any): WorkListEntry {
 }
 
 async function fetchAssignableWorkers(targetDate: string): Promise<AssignableWorker[]> {
-  const targetDateValue = buildKstDate(targetDate);
+  const targetDateValue = buildDateParam(targetDate);
   const rows = await db
     .select({
       id: workApply.workerId,
