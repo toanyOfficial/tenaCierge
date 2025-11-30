@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import { unstable_noStore as noStore } from 'next/cache';
 
@@ -21,6 +21,7 @@ import { findClientByProfile } from '@/src/server/clients';
 import { findWorkerByProfile } from '@/src/server/workers';
 import { fetchAvailableWorkDates } from '@/src/server/workQueries';
 import { getKstNow, formatDateKey, formatFullDateLabel } from '@/src/utils/workWindow';
+import { logError, logInfo } from '@/src/server/logger';
 import { logServerError } from '@/src/server/errorLogger';
 
 export type WorkListEntry = {
@@ -87,6 +88,10 @@ export type WorkListSnapshot = {
 
 function buildKstDate(dateKey: string) {
   return new Date(`${dateKey}T00:00:00Z`);
+}
+
+function buildDateParam(dateKey: string) {
+  return dateKey;
 }
 
 function normalizeDate(input?: string) {
@@ -222,7 +227,8 @@ export async function getWorkListSnapshot(
     const targetDate = preferToday ? initialWindow.windowDates.d0 : initialWindow.targetDate;
     const window = preferToday ? 'd0' : initialWindow.window;
     const windowDates = initialWindow.windowDates;
-    const targetDateValue = buildKstDate(targetDate);
+    const targetDateValue = buildDateParam(targetDate);
+    const targetDateSql = sql`CAST(${targetDateValue} AS DATE)`;
     const dateOptions = await buildDateOptions(targetDate, now);
 
     const notice = await fetchLatestNotice();
@@ -276,7 +282,7 @@ export async function getWorkListSnapshot(
       )
       .leftJoin(workerHeader, eq(workHeader.cleanerId, workerHeader.id));
 
-    const baseQuery = baseQueryBuilder.where(eq(workHeader.date, targetDateValue));
+    const baseQuery = baseQueryBuilder.where(eq(workHeader.date, targetDateSql));
 
     let rows: Awaited<typeof baseQuery> | undefined = undefined;
 
@@ -297,7 +303,7 @@ export async function getWorkListSnapshot(
         rows = [];
       } else {
         rows = await baseQueryBuilder
-          .where(and(eq(workHeader.date, targetDateValue), eq(clientRooms.clientId, client.id)))
+          .where(and(eq(workHeader.date, targetDateSql), eq(clientRooms.clientId, client.id)))
           .limit(1000);
       }
     } else if (profile.roles.includes('cleaner')) {
@@ -314,9 +320,9 @@ export async function getWorkListSnapshot(
           rows = [];
           emptyMessage = hasApplication ? '아직 할당된 업무가 없습니다.' : '오늘,내일자 업무 신청 내역이 없습니다.';
         } else {
-          rows = await baseQueryBuilder
-            .where(and(eq(workHeader.date, targetDateValue), inArray(workHeader.id, assignedWorkIds)))
-            .limit(1000);
+        rows = await baseQueryBuilder
+          .where(and(eq(workHeader.date, targetDateSql), inArray(workHeader.id, assignedWorkIds)))
+          .limit(1000);
         }
       }
     }
@@ -343,7 +349,7 @@ export async function getWorkListSnapshot(
     }))
     .sort((a, b) => sortRows(a, b, buildingCounts));
 
-    return {
+    const response = {
       notice,
       targetDate,
       window,
@@ -360,7 +366,28 @@ export async function getWorkListSnapshot(
       emptyMessage,
       currentMinutes: minutes
     };
+    await logInfo({
+      message: 'work list snapshot fetched',
+      context: {
+        targetDate,
+        targetDateValue,
+        window,
+        role: profile.primaryRole,
+        roles: profile.roles,
+        workCount: response.works.length
+      }
+    });
+
+    return response;
   } catch (error) {
+    await logError({
+      message: 'getWorkListSnapshot 실패',
+      error,
+      context: {
+        dateParam,
+        windowParam
+      }
+    });
     await logServerError({
       appName: 'work-list',
       errorCode: 'SNAPSHOT_FAIL',
@@ -377,33 +404,36 @@ async function fetchLatestNotice() {
 }
 
 async function hasButlerApplication(workerId: number, targetDate: string) {
-  const targetDateValue = buildKstDate(targetDate);
+  const targetDateValue = buildDateParam(targetDate);
+  const targetDateSql = sql`CAST(${targetDateValue} AS DATE)`;
   const rows = await db
     .select({ id: workApply.id })
     .from(workApply)
-    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateValue), eq(workApply.position, 2)))
+    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateSql), eq(workApply.position, 2)))
     .limit(1);
 
   return rows.length > 0;
 }
 
 async function hasWorkApplication(workerId: number, targetDate: string) {
-  const targetDateValue = buildKstDate(targetDate);
+  const targetDateValue = buildDateParam(targetDate);
+  const targetDateSql = sql`CAST(${targetDateValue} AS DATE)`;
   const rows = await db
     .select({ id: workApply.id })
     .from(workApply)
-    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateValue)))
+    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateSql)))
     .limit(1);
 
   return rows.length > 0;
 }
 
 async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
-  const targetDateValue = buildKstDate(targetDate);
+  const targetDateValue = buildDateParam(targetDate);
+  const targetDateSql = sql`CAST(${targetDateValue} AS DATE)`;
   const rows = await db
     .select({ workId: workAssignment.workId })
     .from(workAssignment)
-    .where(and(eq(workAssignment.workerId, workerId), eq(workAssignment.assignDate, targetDateValue)));
+    .where(and(eq(workAssignment.workerId, workerId), eq(workAssignment.assignDate, targetDateSql)));
 
   if (rows.length) {
     return rows.map((row) => Number(row.workId));
@@ -412,7 +442,7 @@ async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
   const directRows = await db
     .select({ id: workHeader.id })
     .from(workHeader)
-    .where(and(eq(workHeader.date, targetDateValue), eq(workHeader.cleanerId, workerId)));
+    .where(and(eq(workHeader.date, targetDateSql), eq(workHeader.cleanerId, workerId)));
 
   return directRows.map((row) => Number(row.id));
 }
@@ -457,7 +487,8 @@ function normalizeRow(row: any): WorkListEntry {
 }
 
 async function fetchAssignableWorkers(targetDate: string): Promise<AssignableWorker[]> {
-  const targetDateValue = buildKstDate(targetDate);
+  const targetDateValue = buildDateParam(targetDate);
+  const targetDateSql = sql`CAST(${targetDateValue} AS DATE)`;
   const rows = await db
     .select({
       id: workApply.workerId,
@@ -468,7 +499,7 @@ async function fetchAssignableWorkers(targetDate: string): Promise<AssignableWor
     })
     .from(workApply)
     .leftJoin(workerHeader, eq(workApply.workerId, workerHeader.id))
-    .where(and(eq(workApply.workDate, targetDateValue), isNotNull(workApply.workerId)))
+    .where(and(eq(workApply.workDate, targetDateSql), isNotNull(workApply.workerId)))
     .orderBy(workApply.workerId);
 
   const deduped = new Map<number, AssignableWorker>();
