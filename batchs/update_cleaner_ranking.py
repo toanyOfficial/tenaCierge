@@ -8,10 +8,12 @@ import argparse
 import datetime as dt
 import json
 import logging
+import math
 import os
 import traceback
 import time
-from typing import Dict, Iterable, List, Optional, Sequence
+from decimal import Decimal
+from typing import Dict, Iterable, List, Optional, Sequence, Set
 
 import mysql.connector
 import requests
@@ -65,6 +67,7 @@ class CleanerRankingBatch:
 
     def run(self) -> None:
         self.admin_worker_ids = self._load_admin_workers()
+        self._apply_additional_room_prices()
         self._award_butler_bonus()
         scores = self._fetch_scores()
         workers = self._load_workers(scores)
@@ -149,6 +152,257 @@ class CleanerRankingBatch:
                     ),
                 )
         logging.info("버틀러 근무 가산점 부여: %s명", len(targets))
+
+    def _apply_additional_room_prices(self) -> None:
+        work_columns = self._get_table_columns("work_header")
+        checkin_col = "checkin_time" if "checkin_time" in work_columns else None
+        checkout_col: Optional[str]
+        if "checkout_time" in work_columns:
+            checkout_col = "checkout_time"
+        elif "ceckout_time" in work_columns:
+            checkout_col = "ceckout_time"
+        else:
+            checkout_col = None
+
+        if not checkin_col or not checkout_col:
+            self._log_error(
+                message="work_header 체크인/체크아웃 컬럼을 찾을 수 없어 추가 금액 산정을 건너뜁니다.",
+                context={"table": "work_header", "columns": sorted(work_columns)},
+            )
+            return
+
+        price_list_columns = self._get_table_columns("client_price_list")
+        price_amount_col = self._resolve_amount_column(
+            price_list_columns, ["amount", "amount_per_cleaning", "amount_per_room", "price", "value"]
+        )
+        if not price_amount_col:
+            self._log_error(
+                message="client_price_list 금액 컬럼을 찾을 수 없어 추가 금액 산정을 건너뜁니다.",
+                context={"table": "client_price_list", "columns": sorted(price_list_columns)},
+            )
+            return
+
+        additional_columns = self._get_table_columns("client_additional_price")
+        additional_amount_col = self._resolve_amount_column(additional_columns, ["price", "amount", "value"])
+        if not additional_amount_col:
+            self._log_error(
+                message="client_additional_price 금액 컬럼을 찾을 수 없어 추가 금액 산정을 건너뜁니다.",
+                context={"table": "client_additional_price", "columns": sorted(additional_columns)},
+            )
+            return
+
+        has_qty_column = "qty" in additional_columns
+
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(
+                f"""
+                SELECT
+                    id,
+                    room_id,
+                    amenities_qty,
+                    blanket_qty,
+                    {checkin_col} AS checkin_time,
+                    {checkout_col} AS checkout_time
+                FROM work_header
+                WHERE date = %s
+                  AND cancel_yn = 0
+                """,
+                (self.target_date,),
+            )
+            works = list(cur)
+
+        if not works:
+            return
+
+        room_ids = [int(w["room_id"]) for w in works if w.get("room_id") is not None]
+        if not room_ids:
+            return
+
+        rooms: Dict[int, Dict[str, object]] = {}
+        placeholders = ", ".join(["%s"] * len(room_ids))
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(
+                f"""
+                SELECT id, price_set_id, bed_count, checkin_time, checkout_time
+                FROM client_rooms
+                WHERE id IN ({placeholders})
+                """,
+                tuple(room_ids),
+            )
+            for row in cur:
+                rooms[int(row["id"])] = row
+
+        if not rooms:
+            return
+
+        price_fields = ["id", "title", f"{price_amount_col} AS amount"]
+        if "type" in price_list_columns:
+            price_fields.append("type")
+        if "minus_yn" in price_list_columns:
+            price_fields.append("minus_yn")
+        if "ratio_yn" in price_list_columns:
+            price_fields.append("ratio_yn")
+
+        price_map: Dict[int, Dict[str, object]] = {}
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(
+                f"""
+                SELECT {', '.join(price_fields)}
+                FROM client_price_list
+                WHERE id IN (9, 10, 15, 16)
+                """
+            )
+            for row in cur:
+                price_map[int(row["id"])] = row
+
+        price_set_columns = self._get_table_columns("client_price_set_detail")
+        set_amount_col = self._resolve_amount_column(
+            price_set_columns,
+            [price_amount_col, "amount", "price", "value", "amount_per_cleaning", "amount_per_room"],
+        )
+        price_set_ids = {int(r.get("price_set_id")) for r in rooms.values() if r.get("price_set_id")}
+        set_price_map: Dict[tuple[int, int], Dict[str, object]] = {}
+        if set_amount_col and price_set_ids:
+            set_fields = ["price_set_id", "price_id", f"{set_amount_col} AS amount"]
+            for col in ("title", "type", "minus_yn", "ratio_yn"):
+                if col in price_set_columns:
+                    set_fields.append(col)
+
+            placeholders_set = ", ".join(["%s"] * len(price_set_ids))
+            with self.conn.cursor(dictionary=True) as cur:
+                cur.execute(
+                    f"""
+                    SELECT {', '.join(set_fields)}
+                    FROM client_price_set_detail
+                    WHERE price_id IN (9, 10, 15, 16)
+                      AND price_set_id IN ({placeholders_set})
+                    """,
+                    tuple(price_set_ids),
+                )
+                for row in cur:
+                    set_price_map[(int(row["price_set_id"]), int(row["price_id"]))] = row
+
+        if not price_map:
+            self._log_error(
+                message="client_price_list에서 필요한 추가 요금 항목을 찾을 수 없습니다.",
+                context={"expected_ids": [9, 10, 15, 16]},
+            )
+            return
+
+        existing_titles: Set[tuple[int, str]] = set()
+        per_room_max_seq: Dict[int, int] = {}
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(
+                f"""
+                SELECT room_id, title, seq
+                FROM client_additional_price
+                WHERE date = %s
+                  AND room_id IN ({placeholders})
+                """,
+                (self.target_date, *room_ids),
+            )
+            for row in cur:
+                room_id = int(row["room_id"])
+                existing_titles.add((room_id, row.get("title") or ""))
+                per_room_max_seq[room_id] = max(per_room_max_seq.get(room_id, 0), int(row.get("seq") or 0))
+
+        inserts: List[Dict[str, object]] = []
+
+        for work in works:
+            room_id = int(work["room_id"])
+            room = rooms.get(room_id)
+            if not room:
+                continue
+
+            bed_count = int(room.get("bed_count") or 0)
+            amenities_qty = int(work.get("amenities_qty") or 0)
+            blanket_qty = int(work.get("blanket_qty") or 0)
+
+            def resolve_price_row(price_id: int) -> Optional[Dict[str, object]]:
+                price_set_id = room.get("price_set_id")
+                override_row = None
+                if price_set_id is not None:
+                    override_row = set_price_map.get((int(price_set_id), price_id))
+
+                base_row = price_map.get(price_id)
+                if override_row is None:
+                    return base_row
+
+                merged = dict(base_row) if base_row else {}
+                for key, value in override_row.items():
+                    if key in {"price_set_id", "price_id"}:
+                        continue
+                    if value is not None:
+                        merged[key] = value
+                return merged
+
+            def add_charge(price_id: int, quantity: int, reason: str) -> None:
+                if quantity <= 0:
+                    return
+                price_row = resolve_price_row(price_id)
+                if not price_row or price_row.get("amount") is None:
+                    return
+                title = price_row.get("title") or ""
+                if (room_id, title) in existing_titles:
+                    return
+                unit_amount = Decimal(str(price_row.get("amount")))
+                amount_value = unit_amount if has_qty_column else unit_amount * Decimal(quantity)
+                per_room_max_seq[room_id] = per_room_max_seq.get(room_id, 0) + 1
+                entry = {
+                    "room_id": room_id,
+                    "date": self.target_date,
+                    "seq": per_room_max_seq[room_id],
+                    "title": title,
+                    additional_amount_col: amount_value,
+                }
+                if has_qty_column:
+                    entry["qty"] = quantity
+                if "minus_yn" in additional_columns:
+                    entry["minus_yn"] = price_row.get("minus_yn", 0)
+                if "ratio_yn" in additional_columns:
+                    entry["ratio_yn"] = price_row.get("ratio_yn", 0)
+                if "comment" in additional_columns:
+                    entry["comment"] = reason
+                inserts.append(entry)
+                existing_titles.add((room_id, title))
+
+            add_charge(15, amenities_qty - bed_count, "비품 수량 초과")
+            add_charge(16, blanket_qty - bed_count, "이불 수량 초과")
+
+            room_checkout = self._to_time(room.get("checkout_time"))
+            work_checkout = self._to_time(work.get("checkout_time"))
+            if room_checkout and work_checkout:
+                diff_minutes = self._diff_minutes(work_checkout, room_checkout)
+                add_charge(10, math.ceil(diff_minutes / 60) if diff_minutes > 0 else 0, "늦은 체크아웃")
+
+            room_checkin = self._to_time(room.get("checkin_time"))
+            work_checkin = self._to_time(work.get("checkin_time"))
+            if room_checkin and work_checkin:
+                diff_minutes = self._diff_minutes(room_checkin, work_checkin)
+                add_charge(9, math.ceil(diff_minutes / 60) if diff_minutes > 0 else 0, "이른 체크인")
+
+        if not inserts:
+            return
+
+        insert_columns = ["room_id", "date", "seq", "title", additional_amount_col]
+        if has_qty_column:
+            insert_columns.append("qty")
+        if "minus_yn" in additional_columns:
+            insert_columns.append("minus_yn")
+        if "ratio_yn" in additional_columns:
+            insert_columns.append("ratio_yn")
+        if "comment" in additional_columns:
+            insert_columns.append("comment")
+
+        placeholders_insert = ", ".join(["%s"] * len(insert_columns))
+        columns_sql = ", ".join(insert_columns)
+        values = [[entry.get(col) for col in insert_columns] for entry in inserts]
+        with self.conn.cursor() as cur:
+            cur.executemany(
+                f"INSERT INTO client_additional_price ({columns_sql}) VALUES ({placeholders_insert})",
+                values,
+            )
+        logging.info("client_additional_price 자동 추가 %s건", len(inserts))
 
     def _fetch_scores(self) -> Dict[int, float]:
         start_date = self.target_date - dt.timedelta(days=19)
@@ -679,6 +933,45 @@ class CleanerRankingBatch:
                     (tier, worker_id),
                 )
         logging.info("tier 업데이트 %s건", len(updates))
+
+    def _get_table_columns(self, table: str) -> Set[str]:
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = %s
+                """,
+                (table,),
+            )
+            return {str(row.get("column_name")).lower() for row in cur if row.get("column_name")}
+
+    def _resolve_amount_column(self, columns: Set[str], candidates: Sequence[str]) -> Optional[str]:
+        lowered = {c.lower() for c in columns}
+        for candidate in candidates:
+            if candidate.lower() in lowered:
+                return candidate.lower()
+        return None
+
+    def _to_time(self, value: object) -> Optional[dt.time]:
+        if isinstance(value, dt.time):
+            return value
+        if isinstance(value, dt.timedelta):
+            base = dt.datetime.min + value
+            return base.time()
+        if isinstance(value, str):
+            for fmt in ("%H:%M:%S", "%H:%M"):
+                try:
+                    return dt.datetime.strptime(value, fmt).time()
+                except ValueError:
+                    continue
+        return None
+
+    def _diff_minutes(self, later: dt.time, earlier: dt.time) -> int:
+        later_minutes = later.hour * 60 + later.minute + later.second // 60
+        earlier_minutes = earlier.hour * 60 + earlier.minute + earlier.second // 60
+        return later_minutes - earlier_minutes
 
 
 def main() -> None:

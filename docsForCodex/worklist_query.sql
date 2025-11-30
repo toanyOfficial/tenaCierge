@@ -35,5 +35,5 @@ LEFT JOIN etc_buildings AS b
   ON cr.building_id = b.id
 LEFT JOIN etc_baseCode AS bc
   ON bc.code_group = b.basecode_sector AND bc.code = b.basecode_code
-WHERE wh.date = DATE(:target_date)
+WHERE wh.date = TIMESTAMP(CONCAT(:target_date, 'T00:00:00Z'))
 ORDER BY wh.id ASC;

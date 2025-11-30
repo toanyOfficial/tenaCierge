@@ -21,6 +21,7 @@ import { findClientByProfile } from '@/src/server/clients';
 import { findWorkerByProfile } from '@/src/server/workers';
 import { fetchAvailableWorkDates } from '@/src/server/workQueries';
 import { getKstNow, formatDateKey, formatFullDateLabel } from '@/src/utils/workWindow';
+import { logError, logInfo } from '@/src/server/logger';
 import { logServerError } from '@/src/server/errorLogger';
 
 export type WorkListEntry = {
@@ -87,6 +88,10 @@ export type WorkListSnapshot = {
 
 function buildKstDate(dateKey: string) {
   return new Date(`${dateKey}T00:00:00Z`);
+}
+
+function buildDateParam(dateKey: string) {
+  return dateKey;
 }
 
 function normalizeDate(input?: string) {
@@ -222,7 +227,7 @@ export async function getWorkListSnapshot(
     const targetDate = preferToday ? initialWindow.windowDates.d0 : initialWindow.targetDate;
     const window = preferToday ? 'd0' : initialWindow.window;
     const windowDates = initialWindow.windowDates;
-    const targetDateValue = buildKstDate(targetDate);
+    const targetDateValue = buildDateParam(targetDate);
     const dateOptions = await buildDateOptions(targetDate, now);
 
     const notice = await fetchLatestNotice();
@@ -343,7 +348,7 @@ export async function getWorkListSnapshot(
     }))
     .sort((a, b) => sortRows(a, b, buildingCounts));
 
-    return {
+    const response = {
       notice,
       targetDate,
       window,
@@ -360,7 +365,28 @@ export async function getWorkListSnapshot(
       emptyMessage,
       currentMinutes: minutes
     };
+    await logInfo({
+      message: 'work list snapshot fetched',
+      context: {
+        targetDate,
+        targetDateValue,
+        window,
+        role: profile.primaryRole,
+        roles: profile.roles,
+        workCount: response.works.length
+      }
+    });
+
+    return response;
   } catch (error) {
+    await logError({
+      message: 'getWorkListSnapshot 실패',
+      error,
+      context: {
+        dateParam,
+        windowParam
+      }
+    });
     await logServerError({
       appName: 'work-list',
       errorCode: 'SNAPSHOT_FAIL',
@@ -377,7 +403,7 @@ async function fetchLatestNotice() {
 }
 
 async function hasButlerApplication(workerId: number, targetDate: string) {
-  const targetDateValue = buildKstDate(targetDate);
+  const targetDateValue = buildDateParam(targetDate);
   const rows = await db
     .select({ id: workApply.id })
     .from(workApply)
@@ -388,7 +414,7 @@ async function hasButlerApplication(workerId: number, targetDate: string) {
 }
 
 async function hasWorkApplication(workerId: number, targetDate: string) {
-  const targetDateValue = buildKstDate(targetDate);
+  const targetDateValue = buildDateParam(targetDate);
   const rows = await db
     .select({ id: workApply.id })
     .from(workApply)
@@ -399,7 +425,7 @@ async function hasWorkApplication(workerId: number, targetDate: string) {
 }
 
 async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
-  const targetDateValue = buildKstDate(targetDate);
+  const targetDateValue = buildDateParam(targetDate);
   const rows = await db
     .select({ workId: workAssignment.workId })
     .from(workAssignment)
@@ -457,7 +483,7 @@ function normalizeRow(row: any): WorkListEntry {
 }
 
 async function fetchAssignableWorkers(targetDate: string): Promise<AssignableWorker[]> {
-  const targetDateValue = buildKstDate(targetDate);
+  const targetDateValue = buildDateParam(targetDate);
   const rows = await db
     .select({
       id: workApply.workerId,
