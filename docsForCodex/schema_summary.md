@@ -1,3 +1,7 @@
+## 2025-11-30 스키마 변경 요약
+- 추가된 컬럼: client_price_list.per_bed_yn, client_price_list.per_room_yn
+- 테이블 수: 35개, 컬럼 수: 312개
+
 ## 2025-12-01 스키마 변경 요약
 - 추가된 컬럼: work_header.checkout_time
 - 제거된 컬럼: work_header.ceckout_time
