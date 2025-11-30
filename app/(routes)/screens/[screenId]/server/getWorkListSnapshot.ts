@@ -182,6 +182,9 @@ export async function getWorkListSnapshot(
         emptyMessage = '근무자 정보를 찾을 수 없습니다.';
       } else {
         const assignedWorkIds = await fetchAssignedWorkIds(worker.id, targetDate);
+        const windowLabel = window === 'd1' ? '내일' : '오늘';
+        const hasApplication = await hasWorkApplication(worker.id, targetDate);
+
         if (!assignedWorkIds.length) {
           const hasApplication = await hasWorkApplication(worker.id, targetDate);
           rows = [];
