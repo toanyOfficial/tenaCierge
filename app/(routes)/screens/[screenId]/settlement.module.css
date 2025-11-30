@@ -203,10 +203,11 @@
   font-size: 0.95rem;
 }
 
+
 .monthlyGrid {
   display: grid;
-  grid-template-columns: 1fr 140px;
-  gap: 6px;
+  grid-template-columns: 1fr 140px 90px 140px;
+  gap: 8px;
   align-items: center;
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -390,7 +391,8 @@
   }
 
   .monthlyGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
   }
 
   .workGrid {
