@@ -115,6 +115,10 @@ tenaCierge,etc_notice,notice_date,date,NO,
 tenaCierge,etc_notice,notice,varchar(255),NO,
 tenaCierge,etc_notice,created_at,timestamp,NO,
 tenaCierge,etc_notice,updated_at,timestamp,NO,
+tenaCierge,model_variable,name,varchar(32),NO,
+tenaCierge,model_variable,value,double,NO,
+tenaCierge,model_variable,description,varchar(255),YES,
+tenaCierge,model_variable,updated_at,timestamp,NO,
 tenaCierge,work_apply,id,bigint unsigned,NO,PK
 tenaCierge,work_apply,work_date,date,NO,
 tenaCierge,work_apply,basecode_sector,varchar(10),NO,지역코드
@@ -208,7 +212,7 @@ tenaCierge,work_header,cleaner_id,int,YES,
 tenaCierge,work_header,butler_id,int,YES,
 tenaCierge,work_header,amenities_qty,tinyint,NO,
 tenaCierge,work_header,blanket_qty,tinyint,NO,
-tenaCierge,work_header,conditionCheckYn,tinyint(1),NO,0:대상아님/1:대상
+tenaCierge,work_header,condition_check_yn,tinyint(1),NO,0:대상아님/1:대상
 tenaCierge,work_header,cleaning_yn,tinyint(1),NO,0:대상아님/1:대상
 tenaCierge,work_header,checkin_time,time,NO,
 tenaCierge,work_header,ceckout_time,time,NO,
