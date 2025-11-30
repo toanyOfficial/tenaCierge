@@ -75,6 +75,26 @@ export async function fetchWorkRowsByDate(targetDate: string) {
     .orderBy(asc(workHeader.id));
 }
 
+export async function fetchAvailableWorkDates(limit = 60) {
+  const rows = await db
+    .select({ date: workHeader.date })
+    .from(workHeader)
+    .orderBy(desc(workHeader.date))
+    .limit(limit);
+
+  const seen = new Set<string>();
+  const dates: string[] = [];
+
+  rows.forEach((row) => {
+    const key = formatDateKey(new Date(row.date));
+    if (seen.has(key)) return;
+    seen.add(key);
+    dates.push(key);
+  });
+
+  return dates;
+}
+
 export async function fetchWorkRowById(workId: number) {
   const buildingSector = alias(etcBaseCode, 'workSectorById');
 

@@ -19,7 +19,8 @@ import {
 import type { ProfileSummary } from '@/src/utils/profile';
 import { findClientByProfile } from '@/src/server/clients';
 import { findWorkerByProfile } from '@/src/server/workers';
-import { getKstNow, formatDateKey } from '@/src/utils/workWindow';
+import { fetchAvailableWorkDates } from '@/src/server/workQueries';
+import { getKstNow, formatDateKey, formatFullDateLabel } from '@/src/utils/workWindow';
 import { logServerError } from '@/src/server/errorLogger';
 
 export type WorkListEntry = {
@@ -77,6 +78,7 @@ export type WorkListSnapshot = {
   windowLabel: string;
   window?: 'd0' | 'd1';
   windowDates: { d0: string; d1: string };
+  dateOptions: { value: string; label: string }[];
   works: WorkListEntry[];
   assignableWorkers: AssignableWorker[];
   emptyMessage?: string;
@@ -100,6 +102,7 @@ export async function getWorkListSnapshot(
     const window = preferToday ? 'd0' : initialWindow.window;
     const windowDates = initialWindow.windowDates;
     const targetDateValue = buildKstDate(targetDate);
+    const dateOptions = await buildDateOptions(targetDate, now);
 
     const notice = await fetchLatestNotice();
 
@@ -230,6 +233,7 @@ export async function getWorkListSnapshot(
           : window === 'd1' && targetDate === windowDates.d1
             ? `D+1 (${windowDates.d1})`
             : targetDate,
+      dateOptions,
       works,
       assignableWorkers,
       emptyMessage,
@@ -518,6 +522,18 @@ function normalizeText(value: unknown) {
 
 function buildKstDate(dateKey: string) {
   return new Date(`${dateKey}T00:00:00+09:00`);
+}
+
+async function buildDateOptions(targetDate: string, now: Date) {
+  const today = formatDateKey(now);
+  const dates = new Set<string>([today]);
+  dates.add(formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000)));
+  (await fetchAvailableWorkDates()).forEach((date) => dates.add(date));
+  dates.add(targetDate);
+
+  return Array.from(dates)
+    .map((value) => ({ value, label: formatFullDateLabel(new Date(`${value}T00:00:00+09:00`)) }))
+    .sort((a, b) => a.value.localeCompare(b.value));
 }
 
 function safeParseJson(value: string) {

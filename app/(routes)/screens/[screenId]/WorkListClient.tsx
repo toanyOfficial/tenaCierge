@@ -450,8 +450,11 @@ export default function WorkListClient({ profile, snapshot }: Props) {
               </label>
             )}
             <datalist id="work-window-dates">
-              <option value={snapshot.windowDates?.d0}>{snapshot.windowDates?.d0} · D0</option>
-              <option value={snapshot.windowDates?.d1}>{snapshot.windowDates?.d1} · D+1</option>
+              {snapshot.dateOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </datalist>
             <button className={styles.secondaryButton} onClick={() => setDetailOpen(true)}>
               현황보기
