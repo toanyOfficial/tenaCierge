@@ -33,6 +33,8 @@ tenaCierge,client_price_list,title,varchar(15),NO,
 tenaCierge,client_price_list,selected_by,tinyint,NO,1:client_price_set / 2:client_rooms / 3:client_additional_price
 tenaCierge,client_price_list,minus_yn,tinyint(1),NO,0:양수 / 1:음수
 tenaCierge,client_price_list,ratio_yn,tinyint(1),NO,0:절대값 / 1:퍼센타일비율
+tenaCierge,client_price_list,per_bed_yn,tinyint(1),NO,0:상관없음/1:침대당비용
+tenaCierge,client_price_list,per_room_yn,tinyint(1),NO,0:상관없음/1:방당비용
 tenaCierge,client_price_list,type,tinyint,NO,1:횟수당 / 2:월당
 tenaCierge,client_price_list,amount,"decimal(11,2)",NO,
 tenaCierge,client_price_list,dscpt,varchar(255),YES,
