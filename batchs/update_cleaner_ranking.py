@@ -372,13 +372,15 @@ class CleanerRankingBatch:
         n = len(eligible)
         if not n:
             return assigned
+        ordered_rules = sorted(tier_rules, key=lambda r: r["max_percentage"], reverse=True)
         for idx, worker in enumerate(eligible):
-            percentile = ((idx + 1) / n) * 100
+            # 상위 백분위(최상위=100, 최하위>0) 기준으로 구간 매칭
+            percentile_top = ((n - idx) / n) * 100
             rule = next(
                 (
                     r
-                    for r in tier_rules
-                    if percentile > r["min_percentage"] and percentile <= r["max_percentage"]
+                    for r in ordered_rules
+                    if percentile_top >= r["min_percentage"] and percentile_top <= r["max_percentage"]
                 ),
                 None,
             )
