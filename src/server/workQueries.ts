@@ -36,7 +36,7 @@ export type WorkRow = {
 export async function fetchWorkRowsByDate(targetDate: string) {
   const buildingSector = alias(etcBaseCode, 'workSector');
 
-  const targetDateSql = sql`DATE(${workHeader.date}) = ${targetDate}`;
+  const targetDateSql = eq(workHeader.date, targetDate);
 
   return db
     .select({
