@@ -12,6 +12,7 @@ import {
 } from '@/src/db/schema';
 import type { ProfileSummary } from '@/src/utils/profile';
 import { logEtcError } from '@/src/server/errorLogger';
+import { KST_OFFSET_MS, nowInKst } from '@/src/utils/kst';
 
 type Money = number;
 
@@ -69,20 +70,6 @@ type PriceItem = {
 function normalizeRegisterNo(value: string | undefined | null) {
   if (!value) return '';
   return value.replace(/[^0-9]/g, '').slice(0, 6);
-}
-
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-
-function nowInKst() {
-  const now = Date.now();
-  return new Date(now + KST_OFFSET_MS);
-}
-
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-
-function nowInKst() {
-  const now = Date.now();
-  return new Date(now + KST_OFFSET_MS);
 }
 
 function ensureMonth(input?: string | null) {
