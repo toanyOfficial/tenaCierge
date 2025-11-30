@@ -663,19 +663,17 @@ export async function getSettlementSnapshot(
   }
 
   for (const statement of statements) {
-    const baseByRoomCategory = new Map<string, number>();
+    const baseByRoom = new Map<number, number>();
 
     for (const line of statement.lines) {
       if (line.minusYn || line.ratioYn) continue;
-      const key = `${line.roomId}-${line.category}`;
-      const prev = baseByRoomCategory.get(key) ?? 0;
-      baseByRoomCategory.set(key, prev + line.rawTotal);
+      const prev = baseByRoom.get(line.roomId) ?? 0;
+      baseByRoom.set(line.roomId, prev + line.rawTotal);
     }
 
     for (const line of statement.lines) {
       if (!line.ratioYn) continue;
-      const key = `${line.roomId}-${line.category}`;
-      const base = baseByRoomCategory.get(key) ?? 0;
+      const base = baseByRoom.get(line.roomId) ?? 0;
       const ratio = (line.ratioValue ?? line.amount) / 100;
       const computed = base * ratio;
 
