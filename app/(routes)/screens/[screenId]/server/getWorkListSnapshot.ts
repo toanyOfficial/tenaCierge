@@ -85,6 +85,127 @@ export type WorkListSnapshot = {
   currentMinutes: number;
 };
 
+function buildKstDate(dateKey: string) {
+  return new Date(`${dateKey}T00:00:00+09:00`);
+}
+
+function normalizeDate(input?: string) {
+  if (!input) return '';
+
+  const trimmed = input.trim();
+  const candidate = /^\d{8}$/.test(trimmed)
+    ? `${trimmed.slice(0, 4)}-${trimmed.slice(4, 6)}-${trimmed.slice(6, 8)}`
+    : trimmed;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate)) return '';
+
+  const parsed = buildKstDate(candidate);
+  if (Number.isNaN(parsed.getTime())) return '';
+
+  return formatDateKey(parsed);
+}
+
+async function buildDateOptions(targetDate: string, now: Date) {
+  const today = formatDateKey(now);
+  const todayDate = buildKstDate(today);
+  const tomorrow = formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+  const dates = new Set<string>();
+
+  const addIfValid = (value: string, allowPast = false) => {
+    const parsed = buildKstDate(value);
+    if (Number.isNaN(parsed.getTime())) return;
+    if (!allowPast && parsed < todayDate) return;
+    dates.add(value);
+  };
+
+  addIfValid(today, true);
+  addIfValid(tomorrow, true);
+  (await fetchAvailableWorkDates()).forEach((date) => addIfValid(date));
+  addIfValid(targetDate, true);
+
+  return Array.from(dates)
+    .map((value) => ({ value, label: formatFullDateLabel(buildKstDate(value)) }))
+    .sort((a, b) => a.value.localeCompare(b.value));
+}
+
+function safeParseJson(value: string) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function resolveSupplyNote(contents2: unknown, checklistId: number) {
+  if (contents2 && typeof contents2 === 'object') {
+    if (!Array.isArray(contents2)) {
+      const value = (contents2 as Record<string, unknown>)[String(checklistId)];
+      if (typeof value === 'string' && value.trim()) {
+        return value.trim();
+      }
+    }
+  }
+
+  return normalizeText(contents2);
+}
+
+function sortRows(a: WorkListEntry, b: WorkListEntry, buildingCounts: Record<number, number>) {
+  if (a.cleaningYn !== b.cleaningYn) {
+    return Number(a.cleaningYn) - Number(b.cleaningYn);
+  }
+
+  const aSector = a.sectorValue || a.sectorCode;
+  const bSector = b.sectorValue || b.sectorCode;
+  if (aSector !== bSector) return aSector.localeCompare(bSector);
+
+  const countDiff = (buildingCounts[b.buildingId] ?? 0) - (buildingCounts[a.buildingId] ?? 0);
+  if (countDiff !== 0) return countDiff;
+
+  const aRoom = parseInt(a.roomNo ?? '', 10);
+  const bRoom = parseInt(b.roomNo ?? '', 10);
+
+  if (!Number.isNaN(aRoom) && !Number.isNaN(bRoom) && aRoom !== bRoom) {
+    return bRoom - aRoom;
+  }
+
+  return b.roomNo.localeCompare(a.roomNo);
+}
+
+function toTime(value: string | Date | null | undefined) {
+  if (!value) return '00:00';
+  if (value instanceof Date) {
+    return `${`${value.getHours()}`.padStart(2, '0')}:${`${value.getMinutes()}`.padStart(2, '0')}`;
+  }
+  const [h = '00', m = '00'] = value.split(':');
+  return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
+}
+
+function resolveWindow(
+  now: Date,
+  minutes: number,
+  dateParam?: string,
+  windowParam?: 'd0' | 'd1'
+): { targetDate: string; window?: 'd0' | 'd1'; windowDates: { d0: string; d1: string } } {
+  const today = formatDateKey(now);
+  const tomorrow = formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+
+  if (dateParam) {
+    const normalized = normalizeDate(dateParam);
+    return {
+      targetDate: normalized || today,
+      window: normalized === today ? 'd0' : normalized === tomorrow ? 'd1' : undefined,
+      windowDates: { d0: today, d1: tomorrow }
+    };
+  }
+
+  const defaultWindow: 'd0' | 'd1' = minutes < 16 * 60 + 30 ? 'd0' : 'd1';
+  const chosen: 'd0' | 'd1' = windowParam && ['d0', 'd1'].includes(windowParam) ? windowParam : defaultWindow;
+  const targetDate = chosen === 'd0' ? today : tomorrow;
+
+  return { targetDate, window: chosen, windowDates: { d0: today, d1: tomorrow } };
+}
+
+
 export async function getWorkListSnapshot(
   profile: ProfileSummary,
   dateParam?: string,
@@ -520,173 +641,3 @@ function normalizeText(value: unknown) {
   return undefined;
 }
 
-function buildKstDate(dateKey: string) {
-  return new Date(`${dateKey}T00:00:00+09:00`);
-}
-
-function normalizeDate(input?: string) {
-  if (!input) return '';
-
-  const trimmed = input.trim();
-  const candidate = /^\d{8}$/.test(trimmed)
-    ? `${trimmed.slice(0, 4)}-${trimmed.slice(4, 6)}-${trimmed.slice(6, 8)}`
-    : trimmed;
-
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate)) return '';
-
-  const parsed = buildKstDate(candidate);
-  if (Number.isNaN(parsed.getTime())) return '';
-
-  return formatDateKey(parsed);
-}
-
-async function buildDateOptions(targetDate: string, now: Date) {
-  const today = formatDateKey(now);
-  const todayDate = buildKstDate(today);
-  const tomorrow = formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
-  const dates = new Set<string>();
-
-  const addIfValid = (value: string, allowPast = false) => {
-    const parsed = buildKstDate(value);
-    if (Number.isNaN(parsed.getTime())) return;
-    if (!allowPast && parsed < todayDate) return;
-    dates.add(value);
-  };
-
-  addIfValid(today, true);
-  addIfValid(tomorrow, true);
-  (await fetchAvailableWorkDates()).forEach((date) => addIfValid(date));
-  addIfValid(targetDate, true);
-
-  return Array.from(dates)
-    .map((value) => ({ value, label: formatFullDateLabel(buildKstDate(value)) }))
-    .sort((a, b) => a.value.localeCompare(b.value));
-}
-
-function safeParseJson(value: string) {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
-function resolveSupplyNote(contents2: unknown, checklistId: number) {
-  if (contents2 && typeof contents2 === 'object') {
-    if (!Array.isArray(contents2)) {
-      const value = (contents2 as Record<string, unknown>)[String(checklistId)];
-      if (typeof value === 'string' && value.trim()) {
-        return value.trim();
-      }
-    }
-  }
-
-  return normalizeText(contents2);
-}
-
-function sortRows(a: WorkListEntry, b: WorkListEntry, buildingCounts: Record<number, number>) {
-  if (a.cleaningYn !== b.cleaningYn) {
-    return Number(a.cleaningYn) - Number(b.cleaningYn);
-  }
-
-  const aSector = a.sectorValue || a.sectorCode;
-  const bSector = b.sectorValue || b.sectorCode;
-  if (aSector !== bSector) return aSector.localeCompare(bSector);
-
-  const countDiff = (buildingCounts[b.buildingId] ?? 0) - (buildingCounts[a.buildingId] ?? 0);
-  if (countDiff !== 0) return countDiff;
-
-  const aRoom = parseInt(a.roomNo ?? '', 10);
-  const bRoom = parseInt(b.roomNo ?? '', 10);
-
-  if (!Number.isNaN(aRoom) && !Number.isNaN(bRoom) && aRoom !== bRoom) {
-    return bRoom - aRoom;
-  }
-
-  return b.roomNo.localeCompare(a.roomNo);
-}
-
-function toTime(value: string | Date | null | undefined) {
-  if (!value) return '00:00';
-  if (value instanceof Date) {
-    return `${`${value.getHours()}`.padStart(2, '0')}:${`${value.getMinutes()}`.padStart(2, '0')}`;
-  }
-  const [h = '00', m = '00'] = value.split(':');
-  return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
-}
-
-function resolveWindow(
-  now: Date,
-  minutes: number,
-  dateParam?: string,
-  windowParam?: 'd0' | 'd1'
-): { targetDate: string; window?: 'd0' | 'd1'; windowDates: { d0: string; d1: string } } {
-  const today = formatDateKey(now);
-  const tomorrow = formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
-
-  if (dateParam) {
-    const normalized = normalizeDate(dateParam);
-    return {
-      targetDate: normalized || today,
-      window: normalized === today ? 'd0' : normalized === tomorrow ? 'd1' : undefined,
-      windowDates: { d0: today, d1: tomorrow }
-    };
-  }
-
-  const defaultWindow: 'd0' | 'd1' = minutes < 16 * 60 + 30 ? 'd0' : 'd1';
-  const chosen: 'd0' | 'd1' = windowParam && ['d0', 'd1'].includes(windowParam) ? windowParam : defaultWindow;
-  const targetDate = chosen === 'd0' ? today : tomorrow;
-
-  return { targetDate, window: chosen, windowDates: { d0: today, d1: tomorrow } };
-}
-
-function buildKstDate(dateKey: string) {
-  return new Date(`${dateKey}T00:00:00Z`);
-}
-
-function normalizeDate(input?: string, now?: Date) {
-  if (!input) return '';
-  const trimmed = input.trim();
-  const candidate = /^\d{8}$/.test(trimmed)
-    ? `${trimmed.slice(0, 4)}-${trimmed.slice(4, 6)}-${trimmed.slice(6, 8)}`
-    : trimmed;
-
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate)) return '';
-
-  const parsed = new Date(`${candidate}T00:00:00+09:00`);
-  if (Number.isNaN(parsed.getTime())) return '';
-
-  const formatted = formatDateKey(parsed);
-  if (now && !isDateWithinRange(formatted, 7, now)) return '';
-
-  return formatted;
-}
-
-async function buildDateOptions(targetDate: string, now: Date) {
-  const today = formatDateKey(now);
-  const todayDate = new Date(`${today}T00:00:00+09:00`);
-
-  const horizon = Array.from({ length: 8 }, (_, offset) => {
-    const next = new Date(todayDate);
-    next.setDate(todayDate.getDate() + offset);
-    return formatDateKey(next);
-  });
-
-  const maxDate = new Date(`${horizon[horizon.length - 1]}T00:00:00+09:00`);
-  const dates = new Set<string>(horizon);
-
-  const addIfValid = (value: string) => {
-    const normalized = normalizeDate(value) || value;
-    const parsed = new Date(`${normalized}T00:00:00+09:00`);
-    if (Number.isNaN(parsed.getTime())) return;
-    if (parsed < todayDate || parsed > maxDate) return;
-    dates.add(formatDateKey(parsed));
-  };
-
-  (await fetchAvailableWorkDates()).forEach((date) => addIfValid(date));
-  addIfValid(targetDate);
-
-  return Array.from(dates)
-    .map((value) => ({ value, label: formatFullDateLabel(new Date(`${value}T00:00:00+09:00`)) }))
-    .sort((a, b) => a.value.localeCompare(b.value));
-}
