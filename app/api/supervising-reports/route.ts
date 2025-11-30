@@ -82,7 +82,7 @@ export async function POST(req: Request) {
     const supervisingChecklistIds = checklistRows.filter((row) => row.type === 2).map((row) => row.id);
 
     const requiredImageIds = imageSlotRows
-      .filter((row) => row.listRequired ?? row.required)
+      .filter((row) => row.required ?? row.listRequired)
       .map((row) => row.id);
 
     if (imageFiles.length !== imageFileSlots.length) {
