@@ -104,6 +104,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const [error, setError] = useState('');
   const [detailOpen, setDetailOpen] = useState(false);
   const [activeWindow, setActiveWindow] = useState<'d0' | 'd1' | undefined>(snapshot.window);
+  const [selectedDate, setSelectedDate] = useState(snapshot.targetDate);
   const [assignTarget, setAssignTarget] = useState<WorkListEntry | null>(null);
   const [assignSelection, setAssignSelection] = useState<number | 'noShow' | null>(null);
   const [assignQuery, setAssignQuery] = useState('');
@@ -121,6 +122,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   useEffect(() => {
     setWorks(snapshot.works);
     setActiveWindow(snapshot.window);
+    setSelectedDate(snapshot.targetDate);
     setAssignOptions(snapshot.assignableWorkers);
     setSearchResults([]);
   }, [snapshot]);
@@ -282,10 +284,26 @@ export default function WorkListClient({ profile, snapshot }: Props) {
 
   function handleWindowChange(next: 'd0' | 'd1') {
     setActiveWindow(next);
+    setSelectedDate(next === 'd0' ? snapshot.windowDates.d0 : snapshot.windowDates.d1);
     const search = new URLSearchParams(params?.toString() ?? '');
     search.delete('date');
     search.set('window', next);
     router.push(`/screens/004?${search.toString()}`);
+  }
+
+  function handleDateChange(value: string) {
+    setSelectedDate(value);
+    setActiveWindow(value === snapshot.windowDates.d0 ? 'd0' : value === snapshot.windowDates.d1 ? 'd1' : undefined);
+    const search = new URLSearchParams(params?.toString() ?? '');
+    if (value) {
+      search.set('date', value);
+    } else {
+      search.delete('date');
+    }
+    search.delete('window');
+    const query = search.toString();
+    const next = query ? `/screens/004?${query}` : '/screens/004';
+    router.push(next);
   }
 
   async function updateWork(workId: number, payload: Record<string, unknown>) {
@@ -408,6 +426,16 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                     ? `D+1${snapshot.windowDates?.d1 ? ` (${snapshot.windowDates.d1})` : ''}`
                     : 'D+1 보기'}
                 </button>
+                <label className={styles.fieldLabel}>
+                  날짜 선택
+                  <input
+                    type="date"
+                    className={styles.dateInput}
+                    value={selectedDate}
+                    onChange={(e) => handleDateChange(e.target.value)}
+                    list="work-window-dates"
+                  />
+                </label>
               </div>
             ) : (
               <label className={styles.fieldLabel}>
@@ -415,20 +443,19 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                 <input
                   type="date"
                   className={styles.dateInput}
-                  defaultValue={snapshot.targetDate}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    const search = new URLSearchParams(params?.toString() ?? '');
-                    if (next) {
-                      search.set('date', next);
-                    } else {
-                      search.delete('date');
-                    }
-                    router.push(`/screens/004?${search.toString()}`);
-                  }}
+                  value={selectedDate}
+                  onChange={(e) => handleDateChange(e.target.value)}
+                  list="work-window-dates"
                 />
               </label>
             )}
+            <datalist id="work-window-dates">
+              {snapshot.dateOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </datalist>
             <button className={styles.secondaryButton} onClick={() => setDetailOpen(true)}>
               현황보기
             </button>
