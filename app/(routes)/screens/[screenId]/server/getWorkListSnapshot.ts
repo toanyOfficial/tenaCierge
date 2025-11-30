@@ -92,7 +92,13 @@ export async function getWorkListSnapshot(
   try {
     const now = getKstNow();
     const minutes = now.getHours() * 60 + now.getMinutes();
-    const { targetDate, window, windowDates } = resolveWindow(now, minutes, dateParam, windowParam);
+    const initialWindow = resolveWindow(now, minutes, dateParam, windowParam);
+    const isAdmin = profile.primaryRole === 'admin' || profile.roles.includes('admin');
+    const preferToday = isAdmin && !dateParam && !windowParam && initialWindow.window === 'd1';
+
+    const targetDate = preferToday ? initialWindow.windowDates.d0 : initialWindow.targetDate;
+    const window = preferToday ? 'd0' : initialWindow.window;
+    const windowDates = initialWindow.windowDates;
     const targetDateValue = buildKstDate(targetDate);
 
     const notice = await fetchLatestNotice();
