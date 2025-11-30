@@ -489,7 +489,7 @@ export async function getSettlementSnapshot(
             roomId: clientAdditionalPrice.roomId,
             date: clientAdditionalPrice.date,
             title: clientAdditionalPrice.title,
-            qty: hasAdditionalQty ? clientAdditionalPrice.qty : sql`1`,
+            qty: hasAdditionalQty ? sql.raw('client_additional_price.qty') : sql`1`,
             price:
               additionalPriceColumn === 'price'
                 ? sql`CAST(${clientAdditionalPrice.price} AS DECIMAL(20,4))`
