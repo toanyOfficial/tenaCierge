@@ -149,7 +149,7 @@ async function resolveAdditionalPriceColumn(month: string, hostId?: number | nul
 }
 
 async function resolvePriceListFlags(month: string, hostId?: number | null) {
-  const result = { hasMinus: false, hasRatio: false };
+  const result = { hasMinus: false, hasRatio: false, amountColumn: null as string | null };
 
   try {
     const raw = await db.execute<{ column_name?: string; COLUMN_NAME?: string }>(
@@ -171,6 +171,10 @@ async function resolvePriceListFlags(month: string, hostId?: number | null) {
 
     result.hasMinus = columns.includes('minus_yn');
     result.hasRatio = columns.includes('ratio_yn');
+    result.amountColumn =
+      columns.find((col) =>
+        ['amount', 'amount_per_cleaning', 'amount_per_room', 'price', 'value'].includes(col)
+      ) ?? null;
   } catch (error) {
     await logEtcError({
       message: `client_price_list 플래그 컬럼 조회 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`,
@@ -185,6 +189,7 @@ async function resolvePriceListFlags(month: string, hostId?: number | null) {
 async function resolvePriceSetDetailColumns(month: string, hostId?: number | null) {
   const result = {
     hasAmount: false,
+    amountColumn: null as string | null,
     hasTitle: false,
     hasType: false,
     hasMinus: false,
@@ -209,7 +214,11 @@ async function resolvePriceSetDetailColumns(month: string, hostId?: number | nul
       .map((row) => (row?.column_name ?? (row as any)?.COLUMN_NAME ?? '').toString().toLowerCase())
       .filter(Boolean);
 
-    result.hasAmount = columns.includes('amount');
+    result.amountColumn =
+      columns.find((col) =>
+        ['amount', 'amount_per_cleaning', 'amount_per_room', 'price', 'value'].includes(col)
+      ) ?? null;
+    result.hasAmount = !!result.amountColumn;
     result.hasTitle = columns.includes('title');
     result.hasType = columns.includes('type');
     result.hasMinus = columns.includes('minus_yn');
@@ -284,6 +293,11 @@ async function loadPriceItems(roomIds: number[], month: string, hostId?: number 
     )
   );
 
+  const priceListAmountColumn = priceFlags.amountColumn
+    ? sql.raw(`client_price_list.${priceFlags.amountColumn}`)
+    : clientPriceList.amount;
+  const priceDetailAmountColumn = priceDetailColumns.amountColumn ?? 'amount';
+
   const priceRows = priceSetIds.length
     ? await db
         .select({
@@ -293,8 +307,10 @@ async function loadPriceItems(roomIds: number[], month: string, hostId?: number 
             ? sql`COALESCE(${sql.raw('client_price_set_detail.type')}, ${clientPriceList.type})`
             : clientPriceList.type,
           amount: priceDetailColumns.hasAmount
-            ? sql`CAST(COALESCE(${sql.raw('client_price_set_detail.amount')}, ${clientPriceList.amount}) AS DECIMAL(20,4))`
-            : sql`CAST(${clientPriceList.amount} AS DECIMAL(20,4))`,
+            ? sql`CAST(COALESCE(${sql.raw(
+                `client_price_set_detail.${priceDetailAmountColumn}`
+              )}, ${priceListAmountColumn}) AS DECIMAL(20,4))`
+            : sql`CAST(${priceListAmountColumn} AS DECIMAL(20,4))`,
           title: priceDetailColumns.hasTitle
             ? sql`COALESCE(${sql.raw('client_price_set_detail.title')}, ${clientPriceList.title})`
             : clientPriceList.title,
