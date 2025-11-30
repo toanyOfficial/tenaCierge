@@ -82,7 +82,8 @@ class CleanerRankingBatch:
         if comments:
             self._persist_comments(comments, daily_evals)
         self._persist_score_20days(scores, workers)
-        tier_updates = self._calculate_tiers(workers, tier_rules)
+        tier_population = self._load_tiering_population()
+        tier_updates = self._calculate_tiers(tier_population, tier_rules)
         self._persist_tiers(tier_updates)
         self.conn.commit()
 
@@ -337,29 +338,54 @@ class CleanerRankingBatch:
                 for row in cur
             ]
 
+    def _load_tiering_population(self) -> List[Dict[str, float]]:
+        """티어 재산정 대상(현재 tier 3~7)과 score_20days를 최신 상태로 조회."""
+
+        sql = """
+            SELECT id, tier, COALESCE(score_20days, 0) AS score
+            FROM worker_header
+            WHERE tier BETWEEN 3 AND 7
+        """
+
+        population: List[Dict[str, float]] = []
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(sql)
+            for row in cur:
+                population.append(
+                    {
+                        "id": int(row["id"]),
+                        "tier": int(row["tier"]) if row.get("tier") is not None else None,
+                        "score": float(row.get("score") or 0.0),
+                    }
+                )
+
+        return population
+
     def _calculate_tiers(
         self,
-        workers: Sequence[Dict[str, Optional[float]]],
+        population: Sequence[Dict[str, Optional[float]]],
         tier_rules: Sequence[Dict[str, int]],
     ) -> Dict[int, int]:
         assigned: Dict[int, int] = {}
-        population = [w for w in workers if w["tier"] is not None and 2 <= int(w["tier"]) <= 7]
-        population.sort(key=lambda w: w["score"], reverse=True)
-        n = len(population)
+        eligible = [w for w in population if w.get("tier") is not None]
+        eligible.sort(key=lambda w: w.get("score", 0.0), reverse=True)
+        n = len(eligible)
         if not n:
             return assigned
-        for idx, worker in enumerate(population):
-            percentile = ((idx + 1) / n) * 100
+        ordered_rules = sorted(tier_rules, key=lambda r: r["max_percentage"], reverse=True)
+        for idx, worker in enumerate(eligible):
+            # 상위 백분위(최상위=100, 최하위>0) 기준으로 구간 매칭
+            percentile_top = ((n - idx) / n) * 100
             rule = next(
                 (
                     r
-                    for r in tier_rules
-                    if percentile > r["min_percentage"] and percentile <= r["max_percentage"]
+                    for r in ordered_rules
+                    if percentile_top >= r["min_percentage"] and percentile_top <= r["max_percentage"]
                 ),
                 None,
             )
             if rule:
-                assigned[worker["id"]] = rule["tier"]
+                assigned[int(worker["id"])] = rule["tier"]
         return assigned
 
     def _generate_comments(

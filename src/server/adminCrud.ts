@@ -33,6 +33,11 @@ const referenceMap: Record<string, Record<string, AdminReference>> = {
     basecode_sector: { table: 'etc_baseCode', column: 'code' },
     basecode_code: { table: 'etc_baseCode', column: 'value' }
   },
+  work_apply: {
+    basecode_sector: { table: 'etc_baseCode', column: 'code' },
+    basecode_code: { table: 'etc_baseCode', column: 'value' },
+    worker_id: { table: 'worker_header', column: 'id' }
+  },
   work_assignment: {
     work_id: { table: 'work_header', column: 'id' },
     worker_id: { table: 'worker_header', column: 'id' }
