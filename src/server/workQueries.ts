@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 
 import { db } from '@/src/db/client';
@@ -35,7 +35,8 @@ export type WorkRow = {
 
 export async function fetchWorkRowsByDate(targetDate: string) {
   const buildingSector = alias(etcBaseCode, 'workSector');
-  const targetDateValue = buildKstDate(targetDate);
+
+  const targetDateSql = sql`DATE(${workHeader.date}) = ${targetDate}`;
 
   return db
     .select({
@@ -71,7 +72,7 @@ export async function fetchWorkRowsByDate(targetDate: string) {
       buildingSector,
       and(eq(buildingSector.codeGroup, etcBuildings.sectorCode), eq(buildingSector.code, etcBuildings.sectorValue))
     )
-    .where(eq(workHeader.date, targetDateValue))
+    .where(targetDateSql)
     .orderBy(asc(workHeader.id));
 }
 
@@ -140,7 +141,6 @@ export async function fetchWorkRowById(workId: number) {
 
 export async function fetchLatestWorkByDateAndRoom(date: string, roomId: number) {
   const buildingSector = alias(etcBaseCode, 'workSectorLatest');
-  const dateValue = buildKstDate(date);
 
   const rows = await db
     .select({
@@ -176,7 +176,7 @@ export async function fetchLatestWorkByDateAndRoom(date: string, roomId: number)
       buildingSector,
       and(eq(buildingSector.codeGroup, etcBuildings.sectorCode), eq(buildingSector.code, etcBuildings.sectorValue))
     )
-    .where(and(eq(workHeader.roomId, roomId), eq(workHeader.date, dateValue)))
+    .where(and(eq(workHeader.roomId, roomId), eq(workHeader.date, date)))
     .orderBy(desc(workHeader.id))
     .limit(1);
 
@@ -288,8 +288,4 @@ function buildRoomName(shortName?: string | null, roomNo?: string | null) {
   const building = shortName ?? '';
   const room = roomNo ?? '';
   return `${building}${room}`.trim() || '미지정 객실';
-}
-
-function buildKstDate(dateKey: string) {
-  return new Date(`${dateKey}T00:00:00Z`);
 }
