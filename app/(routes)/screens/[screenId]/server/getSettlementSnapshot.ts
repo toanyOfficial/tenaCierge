@@ -748,14 +748,12 @@ export async function getSettlementSnapshot(
       if (!hostStatement || !roomInfo) continue;
 
       const monthDate = `${month}-01`;
-      const activeDays = roomInfo.activeDays ?? daysInMonth;
 
       for (const price of prices) {
         switch (price.type) {
           case 2: {
-            const perDay = price.amount / daysInMonth;
             const base = applyRoomMultipliers(
-              { item: `${roomInfo.label} ${price.title ?? '월정액'}`, amount: perDay, quantity: activeDays },
+              { item: `${roomInfo.label} ${price.title ?? '월정액'}`, amount: price.amount, quantity: 1 },
               price,
               roomInfo
             );
@@ -773,14 +771,11 @@ export async function getSettlementSnapshot(
             break;
           }
           case 4: {
-            const qty = roomInfo.bedCount ?? 1;
-            const perDay = price.amount / daysInMonth;
-            const totalQty = qty * activeDays;
             const base = applyRoomMultipliers(
               {
-                item: `${roomInfo.label} ${price.title ?? '침구 월정액'} (x${qty})`,
-                amount: perDay,
-                quantity: totalQty
+                item: `${roomInfo.label} ${price.title ?? '침구 월정액'}`,
+                amount: price.amount,
+                quantity: 1
               },
               price,
               roomInfo
