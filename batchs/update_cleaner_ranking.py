@@ -204,10 +204,18 @@ class CleanerRankingBatch:
             works = list(cur)
 
         if not works:
+            logging.info(
+                "추가 요금 산정 대상 작업이 없습니다 (date=%s)",
+                self.target_date,
+            )
             return
 
         room_ids = [int(w["room_id"]) for w in works if w.get("room_id") is not None]
         if not room_ids:
+            logging.info(
+                "추가 요금 산정 대상 방이 없습니다 (작업 %s건)",
+                len(works),
+            )
             return
 
         rooms: Dict[int, Dict[str, object]] = {}
@@ -371,6 +379,11 @@ class CleanerRankingBatch:
                 add_charge(9, math.ceil(diff_minutes / 60) if diff_minutes > 0 else 0, "이른 체크인")
 
         if not inserts:
+            logging.info(
+                "추가 요금 조건에 해당하는 작업이 없습니다 (작업 %s건, 방 %s개)",
+                len(works),
+                len(room_ids),
+            )
             return
 
         insert_columns = ["room_id", "date", "seq", "title", additional_amount_col]
@@ -391,7 +404,12 @@ class CleanerRankingBatch:
                 f"INSERT INTO client_additional_price ({columns_sql}) VALUES ({placeholders_insert})",
                 values,
             )
-        logging.info("client_additional_price 자동 추가 %s건", len(inserts))
+        logging.info(
+            "client_additional_price 자동 추가 %s건 (작업 %s건, 방 %s개)",
+            len(inserts),
+            len(works),
+            len(room_ids),
+        )
 
     def _fetch_scores(self) -> Dict[int, float]:
         start_date = self.target_date - dt.timedelta(days=19)
