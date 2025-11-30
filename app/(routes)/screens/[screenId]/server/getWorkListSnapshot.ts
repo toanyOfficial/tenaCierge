@@ -257,7 +257,8 @@ export async function getWorkListSnapshot(
         supplyYn: workHeader.supplyYn,
         cleaningFlag: workHeader.cleaningFlag,
         cleaningYn: workHeader.cleaningYn,
-        conditionCheckYn: workHeader.conditionCheckYn,
+        // Some deployments omit `condition_check_yn`; default to false when absent.
+        conditionCheckYn: sql<boolean>`0`,
         supervisingYn: workHeader.supervisingYn,
         supervisingEndTime: workHeader.supervisingEndTime,
         cleanerId: workHeader.cleanerId,

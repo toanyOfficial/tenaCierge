@@ -47,7 +47,8 @@ export async function fetchWorkRowsByDate(targetDate: string) {
       checklistSetId: clientRooms.checklistSetId,
       cancelYn: workHeader.cancelYn,
       cleaningYn: workHeader.cleaningYn,
-      conditionCheckYn: workHeader.conditionCheckYn,
+      // Some deployments omit `condition_check_yn`; default to false when absent.
+      conditionCheckYn: sql<boolean>`0`,
       // Some DBs may miss `work_header.checkout_time`; prefer room default to avoid failures.
       checkoutTime: clientRooms.checkoutTime,
       checkinTime: workHeader.checkinTime,
@@ -109,7 +110,8 @@ export async function fetchWorkRowById(workId: number) {
       checklistSetId: clientRooms.checklistSetId,
       cancelYn: workHeader.cancelYn,
       cleaningYn: workHeader.cleaningYn,
-      conditionCheckYn: workHeader.conditionCheckYn,
+      // Some deployments omit `condition_check_yn`; default to false when absent.
+      conditionCheckYn: sql<boolean>`0`,
       // Some DBs may miss `work_header.checkout_time`; prefer room default to avoid failures.
       checkoutTime: clientRooms.checkoutTime,
       checkinTime: workHeader.checkinTime,
@@ -153,7 +155,8 @@ export async function fetchLatestWorkByDateAndRoom(date: string, roomId: number)
       checklistSetId: clientRooms.checklistSetId,
       cancelYn: workHeader.cancelYn,
       cleaningYn: workHeader.cleaningYn,
-      conditionCheckYn: workHeader.conditionCheckYn,
+      // Some deployments omit `condition_check_yn`; default to false when absent.
+      conditionCheckYn: sql<boolean>`0`,
       // Some DBs may miss `work_header.checkout_time`; prefer room default to avoid failures.
       checkoutTime: clientRooms.checkoutTime,
       checkinTime: workHeader.checkinTime,
