@@ -755,21 +755,6 @@
   font-weight: 700;
 }
 
-.detailColumnHeader {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-
-.detailColumnCount {
-  font-size: 0.85rem;
-  color: #0f172a;
-  font-weight: 700;
-}
-
 .detailSection {
   display: flex;
   flex-direction: column;
