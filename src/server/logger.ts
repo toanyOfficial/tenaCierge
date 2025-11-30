@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 type LogLevel = 'info' | 'warn' | 'error';
@@ -10,12 +11,16 @@ type LogPayload = {
   error?: unknown;
 };
 
-const LOG_DIR = path.resolve(process.cwd(), 'logs');
-const LOG_FILE = path.join(LOG_DIR, 'app.log');
+const PRIMARY_LOG_DIR = path.resolve(process.cwd(), 'logs');
+const FALLBACK_LOG_DIR = path.join(os.tmpdir(), 'tenaCierge-logs');
+const PRIMARY_LOG_FILE = path.join(PRIMARY_LOG_DIR, 'app.log');
 
-function ensureLogDir() {
-  if (!fs.existsSync(LOG_DIR)) {
-    fs.mkdirSync(LOG_DIR, { recursive: true });
+let currentLogFile = PRIMARY_LOG_FILE;
+let hasFallenBack = false;
+
+function ensureLogDir(dir: string) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
 }
 
@@ -30,7 +35,6 @@ function safeContext(context?: Record<string, unknown>) {
 }
 
 async function writeLog(level: LogLevel, message: string, context?: Record<string, unknown>, error?: unknown) {
-  ensureLogDir();
 
   const stack =
     error instanceof Error
@@ -52,9 +56,24 @@ async function writeLog(level: LogLevel, message: string, context?: Record<strin
   const line = `${JSON.stringify(payload)}\n`;
 
   try {
-    await fs.promises.appendFile(LOG_FILE, line, { encoding: 'utf8' });
+    ensureLogDir(path.dirname(currentLogFile));
+    await fs.promises.appendFile(currentLogFile, line, { encoding: 'utf8' });
   } catch (fileError) {
-    console.error('로그 파일 기록 실패', fileError);
+    if (!hasFallenBack) {
+      const fallbackFile = path.join(FALLBACK_LOG_DIR, 'app.log');
+      try {
+        ensureLogDir(FALLBACK_LOG_DIR);
+        await fs.promises.appendFile(fallbackFile, line, { encoding: 'utf8' });
+        currentLogFile = fallbackFile;
+        hasFallenBack = true;
+        console.warn('[work-log] falling back to temp log file', { path: fallbackFile, error: fileError });
+      } catch (fallbackError) {
+        console.error('로그 파일 기록 실패', fileError);
+        console.error('임시 로그 파일 기록 실패', fallbackError);
+      }
+    } else {
+      console.error('로그 파일 기록 실패', fileError);
+    }
   }
 
   const consolePayload = { message, context, stack };
@@ -77,4 +96,8 @@ export function logWarn(payload: LogPayload) {
 
 export function logError(payload: LogPayload) {
   return writeLog('error', payload.message, payload.context, payload.error);
+}
+
+export function getLogFilePath() {
+  return currentLogFile;
 }
