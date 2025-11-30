@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/src/db/client';
 import { clientHeader, workerHeader } from '@/src/db/schema';
 import { getSeoul1630Expiry } from '@/src/utils/cookie';
+import { isButlerEligible } from '@/src/server/profile';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -48,7 +49,7 @@ function appendRole(list: string[], role: 'admin' | 'host' | 'butler' | 'cleaner
   }
 }
 
-function resolveRoleArrange(worker: WorkerRecord | null, client: ClientRecord | null) {
+async function resolveRoleArrange(worker: WorkerRecord | null, client: ClientRecord | null) {
   const roles: string[] = [];
 
   if (client) {
@@ -58,12 +59,13 @@ function resolveRoleArrange(worker: WorkerRecord | null, client: ClientRecord | 
   if (worker) {
     appendRole(roles, 'cleaner');
 
-    if (worker.tier === 7) {
+    const butlerEligible = await isButlerEligible(worker);
+
+    if (butlerEligible) {
       appendRole(roles, 'butler');
     }
 
     if (worker.tier === 99) {
-      appendRole(roles, 'butler');
       appendRole(roles, 'admin');
     }
   }
@@ -149,7 +151,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: '일치하는 구성원을 찾지 못했습니다.' }, { status: 404 });
   }
 
-  const roleArrange = resolveRoleArrange(worker, client);
+  const roleArrange = await resolveRoleArrange(worker, client);
 
   if (roleArrange.length === 0) {
     return NextResponse.json({ message: '해당 계정에 부여할 역할이 없습니다.' }, { status: 403 });
