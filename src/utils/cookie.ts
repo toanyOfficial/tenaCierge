@@ -1,4 +1,4 @@
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+import { KST_OFFSET_MS } from './kst';
 const SIXTEEN_THIRTY_UTC_HOUR = 7; // 16:30 KST == 07:30 UTC
 const SIXTEEN_THIRTY_MINUTE = 30;
 

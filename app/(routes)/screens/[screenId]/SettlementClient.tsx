@@ -302,20 +302,28 @@ export default function SettlementClient({ snapshot, isAdmin, profile }: Props) 
                       <div className={styles.subsectionTitle}>월 비용</div>
                       <div className={styles.monthlyGrid}>
                         <div className={styles.lineHeader}>항목</div>
-                        <div className={styles.lineHeader}>금액</div>
+                        <div className={styles.lineHeader}>단가</div>
+                        <div className={styles.lineHeader}>수량</div>
+                        <div className={styles.lineHeader}>합계금액</div>
 
                         {room.monthly.map((line) => (
-                          <Fragment key={line.id}>
+                          <div key={line.id} className={styles.lineRow}>
                             <div className={`${styles.lineCell} ${line.ratioYn ? styles.ratioText : ''}`}>
                               {renderRatioLineText(line)}
                             </div>
+                            <div className={styles.lineCell}>{renderAmount(line)}</div>
+                            <div className={styles.lineCell}>{line.quantity}</div>
                             <div className={styles.lineCell}>{formatCurrency(line.total)}</div>
-                          </Fragment>
+                          </div>
                         ))}
 
-                        <div className={styles.totalLabel}>합계</div>
-                        <div className={`${styles.totalValue} ${monthlyTotal < 0 ? styles.negative : ''}`}>
-                          {formatCurrency(monthlyTotal)}
+                        <div className={styles.totalRow}>
+                          <div className={styles.totalLabel}>합계</div>
+                          <div className={styles.totalLabel}></div>
+                          <div className={styles.totalLabel}></div>
+                          <div className={`${styles.totalValue} ${monthlyTotal < 0 ? styles.negative : ''}`}>
+                            {formatCurrency(monthlyTotal)}
+                          </div>
                         </div>
                       </div>
                     </div>
