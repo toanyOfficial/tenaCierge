@@ -12,7 +12,6 @@ import {
   buildDateOptions,
   formatDateKey,
   getKstNow,
-  isDateWithinRange,
   resolveWorkWindow,
   type WorkWindowMeta
 } from '@/src/utils/workWindow';
@@ -52,8 +51,8 @@ export async function getCleaningSnapshot(profile: ProfileSummary, targetDate?: 
   const now = getKstNow();
   const today = formatDateKey(now);
   const maxDate = buildMaxDate(today, 7);
-  const dateOptions = buildDateOptions(7, now);
-  const meta = resolveWorkWindow(undefined, targetDate && isDateWithinRange(targetDate, 7, now) ? targetDate : undefined);
+  const meta = resolveWorkWindow(undefined, targetDate || undefined);
+  const dateOptions = ensureTargetDateOption(buildDateOptions(7, now), meta.targetDate, meta.targetTag);
   const client = profile.roles.includes('host') ? await findClientByProfile(profile) : null;
   const worker = profile.roles.includes('cleaner') ? await findWorkerByProfile(profile) : null;
   const [works, hostRooms, adminRooms] = await Promise.all([
@@ -86,6 +85,20 @@ function buildMaxDate(today: string, days: number) {
   const base = new Date(`${today}T00:00:00+09:00`);
   base.setDate(base.getDate() + days);
   return formatDateKey(base);
+}
+
+function ensureTargetDateOption(
+  options: { value: string; label: string; tag: WorkWindowMeta['targetTag'] }[],
+  targetDate: string,
+  targetTag: WorkWindowMeta['targetTag']
+) {
+  const existing = options.find((option) => option.value === targetDate);
+  if (existing) return options;
+
+  return [
+    { value: targetDate, tag: targetTag, label: formatDateKey(new Date(`${targetDate}T00:00:00+09:00`)) },
+    ...options
+  ];
 }
 
 async function getWorks(targetDate: string): Promise<CleaningWork[]> {
