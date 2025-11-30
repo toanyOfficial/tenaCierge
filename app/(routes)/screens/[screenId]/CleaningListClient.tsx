@@ -238,8 +238,15 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
     const groups: {
       key: string;
       label: string;
-      count: number;
-      buildings: { key: string; label: string; count: number; works: CleaningWork[] }[];
+      cleaningCount: number;
+      nonCleaningCount: number;
+      buildings: {
+        key: string;
+        label: string;
+        cleaningCount: number;
+        nonCleaningCount: number;
+        works: CleaningWork[];
+      }[];
     }[] = [];
 
     sorted.forEach((work) => {
@@ -248,11 +255,21 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
 
       if (sectorIndex[sectorKey] === undefined) {
         sectorIndex[sectorKey] = groups.length;
-        groups.push({ key: sectorKey, label: sectorLabel, count: 0, buildings: [] });
+        groups.push({
+          key: sectorKey,
+          label: sectorLabel,
+          cleaningCount: 0,
+          nonCleaningCount: 0,
+          buildings: []
+        });
       }
 
       const sector = groups[sectorIndex[sectorKey]];
-      sector.count += 1;
+      if (work.cleaningYn) {
+        sector.cleaningCount += 1;
+      } else {
+        sector.nonCleaningCount += 1;
+      }
 
       const buildingKey = `${sectorKey}::${work.buildingId}`;
       let building = sector.buildings.find((entry) => entry.key === buildingKey);
@@ -261,13 +278,18 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
         building = {
           key: buildingKey,
           label: work.buildingShortName || work.buildingName || `건물 ${work.buildingId}`,
-          count: 0,
+          cleaningCount: 0,
+          nonCleaningCount: 0,
           works: []
         };
         sector.buildings.push(building);
       }
 
-      building.count += 1;
+      if (work.cleaningYn) {
+        building.cleaningCount += 1;
+      } else {
+        building.nonCleaningCount += 1;
+      }
       building.works.push(work);
     });
 
@@ -696,7 +718,9 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
                       aria-expanded={!sectorCollapsed}
                     >
                       <span className={styles.groupHeaderText}>{sector.label}</span>
-                      <span className={styles.groupCount}>{sector.count}건</span>
+                      <span className={styles.groupCount}>
+                        {sector.cleaningCount}건 + {sector.nonCleaningCount}건
+                      </span>
                       <span className={styles.foldIcon} aria-hidden="true">
                         {sectorCollapsed ? '▼' : '▲'}
                       </span>
@@ -714,7 +738,9 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
                                 aria-expanded={!collapsed}
                               >
                                 <span>{building.label}</span>
-                                <span className={styles.buildingCount}>{building.count}건</span>
+                                <span className={styles.buildingCount}>
+                                  {building.cleaningCount}건 + {building.nonCleaningCount}건
+                                </span>
                                 <span className={styles.foldIcon} aria-hidden="true">
                                   {collapsed ? '▼' : '▲'}
                                 </span>
