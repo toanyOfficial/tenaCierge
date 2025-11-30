@@ -191,6 +191,8 @@ class CleanerRankingBatch:
             )
             return
 
+        has_qty_column = "qty" in additional_columns
+
         with self.conn.cursor(dictionary=True) as cur:
             cur.execute(
                 f"""
@@ -298,7 +300,8 @@ class CleanerRankingBatch:
                 title = price_row.get("title") or ""
                 if (room_id, title) in existing_titles:
                     return
-                amount_value = Decimal(str(price_row.get("amount"))) * Decimal(quantity)
+                unit_amount = Decimal(str(price_row.get("amount")))
+                amount_value = unit_amount if has_qty_column else unit_amount * Decimal(quantity)
                 per_room_max_seq[room_id] = per_room_max_seq.get(room_id, 0) + 1
                 entry = {
                     "room_id": room_id,
@@ -307,6 +310,8 @@ class CleanerRankingBatch:
                     "title": title,
                     additional_amount_col: amount_value,
                 }
+                if has_qty_column:
+                    entry["qty"] = quantity
                 if "minus_yn" in additional_columns:
                     entry["minus_yn"] = price_row.get("minus_yn", 0)
                 if "ratio_yn" in additional_columns:
@@ -335,6 +340,8 @@ class CleanerRankingBatch:
             return
 
         insert_columns = ["room_id", "date", "seq", "title", additional_amount_col]
+        if has_qty_column:
+            insert_columns.append("qty")
         if "minus_yn" in additional_columns:
             insert_columns.append("minus_yn")
         if "ratio_yn" in additional_columns:

@@ -99,6 +99,7 @@ function getMonthBoundary(month: string) {
 }
 
 async function resolveAdditionalPriceColumn(month: string, hostId?: number | null) {
+  const result: { amountColumn: string | null; columns: string[] } = { amountColumn: null, columns: [] };
   try {
     const raw = await db.execute<{ column_name?: string; COLUMN_NAME?: string }>(
       sql`SELECT column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'client_additional_price'`
@@ -117,6 +118,8 @@ async function resolveAdditionalPriceColumn(month: string, hostId?: number | nul
       .map((row) => (row?.column_name ?? (row as any)?.COLUMN_NAME ?? '').toString().toLowerCase())
       .filter(Boolean);
 
+    result.columns = columns;
+
     if (!columns.length) {
       await logEtcError({
         message: 'client_additional_price 컬럼 조회 결과가 비어 있습니다.',
@@ -124,12 +127,21 @@ async function resolveAdditionalPriceColumn(month: string, hostId?: number | nul
         context: { month, hostId: hostId ?? null, table: 'client_additional_price' }
       });
 
-      return null;
+      return result;
     }
 
-    if (columns.includes('price')) return 'price';
-    if (columns.includes('amount')) return 'amount';
-    if (columns.includes('value')) return 'value';
+    if (columns.includes('price')) {
+      result.amountColumn = 'price';
+      return result;
+    }
+    if (columns.includes('amount')) {
+      result.amountColumn = 'amount';
+      return result;
+    }
+    if (columns.includes('value')) {
+      result.amountColumn = 'value';
+      return result;
+    }
 
     await logEtcError({
       message: 'client_additional_price의 금액 컬럼(price/amount/value)을 찾을 수 없습니다.',
@@ -137,7 +149,7 @@ async function resolveAdditionalPriceColumn(month: string, hostId?: number | nul
       context: { month, hostId: hostId ?? null, table: 'client_additional_price', columns }
     });
 
-    return null;
+    return result;
   } catch (error) {
     await logEtcError({
       message: `client_additional_price 컬럼 조회 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`,
@@ -464,9 +476,11 @@ export async function getSettlementSnapshot(
 
     const priceMap = await loadPriceItems(roomIds, month, hostFilterId ?? null);
 
-    const additionalPriceColumn = roomIds.length
+    const additionalPriceMeta = roomIds.length
       ? await resolveAdditionalPriceColumn(month, hostFilterId ?? null)
       : null;
+    const additionalPriceColumn = additionalPriceMeta?.amountColumn ?? null;
+    const hasAdditionalQty = !!additionalPriceMeta?.columns?.includes('qty');
 
     const additionalRows = roomIds.length && additionalPriceColumn
       ? await db
@@ -475,6 +489,7 @@ export async function getSettlementSnapshot(
             roomId: clientAdditionalPrice.roomId,
             date: clientAdditionalPrice.date,
             title: clientAdditionalPrice.title,
+            qty: hasAdditionalQty ? clientAdditionalPrice.qty : sql`1`,
             price:
               additionalPriceColumn === 'price'
                 ? sql`CAST(${clientAdditionalPrice.price} AS DECIMAL(20,4))`
@@ -729,11 +744,13 @@ export async function getSettlementSnapshot(
     const date = extra.date.toISOString().slice(0, 10);
     const price = Number(extra.price ?? 0);
 
+    const quantity = hasAdditionalQty ? Number(extra.qty ?? 1) : 1;
+
     addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: room.label }, {
       date,
       item: `${room.label} ${extra.title}`,
       amount: price,
-      quantity: 1,
+      quantity,
       category: 'misc'
     });
   }
