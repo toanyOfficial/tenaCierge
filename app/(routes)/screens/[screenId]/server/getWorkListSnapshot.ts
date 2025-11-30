@@ -94,6 +94,10 @@ function buildDateParam(dateKey: string) {
   return dateKey;
 }
 
+function buildDateSqlValue(dateKey: string) {
+  return sql`CAST(${dateKey} AS DATE)`;
+}
+
 function normalizeDate(input?: string) {
   if (!input) return '';
 
@@ -228,7 +232,8 @@ export async function getWorkListSnapshot(
     const window = preferToday ? 'd0' : initialWindow.window;
     const windowDates = initialWindow.windowDates;
     const targetDateValue = buildDateParam(targetDate);
-    const targetDateSql = eq(workHeader.date, targetDateValue);
+    const targetDateSqlValue = buildDateSqlValue(targetDateValue);
+    const targetDateSql = eq(workHeader.date, targetDateSqlValue);
     const dateOptions = await buildDateOptions(targetDate, now);
 
     const notice = await fetchLatestNotice();
@@ -406,10 +411,11 @@ async function fetchLatestNotice() {
 
 async function hasButlerApplication(workerId: number, targetDate: string) {
   const targetDateValue = buildDateParam(targetDate);
+  const targetDateSqlValue = buildDateSqlValue(targetDateValue);
   const rows = await db
     .select({ id: workApply.id })
     .from(workApply)
-    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateValue), eq(workApply.position, 2)))
+    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateSqlValue), eq(workApply.position, 2)))
     .limit(1);
 
   return rows.length > 0;
@@ -417,10 +423,11 @@ async function hasButlerApplication(workerId: number, targetDate: string) {
 
 async function hasWorkApplication(workerId: number, targetDate: string) {
   const targetDateValue = buildDateParam(targetDate);
+  const targetDateSqlValue = buildDateSqlValue(targetDateValue);
   const rows = await db
     .select({ id: workApply.id })
     .from(workApply)
-    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateValue)))
+    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateSqlValue)))
     .limit(1);
 
   return rows.length > 0;
@@ -428,10 +435,11 @@ async function hasWorkApplication(workerId: number, targetDate: string) {
 
 async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
   const targetDateValue = buildDateParam(targetDate);
+  const targetDateSqlValue = buildDateSqlValue(targetDateValue);
   const rows = await db
     .select({ workId: workAssignment.workId })
     .from(workAssignment)
-    .where(and(eq(workAssignment.workerId, workerId), eq(workAssignment.assignDate, targetDateValue)));
+    .where(and(eq(workAssignment.workerId, workerId), eq(workAssignment.assignDate, targetDateSqlValue)));
 
   if (rows.length) {
     return rows.map((row) => Number(row.workId));
@@ -440,7 +448,7 @@ async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
   const directRows = await db
     .select({ id: workHeader.id })
     .from(workHeader)
-    .where(and(eq(workHeader.date, targetDateValue), eq(workHeader.cleanerId, workerId)));
+    .where(and(eq(workHeader.date, targetDateSqlValue), eq(workHeader.cleanerId, workerId)));
 
   return directRows.map((row) => Number(row.id));
 }
@@ -486,6 +494,7 @@ function normalizeRow(row: any): WorkListEntry {
 
 async function fetchAssignableWorkers(targetDate: string): Promise<AssignableWorker[]> {
   const targetDateValue = buildDateParam(targetDate);
+  const targetDateSqlValue = buildDateSqlValue(targetDateValue);
   const rows = await db
     .select({
       id: workApply.workerId,
@@ -496,7 +505,7 @@ async function fetchAssignableWorkers(targetDate: string): Promise<AssignableWor
     })
     .from(workApply)
     .leftJoin(workerHeader, eq(workApply.workerId, workerHeader.id))
-    .where(and(eq(workApply.workDate, targetDateValue), isNotNull(workApply.workerId)))
+    .where(and(eq(workApply.workDate, targetDateSqlValue), isNotNull(workApply.workerId)))
     .orderBy(workApply.workerId);
 
   const deduped = new Map<number, AssignableWorker>();
