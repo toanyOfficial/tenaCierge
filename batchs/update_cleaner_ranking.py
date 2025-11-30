@@ -223,7 +223,7 @@ class CleanerRankingBatch:
         with self.conn.cursor(dictionary=True) as cur:
             cur.execute(
                 f"""
-                SELECT id, bed_count, checkin_time, checkout_time
+                SELECT id, price_set_id, bed_count, checkin_time, checkout_time
                 FROM client_rooms
                 WHERE id IN ({placeholders})
                 """,
@@ -254,6 +254,33 @@ class CleanerRankingBatch:
             )
             for row in cur:
                 price_map[int(row["id"])] = row
+
+        price_set_columns = self._get_table_columns("client_price_set_detail")
+        set_amount_col = self._resolve_amount_column(
+            price_set_columns,
+            [price_amount_col, "amount", "price", "value", "amount_per_cleaning", "amount_per_room"],
+        )
+        price_set_ids = {int(r.get("price_set_id")) for r in rooms.values() if r.get("price_set_id")}
+        set_price_map: Dict[tuple[int, int], Dict[str, object]] = {}
+        if set_amount_col and price_set_ids:
+            set_fields = ["price_set_id", "price_id", f"{set_amount_col} AS amount"]
+            for col in ("title", "type", "minus_yn", "ratio_yn"):
+                if col in price_set_columns:
+                    set_fields.append(col)
+
+            placeholders_set = ", ".join(["%s"] * len(price_set_ids))
+            with self.conn.cursor(dictionary=True) as cur:
+                cur.execute(
+                    f"""
+                    SELECT {', '.join(set_fields)}
+                    FROM client_price_set_detail
+                    WHERE price_id IN (9, 10, 15, 16)
+                      AND price_set_id IN ({placeholders_set})
+                    """,
+                    tuple(price_set_ids),
+                )
+                for row in cur:
+                    set_price_map[(int(row["price_set_id"]), int(row["price_id"]))] = row
 
         if not price_map:
             self._log_error(
@@ -291,10 +318,28 @@ class CleanerRankingBatch:
             amenities_qty = int(work.get("amenities_qty") or 0)
             blanket_qty = int(work.get("blanket_qty") or 0)
 
+            def resolve_price_row(price_id: int) -> Optional[Dict[str, object]]:
+                price_set_id = room.get("price_set_id")
+                override_row = None
+                if price_set_id is not None:
+                    override_row = set_price_map.get((int(price_set_id), price_id))
+
+                base_row = price_map.get(price_id)
+                if override_row is None:
+                    return base_row
+
+                merged = dict(base_row) if base_row else {}
+                for key, value in override_row.items():
+                    if key in {"price_set_id", "price_id"}:
+                        continue
+                    if value is not None:
+                        merged[key] = value
+                return merged
+
             def add_charge(price_id: int, quantity: int, reason: str) -> None:
                 if quantity <= 0:
                     return
-                price_row = price_map.get(price_id)
+                price_row = resolve_price_row(price_id)
                 if not price_row or price_row.get("amount") is None:
                     return
                 title = price_row.get("title") or ""
@@ -912,6 +957,9 @@ class CleanerRankingBatch:
     def _to_time(self, value: object) -> Optional[dt.time]:
         if isinstance(value, dt.time):
             return value
+        if isinstance(value, dt.timedelta):
+            base = dt.datetime.min + value
+            return base.time()
         if isinstance(value, str):
             for fmt in ("%H:%M:%S", "%H:%M"):
                 try:
