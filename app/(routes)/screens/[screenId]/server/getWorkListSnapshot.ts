@@ -20,7 +20,7 @@ import type { ProfileSummary } from '@/src/utils/profile';
 import { findClientByProfile } from '@/src/server/clients';
 import { findWorkerByProfile } from '@/src/server/workers';
 import { fetchAvailableWorkDates } from '@/src/server/workQueries';
-import { getKstNow, formatDateKey, formatFullDateLabel, isDateWithinRange } from '@/src/utils/workWindow';
+import { getKstNow, formatDateKey, formatFullDateLabel } from '@/src/utils/workWindow';
 import { logServerError } from '@/src/server/errorLogger';
 
 export type WorkListEntry = {
@@ -520,6 +520,33 @@ function normalizeText(value: unknown) {
   return undefined;
 }
 
+function buildKstDate(dateKey: string) {
+  return new Date(`${dateKey}T00:00:00+09:00`);
+}
+
+async function buildDateOptions(targetDate: string, now: Date) {
+  const today = formatDateKey(now);
+  const todayDate = new Date(`${today}T00:00:00+09:00`);
+  const tomorrow = formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+  const dates = new Set<string>();
+
+  const addIfValid = (value: string, allowPast = false) => {
+    const parsed = new Date(`${value}T00:00:00+09:00`);
+    if (Number.isNaN(parsed.getTime())) return;
+    if (!allowPast && parsed < todayDate) return;
+    dates.add(value);
+  };
+
+  addIfValid(today, true);
+  addIfValid(tomorrow, true);
+  (await fetchAvailableWorkDates()).forEach((date) => addIfValid(date));
+  addIfValid(targetDate, true);
+
+  return Array.from(dates)
+    .map((value) => ({ value, label: formatFullDateLabel(new Date(`${value}T00:00:00+09:00`)) }))
+    .sort((a, b) => a.value.localeCompare(b.value));
+}
+
 function safeParseJson(value: string) {
   try {
     return JSON.parse(value);
@@ -582,14 +609,12 @@ function resolveWindow(
   const tomorrow = formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
 
   if (dateParam) {
-    const normalized = normalizeDate(dateParam, now);
-    if (normalized && isDateWithinRange(normalized, 7, now)) {
-      return {
-        targetDate: normalized,
-        window: normalized === today ? 'd0' : normalized === tomorrow ? 'd1' : undefined,
-        windowDates: { d0: today, d1: tomorrow }
-      };
-    }
+    const normalized = normalizeDate(dateParam);
+    return {
+      targetDate: normalized || today,
+      window: normalized === today ? 'd0' : normalized === tomorrow ? 'd1' : undefined,
+      windowDates: { d0: today, d1: tomorrow }
+    };
   }
 
   const defaultWindow: 'd0' | 'd1' = minutes < 16 * 60 + 30 ? 'd0' : 'd1';

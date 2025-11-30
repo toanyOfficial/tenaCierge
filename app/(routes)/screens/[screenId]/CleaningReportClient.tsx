@@ -36,7 +36,8 @@ function ImageTile({ slot, selectedFile, previewUrl, onChange, onRequestFile, re
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const handleOpen = () => {
-    // Reset attributes and explicitly open the picker for better mobile support.
+    // 모바일에서 라벨 클릭 시 파일 입력이 중복 호출되지 않도록
+    // 라벨 측에서만 명시적으로 클릭을 트리거한다.
     onRequestFile(slotKey, inputRef.current, { triggerClick: true });
   };
 
@@ -61,6 +62,8 @@ function ImageTile({ slot, selectedFile, previewUrl, onChange, onRequestFile, re
         onChange={(e) => onChange(slotKey, e.target.files)}
         ref={inputRef}
         className={styles.imageInput}
+        tabIndex={-1}
+        aria-hidden
       />
 
       <div className={styles.imageTextBlock}>
@@ -273,7 +276,11 @@ export default function CleaningReportClient({ profile, snapshot }: Props) {
       router.push('/screens/004');
     } catch (err) {
       const message = err instanceof Error ? err.message : '저장 중 오류가 발생했습니다.';
-      setError(message);
+      if (message.toLowerCase().includes('failed to fetch')) {
+        setError('네트워크 연결이 불안정합니다. 잠시 후 다시 시도해주세요.');
+      } else {
+        setError(message);
+      }
     } finally {
       setSubmitting(false);
     }

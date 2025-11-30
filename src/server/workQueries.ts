@@ -291,5 +291,5 @@ function buildRoomName(shortName?: string | null, roomNo?: string | null) {
 }
 
 function buildKstDate(dateKey: string) {
-  return new Date(`${dateKey}T00:00:00Z`);
+  return new Date(`${dateKey}T00:00:00+09:00`);
 }
