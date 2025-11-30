@@ -19,7 +19,8 @@ import {
 import type { ProfileSummary } from '@/src/utils/profile';
 import { findClientByProfile } from '@/src/server/clients';
 import { findWorkerByProfile } from '@/src/server/workers';
-import { getKstNow, formatDateKey } from '@/src/utils/workWindow';
+import { fetchAvailableWorkDates } from '@/src/server/workQueries';
+import { getKstNow, formatDateKey, formatFullDateLabel } from '@/src/utils/workWindow';
 import { logServerError } from '@/src/server/errorLogger';
 
 export type WorkListEntry = {
@@ -77,6 +78,7 @@ export type WorkListSnapshot = {
   windowLabel: string;
   window?: 'd0' | 'd1';
   windowDates: { d0: string; d1: string };
+  dateOptions: { value: string; label: string }[];
   works: WorkListEntry[];
   assignableWorkers: AssignableWorker[];
   emptyMessage?: string;
@@ -92,8 +94,15 @@ export async function getWorkListSnapshot(
   try {
     const now = getKstNow();
     const minutes = now.getHours() * 60 + now.getMinutes();
-    const { targetDate, window, windowDates } = resolveWindow(now, minutes, dateParam, windowParam);
-    const targetDateValue = new Date(`${targetDate}T00:00:00Z`);
+    const initialWindow = resolveWindow(now, minutes, dateParam, windowParam);
+    const isAdmin = profile.primaryRole === 'admin' || profile.roles.includes('admin');
+    const preferToday = isAdmin && !dateParam && !windowParam && initialWindow.window === 'd1';
+
+    const targetDate = preferToday ? initialWindow.windowDates.d0 : initialWindow.targetDate;
+    const window = preferToday ? 'd0' : initialWindow.window;
+    const windowDates = initialWindow.windowDates;
+    const targetDateValue = buildKstDate(targetDate);
+    const dateOptions = await buildDateOptions(targetDate, now);
 
     const notice = await fetchLatestNotice();
 
@@ -152,7 +161,15 @@ export async function getWorkListSnapshot(
 
     let emptyMessage: string | undefined;
 
-    if (profile.primaryRole === 'admin' || profile.roles.includes('admin') || profile.roles.includes('butler')) {
+    const hasButlerApplicationToday =
+      targetDate === windowDates.d0 && worker ? await hasButlerApplication(worker.id, windowDates.d0) : false;
+
+    if (
+      profile.primaryRole === 'admin' ||
+      profile.roles.includes('admin') ||
+      profile.roles.includes('butler') ||
+      hasButlerApplicationToday
+    ) {
       rows = await baseQuery;
     } else if (profile.roles.includes('host')) {
       if (!client) {
@@ -169,8 +186,9 @@ export async function getWorkListSnapshot(
       } else {
         const assignedWorkIds = await fetchAssignedWorkIds(worker.id, targetDate);
         if (!assignedWorkIds.length) {
+          const hasApplication = await hasWorkApplication(worker.id, targetDate);
           rows = [];
-          emptyMessage = '아직 할당된 업무가 없습니다.';
+          emptyMessage = hasApplication ? '아직 할당된 업무가 없습니다.' : '오늘,내일자 업무 신청 내역이 없습니다.';
         } else {
           rows = await baseQueryBuilder
             .where(and(eq(workHeader.date, targetDateValue), inArray(workHeader.id, assignedWorkIds)))
@@ -207,7 +225,12 @@ export async function getWorkListSnapshot(
       window,
       windowDates,
       windowLabel:
-        window === 'd0' ? `D0 (${windowDates.d0})` : window === 'd1' ? `D+1 (${windowDates.d1})` : targetDate,
+        window === 'd0' && targetDate === windowDates.d0
+          ? `D0 (${windowDates.d0})`
+          : window === 'd1' && targetDate === windowDates.d1
+            ? `D+1 (${windowDates.d1})`
+            : targetDate,
+      dateOptions,
       works,
       assignableWorkers,
       emptyMessage,
@@ -229,8 +252,30 @@ async function fetchLatestNotice() {
   return rows[0]?.notice ?? '공지사항이 없습니다.';
 }
 
+async function hasButlerApplication(workerId: number, targetDate: string) {
+  const targetDateValue = buildKstDate(targetDate);
+  const rows = await db
+    .select({ id: workApply.id })
+    .from(workApply)
+    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateValue), eq(workApply.position, 2)))
+    .limit(1);
+
+  return rows.length > 0;
+}
+
+async function hasWorkApplication(workerId: number, targetDate: string) {
+  const targetDateValue = buildKstDate(targetDate);
+  const rows = await db
+    .select({ id: workApply.id })
+    .from(workApply)
+    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateValue)))
+    .limit(1);
+
+  return rows.length > 0;
+}
+
 async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
-  const targetDateValue = new Date(`${targetDate}T00:00:00Z`);
+  const targetDateValue = buildKstDate(targetDate);
   const rows = await db
     .select({ workId: workAssignment.workId })
     .from(workAssignment)
@@ -288,7 +333,7 @@ function normalizeRow(row: any): WorkListEntry {
 }
 
 async function fetchAssignableWorkers(targetDate: string): Promise<AssignableWorker[]> {
-  const targetDateValue = new Date(`${targetDate}T00:00:00Z`);
+  const targetDateValue = buildKstDate(targetDate);
   const rows = await db
     .select({
       id: workApply.workerId,
@@ -472,6 +517,33 @@ function normalizeText(value: unknown) {
   return undefined;
 }
 
+function buildKstDate(dateKey: string) {
+  return new Date(`${dateKey}T00:00:00+09:00`);
+}
+
+async function buildDateOptions(targetDate: string, now: Date) {
+  const today = formatDateKey(now);
+  const todayDate = new Date(`${today}T00:00:00+09:00`);
+  const tomorrow = formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+  const dates = new Set<string>();
+
+  const addIfValid = (value: string, allowPast = false) => {
+    const parsed = new Date(`${value}T00:00:00+09:00`);
+    if (Number.isNaN(parsed.getTime())) return;
+    if (!allowPast && parsed < todayDate) return;
+    dates.add(value);
+  };
+
+  addIfValid(today, true);
+  addIfValid(tomorrow, true);
+  (await fetchAvailableWorkDates()).forEach((date) => addIfValid(date));
+  addIfValid(targetDate, true);
+
+  return Array.from(dates)
+    .map((value) => ({ value, label: formatFullDateLabel(new Date(`${value}T00:00:00+09:00`)) }))
+    .sort((a, b) => a.value.localeCompare(b.value));
+}
+
 function safeParseJson(value: string) {
   try {
     return JSON.parse(value);
@@ -535,13 +607,17 @@ function resolveWindow(
   minutes: number,
   dateParam?: string,
   windowParam?: 'd0' | 'd1'
-): { targetDate: string; window: 'd0' | 'd1'; windowDates: { d0: string; d1: string } } {
+): { targetDate: string; window?: 'd0' | 'd1'; windowDates: { d0: string; d1: string } } {
   const today = formatDateKey(now);
   const tomorrow = formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
 
   if (dateParam) {
     const normalized = normalizeDate(dateParam);
-    return { targetDate: normalized || today, window: normalized === tomorrow ? 'd1' : 'd0', windowDates: { d0: today, d1: tomorrow } };
+    return {
+      targetDate: normalized || today,
+      window: normalized === today ? 'd0' : normalized === tomorrow ? 'd1' : undefined,
+      windowDates: { d0: today, d1: tomorrow }
+    };
   }
 
   const defaultWindow: 'd0' | 'd1' = minutes < 16 * 60 + 30 ? 'd0' : 'd1';
