@@ -48,6 +48,8 @@ function ImageTile({ slot, selectedFile, previewUrl, onChange, required }: Image
         onChange={(e) => onChange(slotKey, e.target.files)}
         ref={inputRef}
         className={styles.imageInput}
+        tabIndex={-1}
+        aria-hidden
       />
 
       <div className={styles.imageTextBlock}>
