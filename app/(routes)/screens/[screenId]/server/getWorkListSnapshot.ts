@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm';
+import { SQL, and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import { unstable_noStore as noStore } from 'next/cache';
 
@@ -94,7 +94,7 @@ function buildDateParam(dateKey: string) {
   return dateKey;
 }
 
-function buildDateSqlValue(dateKey: string) {
+function buildDateSqlValue(dateKey: string): SQL {
   return sql`CAST(${dateKey} AS DATE)`;
 }
 
