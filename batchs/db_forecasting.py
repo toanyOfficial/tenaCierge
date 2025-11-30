@@ -774,6 +774,7 @@ class BatchRunner:
         rules = fetch_apply_rules(self.conn)
         if not rules:
             logging.info("work_apply_rules 데이터가 없어 apply 생성이 스킵됩니다.")
+            self._assign_workers_to_apply(target_date)
             return
         sector_weights = fetch_sector_weights_from_headers(self.conn, target_date)
         if not sector_weights:
@@ -781,6 +782,7 @@ class BatchRunner:
                 "sector 가중치 합계가 없어 apply 생성이 스킵됩니다 (target=%s)",
                 target_date,
             )
+            self._assign_workers_to_apply(target_date)
             return
 
         existing_counts: Dict[Tuple[str, int], Tuple[int, int]] = {}
@@ -831,6 +833,88 @@ class BatchRunner:
                             (target_date, sector_code, sector_value, seq, position),
                         )
         self.conn.commit()
+        self._assign_workers_to_apply(target_date)
+
+    def _assign_workers_to_apply(self, target_date: dt.date) -> None:
+        weekday = (target_date.weekday() + 1) % 7
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(
+                """
+                SELECT id, basecode_sector, seq, worker_id
+                FROM work_apply
+                WHERE work_date=%s AND position=2
+                ORDER BY basecode_sector ASC, seq ASC
+                """,
+                (target_date,),
+            )
+            apply_rows = cur.fetchall()
+
+        if not apply_rows:
+            return
+
+        used_workers: set[int] = {
+            int(row["worker_id"]) for row in apply_rows if row.get("worker_id")
+        }
+
+        weekly_workers: List[int] = []
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT DISTINCT worker_id
+                FROM worker_weekly_pattern
+                WHERE weekday=%s
+                ORDER BY worker_id DESC
+                """,
+                (weekday,),
+            )
+            weekly_workers = [int(row[0]) for row in cur.fetchall() if row[0] is not None]
+
+        available_workers = [w.id for w in fetch_available_workers(self.conn, target_date)]
+        available_workers.sort(reverse=True)
+
+        worker_queue: List[int] = []
+        for worker_id in weekly_workers + available_workers:
+            if worker_id in used_workers:
+                continue
+            if worker_id in worker_queue:
+                continue
+            worker_queue.append(worker_id)
+
+        if not worker_queue:
+            logging.info("배정 가능한 worker가 없어 work_apply worker_id 업데이트를 건너뜁니다.")
+            return
+
+        def _sector_key(row: Dict) -> tuple:
+            sector = row.get("basecode_sector")
+            try:
+                sector_val = int(sector)
+            except (TypeError, ValueError):
+                sector_val = math.inf
+            return (sector_val, row.get("seq", 0))
+
+        assigned = 0
+        worker_idx = 0
+        with self.conn.cursor() as cur:
+            for row in sorted(apply_rows, key=_sector_key):
+                if row.get("worker_id"):
+                    continue
+                if worker_idx >= len(worker_queue):
+                    break
+                worker_id = worker_queue[worker_idx]
+                worker_idx += 1
+                cur.execute(
+                    "UPDATE work_apply SET worker_id=%s WHERE id=%s",
+                    (worker_id, int(row["id"])),
+                )
+                assigned += 1
+
+        if assigned:
+            self.conn.commit()
+            logging.info(
+                "work_apply(worker) 배정 완료: date=%s, position=2, assigned=%s",
+                target_date,
+                assigned,
+            )
 
     def _persist_work_header(self, predictions: Sequence[Prediction]) -> None:
         if self.today_only:
