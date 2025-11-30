@@ -8,6 +8,7 @@ import { clientRooms, etcBaseCode, etcBuildings, etcNotice, workApply, workHeade
 import type { ProfileSummary } from '@/src/utils/profile';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { getApplyStartLabel, getTierLabel } from '@/src/utils/tier';
+import { formatKstDateKey, nowKst } from '@/src/lib/time';
 
 export const metadata: Metadata = {
   title: '업무 현황 | TenaCierge Ops',
@@ -538,9 +539,7 @@ function sanitize(value: string | undefined) {
 }
 
 function getKstNow() {
-  const now = new Date();
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-  return new Date(utc + 9 * 60 * 60000);
+  return nowKst().toJSDate();
 }
 
 function getMinutesFromDate(date: Date) {
@@ -569,7 +568,8 @@ function formatDateLabel(date: Date) {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-    weekday: 'short'
+    weekday: 'short',
+    timeZone: 'Asia/Seoul'
   }).format(date);
 }
 
@@ -577,7 +577,8 @@ function formatTimeLabel(date: Date) {
   return new Intl.DateTimeFormat('ko-KR', {
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false
+    hour12: false,
+    timeZone: 'Asia/Seoul'
   }).format(date);
 }
 
@@ -588,7 +589,8 @@ function formatTimestampLabel(date: Date) {
     weekday: 'short',
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false
+    hour12: false,
+    timeZone: 'Asia/Seoul'
   }).format(date);
 }
 
@@ -647,7 +649,7 @@ function buildCleanerMessage({
 }
 
 function formatDateKey(date: Date) {
-  return date.toISOString().split('T')[0];
+  return formatKstDateKey(date);
 }
 
 function formatApplicationDateLabel(dateString: string) {
@@ -656,7 +658,8 @@ function formatApplicationDateLabel(dateString: string) {
   return new Intl.DateTimeFormat('ko-KR', {
     month: 'long',
     day: 'numeric',
-    weekday: 'short'
+    weekday: 'short',
+    timeZone: 'Asia/Seoul'
   }).format(date);
 }
 
