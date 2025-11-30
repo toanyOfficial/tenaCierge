@@ -1,5 +1,6 @@
 import { db } from '@/src/db/client';
 import { etcErrorLogs } from '@/src/db/schema';
+import { logError as fileLogError } from '@/src/server/logger';
 
 function sanitizeContext(context: Record<string, unknown> | null): Record<string, unknown> | null {
   if (!context) {
@@ -59,6 +60,12 @@ export async function logEtcError({
     });
   } catch (error) {
     console.error('errorLogs 저장 실패', error);
+    // Ensure the failure is still recorded in the file logger for visibility.
+    await fileLogError({
+      message: 'errorLogs DB insert 실패',
+      error,
+      context: { appName, message, errorCode, requestId, userId }
+    });
   }
 }
 
