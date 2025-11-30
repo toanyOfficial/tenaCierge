@@ -599,6 +599,21 @@ function toTime(value: string | Date | null | undefined) {
   return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
 }
 
+function normalizeDate(input?: string) {
+  if (!input) return '';
+  const trimmed = input.trim();
+  const candidate = /^\d{8}$/.test(trimmed)
+    ? `${trimmed.slice(0, 4)}-${trimmed.slice(4, 6)}-${trimmed.slice(6, 8)}`
+    : trimmed;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate)) return '';
+
+  const parsed = buildKstDate(candidate);
+  if (Number.isNaN(parsed.getTime())) return '';
+
+  return formatDateKey(parsed);
+}
+
 function resolveWindow(
   now: Date,
   minutes: number,
