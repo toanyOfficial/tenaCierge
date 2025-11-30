@@ -1,19 +1,22 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
+import { isSecureRequest } from '@/src/utils/cookie';
+
 const COOKIE_NAMES = ['name', 'phone', 'register_no', 'role_arrange', 'role', 'tc_name', 'tc_phone', 'tc_register', 'tc_roles'] as const;
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function POST() {
+export async function POST(request: Request) {
   const cookieStore = cookies();
+  const secure = isSecureRequest(request);
 
   COOKIE_NAMES.forEach((name) => {
     cookieStore.set(name, '', {
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      secure,
       path: '/',
       maxAge: 0
     });

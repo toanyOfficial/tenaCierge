@@ -35,3 +35,25 @@ export function getSeoul1630Expiry(now: Date = new Date()): Date {
 
   return new Date(target);
 }
+
+export function isSecureRequest(request: Request): boolean {
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+
+  if (forwardedProto) {
+    const proto = forwardedProto.split(',')[0]?.trim().toLowerCase();
+
+    if (proto === 'https') return true;
+    if (proto === 'http') return false;
+  }
+
+  try {
+    const url = new URL(request.url);
+
+    if (url.protocol === 'https:') return true;
+    if (url.protocol === 'http:') return false;
+  } catch (error) {
+    // ignore parsing errors and fall through to default
+  }
+
+  return false;
+}
