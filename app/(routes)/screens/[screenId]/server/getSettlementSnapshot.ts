@@ -12,6 +12,7 @@ import {
 } from '@/src/db/schema';
 import type { ProfileSummary } from '@/src/utils/profile';
 import { logEtcError } from '@/src/server/errorLogger';
+import { KST_OFFSET_MS, nowInKst } from '@/src/utils/kst';
 
 type Money = number;
 
@@ -71,20 +72,14 @@ function normalizeRegisterNo(value: string | undefined | null) {
   return value.replace(/[^0-9]/g, '').slice(0, 6);
 }
 
-function normalizeDateOnly(value: Date | string | null | undefined) {
-  if (!value) return null;
-  const d = value instanceof Date ? value : new Date(value);
-  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-}
-
 function ensureMonth(input?: string | null) {
   if (input && /^\d{4}-\d{2}$/.test(input)) {
     return input;
   }
 
-  const now = new Date();
-  const month = `${now.getMonth() + 1}`.padStart(2, '0');
-  return `${now.getFullYear()}-${month}`;
+  const kstNow = nowInKst();
+  const month = `${kstNow.getMonth() + 1}`.padStart(2, '0');
+  return `${kstNow.getFullYear()}-${month}`;
 }
 
 function getMonthBoundary(month: string) {
@@ -92,10 +87,21 @@ function getMonthBoundary(month: string) {
   const year = Number(yearStr);
   const monthIndex = Number(monthStr) - 1;
 
-  const start = new Date(Date.UTC(year, monthIndex, 1));
-  const end = new Date(Date.UTC(year, monthIndex + 1, 0, 23, 59, 59));
+  const startDateStr = `${year}-${`${monthIndex + 1}`.padStart(2, '0')}-01`;
+  const lastDay = new Date(Date.UTC(year, monthIndex + 1, 0));
+  const endDateStr = `${lastDay.getUTCFullYear()}-${`${lastDay.getUTCMonth() + 1}`.padStart(2, '0')}-${`${lastDay.getUTCDate()}`.padStart(2, '0')}`;
 
-  return { start, end };
+  // UTC 변환은 DB가 UTC라 하더라도 "달" 경계는 KST 달력(YYYY-MM-DD 문자열)로 고정한다.
+  const start = new Date(`${startDateStr}T00:00:00.000Z`);
+  const end = new Date(`${endDateStr}T23:59:59.999Z`);
+
+  return { start, end, startDateStr, endDateStr };
+}
+
+function normalizeDateOnly(value: Date | string | null | undefined) {
+  if (!value) return null;
+  const d = value instanceof Date ? value : new Date(`${value}T00:00:00.000Z`);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
 async function resolveAdditionalPriceColumn(month: string, hostId?: number | null) {
@@ -395,16 +401,12 @@ export async function getSettlementSnapshot(
 ): Promise<SettlementSnapshot> {
   const month = ensureMonth(monthParam);
   try {
-    const { start, end } = getMonthBoundary(month);
-    const now = new Date();
-    const kstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-    const todayKstDate = new Date(Date.UTC(kstNow.getFullYear(), kstNow.getMonth(), kstNow.getDate()));
-    const workEnd =
-      todayKstDate.getTime() < start.getTime()
-        ? end
-        : todayKstDate.getTime() < end.getTime()
-          ? todayKstDate
-          : end;
+    const { start, end, startDateStr, endDateStr } = getMonthBoundary(month);
+    const kstNow = nowInKst();
+    const todayKstStr = `${kstNow.getUTCFullYear()}-${`${kstNow.getUTCMonth() + 1}`.padStart(2, '0')}-${`${kstNow.getUTCDate()}`.padStart(2, '0')}`;
+    const workEndStr =
+      todayKstStr < startDateStr ? endDateStr : todayKstStr < endDateStr ? todayKstStr : endDateStr;
+    const workEnd = new Date(`${workEndStr}T23:59:59.999Z`);
     const daysInMonth = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     const normalizedRegister = normalizeRegisterNo(profile.registerNo);
 
@@ -500,8 +502,8 @@ export async function getSettlementSnapshot(
           .where(
             and(
               inArray(clientAdditionalPrice.roomId, roomIds),
-              gte(clientAdditionalPrice.date, start),
-              lte(clientAdditionalPrice.date, workEnd)
+              gte(sql`DATE(${clientAdditionalPrice.date})`, startDateStr),
+              lte(sql`DATE(${clientAdditionalPrice.date})`, workEndStr)
             )
           )
       : [];
@@ -524,8 +526,8 @@ export async function getSettlementSnapshot(
           .where(
             and(
               inArray(workHeader.roomId, roomIds),
-              gte(workHeader.date, start),
-              lte(workHeader.date, workEnd),
+              gte(sql`DATE(${workHeader.date})`, startDateStr),
+              lte(sql`DATE(${workHeader.date})`, workEndStr),
               eq(workHeader.cancelYn, false)
             )
           )
