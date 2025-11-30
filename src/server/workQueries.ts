@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 
 import { db } from '@/src/db/client';
@@ -36,6 +36,8 @@ export type WorkRow = {
 export async function fetchWorkRowsByDate(targetDate: string) {
   const buildingSector = alias(etcBaseCode, 'workSector');
 
+  const targetDateSql = sql`DATE(${workHeader.date}) = ${targetDate}`;
+
   return db
     .select({
       id: workHeader.id,
@@ -70,7 +72,7 @@ export async function fetchWorkRowsByDate(targetDate: string) {
       buildingSector,
       and(eq(buildingSector.codeGroup, etcBuildings.sectorCode), eq(buildingSector.code, etcBuildings.sectorValue))
     )
-    .where(eq(workHeader.date, targetDate))
+    .where(targetDateSql)
     .orderBy(asc(workHeader.id));
 }
 
