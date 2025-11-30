@@ -77,14 +77,21 @@ function normalizeDateOnly(value: Date | string | null | undefined) {
   return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
 }
 
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+function nowInKst() {
+  const now = Date.now();
+  return new Date(now + KST_OFFSET_MS);
+}
+
 function ensureMonth(input?: string | null) {
   if (input && /^\d{4}-\d{2}$/.test(input)) {
     return input;
   }
 
-  const now = new Date();
-  const month = `${now.getMonth() + 1}`.padStart(2, '0');
-  return `${now.getFullYear()}-${month}`;
+  const kstNow = nowInKst();
+  const month = `${kstNow.getMonth() + 1}`.padStart(2, '0');
+  return `${kstNow.getFullYear()}-${month}`;
 }
 
 function getMonthBoundary(month: string) {
@@ -92,8 +99,11 @@ function getMonthBoundary(month: string) {
   const year = Number(yearStr);
   const monthIndex = Number(monthStr) - 1;
 
-  const start = new Date(Date.UTC(year, monthIndex, 1));
-  const end = new Date(Date.UTC(year, monthIndex + 1, 0, 23, 59, 59));
+  // KST 월 시작(00:00:00+09:00)과 종료(다음 달 00:00:00+09:00 직전)를 UTC로 변환
+  const startUtc = Date.UTC(year, monthIndex, 1, -9, 0, 0, 0);
+  const nextMonthStartUtc = Date.UTC(year, monthIndex + 1, 1, -9, 0, 0, 0);
+  const start = new Date(startUtc);
+  const end = new Date(nextMonthStartUtc - 1);
 
   return { start, end };
 }
@@ -396,9 +406,8 @@ export async function getSettlementSnapshot(
   const month = ensureMonth(monthParam);
   try {
     const { start, end } = getMonthBoundary(month);
-    const now = new Date();
-    const kstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-    const todayKstDate = new Date(Date.UTC(kstNow.getFullYear(), kstNow.getMonth(), kstNow.getDate()));
+    const kstNow = nowInKst();
+    const todayKstDate = new Date(Date.UTC(kstNow.getFullYear(), kstNow.getMonth(), kstNow.getDate(), -9));
     const workEnd =
       todayKstDate.getTime() < start.getTime()
         ? end
