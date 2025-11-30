@@ -254,7 +254,8 @@ function formatKoreanDate(date: Date) {
   return new Intl.DateTimeFormat('ko-KR', {
     month: 'long',
     day: 'numeric',
-    weekday: 'short'
+    weekday: 'short',
+    timeZone: 'Asia/Seoul'
   }).format(date);
 }
 
