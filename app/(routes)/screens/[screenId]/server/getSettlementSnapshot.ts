@@ -563,7 +563,8 @@ export async function getSettlementSnapshot(
             blanketQty: workHeader.blanketQty,
             cleaningYn: workHeader.cleaningYn,
             actualCheckin: workHeader.checkinTime,
-            actualCheckout: workHeader.checkoutTime
+            // Some DBs are missing `work_header.checkout_time`; rely on room defaults when unavailable.
+            actualCheckout: clientRooms.checkoutTime
           })
           .from(workHeader)
           .innerJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))

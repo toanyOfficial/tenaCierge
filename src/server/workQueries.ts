@@ -48,7 +48,8 @@ export async function fetchWorkRowsByDate(targetDate: string) {
       cancelYn: workHeader.cancelYn,
       cleaningYn: workHeader.cleaningYn,
       conditionCheckYn: workHeader.conditionCheckYn,
-      checkoutTime: workHeader.checkoutTime,
+      // Some DBs may miss `work_header.checkout_time`; prefer room default to avoid failures.
+      checkoutTime: clientRooms.checkoutTime,
       checkinTime: workHeader.checkinTime,
       blanketQty: workHeader.blanketQty,
       amenitiesQty: workHeader.amenitiesQty,
@@ -109,7 +110,8 @@ export async function fetchWorkRowById(workId: number) {
       cancelYn: workHeader.cancelYn,
       cleaningYn: workHeader.cleaningYn,
       conditionCheckYn: workHeader.conditionCheckYn,
-      checkoutTime: workHeader.checkoutTime,
+      // Some DBs may miss `work_header.checkout_time`; prefer room default to avoid failures.
+      checkoutTime: clientRooms.checkoutTime,
       checkinTime: workHeader.checkinTime,
       blanketQty: workHeader.blanketQty,
       amenitiesQty: workHeader.amenitiesQty,
@@ -152,7 +154,8 @@ export async function fetchLatestWorkByDateAndRoom(date: string, roomId: number)
       cancelYn: workHeader.cancelYn,
       cleaningYn: workHeader.cleaningYn,
       conditionCheckYn: workHeader.conditionCheckYn,
-      checkoutTime: workHeader.checkoutTime,
+      // Some DBs may miss `work_header.checkout_time`; prefer room default to avoid failures.
+      checkoutTime: clientRooms.checkoutTime,
       checkinTime: workHeader.checkinTime,
       blanketQty: workHeader.blanketQty,
       amenitiesQty: workHeader.amenitiesQty,

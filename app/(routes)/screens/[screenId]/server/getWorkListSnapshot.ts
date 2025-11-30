@@ -248,7 +248,8 @@ export async function getWorkListSnapshot(
         id: workHeader.id,
         date: workHeader.date,
         roomId: workHeader.roomId,
-        checkoutTime: workHeader.checkoutTime,
+        // Some deployments miss `work_header.checkout_time`; fall back to room defaults to avoid hard failures.
+        checkoutTime: clientRooms.checkoutTime,
         checkinTime: workHeader.checkinTime,
         blanketQty: workHeader.blanketQty,
         amenitiesQty: workHeader.amenitiesQty,
