@@ -98,6 +98,11 @@ function buildDateSqlValue(dateKey: string): SQL {
   return sql`CAST(${dateKey} AS DATE)`;
 }
 
+function dateEquals(column: SQL | any, dateKey: string): SQL {
+  const dateValue = buildDateSqlValue(dateKey);
+  return sql`DATE(${column}) = ${dateValue}`;
+}
+
 function normalizeDate(input?: string) {
   if (!input) return '';
 
@@ -232,8 +237,7 @@ export async function getWorkListSnapshot(
     const window = preferToday ? 'd0' : initialWindow.window;
     const windowDates = initialWindow.windowDates;
     const targetDateValue = buildDateParam(targetDate);
-    const targetDateSqlValue = buildDateSqlValue(targetDateValue);
-    const targetDateSql = eq(workHeader.date, targetDateSqlValue);
+    const targetDateSql = dateEquals(workHeader.date, targetDateValue);
     const dateOptions = await buildDateOptions(targetDate, now);
 
     const notice = await fetchLatestNotice();
@@ -413,11 +417,10 @@ async function fetchLatestNotice() {
 
 async function hasButlerApplication(workerId: number, targetDate: string) {
   const targetDateValue = buildDateParam(targetDate);
-  const targetDateSqlValue = buildDateSqlValue(targetDateValue);
   const rows = await db
     .select({ id: workApply.id })
     .from(workApply)
-    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateSqlValue), eq(workApply.position, 2)))
+    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, buildDateSqlValue(targetDateValue)), eq(workApply.position, 2)))
     .limit(1);
 
   return rows.length > 0;
@@ -425,11 +428,10 @@ async function hasButlerApplication(workerId: number, targetDate: string) {
 
 async function hasWorkApplication(workerId: number, targetDate: string) {
   const targetDateValue = buildDateParam(targetDate);
-  const targetDateSqlValue = buildDateSqlValue(targetDateValue);
   const rows = await db
     .select({ id: workApply.id })
     .from(workApply)
-    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateSqlValue)))
+    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, buildDateSqlValue(targetDateValue))))
     .limit(1);
 
   return rows.length > 0;
@@ -437,11 +439,10 @@ async function hasWorkApplication(workerId: number, targetDate: string) {
 
 async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
   const targetDateValue = buildDateParam(targetDate);
-  const targetDateSqlValue = buildDateSqlValue(targetDateValue);
   const rows = await db
     .select({ workId: workAssignment.workId })
     .from(workAssignment)
-    .where(and(eq(workAssignment.workerId, workerId), eq(workAssignment.assignDate, targetDateSqlValue)));
+    .where(and(eq(workAssignment.workerId, workerId), dateEquals(workAssignment.assignDate, targetDateValue)));
 
   if (rows.length) {
     return rows.map((row) => Number(row.workId));
@@ -450,7 +451,7 @@ async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
   const directRows = await db
     .select({ id: workHeader.id })
     .from(workHeader)
-    .where(and(eq(workHeader.date, targetDateSqlValue), eq(workHeader.cleanerId, workerId)));
+    .where(and(dateEquals(workHeader.date, targetDateValue), eq(workHeader.cleanerId, workerId)));
 
   return directRows.map((row) => Number(row.id));
 }
