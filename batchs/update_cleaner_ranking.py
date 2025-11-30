@@ -156,13 +156,7 @@ class CleanerRankingBatch:
     def _apply_additional_room_prices(self) -> None:
         work_columns = self._get_table_columns("work_header")
         checkin_col = "checkin_time" if "checkin_time" in work_columns else None
-        checkout_col: Optional[str]
-        if "checkout_time" in work_columns:
-            checkout_col = "checkout_time"
-        elif "ceckout_time" in work_columns:
-            checkout_col = "ceckout_time"
-        else:
-            checkout_col = None
+        checkout_col = "checkout_time" if "checkout_time" in work_columns else None
 
         if not checkin_col or not checkout_col:
             self._log_error(
@@ -172,9 +166,7 @@ class CleanerRankingBatch:
             return
 
         price_list_columns = self._get_table_columns("client_price_list")
-        price_amount_col = self._resolve_amount_column(
-            price_list_columns, ["amount", "amount_per_cleaning", "amount_per_room", "price", "value"]
-        )
+        price_amount_col = "amount" if "amount" in price_list_columns else None
         if not price_amount_col:
             self._log_error(
                 message="client_price_list 금액 컬럼을 찾을 수 없어 추가 금액 산정을 건너뜁니다.",
@@ -183,7 +175,7 @@ class CleanerRankingBatch:
             return
 
         additional_columns = self._get_table_columns("client_additional_price")
-        additional_amount_col = self._resolve_amount_column(additional_columns, ["price", "amount", "value"])
+        additional_amount_col = "amount" if "amount" in additional_columns else None
         if not additional_amount_col:
             self._log_error(
                 message="client_additional_price 금액 컬럼을 찾을 수 없어 추가 금액 산정을 건너뜁니다.",
@@ -256,10 +248,7 @@ class CleanerRankingBatch:
                 price_map[int(row["id"])] = row
 
         price_set_columns = self._get_table_columns("client_price_set_detail")
-        set_amount_col = self._resolve_amount_column(
-            price_set_columns,
-            [price_amount_col, "amount", "price", "value", "amount_per_cleaning", "amount_per_room"],
-        )
+        set_amount_col = "amount_per_cleaning" if "amount_per_cleaning" in price_set_columns else None
         price_set_ids = {int(r.get("price_set_id")) for r in rooms.values() if r.get("price_set_id")}
         set_price_map: Dict[tuple[int, int], Dict[str, object]] = {}
         if set_amount_col and price_set_ids:
