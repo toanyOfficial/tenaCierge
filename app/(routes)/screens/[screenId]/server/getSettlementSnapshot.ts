@@ -182,6 +182,49 @@ async function resolvePriceListFlags(month: string, hostId?: number | null) {
   return result;
 }
 
+async function resolvePriceSetDetailColumns(month: string, hostId?: number | null) {
+  const result = {
+    hasAmount: false,
+    hasTitle: false,
+    hasType: false,
+    hasMinus: false,
+    hasRatio: false
+  };
+
+  try {
+    const raw = await db.execute<{ column_name?: string; COLUMN_NAME?: string }>(
+      sql`SELECT column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'client_price_set_detail'`
+    );
+
+    const rows = Array.isArray(raw)
+      ? ((Array.isArray(raw[0]) ? (raw[0] as unknown) : (raw as unknown)) as {
+          column_name?: string;
+          COLUMN_NAME?: string;
+        }[])
+      : Array.isArray((raw as any)?.rows)
+        ? ((raw as any).rows as { column_name?: string; COLUMN_NAME?: string }[])
+        : [];
+
+    const columns = rows
+      .map((row) => (row?.column_name ?? (row as any)?.COLUMN_NAME ?? '').toString().toLowerCase())
+      .filter(Boolean);
+
+    result.hasAmount = columns.includes('amount');
+    result.hasTitle = columns.includes('title');
+    result.hasType = columns.includes('type');
+    result.hasMinus = columns.includes('minus_yn');
+    result.hasRatio = columns.includes('ratio_yn');
+  } catch (error) {
+    await logEtcError({
+      message: `client_price_set_detail 컬럼 조회 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`,
+      stacktrace: error instanceof Error ? error.stack ?? null : null,
+      context: { month, hostId: hostId ?? null, table: 'client_price_set_detail' }
+    });
+  }
+
+  return result;
+}
+
 function toMinutes(time: string | null | undefined) {
   if (!time) return 0;
   const [h, m, s] = time.split(':').map((v) => Number(v));
@@ -217,6 +260,7 @@ async function loadPriceItems(roomIds: number[], month: string, hostId?: number 
   if (!roomIds.length) return new Map<number, PriceItem[]>();
 
   const priceFlags = await resolvePriceListFlags(month, hostId ?? null);
+  const priceDetailColumns = await resolvePriceSetDetailColumns(month, hostId ?? null);
 
   const roomPriceSets = await db
     .select({ roomId: clientRooms.id, priceSetId: clientRooms.priceSetId })
@@ -245,15 +289,31 @@ async function loadPriceItems(roomIds: number[], month: string, hostId?: number 
         .select({
           priceSetId: clientPriceSetDetail.priceSetId,
           priceId: clientPriceSetDetail.priceId,
-          priceType: clientPriceList.type,
-          amount: sql`CAST(${clientPriceList.amount} AS DECIMAL(20,4))`,
-          title: clientPriceList.title,
-          minusYn: priceFlags.hasMinus
-            ? sql`COALESCE(${sql.raw('client_price_list.minus_yn')}, 0)`
-            : sql`CAST(0 AS SIGNED)` ,
-          ratioYn: priceFlags.hasRatio
-            ? sql`COALESCE(${sql.raw('client_price_list.ratio_yn')}, 0)`
-            : sql`CAST(0 AS SIGNED)`
+          priceType: priceDetailColumns.hasType
+            ? sql`COALESCE(${sql.raw('client_price_set_detail.type')}, ${clientPriceList.type})`
+            : clientPriceList.type,
+          amount: priceDetailColumns.hasAmount
+            ? sql`CAST(COALESCE(${sql.raw('client_price_set_detail.amount')}, ${clientPriceList.amount}) AS DECIMAL(20,4))`
+            : sql`CAST(${clientPriceList.amount} AS DECIMAL(20,4))`,
+          title: priceDetailColumns.hasTitle
+            ? sql`COALESCE(${sql.raw('client_price_set_detail.title')}, ${clientPriceList.title})`
+            : clientPriceList.title,
+          minusYn:
+            priceDetailColumns.hasMinus && priceFlags.hasMinus
+              ? sql`COALESCE(${sql.raw('client_price_set_detail.minus_yn')}, ${sql.raw('client_price_list.minus_yn')}, 0)`
+              : priceDetailColumns.hasMinus
+                ? sql`COALESCE(${sql.raw('client_price_set_detail.minus_yn')}, 0)`
+                : priceFlags.hasMinus
+                  ? sql`COALESCE(${sql.raw('client_price_list.minus_yn')}, 0)`
+                  : sql`CAST(0 AS SIGNED)` ,
+          ratioYn:
+            priceDetailColumns.hasRatio && priceFlags.hasRatio
+              ? sql`COALESCE(${sql.raw('client_price_set_detail.ratio_yn')}, ${sql.raw('client_price_list.ratio_yn')}, 0)`
+              : priceDetailColumns.hasRatio
+                ? sql`COALESCE(${sql.raw('client_price_set_detail.ratio_yn')}, 0)`
+                : priceFlags.hasRatio
+                  ? sql`COALESCE(${sql.raw('client_price_list.ratio_yn')}, 0)`
+                  : sql`CAST(0 AS SIGNED)`
         })
         .from(clientPriceSetDetail)
         .innerJoin(clientPriceList, eq(clientPriceSetDetail.priceId, clientPriceList.id))
@@ -663,19 +723,17 @@ export async function getSettlementSnapshot(
   }
 
   for (const statement of statements) {
-    const baseByRoomCategory = new Map<string, number>();
+    const baseByRoom = new Map<number, number>();
 
     for (const line of statement.lines) {
       if (line.minusYn || line.ratioYn) continue;
-      const key = `${line.roomId}-${line.category}`;
-      const prev = baseByRoomCategory.get(key) ?? 0;
-      baseByRoomCategory.set(key, prev + line.rawTotal);
+      const prev = baseByRoom.get(line.roomId) ?? 0;
+      baseByRoom.set(line.roomId, prev + line.rawTotal);
     }
 
     for (const line of statement.lines) {
       if (!line.ratioYn) continue;
-      const key = `${line.roomId}-${line.category}`;
-      const base = baseByRoomCategory.get(key) ?? 0;
+      const base = baseByRoom.get(line.roomId) ?? 0;
       const ratio = (line.ratioValue ?? line.amount) / 100;
       const computed = base * ratio;
 

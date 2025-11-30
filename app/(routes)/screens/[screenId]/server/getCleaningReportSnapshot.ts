@@ -123,7 +123,7 @@ export async function getCleaningReportSnapshot(
       return rows.map(({ id, title, fallbackTitle, required, listRequired, comment, fallbackComment }) => ({
         id,
         title: title ?? fallbackTitle ?? '',
-        required: Boolean(listRequired ?? required),
+        required: Boolean(required ?? listRequired),
         comment: comment ?? fallbackComment ?? null
       }));
     })();
