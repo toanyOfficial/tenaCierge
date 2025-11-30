@@ -1,7 +1,6 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import type { KeyboardEvent } from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -21,44 +20,31 @@ type ImageTileProps = {
   previewUrl?: string | null;
   onChange: (slotKey: string, files: FileList | null) => void;
   required?: boolean;
-  onRequestFile: (
-    slotKey: string,
-    inputEl: HTMLInputElement | null,
-    options?: {
-      triggerClick?: boolean;
-    }
-  ) => void;
 };
 
-function ImageTile({ slot, selectedFile, previewUrl, onChange, onRequestFile, required }: ImageTileProps) {
+function ImageTile({ slot, selectedFile, previewUrl, onChange, required }: ImageTileProps) {
   const slotKey = String(slot.id);
   const hintText = selectedFile?.name ?? (previewUrl ? '기존 이미지' : '파일을 선택하세요');
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleOpen = () => {
-    // 모바일에서 라벨 클릭 시 파일 입력이 중복 호출되지 않도록
-    // 라벨 측에서만 명시적으로 클릭을 트리거한다.
-    onRequestFile(slotKey, inputRef.current, { triggerClick: true });
-  };
+  const prepareInput = () => {
+    const inputEl = inputRef.current;
+    if (!inputEl) return;
 
-  const handleKeyOpen = (event: KeyboardEvent<HTMLLabelElement>) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    event.preventDefault();
-    event.stopPropagation();
-    onRequestFile(slotKey, inputRef.current, { triggerClick: true });
+    inputEl.value = '';
+    inputEl.removeAttribute('capture');
+    inputEl.setAttribute('accept', 'image/*');
   };
 
   return (
     <label
       className={`${styles.imageTile} ${required ? styles.imageTileRequired : styles.imageTileOptional}`.trim()}
       aria-label={`${required ? '필수' : '선택'} 이미지 ${slot.title}`}
-      onKeyDown={handleKeyOpen}
-      onClick={handleOpen}
-      tabIndex={0}
     >
       <input
         type="file"
         accept="image/*"
+        onClick={prepareInput}
         onChange={(e) => onChange(slotKey, e.target.files)}
         ref={inputRef}
         className={styles.imageInput}
@@ -233,20 +219,6 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     const [file] = files;
     setImageSelections((prev) => ({ ...prev, [slotKey]: file }));
     setImagePreviews((prev) => ({ ...prev, [slotKey]: URL.createObjectURL(file) }));
-  };
-
-  const handleRequestFile = async (
-    _slotKey: string,
-    inputEl: HTMLInputElement | null,
-    options?: { triggerClick?: boolean }
-  ) => {
-    if (!inputEl) return;
-
-    const shouldTrigger = options?.triggerClick ?? false;
-    inputEl.value = '';
-    inputEl.removeAttribute('capture');
-    inputEl.setAttribute('accept', 'image/*');
-    if (shouldTrigger) inputEl.click();
   };
 
   const handleSubmit = async () => {
@@ -441,7 +413,6 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
                           selectedFile={imageSelections[String(slot.id)]}
                           previewUrl={imagePreviews[String(slot.id)]}
                           onChange={handleImageChange}
-                          onRequestFile={handleRequestFile}
                           required
                         />
                       ))}
@@ -462,7 +433,6 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
                           selectedFile={imageSelections[String(slot.id)]}
                           previewUrl={imagePreviews[String(slot.id)]}
                           onChange={handleImageChange}
-                          onRequestFile={handleRequestFile}
                         />
                       ))}
                     </div>
