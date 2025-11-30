@@ -225,7 +225,11 @@ export async function getWorkListSnapshot(
       window,
       windowDates,
       windowLabel:
-        window === 'd0' ? `D0 (${windowDates.d0})` : window === 'd1' ? `D+1 (${windowDates.d1})` : targetDate,
+        window === 'd0' && targetDate === windowDates.d0
+          ? `D0 (${windowDates.d0})`
+          : window === 'd1' && targetDate === windowDates.d1
+            ? `D+1 (${windowDates.d1})`
+            : targetDate,
       works,
       assignableWorkers,
       emptyMessage,
@@ -579,13 +583,17 @@ function resolveWindow(
   minutes: number,
   dateParam?: string,
   windowParam?: 'd0' | 'd1'
-): { targetDate: string; window: 'd0' | 'd1'; windowDates: { d0: string; d1: string } } {
+): { targetDate: string; window?: 'd0' | 'd1'; windowDates: { d0: string; d1: string } } {
   const today = formatDateKey(now);
   const tomorrow = formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
 
   if (dateParam) {
     const normalized = normalizeDate(dateParam);
-    return { targetDate: normalized || today, window: normalized === tomorrow ? 'd1' : 'd0', windowDates: { d0: today, d1: tomorrow } };
+    return {
+      targetDate: normalized || today,
+      window: normalized === today ? 'd0' : normalized === tomorrow ? 'd1' : undefined,
+      windowDates: { d0: today, d1: tomorrow }
+    };
   }
 
   const defaultWindow: 'd0' | 'd1' = minutes < 16 * 60 + 30 ? 'd0' : 'd1';
