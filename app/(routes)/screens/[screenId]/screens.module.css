@@ -736,6 +736,23 @@
   gap: 8px;
   padding: 8px 0;
   font-size: 0.95rem;
+  justify-items: center;
+  text-align: center;
+}
+
+.detailColumnHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.detailColumnCount {
+  font-size: 0.85rem;
+  color: #0f172a;
+  font-weight: 700;
 }
 
 .detailColumnHeader {
