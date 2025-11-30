@@ -146,11 +146,6 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
   }, [allowedDates]);
 
   function handleDateChange(value: string) {
-    if (value && !allowedDates.has(value)) {
-      window.alert('조회 가능 기간(D0~D+7) 내에서 선택해 주세요.');
-      return;
-    }
-
     setSelectedDate(value);
 
     const params = new URLSearchParams(searchParams?.toString() ?? '');
@@ -243,8 +238,15 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
     const groups: {
       key: string;
       label: string;
-      count: number;
-      buildings: { key: string; label: string; count: number; works: CleaningWork[] }[];
+      cleaningCount: number;
+      nonCleaningCount: number;
+      buildings: {
+        key: string;
+        label: string;
+        cleaningCount: number;
+        nonCleaningCount: number;
+        works: CleaningWork[];
+      }[];
     }[] = [];
 
     sorted.forEach((work) => {
@@ -253,11 +255,21 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
 
       if (sectorIndex[sectorKey] === undefined) {
         sectorIndex[sectorKey] = groups.length;
-        groups.push({ key: sectorKey, label: sectorLabel, count: 0, buildings: [] });
+        groups.push({
+          key: sectorKey,
+          label: sectorLabel,
+          cleaningCount: 0,
+          nonCleaningCount: 0,
+          buildings: []
+        });
       }
 
       const sector = groups[sectorIndex[sectorKey]];
-      sector.count += 1;
+      if (work.cleaningYn) {
+        sector.cleaningCount += 1;
+      } else {
+        sector.nonCleaningCount += 1;
+      }
 
       const buildingKey = `${sectorKey}::${work.buildingId}`;
       let building = sector.buildings.find((entry) => entry.key === buildingKey);
@@ -266,13 +278,18 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
         building = {
           key: buildingKey,
           label: work.buildingShortName || work.buildingName || `건물 ${work.buildingId}`,
-          count: 0,
+          cleaningCount: 0,
+          nonCleaningCount: 0,
           works: []
         };
         sector.buildings.push(building);
       }
 
-      building.count += 1;
+      if (work.cleaningYn) {
+        building.cleaningCount += 1;
+      } else {
+        building.nonCleaningCount += 1;
+      }
       building.works.push(work);
     });
 
@@ -665,18 +682,21 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
             </div>
             <label className={styles.datePicker}>
               <span>조회일</span>
-              <select
-                className={styles.dateSelect}
+              <input
+                type="date"
+                className={styles.dateInput}
                 value={selectedDate}
                 onChange={(event) => handleDateChange(event.target.value)}
-              >
-                {snapshot.dateOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {`${option.tag} · ${option.label}`}
-                  </option>
-                ))}
-              </select>
+                list="cleaning-date-options"
+              />
             </label>
+            <datalist id="cleaning-date-options">
+              {snapshot.dateOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {`${option.tag} · ${option.label}`}
+                </option>
+              ))}
+            </datalist>
           </div>
         </header>
 
@@ -698,7 +718,9 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
                       aria-expanded={!sectorCollapsed}
                     >
                       <span className={styles.groupHeaderText}>{sector.label}</span>
-                      <span className={styles.groupCount}>{sector.count}건</span>
+                      <span className={styles.groupCount}>
+                        {sector.cleaningCount}건 + {sector.nonCleaningCount}건
+                      </span>
                       <span className={styles.foldIcon} aria-hidden="true">
                         {sectorCollapsed ? '▼' : '▲'}
                       </span>
@@ -716,7 +738,9 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
                                 aria-expanded={!collapsed}
                               >
                                 <span>{building.label}</span>
-                                <span className={styles.buildingCount}>{building.count}건</span>
+                                <span className={styles.buildingCount}>
+                                  {building.cleaningCount}건 + {building.nonCleaningCount}건
+                                </span>
                                 <span className={styles.foldIcon} aria-hidden="true">
                                   {collapsed ? '▼' : '▲'}
                                 </span>

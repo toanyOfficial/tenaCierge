@@ -1,8 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import type { KeyboardEvent, MouseEvent } from 'react';
-import { useMemo, useRef, useState, useEffect } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
@@ -21,54 +20,33 @@ type ImageTileProps = {
   previewUrl?: string | null;
   onChange: (slotKey: string, files: FileList | null) => void;
   required?: boolean;
-  onRequestFile: (
-    slotKey: string,
-    inputEl: HTMLInputElement | null,
-    options?: {
-      triggerClick?: boolean;
-    }
-  ) => void;
-  captureMode: 'camera' | 'album';
-  isDesktop: boolean;
 };
 
-function ImageTile({ slot, selectedFile, previewUrl, onChange, onRequestFile, required, captureMode, isDesktop }: ImageTileProps) {
+function ImageTile({ slot, selectedFile, previewUrl, onChange, required }: ImageTileProps) {
   const slotKey = String(slot.id);
   const hintText = selectedFile?.name ?? (previewUrl ? '기존 이미지' : '파일을 선택하세요');
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleInputClick = (event: MouseEvent<HTMLInputElement>) => {
-    if (captureMode !== 'album' && !isDesktop) {
-      event.preventDefault();
-      event.stopPropagation();
-      onRequestFile(slotKey, inputRef.current, { triggerClick: true });
-      return;
-    }
+  const prepareInput = () => {
+    const inputEl = inputRef.current;
+    if (!inputEl) return;
 
-    onRequestFile(slotKey, inputRef.current, { triggerClick: false });
-  };
-
-  const handleKeyOpen = (event: KeyboardEvent<HTMLLabelElement>) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    event.preventDefault();
-    event.stopPropagation();
-    onRequestFile(slotKey, inputRef.current, { triggerClick: true });
+    inputEl.value = '';
+    inputEl.removeAttribute('capture');
+    inputEl.setAttribute('accept', 'image/*');
   };
 
   return (
     <label
       className={`${styles.imageTile} ${required ? styles.imageTileRequired : styles.imageTileOptional}`.trim()}
       aria-label={`${required ? '필수' : '선택'} 이미지 ${slot.title}`}
-      onKeyDown={handleKeyOpen}
-      tabIndex={0}
     >
       <input
         type="file"
         accept="image/*"
+        onClick={prepareInput}
         onChange={(e) => onChange(slotKey, e.target.files)}
-        onClick={handleInputClick}
         ref={inputRef}
-        capture={captureMode === 'camera' && !isDesktop ? 'environment' : undefined}
         className={styles.imageInput}
       />
 
@@ -99,14 +77,6 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
   const requiredImageSlots = useMemo(() => imageSlots.filter((slot) => slot.required), [imageSlots]);
   const optionalImageSlots = useMemo(() => imageSlots.filter((slot) => !slot.required), [imageSlots]);
   const imageSlotKeys = useMemo(() => imageSlots.map((slot) => String(slot.id)), [imageSlots]);
-  const [captureMode, setCaptureMode] = useState<'camera' | 'album'>('camera');
-  const isDesktop = useMemo(() => {
-    if (typeof navigator === 'undefined') return false;
-    return !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  }, []);
-  useEffect(() => {
-    setCaptureMode(isDesktop ? 'album' : 'camera');
-  }, [isDesktop]);
   const initialImageSelections = useMemo(
     () => Object.fromEntries(imageSlotKeys.map((key) => [key, null])) as Record<string, File | null>,
     [imageSlotKeys]
@@ -249,40 +219,6 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     setImagePreviews((prev) => ({ ...prev, [slotKey]: URL.createObjectURL(file) }));
   };
 
-  const handleRequestFile = async (
-    _slotKey: string,
-    inputEl: HTMLInputElement | null,
-    options?: { triggerClick?: boolean }
-  ) => {
-    if (!inputEl) return;
-
-    const shouldTrigger = options?.triggerClick ?? false;
-    inputEl.value = '';
-    const effectiveMode = isDesktop ? 'album' : captureMode;
-
-    if (effectiveMode === 'album') {
-      inputEl.removeAttribute('capture');
-      if (shouldTrigger) inputEl.click();
-      return;
-    }
-
-    try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error('카메라를 초기화할 수 없습니다.');
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      stream.getTracks().forEach((track) => track.stop());
-      inputEl.setAttribute('capture', 'environment');
-      if (shouldTrigger) inputEl.click();
-    } catch (err) {
-      window.alert('카메라 앱 실행에 실패하여 앨범 모드로 전환합니다.');
-      setCaptureMode('album');
-      inputEl.removeAttribute('capture');
-      if (shouldTrigger) inputEl.click();
-    }
-  };
-
   const handleSubmit = async () => {
     setStatus('');
     setError('');
@@ -347,7 +283,11 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
       router.push('/screens/004');
     } catch (err) {
       const message = err instanceof Error ? err.message : '저장 중 오류가 발생했습니다.';
-      setError(message);
+      if (message.toLowerCase().includes('failed to fetch')) {
+        setError('네트워크 연결이 불안정합니다. 잠시 후 다시 시도해주세요.');
+      } else {
+        setError(message);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -451,30 +391,9 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
 
           <article className={styles.reportCardWide}>
             <header className={styles.reportCardHeader}>이미지 업로드</header>
-            <div className={styles.captureToggleRow}>
-              <div className={styles.captureToggleLabel}>촬영 방식</div>
-              <div className={styles.captureToggleGroup}>
-                <button
-                  type="button"
-                  className={`${styles.captureToggleButton} ${captureMode === 'camera' && !isDesktop ? styles.captureToggleActive : ''}`.trim()}
-                  onClick={() => setCaptureMode('camera')}
-                  aria-pressed={captureMode === 'camera' && !isDesktop}
-                >
-                  카메라 모드
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.captureToggleButton} ${captureMode === 'album' || isDesktop ? styles.captureToggleActive : ''}`.trim()}
-                  onClick={() => setCaptureMode('album')}
-                  aria-pressed={captureMode === 'album' || isDesktop}
-                >
-                  앨범 모드
-                </button>
-              </div>
-              <p className={styles.captureToggleHint}>
-                기본은 카메라 모드이며, 실행 실패 또는 PC 환경에서는 자동으로 앨범 모드로 전환됩니다.
-              </p>
-            </div>
+            <p className={styles.captureToggleHint}>
+              이미지는 앨범 보기에서 바로 선택됩니다. 필요하면 앨범 내 카메라로 촬영 후 추가해주세요.
+            </p>
             {imageSlots.length === 0 ? (
               <p className={styles.reportEmpty}>업로드할 이미지가 없습니다.</p>
             ) : (
@@ -492,9 +411,6 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
                           selectedFile={imageSelections[String(slot.id)]}
                           previewUrl={imagePreviews[String(slot.id)]}
                           onChange={handleImageChange}
-                          onRequestFile={handleRequestFile}
-                          captureMode={captureMode}
-                          isDesktop={isDesktop}
                           required
                         />
                       ))}
@@ -515,9 +431,6 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
                           selectedFile={imageSelections[String(slot.id)]}
                           previewUrl={imagePreviews[String(slot.id)]}
                           onChange={handleImageChange}
-                          onRequestFile={handleRequestFile}
-                          captureMode={captureMode}
-                          isDesktop={isDesktop}
                         />
                       ))}
                     </div>

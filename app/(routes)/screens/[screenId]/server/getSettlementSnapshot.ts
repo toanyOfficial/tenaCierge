@@ -308,6 +308,15 @@ export async function getSettlementSnapshot(
   const month = ensureMonth(monthParam);
   try {
     const { start, end } = getMonthBoundary(month);
+    const now = new Date();
+    const kstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+    const todayKstDate = new Date(Date.UTC(kstNow.getFullYear(), kstNow.getMonth(), kstNow.getDate()));
+    const workEnd =
+      todayKstDate.getTime() < start.getTime()
+        ? end
+        : todayKstDate.getTime() < end.getTime()
+          ? todayKstDate
+          : end;
     const daysInMonth = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     const normalizedRegister = normalizeRegisterNo(profile.registerNo);
 
@@ -401,7 +410,7 @@ export async function getSettlementSnapshot(
             and(
               inArray(clientAdditionalPrice.roomId, roomIds),
               gte(clientAdditionalPrice.date, start),
-              lte(clientAdditionalPrice.date, end)
+              lte(clientAdditionalPrice.date, workEnd)
             )
           )
       : [];
@@ -425,7 +434,7 @@ export async function getSettlementSnapshot(
             and(
               inArray(workHeader.roomId, roomIds),
               gte(workHeader.date, start),
-              lte(workHeader.date, end),
+              lte(workHeader.date, workEnd),
               eq(workHeader.cancelYn, false)
             )
           )
