@@ -99,6 +99,7 @@ function getMonthBoundary(month: string) {
 }
 
 async function resolveAdditionalPriceColumn(month: string, hostId?: number | null) {
+  const result: { amountColumn: string | null; columns: string[] } = { amountColumn: null, columns: [] };
   try {
     const raw = await db.execute<{ column_name?: string; COLUMN_NAME?: string }>(
       sql`SELECT column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'client_additional_price'`
@@ -117,6 +118,8 @@ async function resolveAdditionalPriceColumn(month: string, hostId?: number | nul
       .map((row) => (row?.column_name ?? (row as any)?.COLUMN_NAME ?? '').toString().toLowerCase())
       .filter(Boolean);
 
+    result.columns = columns;
+
     if (!columns.length) {
       await logEtcError({
         message: 'client_additional_price 컬럼 조회 결과가 비어 있습니다.',
@@ -124,12 +127,21 @@ async function resolveAdditionalPriceColumn(month: string, hostId?: number | nul
         context: { month, hostId: hostId ?? null, table: 'client_additional_price' }
       });
 
-      return null;
+      return result;
     }
 
-    if (columns.includes('price')) return 'price';
-    if (columns.includes('amount')) return 'amount';
-    if (columns.includes('value')) return 'value';
+    if (columns.includes('price')) {
+      result.amountColumn = 'price';
+      return result;
+    }
+    if (columns.includes('amount')) {
+      result.amountColumn = 'amount';
+      return result;
+    }
+    if (columns.includes('value')) {
+      result.amountColumn = 'value';
+      return result;
+    }
 
     await logEtcError({
       message: 'client_additional_price의 금액 컬럼(price/amount/value)을 찾을 수 없습니다.',
@@ -137,7 +149,7 @@ async function resolveAdditionalPriceColumn(month: string, hostId?: number | nul
       context: { month, hostId: hostId ?? null, table: 'client_additional_price', columns }
     });
 
-    return null;
+    return result;
   } catch (error) {
     await logEtcError({
       message: `client_additional_price 컬럼 조회 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`,
@@ -149,7 +161,7 @@ async function resolveAdditionalPriceColumn(month: string, hostId?: number | nul
 }
 
 async function resolvePriceListFlags(month: string, hostId?: number | null) {
-  const result = { hasMinus: false, hasRatio: false };
+  const result = { hasMinus: false, hasRatio: false, amountColumn: null as string | null };
 
   try {
     const raw = await db.execute<{ column_name?: string; COLUMN_NAME?: string }>(
@@ -171,11 +183,63 @@ async function resolvePriceListFlags(month: string, hostId?: number | null) {
 
     result.hasMinus = columns.includes('minus_yn');
     result.hasRatio = columns.includes('ratio_yn');
+    result.amountColumn =
+      columns.find((col) =>
+        ['amount', 'amount_per_cleaning', 'amount_per_room', 'price', 'value'].includes(col)
+      ) ?? null;
   } catch (error) {
     await logEtcError({
       message: `client_price_list 플래그 컬럼 조회 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`,
       stacktrace: error instanceof Error ? error.stack ?? null : null,
       context: { month, hostId: hostId ?? null, table: 'client_price_list' }
+    });
+  }
+
+  return result;
+}
+
+async function resolvePriceSetDetailColumns(month: string, hostId?: number | null) {
+  const result = {
+    hasAmount: false,
+    amountColumn: null as string | null,
+    hasTitle: false,
+    hasType: false,
+    hasMinus: false,
+    hasRatio: false
+  };
+
+  try {
+    const raw = await db.execute<{ column_name?: string; COLUMN_NAME?: string }>(
+      sql`SELECT column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'client_price_set_detail'`
+    );
+
+    const rows = Array.isArray(raw)
+      ? ((Array.isArray(raw[0]) ? (raw[0] as unknown) : (raw as unknown)) as {
+          column_name?: string;
+          COLUMN_NAME?: string;
+        }[])
+      : Array.isArray((raw as any)?.rows)
+        ? ((raw as any).rows as { column_name?: string; COLUMN_NAME?: string }[])
+        : [];
+
+    const columns = rows
+      .map((row) => (row?.column_name ?? (row as any)?.COLUMN_NAME ?? '').toString().toLowerCase())
+      .filter(Boolean);
+
+    result.amountColumn =
+      columns.find((col) =>
+        ['amount', 'amount_per_cleaning', 'amount_per_room', 'price', 'value'].includes(col)
+      ) ?? null;
+    result.hasAmount = !!result.amountColumn;
+    result.hasTitle = columns.includes('title');
+    result.hasType = columns.includes('type');
+    result.hasMinus = columns.includes('minus_yn');
+    result.hasRatio = columns.includes('ratio_yn');
+  } catch (error) {
+    await logEtcError({
+      message: `client_price_set_detail 컬럼 조회 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`,
+      stacktrace: error instanceof Error ? error.stack ?? null : null,
+      context: { month, hostId: hostId ?? null, table: 'client_price_set_detail' }
     });
   }
 
@@ -217,6 +281,7 @@ async function loadPriceItems(roomIds: number[], month: string, hostId?: number 
   if (!roomIds.length) return new Map<number, PriceItem[]>();
 
   const priceFlags = await resolvePriceListFlags(month, hostId ?? null);
+  const priceDetailColumns = await resolvePriceSetDetailColumns(month, hostId ?? null);
 
   const roomPriceSets = await db
     .select({ roomId: clientRooms.id, priceSetId: clientRooms.priceSetId })
@@ -240,20 +305,43 @@ async function loadPriceItems(roomIds: number[], month: string, hostId?: number 
     )
   );
 
+  const priceListAmountColumn = priceFlags.amountColumn
+    ? sql.raw(`client_price_list.${priceFlags.amountColumn}`)
+    : clientPriceList.amount;
+  const priceDetailAmountColumn = priceDetailColumns.amountColumn ?? 'amount';
+
   const priceRows = priceSetIds.length
     ? await db
         .select({
           priceSetId: clientPriceSetDetail.priceSetId,
           priceId: clientPriceSetDetail.priceId,
-          priceType: clientPriceList.type,
-          amount: sql`CAST(${clientPriceList.amount} AS DECIMAL(20,4))`,
-          title: clientPriceList.title,
-          minusYn: priceFlags.hasMinus
-            ? sql`COALESCE(${sql.raw('client_price_list.minus_yn')}, 0)`
-            : sql`CAST(0 AS SIGNED)` ,
-          ratioYn: priceFlags.hasRatio
-            ? sql`COALESCE(${sql.raw('client_price_list.ratio_yn')}, 0)`
-            : sql`CAST(0 AS SIGNED)`
+          priceType: priceDetailColumns.hasType
+            ? sql`COALESCE(${sql.raw('client_price_set_detail.type')}, ${clientPriceList.type})`
+            : clientPriceList.type,
+          amount: priceDetailColumns.hasAmount
+            ? sql`CAST(COALESCE(${sql.raw(
+                `client_price_set_detail.${priceDetailAmountColumn}`
+              )}, ${priceListAmountColumn}) AS DECIMAL(20,4))`
+            : sql`CAST(${priceListAmountColumn} AS DECIMAL(20,4))`,
+          title: priceDetailColumns.hasTitle
+            ? sql`COALESCE(${sql.raw('client_price_set_detail.title')}, ${clientPriceList.title})`
+            : clientPriceList.title,
+          minusYn:
+            priceDetailColumns.hasMinus && priceFlags.hasMinus
+              ? sql`COALESCE(${sql.raw('client_price_set_detail.minus_yn')}, ${sql.raw('client_price_list.minus_yn')}, 0)`
+              : priceDetailColumns.hasMinus
+                ? sql`COALESCE(${sql.raw('client_price_set_detail.minus_yn')}, 0)`
+                : priceFlags.hasMinus
+                  ? sql`COALESCE(${sql.raw('client_price_list.minus_yn')}, 0)`
+                  : sql`CAST(0 AS SIGNED)` ,
+          ratioYn:
+            priceDetailColumns.hasRatio && priceFlags.hasRatio
+              ? sql`COALESCE(${sql.raw('client_price_set_detail.ratio_yn')}, ${sql.raw('client_price_list.ratio_yn')}, 0)`
+              : priceDetailColumns.hasRatio
+                ? sql`COALESCE(${sql.raw('client_price_set_detail.ratio_yn')}, 0)`
+                : priceFlags.hasRatio
+                  ? sql`COALESCE(${sql.raw('client_price_list.ratio_yn')}, 0)`
+                  : sql`CAST(0 AS SIGNED)`
         })
         .from(clientPriceSetDetail)
         .innerJoin(clientPriceList, eq(clientPriceSetDetail.priceId, clientPriceList.id))
@@ -388,9 +476,11 @@ export async function getSettlementSnapshot(
 
     const priceMap = await loadPriceItems(roomIds, month, hostFilterId ?? null);
 
-    const additionalPriceColumn = roomIds.length
+    const additionalPriceMeta = roomIds.length
       ? await resolveAdditionalPriceColumn(month, hostFilterId ?? null)
       : null;
+    const additionalPriceColumn = additionalPriceMeta?.amountColumn ?? null;
+    const hasAdditionalQty = !!additionalPriceMeta?.columns?.includes('qty');
 
     const additionalRows = roomIds.length && additionalPriceColumn
       ? await db
@@ -399,6 +489,7 @@ export async function getSettlementSnapshot(
             roomId: clientAdditionalPrice.roomId,
             date: clientAdditionalPrice.date,
             title: clientAdditionalPrice.title,
+            qty: hasAdditionalQty ? sql.raw('client_additional_price.qty') : sql`1`,
             price:
               additionalPriceColumn === 'price'
                 ? sql`CAST(${clientAdditionalPrice.price} AS DECIMAL(20,4))`
@@ -653,29 +744,29 @@ export async function getSettlementSnapshot(
     const date = extra.date.toISOString().slice(0, 10);
     const price = Number(extra.price ?? 0);
 
+    const quantity = hasAdditionalQty ? Number(extra.qty ?? 1) : 1;
+
     addLine(hostStatement.lines, { roomId: room.roomId, roomLabel: room.label }, {
       date,
       item: `${room.label} ${extra.title}`,
       amount: price,
-      quantity: 1,
+      quantity,
       category: 'misc'
     });
   }
 
   for (const statement of statements) {
-    const baseByRoomCategory = new Map<string, number>();
+    const baseByRoom = new Map<number, number>();
 
     for (const line of statement.lines) {
       if (line.minusYn || line.ratioYn) continue;
-      const key = `${line.roomId}-${line.category}`;
-      const prev = baseByRoomCategory.get(key) ?? 0;
-      baseByRoomCategory.set(key, prev + line.rawTotal);
+      const prev = baseByRoom.get(line.roomId) ?? 0;
+      baseByRoom.set(line.roomId, prev + line.rawTotal);
     }
 
     for (const line of statement.lines) {
       if (!line.ratioYn) continue;
-      const key = `${line.roomId}-${line.category}`;
-      const base = baseByRoomCategory.get(key) ?? 0;
+      const base = baseByRoom.get(line.roomId) ?? 0;
       const ratio = (line.ratioValue ?? line.amount) / 100;
       const computed = base * ratio;
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './login.module.css';
 
@@ -39,6 +39,27 @@ export default function LoginForm() {
   const [values, setValues] = useState<FormValues>(initialValues);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const saved = window.localStorage.getItem('login_saved');
+    if (!saved) return;
+
+    try {
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed === 'object') {
+        setValues({
+          phone: typeof parsed.phone === 'string' ? parsed.phone : '',
+          registerNo: typeof parsed.registerNo === 'string' ? parsed.registerNo : ''
+        });
+        setRememberMe(true);
+      }
+    } catch (error) {
+      // ignore corrupted saved data
+    }
+  }, []);
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = event.target;
@@ -87,6 +108,16 @@ export default function LoginForm() {
 
       setValues(initialValues);
       setErrors({});
+
+      if (rememberMe) {
+        window.localStorage.setItem(
+          'login_saved',
+          JSON.stringify({ phone: values.phone, registerNo: values.registerNo })
+        );
+      } else {
+        window.localStorage.removeItem('login_saved');
+      }
+
       router.push('/dashboard');
     } catch (error) {
       setErrors({ global: '로그인 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.' });
@@ -126,13 +157,22 @@ export default function LoginForm() {
           id="registerNo"
           name="registerNo"
           className={styles.field}
-          placeholder="5글자고유코드"
+          placeholder="6글자고유코드"
           value={values.registerNo}
           onChange={handleChange}
           aria-invalid={Boolean(errors.registerNo)}
         />
         {errors.registerNo && <p className={styles.error}>{errors.registerNo}</p>}
       </div>
+
+      <label className={styles.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={rememberMe}
+          onChange={(event) => setRememberMe(event.target.checked)}
+        />
+        로그인 정보 기억하기
+      </label>
 
       <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
         로그인

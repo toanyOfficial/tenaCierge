@@ -1,11 +1,11 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
-import { clientHeader, workerHeader } from '@/src/db/schema';
+import { clientHeader, workApply, workerHeader } from '@/src/db/schema';
 import { getSeoul1630Expiry } from '@/src/utils/cookie';
-import { isButlerEligible } from '@/src/server/profile';
+import { formatDateKey, getKstNow } from '@/src/utils/workWindow';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -29,58 +29,10 @@ type SearchIdentifier =
   | { type: 'register'; value: string }
   | { type: 'phone'; value: string };
 
-const ROLE_PRIORITY: Array<'admin' | 'host' | 'butler' | 'cleaner'> = ['admin', 'host', 'butler', 'cleaner'];
-
 function buildWorkerClause(identifier: SearchIdentifier) {
   return identifier.type === 'register'
     ? eq(workerHeader.registerCode, identifier.value)
     : eq(workerHeader.phone, identifier.value);
-}
-
-function buildClientClause(identifier: SearchIdentifier) {
-  return identifier.type === 'register'
-    ? eq(clientHeader.registerCode, identifier.value)
-    : eq(clientHeader.phone, identifier.value);
-}
-
-function appendRole(list: string[], role: 'admin' | 'host' | 'butler' | 'cleaner') {
-  if (!list.includes(role)) {
-    list.push(role);
-  }
-}
-
-async function resolveRoleArrange(worker: WorkerRecord | null, client: ClientRecord | null) {
-  const roles: string[] = [];
-
-  if (client) {
-    appendRole(roles, 'host');
-  }
-
-  if (worker) {
-    appendRole(roles, 'cleaner');
-
-    const butlerEligible = await isButlerEligible(worker);
-
-    if (butlerEligible) {
-      appendRole(roles, 'butler');
-    }
-
-    if (worker.tier === 99) {
-      appendRole(roles, 'admin');
-    }
-  }
-
-  return roles;
-}
-
-function resolvePrimaryRole(roleArrange: string[]) {
-  for (const role of ROLE_PRIORITY) {
-    if (roleArrange.includes(role)) {
-      return role;
-    }
-  }
-
-  return null;
 }
 
 export async function POST(request: Request) {
@@ -99,20 +51,33 @@ export async function POST(request: Request) {
     );
   }
 
-  const identifiers: SearchIdentifier[] = [];
+  const hasPhone = Boolean(normalizedPhone);
+  const hasRegister = Boolean(normalizedRegister);
+  const dates = (() => {
+    const now = getKstNow();
+    const today = formatDateKey(now);
+    const tomorrow = formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+    return [today, tomorrow].map((value) => new Date(`${value}T00:00:00+09:00`));
+  })();
 
-  if (normalizedRegister) {
-    identifiers.push({ type: 'register', value: normalizedRegister });
+  async function hasUpcomingButler(workId: number) {
+    const butlerRows = await db
+      .select({ id: workApply.id })
+      .from(workApply)
+      .where(and(eq(workApply.workerId, workId), eq(workApply.position, 2), inArray(workApply.workDate, dates)));
+
+    return butlerRows.length > 0;
   }
 
-  if (normalizedPhone) {
-    identifiers.push({ type: 'phone', value: normalizedPhone });
-  }
+  let roleArrange: string[] = [];
+  let primaryRole: string | null = null;
+  let profile: { name: string; phone: string | null; registerNo: string | null } | null = null;
 
-  let worker: WorkerRecord | null = null;
-  let client: ClientRecord | null = null;
+  if (hasPhone !== hasRegister) {
+    const identifier: SearchIdentifier = hasPhone
+      ? { type: 'phone', value: normalizedPhone }
+      : { type: 'register', value: normalizedRegister };
 
-  for (const identifier of identifiers) {
     const [workerResult] = await db
       .select({
         id: workerHeader.id,
@@ -125,49 +90,91 @@ export async function POST(request: Request) {
       .where(buildWorkerClause(identifier))
       .limit(1);
 
-    if (workerResult?.tier === 1) {
+    if (!workerResult) {
+      return NextResponse.json({ message: '일치하는 구성원을 찾지 못했습니다.' }, { status: 404 });
+    }
+
+    if (workerResult.tier === 99) {
+      return NextResponse.json(
+        { message: '호스트 계정은 휴대폰번호와 관리코드를 함께 입력해주세요.' },
+        { status: 400 }
+      );
+    }
+
+    if (workerResult.tier === 1) {
       return NextResponse.json({ message: '로그인이 제한된 유저입니다.' }, { status: 403 });
     }
 
-    const [clientResult] = await db
+    const butlerEligible = await hasUpcomingButler(workerResult.id);
+    roleArrange = butlerEligible ? ['cleaner', 'butler'] : ['cleaner'];
+    primaryRole = butlerEligible ? 'butler' : 'cleaner';
+    profile = {
+      name: workerResult.name,
+      phone: workerResult.phone,
+      registerNo: workerResult.registerNo
+    };
+  } else {
+    const [workerResult] = await db
       .select({
-        id: clientHeader.id,
-        name: clientHeader.name,
-        phone: clientHeader.phone,
-        registerNo: clientHeader.registerCode
+        id: workerHeader.id,
+        name: workerHeader.name,
+        phone: workerHeader.phone,
+        registerNo: workerHeader.registerCode,
+        tier: workerHeader.tier
       })
-      .from(clientHeader)
-      .where(buildClientClause(identifier))
+      .from(workerHeader)
+      .where(and(eq(workerHeader.phone, normalizedPhone), eq(workerHeader.registerCode, normalizedRegister)))
       .limit(1);
 
-    if (workerResult || clientResult) {
-      worker = workerResult ?? null;
-      client = clientResult ?? null;
-      break;
+    if (workerResult) {
+      if (workerResult.tier === 1) {
+        return NextResponse.json({ message: '로그인이 제한된 유저입니다.' }, { status: 403 });
+      }
+
+      const butlerEligible = await hasUpcomingButler(workerResult.id);
+      roleArrange = butlerEligible ? ['cleaner', 'butler'] : ['cleaner'];
+
+      if (workerResult.tier === 99) {
+        roleArrange = ['admin', 'host', ...roleArrange];
+        primaryRole = 'admin';
+      } else {
+        primaryRole = butlerEligible ? 'butler' : 'cleaner';
+      }
+
+      profile = {
+        name: workerResult.name,
+        phone: workerResult.phone,
+        registerNo: workerResult.registerNo
+      };
+    } else {
+      const [clientResult] = await db
+        .select({
+          id: clientHeader.id,
+          name: clientHeader.name,
+          phone: clientHeader.phone,
+          registerNo: clientHeader.registerCode
+        })
+        .from(clientHeader)
+        .where(and(eq(clientHeader.phone, normalizedPhone), eq(clientHeader.registerCode, normalizedRegister)))
+        .limit(1);
+
+      if (!clientResult) {
+        return NextResponse.json({ message: '일치하는 구성원을 찾지 못했습니다.' }, { status: 404 });
+      }
+
+      roleArrange = ['host'];
+      primaryRole = 'host';
+      profile = {
+        name: clientResult.name,
+        phone: clientResult.phone,
+        registerNo: clientResult.registerNo
+      };
     }
   }
 
-  if (!worker && !client) {
-    return NextResponse.json({ message: '일치하는 구성원을 찾지 못했습니다.' }, { status: 404 });
-  }
-
-  const roleArrange = await resolveRoleArrange(worker, client);
-
-  if (roleArrange.length === 0) {
+  if (!primaryRole || roleArrange.length === 0 || !profile) {
     return NextResponse.json({ message: '해당 계정에 부여할 역할이 없습니다.' }, { status: 403 });
   }
-
-  const primaryRole = resolvePrimaryRole(roleArrange);
-
-  if (!primaryRole) {
-    return NextResponse.json({ message: '역할 우선순위를 계산하지 못했습니다.' }, { status: 500 });
-  }
-
-  const profile = {
-    name: worker?.name ?? client?.name ?? '이름 미지정',
-    phone: worker?.phone ?? client?.phone ?? normalizedPhone,
-    registerNo: worker?.registerNo ?? client?.registerNo ?? normalizedRegister
-  };
 
   const cookieStore = cookies();
   const secure = process.env.NODE_ENV === 'production';
