@@ -23,12 +23,13 @@ function normalizeRoles(base: ProfileSummary, extra: string[]) {
   return { roles: sorted, primaryRole: primary };
 }
 
-export async function getProfileWithDynamicRoles(): Promise<ProfileSummary> {
-  const base = getProfileSummary();
-  const worker = await findWorkerByProfile(base);
-
+export async function isButlerEligible(worker: { id: number; tier: number } | null) {
   if (!worker) {
-    return base;
+    return false;
+  }
+
+  if (worker.tier === 99) {
+    return true;
   }
 
   const now = getKstNow();
@@ -39,12 +40,24 @@ export async function getProfileWithDynamicRoles(): Promise<ProfileSummary> {
   const butlerRows = await db
     .select({ id: workApply.id })
     .from(workApply)
-    .where(
-      and(eq(workApply.workerId, worker.id), eq(workApply.position, 2), inArray(workApply.workDate, targetDates))
-    );
+    .where(and(eq(workApply.workerId, worker.id), eq(workApply.position, 2), inArray(workApply.workDate, targetDates)));
 
-  const extraRoles = butlerRows.length ? ['butler'] : [];
-  const normalized = normalizeRoles(base, extraRoles);
+  return butlerRows.length > 0;
+}
 
-  return { ...base, ...normalized };
+export async function getProfileWithDynamicRoles(): Promise<ProfileSummary> {
+  const base = getProfileSummary();
+  const worker = await findWorkerByProfile(base);
+
+  const baseWithoutButler = {
+    ...base,
+    roles: base.roles.filter((role) => role !== 'butler'),
+    primaryRole: base.primaryRole === 'butler' ? null : base.primaryRole
+  };
+
+  const butlerEligible = await isButlerEligible(worker);
+  const extraRoles = butlerEligible ? ['butler'] : [];
+  const normalized = normalizeRoles(baseWithoutButler, extraRoles);
+
+  return { ...baseWithoutButler, ...normalized };
 }
