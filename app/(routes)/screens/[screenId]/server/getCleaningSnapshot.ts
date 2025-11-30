@@ -97,11 +97,16 @@ function buildExtendedOptions(
 ) {
   const today = formatDateKey(now);
   const seen = new Set(options.map((option) => option.value));
+  const todayDate = new Date(`${today}T00:00:00+09:00`);
 
   const withAvailable = [
     ...options,
     ...availableDates
       .filter((date) => !seen.has(date))
+      .filter((date) => {
+        const parsed = new Date(`${date}T00:00:00+09:00`);
+        return !Number.isNaN(parsed.getTime()) && parsed >= todayDate;
+      })
       .map((date) => ({ value: date, tag: resolveTag(today, date), label: formatFullDateLabel(new Date(`${date}T00:00:00+09:00`)) }))
   ];
 
