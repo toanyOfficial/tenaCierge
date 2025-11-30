@@ -327,7 +327,7 @@ export async function getWorkListSnapshot(
       }
     }
 
-  const normalized = (rows ?? []).map((row) => normalizeRow(row));
+    const normalized = (rows ?? []).map((row) => normalizeRow(row));
   const supplyMap = await fetchLatestSupplyReports(normalized.map((row) => row.id));
   const photoMap = await fetchLatestPhotoReports(normalized.map((row) => row.id));
   const assignableWorkers =
@@ -374,7 +374,8 @@ export async function getWorkListSnapshot(
         window,
         role: profile.primaryRole,
         roles: profile.roles,
-        workCount: response.works.length
+      workCount: response.works.length,
+      dbRowCount: rows?.length ?? 0
       }
     });
 
