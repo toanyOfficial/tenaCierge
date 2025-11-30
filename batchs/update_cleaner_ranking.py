@@ -18,6 +18,7 @@ from decimal import Decimal
 from typing import Dict, Iterable, List, Optional, Sequence, Set
 
 import mysql.connector
+from mysql.connector import errors as mysql_errors
 import requests
 
 KST = dt.timezone(dt.timedelta(hours=9))
@@ -207,23 +208,49 @@ class CleanerRankingBatch:
             has_qty_column,
         )
 
+        works = []
         with self.conn.cursor(dictionary=True) as cur:
-            cur.execute(
-                f"""
-                SELECT
-                    id,
-                    room_id,
-                    amenities_qty,
-                    blanket_qty,
-                    {checkin_col} AS checkin_time,
-                    {checkout_col} AS checkout_time
-                FROM work_header
-                WHERE date = %s
-                  AND cancel_yn = 0
-                """,
-                (self.target_date,),
-            )
-            works = list(cur)
+            try:
+                cur.execute(
+                    f"""
+                    SELECT
+                        id,
+                        room_id,
+                        amenities_qty,
+                        blanket_qty,
+                        {checkin_col} AS checkin_time,
+                        {checkout_col} AS checkout_time
+                    FROM work_header
+                    WHERE date = %s
+                      AND cancel_yn = 0
+                    """,
+                    (self.target_date,),
+                )
+                works = list(cur)
+            except mysql_errors.ProgrammingError as exc:
+                if "checkout_time" in str(exc):
+                    logging.warning(
+                        "[additional_price] checkout_time 컬럼 조회 실패, ceckout_time으로 재시도: %s",
+                        exc,
+                    )
+                    cur.execute(
+                        f"""
+                        SELECT
+                            id,
+                            room_id,
+                            amenities_qty,
+                            blanket_qty,
+                            {checkin_col} AS checkin_time,
+                            ceckout_time AS checkout_time
+                        FROM work_header
+                        WHERE date = %s
+                          AND cancel_yn = 0
+                        """,
+                        (self.target_date,),
+                    )
+                    works = list(cur)
+                else:
+                    raise
 
         if not works:
             logging.info(
@@ -249,16 +276,35 @@ class CleanerRankingBatch:
         rooms: Dict[int, Dict[str, object]] = {}
         placeholders = ", ".join(["%s"] * len(room_ids))
         with self.conn.cursor(dictionary=True) as cur:
-            cur.execute(
-                f"""
-                SELECT id, price_set_id, bed_count, checkin_time, checkout_time
-                FROM client_rooms
-                WHERE id IN ({placeholders})
-                """,
-                tuple(room_ids),
-            )
-            for row in cur:
-                rooms[int(row["id"])] = row
+            try:
+                cur.execute(
+                    f"""
+                    SELECT id, price_set_id, bed_count, checkin_time, checkout_time
+                    FROM client_rooms
+                    WHERE id IN ({placeholders})
+                    """,
+                    tuple(room_ids),
+                )
+                for row in cur:
+                    rooms[int(row["id"])] = row
+            except mysql_errors.ProgrammingError as exc:
+                if "checkout_time" in str(exc):
+                    logging.warning(
+                        "[additional_price] client_rooms.checkout_time 조회 실패, ceckout_time으로 재시도: %s",
+                        exc,
+                    )
+                    cur.execute(
+                        f"""
+                        SELECT id, price_set_id, bed_count, checkin_time, ceckout_time AS checkout_time
+                        FROM client_rooms
+                        WHERE id IN ({placeholders})
+                        """,
+                        tuple(room_ids),
+                    )
+                    for row in cur:
+                        rooms[int(row["id"])] = row
+                else:
+                    raise
 
         if not rooms:
             logging.info(
