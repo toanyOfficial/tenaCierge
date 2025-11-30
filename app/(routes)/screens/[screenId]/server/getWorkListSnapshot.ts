@@ -242,17 +242,6 @@ async function fetchLatestNotice() {
   return rows[0]?.notice ?? '공지사항이 없습니다.';
 }
 
-async function hasWorkApplication(workerId: number, targetDate: string) {
-  const targetDateValue = buildKstDate(targetDate);
-  const rows = await db
-    .select({ id: workApply.id })
-    .from(workApply)
-    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateValue)))
-    .limit(1);
-
-  return rows.length > 0;
-}
-
 async function hasButlerApplication(workerId: number, targetDate: string) {
   const targetDateValue = buildKstDate(targetDate);
   const rows = await db
