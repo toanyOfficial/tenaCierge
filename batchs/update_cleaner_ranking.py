@@ -1030,7 +1030,19 @@ class CleanerRankingBatch:
                 """,
                 (table,),
             )
-            return {str(row.get("column_name")).lower() for row in cur if row.get("column_name")}
+            columns: Set[str] = set()
+            for row in cur:
+                # mysql-connector may expose keys as either the source name (COLUMN_NAME)
+                # or the alias (column_name); fall back to the first value to avoid
+                # empty results when casing differs by platform/settings.
+                value = (
+                    row.get("column_name")
+                    or row.get("COLUMN_NAME")
+                    or next(iter(row.values()), None)
+                )
+                if value:
+                    columns.add(str(value).lower())
+            return columns
 
     def _resolve_amount_column(self, columns: Set[str], candidates: Sequence[str]) -> Optional[str]:
         lowered = {c.lower() for c in columns}
