@@ -152,7 +152,15 @@ export async function getWorkListSnapshot(
 
     let emptyMessage: string | undefined;
 
-    if (profile.primaryRole === 'admin' || profile.roles.includes('admin') || profile.roles.includes('butler')) {
+    const hasButlerApplicationToday =
+      targetDate === windowDates.d0 && worker ? await hasButlerApplication(worker.id, windowDates.d0) : false;
+
+    if (
+      profile.primaryRole === 'admin' ||
+      profile.roles.includes('admin') ||
+      profile.roles.includes('butler') ||
+      hasButlerApplicationToday
+    ) {
       rows = await baseQuery;
     } else if (profile.roles.includes('host')) {
       if (!client) {
@@ -240,6 +248,17 @@ async function hasWorkApplication(workerId: number, targetDate: string) {
     .select({ id: workApply.id })
     .from(workApply)
     .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateValue)))
+    .limit(1);
+
+  return rows.length > 0;
+}
+
+async function hasButlerApplication(workerId: number, targetDate: string) {
+  const targetDateValue = buildKstDate(targetDate);
+  const rows = await db
+    .select({ id: workApply.id })
+    .from(workApply)
+    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateValue), eq(workApply.position, 2)))
     .limit(1);
 
   return rows.length > 0;
