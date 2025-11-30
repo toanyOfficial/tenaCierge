@@ -492,13 +492,25 @@ export default function WorkListClient({ profile, snapshot }: Props) {
           ) : (
             <div className={styles.workList}>
               {groupedBySector.map((group) => {
+                const sectorCounts = group.buildings.reduce(
+                  (acc, building) => {
+                    const cleaningCount = building.works.reduce((c, work) => c + Number(Boolean(work.cleaningYn)), 0);
+                    const nonCleaningCount = building.works.length - cleaningCount;
+                    acc.cleaning += cleaningCount;
+                    acc.nonCleaning += nonCleaningCount;
+                    return acc;
+                  },
+                  { cleaning: 0, nonCleaning: 0 }
+                );
                 const opened = openGroups[group.key] ?? true;
                 return (
                   <article key={group.key} className={styles.groupCard}>
                     <header className={styles.groupHeader}>
                       <div>
                         <p className={styles.groupTitle}>{group.label}</p>
-                        <p className={styles.subtle}>{group.buildings.reduce((acc, b) => acc + b.works.length, 0)}건</p>
+                        <p className={styles.subtle}>
+                          {sectorCounts.cleaning}건 + {sectorCounts.nonCleaning}건
+                        </p>
                       </div>
                       <button
                         type="button"
@@ -514,13 +526,26 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                       <div className={styles.groupBody}>
                         {group.buildings.map((building) => {
                           const buildingKey = `${group.key}-${building.buildingId}`;
+                          const buildingCounts = building.works.reduce(
+                            (acc, work) => {
+                              if (work.cleaningYn) {
+                                acc.cleaning += 1;
+                              } else {
+                                acc.nonCleaning += 1;
+                              }
+                              return acc;
+                            },
+                            { cleaning: 0, nonCleaning: 0 }
+                          );
                           const buildingOpen = openBuildings[buildingKey] ?? true;
                           return (
                             <div key={buildingKey} className={styles.buildingCard}>
                               <header className={styles.buildingHeader}>
                                 <div>
                                   <p className={styles.buildingTitle}>{building.buildingLabel}</p>
-                                  <p className={styles.subtle}>{building.works.length}건</p>
+                                  <p className={styles.subtle}>
+                                    {buildingCounts.cleaning}건 + {buildingCounts.nonCleaning}건
+                                  </p>
                                 </div>
                                 <button
                                   type="button"
