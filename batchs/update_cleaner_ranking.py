@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import datetime as dt
 import json
 import logging
@@ -12,6 +13,7 @@ import math
 import os
 import traceback
 import time
+from pathlib import Path
 from decimal import Decimal
 from typing import Dict, Iterable, List, Optional, Sequence, Set
 
@@ -21,6 +23,7 @@ import requests
 KST = dt.timezone(dt.timedelta(hours=9))
 MAX_OPENAI_CALLS_PER_RUN = 3
 COMMENT_DB_LIMIT = 240
+SCHEMA_CSV_PATH = Path(__file__).resolve().parent.parent / "docsForCodex" / "schema.csv"
 
 
 def configure_logging() -> None:
@@ -980,22 +983,8 @@ class CleanerRankingBatch:
         if not eligible_ids:
             return
 
-        # column 존재 여부 확인
-        has_column = False
-        with self.conn.cursor(dictionary=True) as cur:
-            cur.execute(
-                """
-                SELECT 1
-                FROM information_schema.columns
-                WHERE table_schema = DATABASE()
-                  AND table_name = 'worker_header'
-                  AND column_name = 'score_20days'
-                LIMIT 1
-                """
-            )
-            has_column = cur.fetchone() is not None
-
-        if not has_column:
+        worker_columns = self._get_table_columns("worker_header")
+        if "score_20days" not in worker_columns:
             logging.warning("worker_header.score_20days 컬럼이 없어 점수 누적을 건너뜁니다.")
             return
 
@@ -1020,29 +1009,24 @@ class CleanerRankingBatch:
         logging.info("tier 업데이트 %s건", len(updates))
 
     def _get_table_columns(self, table: str) -> Set[str]:
-        with self.conn.cursor(dictionary=True) as cur:
-            cur.execute(
-                """
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_schema = DATABASE()
-                  AND table_name = %s
-                """,
-                (table,),
-            )
-            columns: Set[str] = set()
-            for row in cur:
-                # mysql-connector may expose keys as either the source name (COLUMN_NAME)
-                # or the alias (column_name); fall back to the first value to avoid
-                # empty results when casing differs by platform/settings.
-                value = (
-                    row.get("column_name")
-                    or row.get("COLUMN_NAME")
-                    or next(iter(row.values()), None)
-                )
-                if value:
-                    columns.add(str(value).lower())
-            return columns
+        table_key = table.lower()
+        if not hasattr(self, "_schema_cache"):
+            self._schema_cache: Dict[str, Set[str]] = {}
+            if not SCHEMA_CSV_PATH.exists():
+                logging.warning("schema.csv 파일을 찾을 수 없습니다: %s", SCHEMA_CSV_PATH)
+                return set()
+            with SCHEMA_CSV_PATH.open(newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    table_name = (row.get("table_name") or "").lower()
+                    column_name = (row.get("column_name") or "").lower()
+                    if not table_name or not column_name:
+                        continue
+                    if table_name not in self._schema_cache:
+                        self._schema_cache[table_name] = set()
+                    self._schema_cache[table_name].add(column_name)
+
+        return set(self._schema_cache.get(table_key, set()))
 
     def _resolve_amount_column(self, columns: Set[str], candidates: Sequence[str]) -> Optional[str]:
         lowered = {c.lower() for c in columns}
