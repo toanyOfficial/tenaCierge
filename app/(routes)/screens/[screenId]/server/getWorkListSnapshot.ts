@@ -21,6 +21,7 @@ import { findClientByProfile } from '@/src/server/clients';
 import { findWorkerByProfile } from '@/src/server/workers';
 import { fetchAvailableWorkDates } from '@/src/server/workQueries';
 import { getKstNow, formatDateKey, formatFullDateLabel } from '@/src/utils/workWindow';
+import { logError, logInfo } from '@/src/server/logger';
 import { logServerError } from '@/src/server/errorLogger';
 
 export type WorkListEntry = {
@@ -90,7 +91,7 @@ function buildKstDate(dateKey: string) {
 }
 
 function buildDateParam(dateKey: string) {
-  return dateKey as unknown as Date;
+  return dateKey;
 }
 
 function normalizeDate(input?: string) {
@@ -347,7 +348,7 @@ export async function getWorkListSnapshot(
     }))
     .sort((a, b) => sortRows(a, b, buildingCounts));
 
-    return {
+    const response = {
       notice,
       targetDate,
       window,
@@ -364,7 +365,28 @@ export async function getWorkListSnapshot(
       emptyMessage,
       currentMinutes: minutes
     };
+    await logInfo({
+      message: 'work list snapshot fetched',
+      context: {
+        targetDate,
+        targetDateValue,
+        window,
+        role: profile.primaryRole,
+        roles: profile.roles,
+        workCount: response.works.length
+      }
+    });
+
+    return response;
   } catch (error) {
+    await logError({
+      message: 'getWorkListSnapshot 실패',
+      error,
+      context: {
+        dateParam,
+        windowParam
+      }
+    });
     await logServerError({
       appName: 'work-list',
       errorCode: 'SNAPSHOT_FAIL',
