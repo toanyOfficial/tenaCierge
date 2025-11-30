@@ -93,7 +93,7 @@ export async function getWorkListSnapshot(
     const now = getKstNow();
     const minutes = now.getHours() * 60 + now.getMinutes();
     const { targetDate, window, windowDates } = resolveWindow(now, minutes, dateParam, windowParam);
-    const targetDateValue = new Date(`${targetDate}T00:00:00Z`);
+    const targetDateValue = buildKstDate(targetDate);
 
     const notice = await fetchLatestNotice();
 
@@ -152,7 +152,15 @@ export async function getWorkListSnapshot(
 
     let emptyMessage: string | undefined;
 
-    if (profile.primaryRole === 'admin' || profile.roles.includes('admin') || profile.roles.includes('butler')) {
+    const hasButlerApplicationToday =
+      targetDate === windowDates.d0 && worker ? await hasButlerApplication(worker.id, windowDates.d0) : false;
+
+    if (
+      profile.primaryRole === 'admin' ||
+      profile.roles.includes('admin') ||
+      profile.roles.includes('butler') ||
+      hasButlerApplicationToday
+    ) {
       rows = await baseQuery;
     } else if (profile.roles.includes('host')) {
       if (!client) {
@@ -168,9 +176,14 @@ export async function getWorkListSnapshot(
         emptyMessage = '근무자 정보를 찾을 수 없습니다.';
       } else {
         const assignedWorkIds = await fetchAssignedWorkIds(worker.id, targetDate);
+        const windowLabel = window === 'd1' ? '내일' : '오늘';
+        const hasApplication = await hasWorkApplication(worker.id, targetDate);
+
         if (!assignedWorkIds.length) {
           rows = [];
-          emptyMessage = '아직 할당된 업무가 없습니다.';
+          emptyMessage = hasApplication
+            ? `${windowLabel}자 신청 내역은 있으나 아직 배정되지 않았습니다.`
+            : '아직 할당된 업무가 없습니다.';
         } else {
           rows = await baseQueryBuilder
             .where(and(eq(workHeader.date, targetDateValue), inArray(workHeader.id, assignedWorkIds)))
@@ -229,8 +242,30 @@ async function fetchLatestNotice() {
   return rows[0]?.notice ?? '공지사항이 없습니다.';
 }
 
+async function hasWorkApplication(workerId: number, targetDate: string) {
+  const targetDateValue = buildKstDate(targetDate);
+  const rows = await db
+    .select({ id: workApply.id })
+    .from(workApply)
+    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateValue)))
+    .limit(1);
+
+  return rows.length > 0;
+}
+
+async function hasButlerApplication(workerId: number, targetDate: string) {
+  const targetDateValue = buildKstDate(targetDate);
+  const rows = await db
+    .select({ id: workApply.id })
+    .from(workApply)
+    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateValue), eq(workApply.position, 2)))
+    .limit(1);
+
+  return rows.length > 0;
+}
+
 async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
-  const targetDateValue = new Date(`${targetDate}T00:00:00Z`);
+  const targetDateValue = buildKstDate(targetDate);
   const rows = await db
     .select({ workId: workAssignment.workId })
     .from(workAssignment)
@@ -288,7 +323,7 @@ function normalizeRow(row: any): WorkListEntry {
 }
 
 async function fetchAssignableWorkers(targetDate: string): Promise<AssignableWorker[]> {
-  const targetDateValue = new Date(`${targetDate}T00:00:00Z`);
+  const targetDateValue = buildKstDate(targetDate);
   const rows = await db
     .select({
       id: workApply.workerId,
@@ -470,6 +505,10 @@ function formatSupplyRecommendation(title: string, description: string) {
 function normalizeText(value: unknown) {
   if (typeof value === 'string') return value;
   return undefined;
+}
+
+function buildKstDate(dateKey: string) {
+  return new Date(`${dateKey}T00:00:00+09:00`);
 }
 
 function safeParseJson(value: string) {
