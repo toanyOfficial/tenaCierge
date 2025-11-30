@@ -1,3 +1,5 @@
+import { KST, formatKstDateKey, nowKst, toKstDateTime } from '@/src/lib/time';
+
 export type WorkWindowState = 'today' | 'edit' | 'locked';
 export type WorkWindowTag = 'D0' | `D+${1 | 2 | 3 | 4 | 5 | 6 | 7}`;
 
@@ -11,9 +13,7 @@ export type WorkWindowMeta = {
 };
 
 export function getKstNow() {
-  const now = new Date();
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-  return new Date(utc + 9 * 60 * 60000);
+  return nowKst().toJSDate();
 }
 
 export function resolveWorkWindow(baseDate?: Date, forcedDate?: string): WorkWindowMeta {
@@ -88,16 +88,12 @@ export function isDateWithinRange(targetKey: string, maxDays = 7, baseDate = get
 }
 
 export function formatDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return formatKstDateKey(date);
 }
 
 function parseDateKey(value: string) {
-  const safe = `${value}T00:00:00+09:00`;
-  const parsed = new Date(safe);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  const parsed = toKstDateTime(`${value}T00:00:00`).startOf('day');
+  return parsed.isValid ? parsed.toJSDate() : null;
 }
 
 function calculateDiffDays(baseKey: string, targetKey: string) {
@@ -115,7 +111,8 @@ export function formatFullDateLabel(date: Date) {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-    weekday: 'short'
+    weekday: 'short',
+    timeZone: KST
   });
 
   return formatter.format(date);

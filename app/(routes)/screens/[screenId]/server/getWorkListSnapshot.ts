@@ -185,6 +185,9 @@ export async function getWorkListSnapshot(
         emptyMessage = '근무자 정보를 찾을 수 없습니다.';
       } else {
         const assignedWorkIds = await fetchAssignedWorkIds(worker.id, targetDate);
+        const windowLabel = window === 'd1' ? '내일' : '오늘';
+        const hasApplication = await hasWorkApplication(worker.id, targetDate);
+
         if (!assignedWorkIds.length) {
           const hasApplication = await hasWorkApplication(worker.id, targetDate);
           rows = [];
@@ -635,4 +638,55 @@ function resolveWindow(
   const targetDate = chosen === 'd0' ? today : tomorrow;
 
   return { targetDate, window: chosen, windowDates: { d0: today, d1: tomorrow } };
+}
+
+function buildKstDate(dateKey: string) {
+  return new Date(`${dateKey}T00:00:00Z`);
+}
+
+function normalizeDate(input?: string, now?: Date) {
+  if (!input) return '';
+  const trimmed = input.trim();
+  const candidate = /^\d{8}$/.test(trimmed)
+    ? `${trimmed.slice(0, 4)}-${trimmed.slice(4, 6)}-${trimmed.slice(6, 8)}`
+    : trimmed;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate)) return '';
+
+  const parsed = new Date(`${candidate}T00:00:00+09:00`);
+  if (Number.isNaN(parsed.getTime())) return '';
+
+  const formatted = formatDateKey(parsed);
+  if (now && !isDateWithinRange(formatted, 7, now)) return '';
+
+  return formatted;
+}
+
+async function buildDateOptions(targetDate: string, now: Date) {
+  const today = formatDateKey(now);
+  const todayDate = new Date(`${today}T00:00:00+09:00`);
+
+  const horizon = Array.from({ length: 8 }, (_, offset) => {
+    const next = new Date(todayDate);
+    next.setDate(todayDate.getDate() + offset);
+    return formatDateKey(next);
+  });
+
+  const maxDate = new Date(`${horizon[horizon.length - 1]}T00:00:00+09:00`);
+  const dates = new Set<string>(horizon);
+
+  const addIfValid = (value: string) => {
+    const normalized = normalizeDate(value) || value;
+    const parsed = new Date(`${normalized}T00:00:00+09:00`);
+    if (Number.isNaN(parsed.getTime())) return;
+    if (parsed < todayDate || parsed > maxDate) return;
+    dates.add(formatDateKey(parsed));
+  };
+
+  (await fetchAvailableWorkDates()).forEach((date) => addIfValid(date));
+  addIfValid(targetDate);
+
+  return Array.from(dates)
+    .map((value) => ({ value, label: formatFullDateLabel(new Date(`${value}T00:00:00+09:00`)) }))
+    .sort((a, b) => a.value.localeCompare(b.value));
 }

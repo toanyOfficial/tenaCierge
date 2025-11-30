@@ -169,7 +169,8 @@ function formatNoticeDateLabel(raw?: string | null) {
   return new Intl.DateTimeFormat('ko-KR', {
     month: 'long',
     day: 'numeric',
-    weekday: 'short'
+    weekday: 'short',
+    timeZone: 'Asia/Seoul'
   }).format(date);
 }
 
@@ -185,7 +186,8 @@ function formatNoticeDateTimeLabel(raw?: string | null) {
     weekday: 'short',
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false
+    hour12: false,
+    timeZone: 'Asia/Seoul'
   }).format(date);
 }
 
