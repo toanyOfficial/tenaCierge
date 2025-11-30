@@ -45,8 +45,12 @@ export function getProfileSummary(): ProfileSummary {
   const phone = cookieStore.get('phone')?.value || cookieStore.get('tc_phone')?.value || '-';
   const registerNo = cookieStore.get('register_no')?.value || cookieStore.get('tc_register')?.value || '-';
   const name = cookieStore.get('name')?.value || cookieStore.get('tc_name')?.value || '이름 미지정';
-  const roles = parseRoles(cookieStore.get('role_arrange')?.value ?? cookieStore.get('tc_roles')?.value);
   const primaryRoleCookie = cookieStore.get('role')?.value?.trim();
+  const normalizedRoles = parseRoles(cookieStore.get('role_arrange')?.value ?? cookieStore.get('tc_roles')?.value);
+  const roles =
+    primaryRoleCookie && !normalizedRoles.includes(primaryRoleCookie)
+      ? parseRoles([...normalizedRoles, primaryRoleCookie].join(','))
+      : normalizedRoles;
 
   return {
     phone,
