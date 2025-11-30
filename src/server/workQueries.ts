@@ -35,7 +35,7 @@ export type WorkRow = {
 
 export async function fetchWorkRowsByDate(targetDate: string) {
   const buildingSector = alias(etcBaseCode, 'workSector');
-  const targetDateValue = new Date(`${targetDate}T00:00:00Z`);
+  const targetDateValue = buildKstDate(targetDate);
 
   return db
     .select({
@@ -120,7 +120,7 @@ export async function fetchWorkRowById(workId: number) {
 
 export async function fetchLatestWorkByDateAndRoom(date: string, roomId: number) {
   const buildingSector = alias(etcBaseCode, 'workSectorLatest');
-  const dateValue = new Date(`${date}T00:00:00Z`);
+  const dateValue = buildKstDate(date);
 
   const rows = await db
     .select({
@@ -268,4 +268,8 @@ function buildRoomName(shortName?: string | null, roomNo?: string | null) {
   const building = shortName ?? '';
   const room = roomNo ?? '';
   return `${building}${room}`.trim() || '미지정 객실';
+}
+
+function buildKstDate(dateKey: string) {
+  return new Date(`${dateKey}T00:00:00+09:00`);
 }
