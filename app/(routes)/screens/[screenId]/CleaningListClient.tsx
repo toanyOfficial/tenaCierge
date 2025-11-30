@@ -146,11 +146,6 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
   }, [allowedDates]);
 
   function handleDateChange(value: string) {
-    if (value && !allowedDates.has(value)) {
-      window.alert('조회 가능 기간(D0~D+7) 내에서 선택해 주세요.');
-      return;
-    }
-
     setSelectedDate(value);
 
     const params = new URLSearchParams(searchParams?.toString() ?? '');
@@ -665,18 +660,21 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
             </div>
             <label className={styles.datePicker}>
               <span>조회일</span>
-              <select
-                className={styles.dateSelect}
+              <input
+                type="date"
+                className={styles.dateInput}
                 value={selectedDate}
                 onChange={(event) => handleDateChange(event.target.value)}
-              >
-                {snapshot.dateOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {`${option.tag} · ${option.label}`}
-                  </option>
-                ))}
-              </select>
+                list="cleaning-date-options"
+              />
             </label>
+            <datalist id="cleaning-date-options">
+              {snapshot.dateOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {`${option.tag} · ${option.label}`}
+                </option>
+              ))}
+            </datalist>
           </div>
         </header>
 
