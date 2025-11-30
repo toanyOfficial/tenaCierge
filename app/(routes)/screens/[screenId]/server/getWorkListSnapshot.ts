@@ -86,7 +86,7 @@ export type WorkListSnapshot = {
 };
 
 function buildKstDate(dateKey: string) {
-  return new Date(`${dateKey}T00:00:00+09:00`);
+  return new Date(`${dateKey}T00:00:00Z`);
 }
 
 function normalizeDate(input?: string) {
