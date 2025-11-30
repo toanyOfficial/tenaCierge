@@ -524,14 +524,30 @@ function buildKstDate(dateKey: string) {
   return new Date(`${dateKey}T00:00:00+09:00`);
 }
 
+function normalizeDate(input?: string) {
+  if (!input) return '';
+
+  const trimmed = input.trim();
+  const candidate = /^\d{8}$/.test(trimmed)
+    ? `${trimmed.slice(0, 4)}-${trimmed.slice(4, 6)}-${trimmed.slice(6, 8)}`
+    : trimmed;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate)) return '';
+
+  const parsed = buildKstDate(candidate);
+  if (Number.isNaN(parsed.getTime())) return '';
+
+  return formatDateKey(parsed);
+}
+
 async function buildDateOptions(targetDate: string, now: Date) {
   const today = formatDateKey(now);
-  const todayDate = new Date(`${today}T00:00:00+09:00`);
+  const todayDate = buildKstDate(today);
   const tomorrow = formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
   const dates = new Set<string>();
 
   const addIfValid = (value: string, allowPast = false) => {
-    const parsed = new Date(`${value}T00:00:00+09:00`);
+    const parsed = buildKstDate(value);
     if (Number.isNaN(parsed.getTime())) return;
     if (!allowPast && parsed < todayDate) return;
     dates.add(value);
@@ -543,7 +559,7 @@ async function buildDateOptions(targetDate: string, now: Date) {
   addIfValid(targetDate, true);
 
   return Array.from(dates)
-    .map((value) => ({ value, label: formatFullDateLabel(new Date(`${value}T00:00:00+09:00`)) }))
+    .map((value) => ({ value, label: formatFullDateLabel(buildKstDate(value)) }))
     .sort((a, b) => a.value.localeCompare(b.value));
 }
 
@@ -597,21 +613,6 @@ function toTime(value: string | Date | null | undefined) {
   }
   const [h = '00', m = '00'] = value.split(':');
   return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
-}
-
-function normalizeDate(input?: string) {
-  if (!input) return '';
-  const trimmed = input.trim();
-  const candidate = /^\d{8}$/.test(trimmed)
-    ? `${trimmed.slice(0, 4)}-${trimmed.slice(4, 6)}-${trimmed.slice(6, 8)}`
-    : trimmed;
-
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate)) return '';
-
-  const parsed = buildKstDate(candidate);
-  if (Number.isNaN(parsed.getTime())) return '';
-
-  return formatDateKey(parsed);
 }
 
 function resolveWindow(
