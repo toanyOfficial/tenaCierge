@@ -36,7 +36,7 @@ export type WorkRow = {
 export async function fetchWorkRowsByDate(targetDate: string) {
   const buildingSector = alias(etcBaseCode, 'workSector');
 
-  const targetDateSql = eq(workHeader.date, targetDate);
+  const targetDateSql = sql`DATE(${workHeader.date}) = ${targetDate}`;
 
   return db
     .select({
@@ -176,7 +176,7 @@ export async function fetchLatestWorkByDateAndRoom(date: string, roomId: number)
       buildingSector,
       and(eq(buildingSector.codeGroup, etcBuildings.sectorCode), eq(buildingSector.code, etcBuildings.sectorValue))
     )
-    .where(and(eq(workHeader.roomId, roomId), eq(workHeader.date, date)))
+    .where(and(eq(workHeader.roomId, roomId), sql`DATE(${workHeader.date}) = ${date}`))
     .orderBy(desc(workHeader.id))
     .limit(1);
 
