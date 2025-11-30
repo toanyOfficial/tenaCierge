@@ -186,10 +186,9 @@ export async function getWorkListSnapshot(
         const hasApplication = await hasWorkApplication(worker.id, targetDate);
 
         if (!assignedWorkIds.length) {
+          const hasApplication = await hasWorkApplication(worker.id, targetDate);
           rows = [];
-          emptyMessage = hasApplication
-            ? `${windowLabel}자 신청 내역은 있으나 아직 배정되지 않았습니다.`
-            : '아직 할당된 업무가 없습니다.';
+          emptyMessage = hasApplication ? '아직 할당된 업무가 없습니다.' : '오늘,내일자 업무 신청 내역이 없습니다.';
         } else {
           rows = await baseQueryBuilder
             .where(and(eq(workHeader.date, targetDateValue), inArray(workHeader.id, assignedWorkIds)))
@@ -254,6 +253,17 @@ async function hasButlerApplication(workerId: number, targetDate: string) {
     .select({ id: workApply.id })
     .from(workApply)
     .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateValue), eq(workApply.position, 2)))
+    .limit(1);
+
+  return rows.length > 0;
+}
+
+async function hasWorkApplication(workerId: number, targetDate: string) {
+  const targetDateValue = buildKstDate(targetDate);
+  const rows = await db
+    .select({ id: workApply.id })
+    .from(workApply)
+    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateValue)))
     .limit(1);
 
   return rows.length > 0;
