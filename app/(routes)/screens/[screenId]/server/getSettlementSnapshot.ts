@@ -437,17 +437,35 @@ export async function getSettlementSnapshot(
       todayKstStr < startDateStr ? endDateStr : todayKstStr < endDateStr ? todayKstStr : endDateStr;
     const workEnd = new Date(`${workEndStr}T23:59:59.999Z`);
     const daysInMonth = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    const normalizedRegister = normalizeRegisterNo(profile.registerNo);
 
     const parsedHostId = hostIdParam ? Number(hostIdParam) : null;
-    const hostFilterId = parsedHostId && !Number.isNaN(parsedHostId) ? parsedHostId : null;
+    const profileHostId = Number(profile.registerNo);
+    const hostFilterId =
+      profile.roles.includes('admin')
+        ? parsedHostId && !Number.isNaN(parsedHostId)
+          ? parsedHostId
+          : null
+        : !Number.isNaN(profileHostId)
+          ? profileHostId
+          : null;
     const isAdmin = profile.roles.includes('admin');
     const isHostOnly = profile.roles.includes('host') && !isAdmin;
 
   const hostWhere: any[] = [];
+  const baseHostQuery = db
+    .select({ id: clientHeader.id, name: clientHeader.name, registerNo: clientHeader.registerCode })
+    .from(clientHeader);
 
-  if (isHostOnly && normalizedRegister) {
-    hostWhere.push(eq(clientHeader.registerCode, normalizedRegister));
+  let hostQuery = baseHostQuery;
+
+  if (isHostOnly) {
+    if (!hostFilterId) {
+      return { month, summary: [], statements: [], hostOptions: [], appliedHostId: null };
+    }
+
+    hostQuery = hostQuery
+      .innerJoin(clientRooms, eq(clientRooms.clientId, clientHeader.id))
+      .where(eq(clientRooms.clientId, hostFilterId));
   }
 
   if (isAdmin && hostFilterId) {
@@ -456,11 +474,9 @@ export async function getSettlementSnapshot(
 
     const hostCondition = hostWhere.length ? (hostWhere.length === 1 ? hostWhere[0] : or(...hostWhere)) : null;
 
-    const baseHostQuery = db
-      .select({ id: clientHeader.id, name: clientHeader.name, registerNo: clientHeader.registerCode })
-      .from(clientHeader);
+    hostQuery = hostCondition ? hostQuery.where(hostCondition) : hostQuery;
 
-    const hostQuery = hostCondition ? baseHostQuery.where(hostCondition) : baseHostQuery;
+    hostQuery = hostQuery.groupBy(clientHeader.id);
 
     const hostRows = await hostQuery.orderBy(asc(clientHeader.name));
 
