@@ -11,6 +11,7 @@ import {
   workHeader
 } from '@/src/db/schema';
 import type { ProfileSummary } from '@/src/utils/profile';
+import { findClientByProfile } from '@/src/server/clients';
 import { logEtcError } from '@/src/server/errorLogger';
 import { KST_OFFSET_MS, nowInKst } from '@/src/utils/kst';
 
@@ -437,30 +438,46 @@ export async function getSettlementSnapshot(
       todayKstStr < startDateStr ? endDateStr : todayKstStr < endDateStr ? todayKstStr : endDateStr;
     const workEnd = new Date(`${workEndStr}T23:59:59.999Z`);
     const daysInMonth = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    const normalizedRegister = normalizeRegisterNo(profile.registerNo);
 
-    const parsedHostId = hostIdParam ? Number(hostIdParam) : null;
-    const hostFilterId = parsedHostId && !Number.isNaN(parsedHostId) ? parsedHostId : null;
     const isAdmin = profile.roles.includes('admin');
     const isHostOnly = profile.roles.includes('host') && !isAdmin;
 
-  const hostWhere: any[] = [];
+    const parsedHostId = hostIdParam ? Number(hostIdParam) : null;
+    let hostFilterId: number | null = null;
 
-  if (isHostOnly && normalizedRegister) {
-    hostWhere.push(eq(clientHeader.registerCode, normalizedRegister));
-  }
+    if (isAdmin) {
+      hostFilterId = parsedHostId && !Number.isNaN(parsedHostId) ? parsedHostId : null;
+    } else if (isHostOnly) {
+      const hostClient = await findClientByProfile(profile);
+      hostFilterId = hostClient?.id ?? null;
+    }
 
-  if (isAdmin && hostFilterId) {
-    hostWhere.push(eq(clientHeader.id, hostFilterId));
-  }
-
-    const hostCondition = hostWhere.length ? (hostWhere.length === 1 ? hostWhere[0] : or(...hostWhere)) : null;
-
+    const hostWhere: any[] = [];
     const baseHostQuery = db
       .select({ id: clientHeader.id, name: clientHeader.name, registerNo: clientHeader.registerCode })
       .from(clientHeader);
 
-    const hostQuery = hostCondition ? baseHostQuery.where(hostCondition) : baseHostQuery;
+    let hostQuery = baseHostQuery;
+
+    if (isHostOnly) {
+      if (!hostFilterId) {
+        return { month, summary: [], statements: [], hostOptions: [], appliedHostId: null };
+      }
+
+      hostQuery = hostQuery
+        .innerJoin(clientRooms, eq(clientRooms.clientId, clientHeader.id))
+        .where(eq(clientHeader.id, hostFilterId));
+    }
+
+    if (isAdmin && hostFilterId) {
+      hostWhere.push(eq(clientHeader.id, hostFilterId));
+    }
+
+    const hostCondition = hostWhere.length ? (hostWhere.length === 1 ? hostWhere[0] : or(...hostWhere)) : null;
+
+    hostQuery = hostCondition ? hostQuery.where(hostCondition) : hostQuery;
+
+    hostQuery = hostQuery.groupBy(clientHeader.id);
 
     const hostRows = await hostQuery.orderBy(asc(clientHeader.name));
 
