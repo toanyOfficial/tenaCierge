@@ -645,9 +645,10 @@
 }
 
 .quickLinkGrid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--grid-min-compact), 1fr));
+  gap: var(--grid-gap-tight);
+  width: 100%;
 }
 
 .butlerSection {
@@ -676,8 +677,8 @@
 
 .butlerSummaryGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: var(--grid-gap);
 }
 
 .sectorBlock {
@@ -1066,6 +1067,18 @@
   text-align: right;
   font-size: 0.85rem;
   color: #ef4444;
+}
+
+@media (max-width: 640px) {
+  .commonBar {
+    padding: var(--space-2) var(--space-2);
+    gap: var(--space-2);
+  }
+
+  .sectionHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 @media (max-width: 768px) {

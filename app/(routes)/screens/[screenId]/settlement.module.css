@@ -154,8 +154,8 @@
 
 .roomTotals {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 6px 12px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--grid-gap-tight);
   padding: 8px 10px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -208,8 +208,8 @@
 
 .monthlyGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--grid-gap-tight);
   align-items: center;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -219,8 +219,8 @@
 
 .workGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--grid-gap-tight);
   align-items: center;
 }
 
@@ -393,13 +393,13 @@
   }
 
   .monthlyGrid {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--grid-gap-tight);
   }
 
   .workGrid {
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: var(--grid-gap-tight);
   }
 
   .lineHeader,
@@ -413,10 +413,6 @@
 }
 
 @media (max-width: 540px) {
-  .workGrid {
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  }
-
   .summaryTable {
     display: block;
     overflow-x: auto;
@@ -513,12 +509,17 @@
 
 @media (max-width: 900px) {
   .workGrid {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   }
 }
 
 @media (max-width: 640px) {
   .workGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .roomTotals,
+  .monthlyGrid {
     grid-template-columns: 1fr;
   }
 

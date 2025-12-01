@@ -9,6 +9,10 @@
   --space-4: 20px;
   --space-5: 24px;
   --space-6: 32px;
+  --grid-min-card: 230px;
+  --grid-min-compact: 190px;
+  --grid-gap: clamp(12px, 2vw, 18px);
+  --grid-gap-tight: clamp(10px, 1.6vw, 16px);
   --surface: #ffffff;
   --surface-muted: #f2f5f9;
   --border: #e5e7eb;
@@ -58,8 +62,8 @@ section.page h1 {
 
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: clamp(12px, 2vw, 18px);
+  grid-template-columns: repeat(auto-fit, minmax(var(--grid-min-card), 1fr));
+  gap: var(--grid-gap);
 }
 
 .card-grid article {
@@ -99,5 +103,16 @@ section.page h1 {
 
   section.page h1 {
     font-size: 1.6rem;
+  }
+
+  .card-grid {
+    grid-template-columns: repeat(auto-fit, minmax(var(--grid-min-compact), 1fr));
+    gap: var(--grid-gap-tight);
+  }
+}
+
+@media (max-width: 540px) {
+  .card-grid {
+    grid-template-columns: 1fr;
   }
 }
