@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import datetime as dt
 import json
 import logging
@@ -12,15 +13,18 @@ import math
 import os
 import traceback
 import time
+from pathlib import Path
 from decimal import Decimal
 from typing import Dict, Iterable, List, Optional, Sequence, Set
 
 import mysql.connector
+from mysql.connector import errors as mysql_errors
 import requests
 
 KST = dt.timezone(dt.timedelta(hours=9))
 MAX_OPENAI_CALLS_PER_RUN = 3
 COMMENT_DB_LIMIT = 240
+SCHEMA_CSV_PATH = Path(__file__).resolve().parent.parent / "docsForCodex" / "schema.csv"
 
 
 def configure_logging() -> None:
@@ -154,17 +158,14 @@ class CleanerRankingBatch:
         logging.info("버틀러 근무 가산점 부여: %s명", len(targets))
 
     def _apply_additional_room_prices(self) -> None:
+        logging.info("[additional_price] 시작: target_date=%s", self.target_date)
+
         work_columns = self._get_table_columns("work_header")
         checkin_col = "checkin_time" if "checkin_time" in work_columns else None
-        checkout_col: Optional[str]
-        if "checkout_time" in work_columns:
-            checkout_col = "checkout_time"
-        elif "ceckout_time" in work_columns:
-            checkout_col = "ceckout_time"
-        else:
-            checkout_col = None
+        checkout_col = "checkout_time" if "checkout_time" in work_columns else None
 
         if not checkin_col or not checkout_col:
+            logging.warning("[additional_price] work_header에 체크인/체크아웃 컬럼 없음: %s", sorted(work_columns))
             self._log_error(
                 message="work_header 체크인/체크아웃 컬럼을 찾을 수 없어 추가 금액 산정을 건너뜁니다.",
                 context={"table": "work_header", "columns": sorted(work_columns)},
@@ -172,10 +173,11 @@ class CleanerRankingBatch:
             return
 
         price_list_columns = self._get_table_columns("client_price_list")
-        price_amount_col = self._resolve_amount_column(
-            price_list_columns, ["amount", "amount_per_cleaning", "amount_per_room", "price", "value"]
-        )
+        price_amount_col = "amount" if "amount" in price_list_columns else None
         if not price_amount_col:
+            logging.warning(
+                "[additional_price] client_price_list 금액 컬럼 없음: %s", sorted(price_list_columns)
+            )
             self._log_error(
                 message="client_price_list 금액 컬럼을 찾을 수 없어 추가 금액 산정을 건너뜁니다.",
                 context={"table": "client_price_list", "columns": sorted(price_list_columns)},
@@ -183,8 +185,12 @@ class CleanerRankingBatch:
             return
 
         additional_columns = self._get_table_columns("client_additional_price")
-        additional_amount_col = self._resolve_amount_column(additional_columns, ["price", "amount", "value"])
+        additional_amount_col = "amount" if "amount" in additional_columns else None
         if not additional_amount_col:
+            logging.warning(
+                "[additional_price] client_additional_price 금액 컬럼 없음: %s",
+                sorted(additional_columns),
+            )
             self._log_error(
                 message="client_additional_price 금액 컬럼을 찾을 수 없어 추가 금액 산정을 건너뜁니다.",
                 context={"table": "client_additional_price", "columns": sorted(additional_columns)},
@@ -193,47 +199,119 @@ class CleanerRankingBatch:
 
         has_qty_column = "qty" in additional_columns
 
+        logging.info(
+            "[additional_price] 컬럼 확인: work_header(checkin=%s, checkout=%s), client_price_list(amount=%s), client_additional_price(amount=%s, qty=%s)",
+            checkin_col,
+            checkout_col,
+            price_amount_col,
+            additional_amount_col,
+            has_qty_column,
+        )
+
+        works = []
         with self.conn.cursor(dictionary=True) as cur:
-            cur.execute(
-                f"""
-                SELECT
-                    id,
-                    room_id,
-                    amenities_qty,
-                    blanket_qty,
-                    {checkin_col} AS checkin_time,
-                    {checkout_col} AS checkout_time
-                FROM work_header
-                WHERE date = %s
-                  AND cancel_yn = 0
-                """,
-                (self.target_date,),
-            )
-            works = list(cur)
+            try:
+                cur.execute(
+                    f"""
+                    SELECT
+                        id,
+                        room_id,
+                        amenities_qty,
+                        blanket_qty,
+                        {checkin_col} AS checkin_time,
+                        {checkout_col} AS checkout_time
+                    FROM work_header
+                    WHERE date = %s
+                      AND cancel_yn = 0
+                    """,
+                    (self.target_date,),
+                )
+                works = list(cur)
+            except mysql_errors.ProgrammingError as exc:
+                if "checkout_time" in str(exc):
+                    logging.warning(
+                        "[additional_price] checkout_time 컬럼 조회 실패, ceckout_time으로 재시도: %s",
+                        exc,
+                    )
+                    cur.execute(
+                        f"""
+                        SELECT
+                            id,
+                            room_id,
+                            amenities_qty,
+                            blanket_qty,
+                            {checkin_col} AS checkin_time,
+                            ceckout_time AS checkout_time
+                        FROM work_header
+                        WHERE date = %s
+                          AND cancel_yn = 0
+                        """,
+                        (self.target_date,),
+                    )
+                    works = list(cur)
+                else:
+                    raise
 
         if not works:
+            logging.info(
+                "추가 요금 산정 대상 작업이 없습니다 (date=%s)",
+                self.target_date,
+            )
             return
 
         room_ids = [int(w["room_id"]) for w in works if w.get("room_id") is not None]
         if not room_ids:
+            logging.info(
+                "추가 요금 산정 대상 방이 없습니다 (작업 %s건)",
+                len(works),
+            )
             return
 
         rooms: Dict[int, Dict[str, object]] = {}
         placeholders = ", ".join(["%s"] * len(room_ids))
         with self.conn.cursor(dictionary=True) as cur:
-            cur.execute(
-                f"""
-                SELECT id, price_set_id, bed_count, checkin_time, checkout_time
-                FROM client_rooms
-                WHERE id IN ({placeholders})
-                """,
-                tuple(room_ids),
-            )
-            for row in cur:
-                rooms[int(row["id"])] = row
+            try:
+                cur.execute(
+                    f"""
+                    SELECT id, price_set_id, bed_count, checkin_time, checkout_time
+                    FROM client_rooms
+                    WHERE id IN ({placeholders})
+                    """,
+                    tuple(room_ids),
+                )
+                for row in cur:
+                    rooms[int(row["id"])] = row
+            except mysql_errors.ProgrammingError as exc:
+                if "checkout_time" in str(exc):
+                    logging.warning(
+                        "[additional_price] client_rooms.checkout_time 조회 실패, ceckout_time으로 재시도: %s",
+                        exc,
+                    )
+                    cur.execute(
+                        f"""
+                        SELECT id, price_set_id, bed_count, checkin_time, ceckout_time AS checkout_time
+                        FROM client_rooms
+                        WHERE id IN ({placeholders})
+                        """,
+                        tuple(room_ids),
+                    )
+                    for row in cur:
+                        rooms[int(row["id"])] = row
+                else:
+                    raise
 
         if not rooms:
+            logging.info(
+                "[additional_price] client_rooms 매핑 결과 0건 (room_ids=%s개)",
+                len(room_ids),
+            )
             return
+
+        missing_room_ids = [rid for rid in room_ids if rid not in rooms]
+        if missing_room_ids:
+            logging.warning(
+                "[additional_price] client_rooms에 매핑되지 않은 room_id: %s", missing_room_ids
+            )
 
         price_fields = ["id", "title", f"{price_amount_col} AS amount"]
         if "type" in price_list_columns:
@@ -256,10 +334,7 @@ class CleanerRankingBatch:
                 price_map[int(row["id"])] = row
 
         price_set_columns = self._get_table_columns("client_price_set_detail")
-        set_amount_col = self._resolve_amount_column(
-            price_set_columns,
-            [price_amount_col, "amount", "price", "value", "amount_per_cleaning", "amount_per_room"],
-        )
+        set_amount_col = "amount_per_cleaning" if "amount_per_cleaning" in price_set_columns else None
         price_set_ids = {int(r.get("price_set_id")) for r in rooms.values() if r.get("price_set_id")}
         set_price_map: Dict[tuple[int, int], Dict[str, object]] = {}
         if set_amount_col and price_set_ids:
@@ -283,6 +358,7 @@ class CleanerRankingBatch:
                     set_price_map[(int(row["price_set_id"]), int(row["price_id"]))] = row
 
         if not price_map:
+            logging.warning("[additional_price] price_map 비어 있음 - 필요한 ID 9,10,15,16 없음")
             self._log_error(
                 message="client_price_list에서 필요한 추가 요금 항목을 찾을 수 없습니다.",
                 context={"expected_ids": [9, 10, 15, 16]},
@@ -341,6 +417,12 @@ class CleanerRankingBatch:
                     return
                 price_row = resolve_price_row(price_id)
                 if not price_row or price_row.get("amount") is None:
+                    logging.warning(
+                        "[additional_price] 가격 정보 없음: work_id=%s, room_id=%s, price_id=%s",
+                        work.get("id"),
+                        room_id,
+                        price_id,
+                    )
                     return
                 title = price_row.get("title") or ""
                 if (room_id, title) in existing_titles:
@@ -382,6 +464,11 @@ class CleanerRankingBatch:
                 add_charge(9, math.ceil(diff_minutes / 60) if diff_minutes > 0 else 0, "이른 체크인")
 
         if not inserts:
+            logging.info(
+                "[additional_price] 추가 요금 삽입 대상 없음 (works=%s건, rooms=%s개)",
+                len(works),
+                len(room_ids),
+            )
             return
 
         insert_columns = ["room_id", "date", "seq", "title", additional_amount_col]
@@ -402,7 +489,12 @@ class CleanerRankingBatch:
                 f"INSERT INTO client_additional_price ({columns_sql}) VALUES ({placeholders_insert})",
                 values,
             )
-        logging.info("client_additional_price 자동 추가 %s건", len(inserts))
+        logging.info(
+            "[additional_price] client_additional_price 자동 추가 %s건 (작업 %s건, 방 %s개)",
+            len(inserts),
+            len(works),
+            len(room_ids),
+        )
 
     def _fetch_scores(self) -> Dict[int, float]:
         start_date = self.target_date - dt.timedelta(days=19)
@@ -895,22 +987,8 @@ class CleanerRankingBatch:
         if not eligible_ids:
             return
 
-        # column 존재 여부 확인
-        has_column = False
-        with self.conn.cursor(dictionary=True) as cur:
-            cur.execute(
-                """
-                SELECT 1
-                FROM information_schema.columns
-                WHERE table_schema = DATABASE()
-                  AND table_name = 'worker_header'
-                  AND column_name = 'score_20days'
-                LIMIT 1
-                """
-            )
-            has_column = cur.fetchone() is not None
-
-        if not has_column:
+        worker_columns = self._get_table_columns("worker_header")
+        if "score_20days" not in worker_columns:
             logging.warning("worker_header.score_20days 컬럼이 없어 점수 누적을 건너뜁니다.")
             return
 
@@ -935,17 +1013,24 @@ class CleanerRankingBatch:
         logging.info("tier 업데이트 %s건", len(updates))
 
     def _get_table_columns(self, table: str) -> Set[str]:
-        with self.conn.cursor(dictionary=True) as cur:
-            cur.execute(
-                """
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_schema = DATABASE()
-                  AND table_name = %s
-                """,
-                (table,),
-            )
-            return {str(row.get("column_name")).lower() for row in cur if row.get("column_name")}
+        table_key = table.lower()
+        if not hasattr(self, "_schema_cache"):
+            self._schema_cache: Dict[str, Set[str]] = {}
+            if not SCHEMA_CSV_PATH.exists():
+                logging.warning("schema.csv 파일을 찾을 수 없습니다: %s", SCHEMA_CSV_PATH)
+                return set()
+            with SCHEMA_CSV_PATH.open(newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    table_name = (row.get("table_name") or "").lower()
+                    column_name = (row.get("column_name") or "").lower()
+                    if not table_name or not column_name:
+                        continue
+                    if table_name not in self._schema_cache:
+                        self._schema_cache[table_name] = set()
+                    self._schema_cache[table_name].add(column_name)
+
+        return set(self._schema_cache.get(table_key, set()))
 
     def _resolve_amount_column(self, columns: Set[str], candidates: Sequence[str]) -> Optional[str]:
         lowered = {c.lower() for c in columns}

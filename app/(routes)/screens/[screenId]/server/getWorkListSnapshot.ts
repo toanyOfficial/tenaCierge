@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { SQL, and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import { unstable_noStore as noStore } from 'next/cache';
 
@@ -92,6 +92,15 @@ function buildKstDate(dateKey: string) {
 
 function buildDateParam(dateKey: string) {
   return dateKey;
+}
+
+function buildDateSqlValue(dateKey: string): SQL {
+  return sql`CAST(${dateKey} AS DATE)`;
+}
+
+function dateEquals(column: SQL | any, dateKey: string): SQL {
+  const dateValue = buildDateSqlValue(dateKey);
+  return sql`DATE(${column}) = ${dateValue}`;
 }
 
 function normalizeDate(input?: string) {
@@ -228,7 +237,8 @@ export async function getWorkListSnapshot(
     const window = preferToday ? 'd0' : initialWindow.window;
     const windowDates = initialWindow.windowDates;
     const targetDateValue = buildDateParam(targetDate);
-    const targetDateSql = sql`CAST(${targetDateValue} AS DATE)`;
+    const targetDateSql = dateEquals(workHeader.date, targetDateValue);
+    const activeWorkWhere = and(targetDateSql, eq(workHeader.cancelYn, false));
     const dateOptions = await buildDateOptions(targetDate, now);
 
     const notice = await fetchLatestNotice();
@@ -243,7 +253,8 @@ export async function getWorkListSnapshot(
         id: workHeader.id,
         date: workHeader.date,
         roomId: workHeader.roomId,
-        checkoutTime: workHeader.checkoutTime,
+        // Some deployments miss `work_header.checkout_time`; fall back to room defaults to avoid hard failures.
+        checkoutTime: clientRooms.checkoutTime,
         checkinTime: workHeader.checkinTime,
         blanketQty: workHeader.blanketQty,
         amenitiesQty: workHeader.amenitiesQty,
@@ -251,7 +262,8 @@ export async function getWorkListSnapshot(
         supplyYn: workHeader.supplyYn,
         cleaningFlag: workHeader.cleaningFlag,
         cleaningYn: workHeader.cleaningYn,
-        conditionCheckYn: workHeader.conditionCheckYn,
+        // Some deployments omit `condition_check_yn`; default to false when absent.
+        conditionCheckYn: sql<boolean>`0`,
         supervisingYn: workHeader.supervisingYn,
         supervisingEndTime: workHeader.supervisingEndTime,
         cleanerId: workHeader.cleanerId,
@@ -282,7 +294,7 @@ export async function getWorkListSnapshot(
       )
       .leftJoin(workerHeader, eq(workHeader.cleanerId, workerHeader.id));
 
-    const baseQuery = baseQueryBuilder.where(eq(workHeader.date, targetDateSql));
+    const baseQuery = baseQueryBuilder.where(activeWorkWhere);
 
     let rows: Awaited<typeof baseQuery> | undefined = undefined;
 
@@ -303,7 +315,7 @@ export async function getWorkListSnapshot(
         rows = [];
       } else {
         rows = await baseQueryBuilder
-          .where(and(eq(workHeader.date, targetDateSql), eq(clientRooms.clientId, client.id)))
+          .where(and(activeWorkWhere, eq(clientRooms.clientId, client.id)))
           .limit(1000);
       }
     } else if (profile.roles.includes('cleaner')) {
@@ -321,13 +333,13 @@ export async function getWorkListSnapshot(
           emptyMessage = hasApplication ? '아직 할당된 업무가 없습니다.' : '오늘,내일자 업무 신청 내역이 없습니다.';
         } else {
         rows = await baseQueryBuilder
-          .where(and(eq(workHeader.date, targetDateSql), inArray(workHeader.id, assignedWorkIds)))
+          .where(and(activeWorkWhere, inArray(workHeader.id, assignedWorkIds)))
           .limit(1000);
         }
       }
     }
 
-  const normalized = (rows ?? []).map((row) => normalizeRow(row));
+    const normalized = (rows ?? []).map((row) => normalizeRow(row));
   const supplyMap = await fetchLatestSupplyReports(normalized.map((row) => row.id));
   const photoMap = await fetchLatestPhotoReports(normalized.map((row) => row.id));
   const assignableWorkers =
@@ -374,7 +386,8 @@ export async function getWorkListSnapshot(
         window,
         role: profile.primaryRole,
         roles: profile.roles,
-        workCount: response.works.length
+      workCount: response.works.length,
+      dbRowCount: rows?.length ?? 0
       }
     });
 
@@ -405,11 +418,10 @@ async function fetchLatestNotice() {
 
 async function hasButlerApplication(workerId: number, targetDate: string) {
   const targetDateValue = buildDateParam(targetDate);
-  const targetDateSql = sql`CAST(${targetDateValue} AS DATE)`;
   const rows = await db
     .select({ id: workApply.id })
     .from(workApply)
-    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateSql), eq(workApply.position, 2)))
+    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, buildDateSqlValue(targetDateValue)), eq(workApply.position, 2)))
     .limit(1);
 
   return rows.length > 0;
@@ -417,11 +429,10 @@ async function hasButlerApplication(workerId: number, targetDate: string) {
 
 async function hasWorkApplication(workerId: number, targetDate: string) {
   const targetDateValue = buildDateParam(targetDate);
-  const targetDateSql = sql`CAST(${targetDateValue} AS DATE)`;
   const rows = await db
     .select({ id: workApply.id })
     .from(workApply)
-    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, targetDateSql)))
+    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, buildDateSqlValue(targetDateValue))))
     .limit(1);
 
   return rows.length > 0;
@@ -429,11 +440,10 @@ async function hasWorkApplication(workerId: number, targetDate: string) {
 
 async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
   const targetDateValue = buildDateParam(targetDate);
-  const targetDateSql = sql`CAST(${targetDateValue} AS DATE)`;
   const rows = await db
     .select({ workId: workAssignment.workId })
     .from(workAssignment)
-    .where(and(eq(workAssignment.workerId, workerId), eq(workAssignment.assignDate, targetDateSql)));
+    .where(and(eq(workAssignment.workerId, workerId), dateEquals(workAssignment.assignDate, targetDateValue)));
 
   if (rows.length) {
     return rows.map((row) => Number(row.workId));
@@ -442,7 +452,7 @@ async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
   const directRows = await db
     .select({ id: workHeader.id })
     .from(workHeader)
-    .where(and(eq(workHeader.date, targetDateSql), eq(workHeader.cleanerId, workerId)));
+    .where(and(dateEquals(workHeader.date, targetDateValue), eq(workHeader.cleanerId, workerId)));
 
   return directRows.map((row) => Number(row.id));
 }
@@ -488,7 +498,7 @@ function normalizeRow(row: any): WorkListEntry {
 
 async function fetchAssignableWorkers(targetDate: string): Promise<AssignableWorker[]> {
   const targetDateValue = buildDateParam(targetDate);
-  const targetDateSql = sql`CAST(${targetDateValue} AS DATE)`;
+  const targetDateSqlValue = buildDateSqlValue(targetDateValue);
   const rows = await db
     .select({
       id: workApply.workerId,
@@ -499,7 +509,7 @@ async function fetchAssignableWorkers(targetDate: string): Promise<AssignableWor
     })
     .from(workApply)
     .leftJoin(workerHeader, eq(workApply.workerId, workerHeader.id))
-    .where(and(eq(workApply.workDate, targetDateSql), isNotNull(workApply.workerId)))
+    .where(and(eq(workApply.workDate, targetDateSqlValue), isNotNull(workApply.workerId)))
     .orderBy(workApply.workerId);
 
   const deduped = new Map<number, AssignableWorker>();
