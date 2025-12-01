@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -197,6 +197,27 @@ export default function WorkListClient({ profile, snapshot }: Props) {
         return { key, label: value.label, buildings };
       });
   }, [sortedWorks, sortMode]);
+
+  const persistRole = useCallback(async (role: string) => {
+    try {
+      await fetch('/api/role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role })
+      });
+    } catch (error) {
+      console.error('역할 저장 중 오류', error);
+    }
+  }, []);
+
+  const handleRoleChange = useCallback(
+    (nextRole: string) => {
+      if (!profile.roles.includes(nextRole)) return;
+      setActiveRole(nextRole);
+      persistRole(nextRole).then(() => router.refresh()).catch(() => router.refresh());
+    },
+    [persistRole, profile.roles, router]
+  );
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -446,7 +467,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
 
   return (
     <div className={styles.screenShell}>
-      <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} compact />
+      <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={handleRoleChange} compact />
 
       <section className={styles.cleaningSection}>
         <div className={styles.sectionHeader}>

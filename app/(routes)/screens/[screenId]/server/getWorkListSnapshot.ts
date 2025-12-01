@@ -230,7 +230,14 @@ export async function getWorkListSnapshot(
     const now = getKstNow();
     const minutes = now.getHours() * 60 + now.getMinutes();
     const initialWindow = resolveWindow(now, minutes, dateParam, windowParam);
-    const isAdmin = profile.primaryRole === 'admin' || profile.roles.includes('admin');
+    const activeRole =
+      profile.primaryRole && profile.roles.includes(profile.primaryRole)
+        ? profile.primaryRole
+        : profile.roles[0] ?? null;
+    const isAdmin = activeRole === 'admin';
+    const isButler = activeRole === 'butler';
+    const isHost = activeRole === 'host';
+    const isCleaner = activeRole === 'cleaner';
     const preferToday = isAdmin && !dateParam && !windowParam && initialWindow.window === 'd1';
 
     const targetDate = preferToday ? initialWindow.windowDates.d0 : initialWindow.targetDate;
@@ -300,17 +307,9 @@ export async function getWorkListSnapshot(
 
     let emptyMessage: string | undefined;
 
-    const hasButlerApplicationToday =
-      targetDate === windowDates.d0 && worker ? await hasButlerApplication(worker.id, windowDates.d0) : false;
-
-    if (
-      profile.primaryRole === 'admin' ||
-      profile.roles.includes('admin') ||
-      profile.roles.includes('butler') ||
-      hasButlerApplicationToday
-    ) {
+    if (isAdmin || isButler) {
       rows = await baseQuery;
-    } else if (profile.roles.includes('host')) {
+    } else if (isHost) {
       if (!client) {
         rows = [];
       } else {
@@ -318,23 +317,21 @@ export async function getWorkListSnapshot(
           .where(and(activeWorkWhere, eq(clientRooms.clientId, client.id)))
           .limit(1000);
       }
-    } else if (profile.roles.includes('cleaner')) {
+    } else if (isCleaner) {
       if (!worker) {
         rows = [];
         emptyMessage = '근무자 정보를 찾을 수 없습니다.';
       } else {
         const assignedWorkIds = await fetchAssignedWorkIds(worker.id, targetDate);
-        const windowLabel = window === 'd1' ? '내일' : '오늘';
-        const hasApplication = await hasWorkApplication(worker.id, targetDate);
 
         if (!assignedWorkIds.length) {
           const hasApplication = await hasWorkApplication(worker.id, targetDate);
           rows = [];
           emptyMessage = hasApplication ? '아직 할당된 업무가 없습니다.' : '오늘,내일자 업무 신청 내역이 없습니다.';
         } else {
-        rows = await baseQueryBuilder
-          .where(and(activeWorkWhere, inArray(workHeader.id, assignedWorkIds)))
-          .limit(1000);
+          rows = await baseQueryBuilder
+            .where(and(activeWorkWhere, inArray(workHeader.id, assignedWorkIds)))
+            .limit(1000);
         }
       }
     }
@@ -342,10 +339,7 @@ export async function getWorkListSnapshot(
     const normalized = (rows ?? []).map((row) => normalizeRow(row));
   const supplyMap = await fetchLatestSupplyReports(normalized.map((row) => row.id));
   const photoMap = await fetchLatestPhotoReports(normalized.map((row) => row.id));
-  const assignableWorkers =
-    profile.roles.includes('admin') || profile.roles.includes('butler')
-      ? await fetchAssignableWorkers(targetDate)
-      : [];
+  const assignableWorkers = isAdmin || isButler ? await fetchAssignableWorkers(targetDate) : [];
   const buildingCounts = normalized.reduce<Record<number, number>>((acc, row) => {
     acc[row.buildingId] = (acc[row.buildingId] ?? 0) + 1;
     return acc;
@@ -384,10 +378,10 @@ export async function getWorkListSnapshot(
         targetDate,
         targetDateValue,
         window,
-        role: profile.primaryRole,
+        role: activeRole,
         roles: profile.roles,
-      workCount: response.works.length,
-      dbRowCount: rows?.length ?? 0
+        workCount: response.works.length,
+        dbRowCount: rows?.length ?? 0
       }
     });
 
@@ -414,17 +408,6 @@ export async function getWorkListSnapshot(
 async function fetchLatestNotice() {
   const rows = await db.select().from(etcNotice).orderBy(desc(etcNotice.noticeDate)).limit(1);
   return rows[0]?.notice ?? '공지사항이 없습니다.';
-}
-
-async function hasButlerApplication(workerId: number, targetDate: string) {
-  const targetDateValue = buildDateParam(targetDate);
-  const rows = await db
-    .select({ id: workApply.id })
-    .from(workApply)
-    .where(and(eq(workApply.workerId, workerId), eq(workApply.workDate, buildDateSqlValue(targetDateValue)), eq(workApply.position, 2)))
-    .limit(1);
-
-  return rows.length > 0;
 }
 
 async function hasWorkApplication(workerId: number, targetDate: string) {
