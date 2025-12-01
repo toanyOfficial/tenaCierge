@@ -170,7 +170,13 @@ async function resolveAdditionalPriceColumn(month: string, hostId?: number | nul
 }
 
 async function resolvePriceListFlags(month: string, hostId?: number | null) {
-  const result = { hasMinus: false, hasRatio: false, amountColumn: null as string | null };
+  const result = {
+    hasMinus: false,
+    hasRatio: false,
+    hasPerBed: false,
+    hasPerRoom: false,
+    amountColumn: null as string | null
+  };
 
   try {
     const raw = await db.execute<{ column_name?: string; COLUMN_NAME?: string }>(
@@ -192,6 +198,8 @@ async function resolvePriceListFlags(month: string, hostId?: number | null) {
 
     result.hasMinus = columns.includes('minus_yn');
     result.hasRatio = columns.includes('ratio_yn');
+    result.hasPerBed = columns.includes('per_bed_yn');
+    result.hasPerRoom = columns.includes('per_room_yn');
     result.amountColumn =
       columns.find((col) =>
         ['amount', 'amount_per_cleaning', 'amount_per_room', 'price', 'value'].includes(col)
@@ -375,7 +383,13 @@ async function loadPriceItems(roomIds: number[], month: string, hostId?: number 
                 ? sql`COALESCE(${sql.raw('client_price_set_detail.ratio_yn')}, 0)`
                 : priceFlags.hasRatio
                   ? sql`COALESCE(${sql.raw('client_price_list.ratio_yn')}, 0)`
-                  : sql`CAST(0 AS SIGNED)`
+                  : sql`CAST(0 AS SIGNED)`,
+          perBedYn: priceFlags.hasPerBed
+            ? sql`COALESCE(${sql.raw('client_price_list.per_bed_yn')}, 0)`
+            : sql`CAST(0 AS SIGNED)`,
+          perRoomYn: priceFlags.hasPerRoom
+            ? sql`COALESCE(${sql.raw('client_price_list.per_room_yn')}, 0)`
+            : sql`CAST(0 AS SIGNED)`
         })
         .from(clientPriceSetDetail)
         .innerJoin(clientPriceList, eq(clientPriceSetDetail.priceId, clientPriceList.id))
