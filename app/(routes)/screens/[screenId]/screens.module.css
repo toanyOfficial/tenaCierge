@@ -1026,7 +1026,7 @@
 .addForm {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 16px;
@@ -1035,12 +1035,22 @@
   box-sizing: border-box;
 }
 
+.addForm .formControl {
+  gap: 2px;
+  margin-bottom: 0;
+}
+
+.addForm .fieldControl {
+  gap: 6px;
+}
+
 .addForm > label {
   margin-bottom: 0;
 }
 
 .addForm button[type='submit'] {
   align-self: flex-start;
+  margin-top: 0;
 }
 
 .addTypeRow {
@@ -1134,6 +1144,11 @@
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: var(--grid-gap);
   width: 100%;
+}
+
+.addForm .addGrid {
+  gap: var(--grid-gap-tight);
+  margin-top: 0;
 }
 
 
