@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
-import { getSeoul1630Expiry } from '@/src/utils/cookie';
+import { getSeoul1630Expiry, isSecureRequest } from '@/src/utils/cookie';
 const roleOrder = ['admin', 'host', 'butler', 'cleaner'] as const;
 
 export const dynamic = 'force-dynamic';
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: '쿠키에 포함되지 않은 역할입니다.' }, { status: 403 });
   }
 
-  const secure = process.env.NODE_ENV === 'production';
+  const secure = isSecureRequest(request);
   const options = {
     httpOnly: true,
     sameSite: 'lax' as const,
