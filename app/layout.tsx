@@ -4,7 +4,10 @@ import ChunkLoadRecovery from './components/ChunkLoadRecovery';
 
 export const metadata: Metadata = {
   title: 'TenaCierge Ops',
-  description: '내부 운영 대시보드'
+  description: '내부 운영 대시보드',
+  icons: {
+    icon: '/icon.png'
+  }
 };
 
 export default function RootLayout({

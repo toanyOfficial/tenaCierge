@@ -78,7 +78,7 @@ export async function getCleaningSnapshot(profile: ProfileSummary, targetDate?: 
     hostRoomOptions: hostRooms,
     adminRoomOptions: adminRooms,
     hostRoomIds: hostRooms.map((room) => room.roomId),
-    message: '16:00이 되면 오더수정이 마감됩니다. 반드시 16:00 이전에 수정사항을 반영해주세요.',
+    message: '호스트 수정/추가는 D0 불가 · D+1은 전날 16:00까지 · D+2 이후 상시 가능합니다.',
     currentWorkerId: worker?.id ?? null
   };
 }
