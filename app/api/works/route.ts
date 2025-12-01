@@ -102,7 +102,7 @@ export async function POST(request: Request) {
       conditionCheckYn: typeof body.conditionCheckYn === 'boolean' ? body.conditionCheckYn : undefined
     };
 
-    const validation = validateWorkInput(creationInput, current, { canEditRequirements: isAdmin });
+    const validation = validateWorkInput(creationInput, current, { canEditRequirements: false });
 
     if (!validation.ok) {
       return NextResponse.json({ message: validation.message }, { status: 400 });
