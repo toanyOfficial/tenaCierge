@@ -77,7 +77,7 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
   const viewingAsCleaner = activeRole === 'cleaner';
   const canSeeList = viewingAsHost || viewingAsAdmin || viewingAsButler || viewingAsCleaner;
   const canEdit = viewingAsAdmin || (viewingAsHost && snapshot.hostCanEdit);
-  const canEditRequirements = viewingAsAdmin;
+  const canEditRequirements = false;
   const canAdd = viewingAsAdmin || (viewingAsHost && snapshot.hostCanAdd);
 
   const roomOptions = useMemo(() => {
@@ -220,11 +220,11 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
     snapshot.currentWorkerId
   ]);
 
-  const batchingOnly = snapshot.window === 'edit' && !viewingAsAdmin;
+  const batchingOnly = false;
   const hostRestrictionMessage = viewingAsHost
     ? snapshot.hostCanEdit
-      ? '15:00~16:00 구간에서는 체크아웃/체크인·소모품 정보를 직접 조정할 수 있습니다.'
-      : '현재 시간에는 호스트 수정이 제한됩니다. (15:00~16:00 허용)'
+      ? 'D+1은 전날 16:00까지, D+2 이후 일정은 언제든 수정/추가할 수 있습니다.'
+      : 'D0과 전날 16:00 이후의 D+1 일정은 수정/추가가 제한됩니다.'
     : null;
 
   const roleGuardMessage = !canSeeList
@@ -692,9 +692,11 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
             </label>
             <datalist id="cleaning-date-options">
               {snapshot.dateOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {`${option.tag} · ${option.label}`}
-                </option>
+                <option
+                  key={option.value}
+                  value={option.value}
+                  label={`${option.tag} · ${option.label}`}
+                />
               ))}
             </datalist>
           </div>

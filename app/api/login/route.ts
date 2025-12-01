@@ -4,7 +4,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import { clientHeader, workApply, workerHeader } from '@/src/db/schema';
-import { getSeoul1630Expiry } from '@/src/utils/cookie';
+import { getSeoul1630Expiry, isSecureRequest } from '@/src/utils/cookie';
 import { formatDateKey, getKstNow } from '@/src/utils/workWindow';
 
 export const dynamic = 'force-dynamic';

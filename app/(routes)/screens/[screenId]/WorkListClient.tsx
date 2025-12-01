@@ -533,31 +533,10 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                 </option>
               ))}
             </datalist>
-            <button className={styles.secondaryButton} onClick={() => setDetailOpen(true)}>
-              현황보기
-            </button>
           </div>
         </div>
 
         <p className={styles.notice}>{snapshot.notice}</p>
-
-        <div className={styles.sortRow}>
-          <div>
-            <p className={styles.sectionLabel}>정렬 기준</p>
-            <p className={styles.subtle}>퇴실시간 기준 ↔ 방순서 기준을 한 번에 전환합니다.</p>
-          </div>
-          <div className={styles.singleToggleGroup}>
-            <button
-              type="button"
-              className={`${styles.singleToggle} ${sortMode === 'checkout' ? styles.singleToggleActive : ''}`}
-              onClick={() => setSortMode(sortMode === 'checkout' ? 'roomDesc' : 'checkout')}
-            >
-              {sortMode === 'checkout'
-                ? '퇴실시간기준 (체크아웃 오름차순·호실 내림차순)'
-                : '방순서기준 (호실 내림차순)'}
-            </button>
-          </div>
-        </div>
 
         {!canSee ? (
           <p className={styles.helper}>화면 004는 관리자, 버틀러, 호스트, 클리너만 접근 가능합니다.</p>
