@@ -19,42 +19,29 @@ export function getKstNow() {
 export function resolveWorkWindow(baseDate?: Date, forcedDate?: string): WorkWindowMeta {
   const now = baseDate ?? getKstNow();
   const minutes = now.getHours() * 60 + now.getMinutes();
-
   const targetDate = forcedDate ? parseDateKey(forcedDate) ?? new Date(now) : new Date(now);
+  const targetKey = formatDateKey(targetDate);
   const todayKey = formatDateKey(now);
-  const diffDays = calculateDiffDays(todayKey, formatDateKey(targetDate));
-  let window: WorkWindowState = 'today';
-  let tag: WorkWindowTag = 'D0';
+  const diffDays = calculateDiffDays(todayKey, targetKey);
+
   let hostCanEdit = false;
   let hostCanAdd = false;
 
-  if (forcedDate) {
-    if (diffDays >= 1) {
-      tag = `D+${Math.min(diffDays, 7)}` as WorkWindowTag;
-      window = 'locked';
-    } else {
-      tag = 'D0';
-      window = minutes < 14 * 60 ? 'today' : 'locked';
-    }
-  } else if (minutes < 14 * 60) {
-    window = 'today';
-    tag = 'D0';
-  } else if (minutes < 16 * 60) {
-    window = 'edit';
-    tag = 'D+1';
-    targetDate.setDate(targetDate.getDate() + 1);
+  if (diffDays === 1) {
+    hostCanEdit = minutes < 16 * 60;
+    hostCanAdd = minutes < 16 * 60;
+  } else if (diffDays >= 2) {
     hostCanEdit = true;
     hostCanAdd = true;
-  } else {
-    window = 'locked';
-    tag = 'D+1';
-    targetDate.setDate(targetDate.getDate() + 1);
   }
+
+  const window: WorkWindowState = hostCanEdit || hostCanAdd ? 'today' : 'locked';
+  const tag: WorkWindowTag = diffDays <= 0 ? 'D0' : (`D+${Math.min(diffDays, 7)}` as WorkWindowTag);
 
   return {
     window,
     targetTag: tag,
-    targetDate: formatDateKey(targetDate),
+    targetDate: targetKey,
     targetDateLabel: formatFullDateLabel(targetDate),
     hostCanEdit,
     hostCanAdd

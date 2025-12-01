@@ -11,6 +11,7 @@ import {
   workHeader
 } from '@/src/db/schema';
 import type { ProfileSummary } from '@/src/utils/profile';
+import { findClientByProfile } from '@/src/server/clients';
 import { logEtcError } from '@/src/server/errorLogger';
 import { KST_OFFSET_MS, nowInKst } from '@/src/utils/kst';
 
@@ -169,7 +170,13 @@ async function resolveAdditionalPriceColumn(month: string, hostId?: number | nul
 }
 
 async function resolvePriceListFlags(month: string, hostId?: number | null) {
-  const result = { hasMinus: false, hasRatio: false, amountColumn: null as string | null };
+  const result = {
+    hasMinus: false,
+    hasRatio: false,
+    hasPerBed: false,
+    hasPerRoom: false,
+    amountColumn: null as string | null
+  };
 
   try {
     const raw = await db.execute<{ column_name?: string; COLUMN_NAME?: string }>(
@@ -191,6 +198,8 @@ async function resolvePriceListFlags(month: string, hostId?: number | null) {
 
     result.hasMinus = columns.includes('minus_yn');
     result.hasRatio = columns.includes('ratio_yn');
+    result.hasPerBed = columns.includes('per_bed_yn');
+    result.hasPerRoom = columns.includes('per_room_yn');
     result.amountColumn =
       columns.find((col) =>
         ['amount', 'amount_per_cleaning', 'amount_per_room', 'price', 'value'].includes(col)
@@ -374,7 +383,13 @@ async function loadPriceItems(roomIds: number[], month: string, hostId?: number 
                 ? sql`COALESCE(${sql.raw('client_price_set_detail.ratio_yn')}, 0)`
                 : priceFlags.hasRatio
                   ? sql`COALESCE(${sql.raw('client_price_list.ratio_yn')}, 0)`
-                  : sql`CAST(0 AS SIGNED)`
+                  : sql`CAST(0 AS SIGNED)`,
+          perBedYn: priceFlags.hasPerBed
+            ? sql`COALESCE(${sql.raw('client_price_list.per_bed_yn')}, 0)`
+            : sql`CAST(0 AS SIGNED)`,
+          perRoomYn: priceFlags.hasPerRoom
+            ? sql`COALESCE(${sql.raw('client_price_list.per_room_yn')}, 0)`
+            : sql`CAST(0 AS SIGNED)`
         })
         .from(clientPriceSetDetail)
         .innerJoin(clientPriceList, eq(clientPriceSetDetail.priceId, clientPriceList.id))
@@ -437,30 +452,46 @@ export async function getSettlementSnapshot(
       todayKstStr < startDateStr ? endDateStr : todayKstStr < endDateStr ? todayKstStr : endDateStr;
     const workEnd = new Date(`${workEndStr}T23:59:59.999Z`);
     const daysInMonth = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    const normalizedRegister = normalizeRegisterNo(profile.registerNo);
 
-    const parsedHostId = hostIdParam ? Number(hostIdParam) : null;
-    const hostFilterId = parsedHostId && !Number.isNaN(parsedHostId) ? parsedHostId : null;
     const isAdmin = profile.roles.includes('admin');
     const isHostOnly = profile.roles.includes('host') && !isAdmin;
 
-  const hostWhere: any[] = [];
+    const parsedHostId = hostIdParam ? Number(hostIdParam) : null;
+    let hostFilterId: number | null = null;
 
-  if (isHostOnly && normalizedRegister) {
-    hostWhere.push(eq(clientHeader.registerCode, normalizedRegister));
-  }
+    if (isAdmin) {
+      hostFilterId = parsedHostId && !Number.isNaN(parsedHostId) ? parsedHostId : null;
+    } else if (isHostOnly) {
+      const hostClient = await findClientByProfile(profile);
+      hostFilterId = hostClient?.id ?? null;
+    }
 
-  if (isAdmin && hostFilterId) {
-    hostWhere.push(eq(clientHeader.id, hostFilterId));
-  }
-
-    const hostCondition = hostWhere.length ? (hostWhere.length === 1 ? hostWhere[0] : or(...hostWhere)) : null;
-
+    const hostWhere: any[] = [];
     const baseHostQuery = db
       .select({ id: clientHeader.id, name: clientHeader.name, registerNo: clientHeader.registerCode })
       .from(clientHeader);
 
-    const hostQuery = hostCondition ? baseHostQuery.where(hostCondition) : baseHostQuery;
+    let hostQuery = baseHostQuery;
+
+    if (isHostOnly) {
+      if (!hostFilterId) {
+        return { month, summary: [], statements: [], hostOptions: [], appliedHostId: null };
+      }
+
+      hostQuery = hostQuery
+        .innerJoin(clientRooms, eq(clientRooms.clientId, clientHeader.id))
+        .where(eq(clientHeader.id, hostFilterId));
+    }
+
+    if (isAdmin && hostFilterId) {
+      hostWhere.push(eq(clientHeader.id, hostFilterId));
+    }
+
+    const hostCondition = hostWhere.length ? (hostWhere.length === 1 ? hostWhere[0] : or(...hostWhere)) : null;
+
+    hostQuery = hostCondition ? hostQuery.where(hostCondition) : hostQuery;
+
+    hostQuery = hostQuery.groupBy(clientHeader.id);
 
     const hostRows = await hostQuery.orderBy(asc(clientHeader.name));
 
