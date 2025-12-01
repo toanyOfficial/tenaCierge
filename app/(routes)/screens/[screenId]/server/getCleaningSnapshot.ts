@@ -10,6 +10,7 @@ import type { CleaningWork } from '@/src/server/workTypes';
 import type { ProfileSummary } from '@/src/utils/profile';
 import {
   buildDateOptions,
+  clampDateWithinRange,
   formatDateKey,
   getKstNow,
   formatWorkDateLabel,
@@ -52,7 +53,8 @@ export async function getCleaningSnapshot(profile: ProfileSummary, targetDate?: 
   const now = getKstNow();
   const today = formatDateKey(now);
   const maxDate = buildMaxDate(today, 7);
-  const meta = resolveWorkWindow(undefined, targetDate || undefined);
+  const boundedTargetDate = clampDateWithinRange(targetDate || today, 7, now);
+  const meta = resolveWorkWindow(undefined, boundedTargetDate);
   const availableDates = await fetchAvailableWorkDates();
   const dateOptions = buildExtendedOptions(buildDateOptions(7, now), availableDates, meta.targetDate, now);
   const client = profile.roles.includes('host') ? await findClientByProfile(profile) : null;
@@ -98,6 +100,7 @@ function buildExtendedOptions(
   const today = formatDateKey(now);
   const seen = new Set(options.map((option) => option.value));
   const todayDate = new Date(`${today}T00:00:00+09:00`);
+  const maxDate = new Date(`${buildMaxDate(today, 7)}T00:00:00+09:00`);
 
   const withAvailable = [
     ...options,
@@ -105,7 +108,7 @@ function buildExtendedOptions(
       .filter((date) => !seen.has(date))
       .filter((date) => {
         const parsed = new Date(`${date}T00:00:00+09:00`);
-        return !Number.isNaN(parsed.getTime()) && parsed >= todayDate;
+        return !Number.isNaN(parsed.getTime()) && parsed >= todayDate && parsed <= maxDate;
       })
       .map((date) => {
         const tag = resolveTag(today, date);
@@ -113,7 +116,7 @@ function buildExtendedOptions(
       })
   ];
 
-  if (!seen.has(targetDate)) {
+  if (!seen.has(targetDate) && targetDate >= formatDateKey(todayDate) && targetDate <= formatDateKey(maxDate)) {
     withAvailable.unshift({
       value: targetDate,
       tag: resolveTag(today, targetDate),

@@ -20,8 +20,8 @@ import {
 import type { ProfileSummary } from '@/src/utils/profile';
 import { findClientByProfile } from '@/src/server/clients';
 import { findWorkerByProfile } from '@/src/server/workers';
-import { fetchAvailableWorkDates } from '@/src/server/workQueries';
 import { getKstNow, formatDateKey, formatWorkDateLabel, type WorkWindowTag } from '@/src/utils/workWindow';
+import { clampDateWithinRange } from '@/src/utils/workWindow';
 import { logError, logInfo } from '@/src/server/logger';
 import { logServerError } from '@/src/server/errorLogger';
 
@@ -112,37 +112,18 @@ function normalizeDate(input?: string) {
   return formatDateKey(parsed);
 }
 
-async function buildDateOptions(targetDate: string, now: Date) {
-  const today = formatDateKey(now);
-  const todayDate = buildKstDate(today);
-  const tomorrow = formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
-  const dates = new Set<string>();
+function buildDateOptions(now: Date) {
+  const options: { value: string; label: string }[] = [];
 
-  const resolveTag = (value: string): WorkWindowTag => {
-    const diff = Math.round((buildKstDate(value).getTime() - todayDate.getTime()) / (24 * 60 * 60 * 1000));
-    if (diff <= 0) return 'D0';
-    const offset = Math.min(diff, 7);
-    return (`D+${offset}` as WorkWindowTag);
-  };
+  for (let offset = 0; offset <= 7; offset += 1) {
+    const date = new Date(now);
+    date.setDate(date.getDate() + offset);
+    const value = formatDateKey(date);
+    const tag: WorkWindowTag = offset === 0 ? 'D0' : (`D+${offset}` as WorkWindowTag);
+    options.push({ value, label: formatWorkDateLabel(tag, value) });
+  }
 
-  const addIfValid = (value: string, allowPast = false) => {
-    const parsed = buildKstDate(value);
-    if (Number.isNaN(parsed.getTime())) return;
-    if (!allowPast && parsed < todayDate) return;
-    dates.add(value);
-  };
-
-  addIfValid(today, true);
-  addIfValid(tomorrow, true);
-  (await fetchAvailableWorkDates()).forEach((date) => addIfValid(date));
-  addIfValid(targetDate, true);
-
-  return Array.from(dates)
-    .map((value) => {
-      const tag = resolveTag(value);
-      return { value, label: formatWorkDateLabel(tag, value) };
-    })
-    .sort((a, b) => a.value.localeCompare(b.value));
+  return options;
 }
 
 function safeParseJson(value: string) {
@@ -208,9 +189,11 @@ function resolveWindow(
 
   if (dateParam) {
     const normalized = normalizeDate(dateParam);
+    const bounded = normalized ? clampDateWithinRange(normalized, 7, now) : today;
+
     return {
-      targetDate: normalized || today,
-      window: normalized === today ? 'd0' : normalized === tomorrow ? 'd1' : undefined,
+      targetDate: bounded,
+      window: bounded === today ? 'd0' : bounded === tomorrow ? 'd1' : undefined,
       windowDates: { d0: today, d1: tomorrow }
     };
   }
@@ -241,13 +224,16 @@ export async function getWorkListSnapshot(
     const preferToday = isAdmin && !dateParam && !windowParam && initialWindow.window === 'd1';
 
     const normalizedDateParam = normalizeDate(dateParam ?? '');
-    const hostTargetDate = normalizedDateParam || initialWindow.windowDates.d0;
+    const boundedDateParam = normalizedDateParam
+      ? clampDateWithinRange(normalizedDateParam, 7, now)
+      : initialWindow.windowDates.d0;
+    const hostTargetDate = boundedDateParam;
 
     const targetDate = isHostOnly
       ? hostTargetDate
       : preferToday
         ? initialWindow.windowDates.d0
-        : initialWindow.targetDate;
+        : clampDateWithinRange(initialWindow.targetDate, 7, now);
     const window = isHostOnly
       ? hostTargetDate === initialWindow.windowDates.d0
         ? 'd0'
@@ -260,7 +246,7 @@ export async function getWorkListSnapshot(
     const windowDates = initialWindow.windowDates;
     const targetDateValue = buildDateParam(targetDate);
     const targetDateSql = sql`CAST(${targetDateValue} AS DATE)`;
-    const dateOptions = await buildDateOptions(targetDate, now);
+    const dateOptions = buildDateOptions(now);
 
     const hostLockTime = DateTime.fromISO(`${targetDate}T16:00`, { zone: 'Asia/Seoul' })
       .minus({ days: 1 })

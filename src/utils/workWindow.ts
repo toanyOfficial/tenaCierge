@@ -83,6 +83,20 @@ export function formatWorkDateLabel(tag: WorkWindowTag, dateKey: string | Date) 
   return `${tag} ${value}`;
 }
 
+export function clampDateWithinRange(targetKey: string, maxDays = 7, baseDate = getKstNow()) {
+  const baseKey = formatDateKey(baseDate);
+  const diff = calculateDiffDays(baseKey, targetKey);
+
+  if (Number.isNaN(diff) || diff < 0) return baseKey;
+  if (diff > maxDays) {
+    const capped = new Date(baseDate);
+    capped.setDate(capped.getDate() + maxDays);
+    return formatDateKey(capped);
+  }
+
+  return targetKey;
+}
+
 function parseDateKey(value: string) {
   const parsed = toKstDateTime(`${value}T00:00:00`).startOf('day');
   return parsed.isValid ? parsed.toJSDate() : null;
