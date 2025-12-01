@@ -118,6 +118,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const [sortMode, setSortMode] = useState<'checkout' | 'roomDesc'>('checkout');
   const isHost = activeRole === 'host';
   const isAfterFour = snapshot.currentMinutes >= 16 * 60;
+  const hostLocked = isHost && Boolean(snapshot.hostReadOnly);
 
   useEffect(() => {
     setWorks(snapshot.works);
@@ -143,9 +144,10 @@ export default function WorkListClient({ profile, snapshot }: Props) {
     [activeRole]
   );
 
-  const canToggleSupply = activeRole === 'admin' || activeRole === 'butler';
-  const canToggleCleaning = activeRole === 'admin' || activeRole === 'butler' || activeRole === 'cleaner';
-  const canToggleSupervising = activeRole === 'admin' || activeRole === 'butler';
+  const canToggleSupply = (activeRole === 'admin' || activeRole === 'butler') && !hostLocked;
+  const canToggleCleaning =
+    (activeRole === 'admin' || activeRole === 'butler' || activeRole === 'cleaner') && !hostLocked;
+  const canToggleSupervising = (activeRole === 'admin' || activeRole === 'butler') && !hostLocked;
   const canAssignCleaner = canToggleSupervising;
 
   const sortedWorks = useMemo(() => sortWorks(works, sortMode), [works, sortMode]);
@@ -245,6 +247,56 @@ export default function WorkListClient({ profile, snapshot }: Props) {
     [modalWorks, finishedWorks]
   );
 
+  const buildingTotals = useMemo(() => {
+    const map: Record<
+      string,
+      {
+        total: number;
+        inProgress: number;
+        finished: number;
+        checkoutWarning: number;
+        checkinWarning: number;
+        supplyPending: number;
+        cleaningPending: number;
+      }
+    > = {};
+
+    const ensureEntry = (label: string) => {
+      if (!map[label]) {
+        map[label] = {
+          total: 0,
+          inProgress: 0,
+          finished: 0,
+          checkoutWarning: 0,
+          checkinWarning: 0,
+          supplyPending: 0,
+          cleaningPending: 0
+        };
+      }
+      return map[label];
+    };
+
+    modalWorks.forEach((work) => {
+      const label = work.buildingShortName || '기타';
+      const entry = ensureEntry(label);
+      entry.total += 1;
+      if (work.checkoutTime !== '12:00') entry.checkoutWarning += 1;
+      if (work.checkinTime !== '16:00') entry.checkinWarning += 1;
+      if (!work.supplyYn) entry.supplyPending += 1;
+      if (work.cleaningFlag === 1) entry.cleaningPending += 1;
+    });
+
+    inProgressWorks.forEach((work) => {
+      ensureEntry(work.buildingShortName || '기타').inProgress += 1;
+    });
+
+    finishedWorks.forEach((work) => {
+      ensureEntry(work.buildingShortName || '기타').finished += 1;
+    });
+
+    return map;
+  }, [finishedWorks, inProgressWorks, modalWorks]);
+
   const groupedByBuilding = useMemo(() => {
     const mapList = (list: WorkListEntry[]) =>
       list.reduce<Record<string, WorkListEntry[]>>((acc, work) => {
@@ -309,6 +361,10 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   async function updateWork(workId: number, payload: Record<string, unknown>) {
     setStatus('');
     setError('');
+    if (hostLocked) {
+      setError('D-1 16:00 이후에는 수정할 수 없습니다.');
+      return;
+    }
     const res = await fetch(`/api/workflow/${workId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -706,8 +762,8 @@ export default function WorkListClient({ profile, snapshot }: Props) {
       </section>
 
       {detailOpen ? (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal}>
+        <div className={styles.modalOverlay} onClick={() => setDetailOpen(false)}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
             <header className={styles.modalHeader}>
               <h3>현황 보기</h3>
               <button onClick={() => setDetailOpen(false)} className={styles.iconButton} aria-label="닫기">
@@ -720,11 +776,44 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                 {groupedByBuilding.inProgress.map(([building, works]) => (
                   <div key={building} className={styles.detailBuildingBlock}>
                     <div className={styles.detailGridHeader}>
-                      <span className={styles.buildingLabel}>{building}</span>
-                      <span>쳌아웃</span>
-                      <span>체크인</span>
-                      <span>배급</span>
-                      <span>청소</span>
+                      <span className={styles.detailColumnHeader}>
+                        <span className={styles.detailColumnCount}>
+                          {buildingTotals[building]?.inProgress ?? works.length}/{
+                            buildingTotals[building]?.total ?? works.length
+                          }
+                        </span>
+                        <span className={styles.buildingLabel}>{building}</span>
+                      </span>
+                      <span className={styles.detailColumnHeader}>
+                        <span className={styles.detailColumnCount}>
+                          {works.filter((work) => work.checkoutTime !== '12:00').length}/
+                          {buildingTotals[building]?.total ?? works.length}
+                        </span>
+                        <span>쳌아웃</span>
+                      </span>
+                      <span className={styles.detailColumnHeader}>
+                        <span className={styles.detailColumnCount}>
+                          {works.filter((work) => work.checkinTime !== '16:00').length}/
+                          {buildingTotals[building]?.total ?? works.length}
+                        </span>
+                        <span>체크인</span>
+                      </span>
+                      <span className={styles.detailColumnHeader}>
+                        <span className={styles.detailColumnCount}>
+                          {works.filter((work) => !work.supplyYn).length}/{
+                            buildingTotals[building]?.total ?? works.length
+                          }
+                        </span>
+                        <span>배급</span>
+                      </span>
+                      <span className={styles.detailColumnHeader}>
+                        <span className={styles.detailColumnCount}>
+                          {works.filter((work) => work.cleaningFlag === 1).length}/{
+                            buildingTotals[building]?.total ?? works.length
+                          }
+                        </span>
+                        <span>청소</span>
+                      </span>
                     </div>
                     {works.map((work) => {
                       const cleaningLabel = cleaningLabels[(work.cleaningFlag || 1) - 1] ?? cleaningLabels[0];
@@ -760,11 +849,44 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                 {groupedByBuilding.finished.map(([building, works]) => (
                   <div key={building} className={styles.detailBuildingBlock}>
                     <div className={styles.detailGridHeader}>
-                      <span className={styles.buildingLabel}>{building}</span>
-                      <span>쳌아웃</span>
-                      <span>체크인</span>
-                      <span>배급</span>
-                      <span>청소</span>
+                      <span className={styles.detailColumnHeader}>
+                        <span className={styles.detailColumnCount}>
+                          {buildingTotals[building]?.finished ?? works.length}/{
+                            buildingTotals[building]?.total ?? works.length
+                          }
+                        </span>
+                        <span className={styles.buildingLabel}>{building}</span>
+                      </span>
+                      <span className={styles.detailColumnHeader}>
+                        <span className={styles.detailColumnCount}>
+                          {works.filter((work) => work.checkoutTime !== '12:00').length}/
+                          {buildingTotals[building]?.total ?? works.length}
+                        </span>
+                        <span>쳌아웃</span>
+                      </span>
+                      <span className={styles.detailColumnHeader}>
+                        <span className={styles.detailColumnCount}>
+                          {works.filter((work) => work.checkinTime !== '16:00').length}/
+                          {buildingTotals[building]?.total ?? works.length}
+                        </span>
+                        <span>체크인</span>
+                      </span>
+                      <span className={styles.detailColumnHeader}>
+                        <span className={styles.detailColumnCount}>
+                          {works.filter((work) => !work.supplyYn).length}/{
+                            buildingTotals[building]?.total ?? works.length
+                          }
+                        </span>
+                        <span>배급</span>
+                      </span>
+                      <span className={styles.detailColumnHeader}>
+                        <span className={styles.detailColumnCount}>
+                          {works.filter((work) => work.cleaningFlag === 1).length}/{
+                            buildingTotals[building]?.total ?? works.length
+                          }
+                        </span>
+                        <span>청소</span>
+                      </span>
                     </div>
                     {works.map((work) => (
                       <div key={work.id} className={styles.detailGridRow}>
