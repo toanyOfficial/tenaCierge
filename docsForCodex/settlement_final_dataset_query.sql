@@ -1,10 +1,10 @@
 -- 008 정산관리 화면: 최종 data set을 한 번에 로드하기 위한 단일 SQL 예시
 -- 접속 계정의 client_header.id와 조회 일자(YYYY-MM 기준)만 바꿔서 실행하세요.
--- 아래 예시는 client_header.id = 3, 조회 월 = 2025-12, 현재 KST = 2025-12-01 상황입니다.
+-- 아래 예시는 client_header.id = 19, 조회 월 = 2025-12, 현재 KST = 2025-12-01 상황입니다.
 
 WITH params AS (
   SELECT
-    3::BIGINT          AS host_id,             -- 접속한 호스트의 client_header.id
+    19::BIGINT         AS host_id,             -- 접속한 호스트의 client_header.id
     DATE('2025-12-01') AS month_start,
     DATE('2025-12-31') AS month_end,
     DATE('2025-12-01') AS work_end             -- min(오늘 KST, month_end); 예시에서는 오늘이 12/01
@@ -17,6 +17,8 @@ eligible_rooms AS (
     cr.price_set_id AS price_set_id,
     cr.room_no      AS room_no,
     eb.short_name   AS building_short,
+    cr.bed_count    AS bed_count,
+    cr.room_count   AS room_count,
     cr.start_date,
     cr.end_date,
     cr.open_yn,
@@ -48,7 +50,14 @@ price_items AS (
     CAST(COALESCE(cpsd.amount, cpl.amount) AS DECIMAL(20,4)) AS amount,
     COALESCE(cpsd.title, cpl.title)                   AS title,
     COALESCE(cpsd.minus_yn, cpl.minus_yn, 0)          AS minus_yn,
-    COALESCE(cpsd.ratio_yn, cpl.ratio_yn, 0)          AS ratio_yn
+    COALESCE(cpsd.ratio_yn, cpl.ratio_yn, 0)          AS ratio_yn,
+    COALESCE(cpl.per_bed_yn,  0)                      AS per_bed_yn,
+    COALESCE(cpl.per_room_yn, 0)                      AS per_room_yn,
+    CASE
+      WHEN COALESCE(cpl.per_bed_yn, 0) = 1  THEN er.bed_count
+      WHEN COALESCE(cpl.per_room_yn, 0) = 1 THEN er.room_count
+      ELSE 1
+    END AS quantity
   FROM eligible_rooms er
   JOIN client_price_set_detail cpsd ON cpsd.price_set_id = er.price_set_id
   JOIN client_price_list cpl        ON cpl.id = cpsd.price_id
@@ -94,6 +103,8 @@ SELECT
   fd.room_id,
   fd.building_short,
   fd.room_no,
+  fd.bed_count,
+  fd.room_count,
   fd.price_set_id,
   fd.price_id,
   fd.price_type,
@@ -101,6 +112,10 @@ SELECT
   fd.price_title,
   fd.minus_yn,
   fd.ratio_yn,
+  fd.per_bed_yn,
+  fd.per_room_yn,
+  fd.quantity,
+  fd.amount * COALESCE(fd.quantity, 1) AS extended_amount,
   fd.work_id,
   fd.work_date,
   fd.amenities_qty,
@@ -119,6 +134,8 @@ FROM (
     er.room_id,
     er.building_short,
     er.room_no,
+    er.bed_count,
+    er.room_count,
     pi.price_set_id,
     pi.price_id,
     pi.price_type,
@@ -126,6 +143,9 @@ FROM (
     pi.title AS price_title,
     pi.minus_yn,
     pi.ratio_yn,
+    pi.per_bed_yn,
+    pi.per_room_yn,
+    pi.quantity,
     NULL::BIGINT  AS work_id,
     NULL::DATE    AS work_date,
     NULL::INT     AS amenities_qty,
@@ -147,11 +167,16 @@ FROM (
     ap.room_id,
     er.building_short,
     er.room_no,
+    er.bed_count,
+    er.room_count,
     NULL, NULL, NULL,
     ap.price AS amount,
     NULL AS price_title,
     NULL AS minus_yn,
     NULL AS ratio_yn,
+    NULL AS per_bed_yn,
+    NULL AS per_room_yn,
+    NULL AS quantity,
     NULL::BIGINT  AS work_id,
     DATE(ap.date) AS work_date,
     NULL::INT     AS amenities_qty,
@@ -173,11 +198,16 @@ FROM (
     wr.room_id,
     er.building_short,
     er.room_no,
+    er.bed_count,
+    er.room_count,
     NULL, NULL, NULL,
     NULL,
     NULL AS price_title,
     NULL AS minus_yn,
     NULL AS ratio_yn,
+    NULL AS per_bed_yn,
+    NULL AS per_room_yn,
+    NULL AS quantity,
     wr.work_id,
     DATE(wr.date) AS work_date,
     wr.amenities_qty,
