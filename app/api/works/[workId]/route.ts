@@ -44,14 +44,14 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
       return NextResponse.json({ message: '해당 객실을 수정할 수 없습니다.' }, { status: 403 });
     }
 
-    const meta = resolveWorkWindow();
+    const meta = resolveWorkWindow(undefined, current.date);
 
-    if (!meta.hostCanEdit || current.date !== meta.targetDate) {
+    if (!meta.hostCanEdit) {
       return NextResponse.json({ message: '지금은 수정할 수 있는 시간이 아닙니다.' }, { status: 403 });
     }
   }
 
-  const validation = validateWorkInput(body, current, { canEditRequirements: isAdmin });
+  const validation = validateWorkInput(body, current, { canEditRequirements: false });
 
   if (!validation.ok) {
     return NextResponse.json({ message: validation.message }, { status: 400 });
