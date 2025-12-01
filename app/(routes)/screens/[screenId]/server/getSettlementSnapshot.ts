@@ -466,34 +466,39 @@ export async function getSettlementSnapshot(
       hostFilterId = hostClient?.id ?? null;
     }
 
-    const hostWhere: any[] = [];
-    const baseHostQuery = db
-      .select({ id: clientHeader.id, name: clientHeader.name, registerNo: clientHeader.registerCode })
-      .from(clientHeader);
+    const buildHostQuery = () => {
+      if (isHostOnly) {
+        if (!hostFilterId) {
+          return null;
+        }
 
-    let hostQuery = baseHostQuery;
-
-    if (isHostOnly) {
-      if (!hostFilterId) {
-        return { month, summary: [], statements: [], hostOptions: [], appliedHostId: null };
+        return db
+          .select({ id: clientHeader.id, name: clientHeader.name, registerNo: clientHeader.registerCode })
+          .from(clientHeader)
+          .innerJoin(clientRooms, eq(clientRooms.clientId, clientHeader.id))
+          .where(eq(clientHeader.id, hostFilterId))
+          .groupBy(clientHeader.id)
+          .orderBy(asc(clientHeader.name));
       }
 
-      hostQuery = hostQuery
-        .innerJoin(clientRooms, eq(clientRooms.clientId, clientHeader.id))
-        .where(eq(clientHeader.id, hostFilterId));
+      const baseQuery = db
+        .select({ id: clientHeader.id, name: clientHeader.name, registerNo: clientHeader.registerCode })
+        .from(clientHeader);
+
+      if (isAdmin && hostFilterId) {
+        return baseQuery.where(eq(clientHeader.id, hostFilterId)).groupBy(clientHeader.id).orderBy(asc(clientHeader.name));
+      }
+
+      return baseQuery.groupBy(clientHeader.id).orderBy(asc(clientHeader.name));
+    };
+
+    const hostQuery = buildHostQuery();
+
+    if (!hostQuery) {
+      return { month, summary: [], statements: [], hostOptions: [], appliedHostId: null };
     }
 
-    if (isAdmin && hostFilterId) {
-      hostWhere.push(eq(clientHeader.id, hostFilterId));
-    }
-
-    const hostCondition = hostWhere.length ? (hostWhere.length === 1 ? hostWhere[0] : or(...hostWhere)) : null;
-
-    hostQuery = hostCondition ? hostQuery.where(hostCondition) : hostQuery;
-
-    hostQuery = hostQuery.groupBy(clientHeader.id);
-
-    const hostRows = await hostQuery.orderBy(asc(clientHeader.name));
+    const hostRows = await hostQuery;
 
     if (!hostRows.length) {
       return { month, summary: [], statements: [], hostOptions: [], appliedHostId: hostFilterId ?? null };
