@@ -511,6 +511,8 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                     value={selectedDate}
                     onChange={(e) => handleDateChange(e.target.value)}
                     list="work-window-dates"
+                    min={snapshot.dateOptions[0]?.value}
+                    max={snapshot.dateOptions[snapshot.dateOptions.length - 1]?.value}
                   />
                 </label>
               </div>
@@ -523,14 +525,14 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                   value={selectedDate}
                   onChange={(e) => handleDateChange(e.target.value)}
                   list="work-window-dates"
+                  min={snapshot.dateOptions[0]?.value}
+                  max={snapshot.dateOptions[snapshot.dateOptions.length - 1]?.value}
                 />
               </label>
             )}
             <datalist id="work-window-dates">
               {snapshot.dateOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
+                <option key={option.value} value={option.value} label={option.label} />
               ))}
             </datalist>
           </div>

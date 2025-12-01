@@ -688,6 +688,8 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
                 value={selectedDate}
                 onChange={(event) => handleDateChange(event.target.value)}
                 list="cleaning-date-options"
+                min={snapshot.dateOptions[0]?.value}
+                max={snapshot.dateOptions[snapshot.dateOptions.length - 1]?.value}
               />
             </label>
             <datalist id="cleaning-date-options">
@@ -695,7 +697,7 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
                 <option
                   key={option.value}
                   value={option.value}
-                  label={`${option.tag} · ${option.label}`}
+                  label={option.label}
                 />
               ))}
             </datalist>
@@ -786,16 +788,18 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
                     <span>날짜</span>
                     <select
                       value={addForm.date}
-                      onChange={(event) =>
-                        setAddForm((prev) => ({ ...prev, date: event.target.value }))
-                      }
-                    >
-                      <option value="">날짜 선택</option>
-                      {snapshot.dateOptions.map((option) => (
-                        <option key={option.value} value={option.value}>{`${option.tag} · ${option.label}`}</option>
-                      ))}
-                    </select>
-                  </label>
+                    onChange={(event) =>
+                      setAddForm((prev) => ({ ...prev, date: event.target.value }))
+                    }
+                  >
+                    <option value="">날짜 선택</option>
+                    {snapshot.dateOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                   <label className={styles.formControl}>
                     <span>빌딩</span>
                     <select value={addForm.buildingKey} onChange={(event) => handleBuildingSelect(event.target.value)}>
