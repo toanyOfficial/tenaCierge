@@ -21,7 +21,7 @@ import type { ProfileSummary } from '@/src/utils/profile';
 import { findClientByProfile } from '@/src/server/clients';
 import { findWorkerByProfile } from '@/src/server/workers';
 import { fetchAvailableWorkDates } from '@/src/server/workQueries';
-import { getKstNow, formatDateKey, formatFullDateLabel } from '@/src/utils/workWindow';
+import { getKstNow, formatDateKey, formatWorkDateLabel, type WorkWindowTag } from '@/src/utils/workWindow';
 import { logError, logInfo } from '@/src/server/logger';
 import { logServerError } from '@/src/server/errorLogger';
 
@@ -118,6 +118,13 @@ async function buildDateOptions(targetDate: string, now: Date) {
   const tomorrow = formatDateKey(new Date(now.getTime() + 24 * 60 * 60 * 1000));
   const dates = new Set<string>();
 
+  const resolveTag = (value: string): WorkWindowTag => {
+    const diff = Math.round((buildKstDate(value).getTime() - todayDate.getTime()) / (24 * 60 * 60 * 1000));
+    if (diff <= 0) return 'D0';
+    const offset = Math.min(diff, 7);
+    return (`D+${offset}` as WorkWindowTag);
+  };
+
   const addIfValid = (value: string, allowPast = false) => {
     const parsed = buildKstDate(value);
     if (Number.isNaN(parsed.getTime())) return;
@@ -131,7 +138,10 @@ async function buildDateOptions(targetDate: string, now: Date) {
   addIfValid(targetDate, true);
 
   return Array.from(dates)
-    .map((value) => ({ value, label: formatFullDateLabel(buildKstDate(value)) }))
+    .map((value) => {
+      const tag = resolveTag(value);
+      return { value, label: formatWorkDateLabel(tag, value) };
+    })
     .sort((a, b) => a.value.localeCompare(b.value));
 }
 

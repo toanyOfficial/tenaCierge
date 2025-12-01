@@ -12,7 +12,7 @@ import {
   buildDateOptions,
   formatDateKey,
   getKstNow,
-  formatFullDateLabel,
+  formatWorkDateLabel,
   resolveWorkWindow,
   type WorkWindowMeta
 } from '@/src/utils/workWindow';
@@ -107,14 +107,17 @@ function buildExtendedOptions(
         const parsed = new Date(`${date}T00:00:00+09:00`);
         return !Number.isNaN(parsed.getTime()) && parsed >= todayDate;
       })
-      .map((date) => ({ value: date, tag: resolveTag(today, date), label: formatFullDateLabel(new Date(`${date}T00:00:00+09:00`)) }))
+      .map((date) => {
+        const tag = resolveTag(today, date);
+        return { value: date, tag, label: formatWorkDateLabel(tag, date) };
+      })
   ];
 
   if (!seen.has(targetDate)) {
     withAvailable.unshift({
       value: targetDate,
       tag: resolveTag(today, targetDate),
-      label: formatFullDateLabel(new Date(`${targetDate}T00:00:00+09:00`))
+      label: formatWorkDateLabel(resolveTag(today, targetDate), targetDate)
     });
   }
 
