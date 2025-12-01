@@ -505,36 +505,35 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                 </button>
                 <label className={styles.fieldLabel}>
                   날짜 선택
-                  <input
-                    type="date"
+                  <select
                     className={styles.dateInput}
                     value={selectedDate}
                     onChange={(e) => handleDateChange(e.target.value)}
-                    list="work-window-dates"
-                    min={snapshot.dateOptions[0]?.value}
-                    max={snapshot.dateOptions[snapshot.dateOptions.length - 1]?.value}
-                  />
+                  >
+                    {snapshot.dateOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               </div>
             ) : (
               <label className={styles.fieldLabel}>
                 날짜 선택
-                <input
-                  type="date"
+                <select
                   className={styles.dateInput}
                   value={selectedDate}
                   onChange={(e) => handleDateChange(e.target.value)}
-                  list="work-window-dates"
-                  min={snapshot.dateOptions[0]?.value}
-                  max={snapshot.dateOptions[snapshot.dateOptions.length - 1]?.value}
-                />
+                >
+                  {snapshot.dateOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </label>
             )}
-            <datalist id="work-window-dates">
-              {snapshot.dateOptions.map((option) => (
-                <option key={option.value} value={option.value} label={option.label} />
-              ))}
-            </datalist>
           </div>
         </div>
 
