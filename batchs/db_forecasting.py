@@ -954,7 +954,7 @@ class BatchRunner:
                 cur.execute(
                     """
                     SELECT id, room_id, cleaning_yn, cancel_yn, manual_upt_yn,
-                           conditionCheckYn, checkin_time, ceckout_time,
+                           condition_check_yn, checkin_time, checkout_time,
                            amenities_qty, blanket_qty, requirements
                     FROM work_header
                     WHERE date=%s
@@ -988,11 +988,11 @@ class BatchRunner:
                         needs_update = True
                     if int(existing.get("cleaning_yn", -1)) != cleaning:
                         needs_update = True
-                    if existing.get("conditionCheckYn") != condition_check:
+                    if existing.get("condition_check_yn") != condition_check:
                         needs_update = True
                     if existing.get("checkin_time") != pred.room.checkin_time:
                         needs_update = True
-                    if existing.get("ceckout_time") != pred.room.checkout_time:
+                    if existing.get("checkout_time") != pred.room.checkout_time:
                         needs_update = True
                     if int(existing.get("amenities_qty") or 0) != pred.room.bed_count:
                         needs_update = True
@@ -1045,11 +1045,11 @@ class BatchRunner:
                         """
                         UPDATE work_header
                         SET cleaning_yn=%s,
-                            conditionCheckYn=%s,
+                            condition_check_yn=%s,
                             amenities_qty=%s,
                             blanket_qty=%s,
                             checkin_time=%s,
-                            ceckout_time=%s,
+                            checkout_time=%s,
                             requirements=%s,
                             cancel_yn=0
                         WHERE id=%s
@@ -1062,8 +1062,8 @@ class BatchRunner:
                         """
                         INSERT INTO work_header
                             (date, room_id, cleaner_id, butler_id,
-                             amenities_qty, blanket_qty, conditionCheckYn,
-                             cleaning_yn, checkin_time, ceckout_time,
+                             amenities_qty, blanket_qty, condition_check_yn,
+                             cleaning_yn, checkin_time, checkout_time,
                              supply_yn, clening_flag, cleaning_end_time,
                              supervising_end_time, requirements, cancel_yn, manual_upt_yn)
                         VALUES
