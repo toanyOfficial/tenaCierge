@@ -118,6 +118,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const [sortMode, setSortMode] = useState<'checkout' | 'roomDesc'>('checkout');
   const isHost = activeRole === 'host';
   const isAfterFour = snapshot.currentMinutes >= 16 * 60;
+  const hostLocked = isHost && Boolean(snapshot.hostReadOnly);
 
   useEffect(() => {
     setWorks(snapshot.works);
@@ -143,9 +144,10 @@ export default function WorkListClient({ profile, snapshot }: Props) {
     [activeRole]
   );
 
-  const canToggleSupply = activeRole === 'admin' || activeRole === 'butler';
-  const canToggleCleaning = activeRole === 'admin' || activeRole === 'butler' || activeRole === 'cleaner';
-  const canToggleSupervising = activeRole === 'admin' || activeRole === 'butler';
+  const canToggleSupply = (activeRole === 'admin' || activeRole === 'butler') && !hostLocked;
+  const canToggleCleaning =
+    (activeRole === 'admin' || activeRole === 'butler' || activeRole === 'cleaner') && !hostLocked;
+  const canToggleSupervising = (activeRole === 'admin' || activeRole === 'butler') && !hostLocked;
   const canAssignCleaner = canToggleSupervising;
 
   const sortedWorks = useMemo(() => sortWorks(works, sortMode), [works, sortMode]);
@@ -380,6 +382,10 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   async function updateWork(workId: number, payload: Record<string, unknown>) {
     setStatus('');
     setError('');
+    if (hostLocked) {
+      setError('D-1 16:00 이후에는 수정할 수 없습니다.');
+      return;
+    }
     const res = await fetch(`/api/workflow/${workId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

@@ -169,13 +169,7 @@ async function resolveAdditionalPriceColumn(month: string, hostId?: number | nul
 }
 
 async function resolvePriceListFlags(month: string, hostId?: number | null) {
-  const result = {
-    hasMinus: false,
-    hasRatio: false,
-    hasPerBed: false,
-    hasPerRoom: false,
-    amountColumn: null as string | null
-  };
+  const result = { hasMinus: false, hasRatio: false, amountColumn: null as string | null };
 
   try {
     const raw = await db.execute<{ column_name?: string; COLUMN_NAME?: string }>(
@@ -201,8 +195,6 @@ async function resolvePriceListFlags(month: string, hostId?: number | null) {
       columns.find((col) =>
         ['amount', 'amount_per_cleaning', 'amount_per_room', 'price', 'value'].includes(col)
       ) ?? null;
-    result.hasPerBed = columns.includes('per_bed_yn');
-    result.hasPerRoom = columns.includes('per_room_yn');
   } catch (error) {
     await logEtcError({
       message: `client_price_list 플래그 컬럼 조회 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`,
@@ -359,11 +351,11 @@ async function loadPriceItems(roomIds: number[], month: string, hostId?: number 
           priceType: priceDetailColumns.hasType
             ? sql`COALESCE(${sql.raw('client_price_set_detail.type')}, ${clientPriceList.type})`
             : clientPriceList.type,
-      amount: priceDetailColumns.hasAmount
-        ? sql`CAST(COALESCE(${sql.raw(
-            `client_price_set_detail.${priceDetailAmountColumn}`
-          )}, ${priceListAmountColumn}) AS DECIMAL(20,4))`
-        : sql`CAST(${priceListAmountColumn} AS DECIMAL(20,4))`,
+          amount: priceDetailColumns.hasAmount
+            ? sql`CAST(COALESCE(${sql.raw(
+                `client_price_set_detail.${priceDetailAmountColumn}`
+              )}, ${priceListAmountColumn}) AS DECIMAL(20,4))`
+            : sql`CAST(${priceListAmountColumn} AS DECIMAL(20,4))`,
           title: priceDetailColumns.hasTitle
             ? sql`COALESCE(${sql.raw('client_price_set_detail.title')}, ${clientPriceList.title})`
             : clientPriceList.title,
@@ -382,13 +374,7 @@ async function loadPriceItems(roomIds: number[], month: string, hostId?: number 
                 ? sql`COALESCE(${sql.raw('client_price_set_detail.ratio_yn')}, 0)`
                 : priceFlags.hasRatio
                   ? sql`COALESCE(${sql.raw('client_price_list.ratio_yn')}, 0)`
-                  : sql`CAST(0 AS SIGNED)`,
-          perBedYn: priceFlags.hasPerBed
-            ? sql`COALESCE(${sql.raw('client_price_list.per_bed_yn')}, 0)`
-            : sql`CAST(0 AS SIGNED)`,
-          perRoomYn: priceFlags.hasPerRoom
-            ? sql`COALESCE(${sql.raw('client_price_list.per_room_yn')}, 0)`
-            : sql`CAST(0 AS SIGNED)`
+                  : sql`CAST(0 AS SIGNED)`
         })
         .from(clientPriceSetDetail)
         .innerJoin(clientPriceList, eq(clientPriceSetDetail.priceId, clientPriceList.id))
