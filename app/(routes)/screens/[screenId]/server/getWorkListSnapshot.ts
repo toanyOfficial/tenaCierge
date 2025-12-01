@@ -269,7 +269,8 @@ export async function getWorkListSnapshot(
         id: workHeader.id,
         date: workHeader.date,
         roomId: workHeader.roomId,
-        checkoutTime: workHeader.checkoutTime,
+        // Some deployments miss `work_header.checkout_time`; fall back to room defaults to avoid hard failures.
+        checkoutTime: clientRooms.checkoutTime,
         checkinTime: workHeader.checkinTime,
         blanketQty: workHeader.blanketQty,
         amenitiesQty: workHeader.amenitiesQty,
@@ -277,7 +278,8 @@ export async function getWorkListSnapshot(
         supplyYn: workHeader.supplyYn,
         cleaningFlag: workHeader.cleaningFlag,
         cleaningYn: workHeader.cleaningYn,
-        conditionCheckYn: workHeader.conditionCheckYn,
+        // Some deployments omit `condition_check_yn`; default to false when absent.
+        conditionCheckYn: sql<boolean>`0`,
         supervisingYn: workHeader.supervisingYn,
         supervisingEndTime: workHeader.supervisingEndTime,
         cleanerId: workHeader.cleanerId,
@@ -314,17 +316,9 @@ export async function getWorkListSnapshot(
 
     let emptyMessage: string | undefined;
 
-    const hasButlerApplicationToday =
-      targetDate === windowDates.d0 && worker ? await hasButlerApplication(worker.id, windowDates.d0) : false;
-
-    if (
-      profile.primaryRole === 'admin' ||
-      profile.roles.includes('admin') ||
-      profile.roles.includes('butler') ||
-      hasButlerApplicationToday
-    ) {
+    if (isAdmin || isButler) {
       rows = await baseQuery;
-    } else if (profile.roles.includes('host')) {
+    } else if (isHost) {
       if (!client) {
         rows = [];
       } else {
@@ -332,14 +326,12 @@ export async function getWorkListSnapshot(
           .where(and(eq(workHeader.date, targetDateSql), eq(clientRooms.clientId, client.id)))
           .limit(1000);
       }
-    } else if (profile.roles.includes('cleaner')) {
+    } else if (isCleaner) {
       if (!worker) {
         rows = [];
         emptyMessage = '근무자 정보를 찾을 수 없습니다.';
       } else {
         const assignedWorkIds = await fetchAssignedWorkIds(worker.id, targetDate);
-        const windowLabel = window === 'd1' ? '내일' : '오늘';
-        const hasApplication = await hasWorkApplication(worker.id, targetDate);
 
         if (!assignedWorkIds.length) {
           const hasApplication = await hasWorkApplication(worker.id, targetDate);
@@ -353,13 +345,10 @@ export async function getWorkListSnapshot(
       }
     }
 
-  const normalized = (rows ?? []).map((row) => normalizeRow(row));
+    const normalized = (rows ?? []).map((row) => normalizeRow(row));
   const supplyMap = await fetchLatestSupplyReports(normalized.map((row) => row.id));
   const photoMap = await fetchLatestPhotoReports(normalized.map((row) => row.id));
-  const assignableWorkers =
-    profile.roles.includes('admin') || profile.roles.includes('butler')
-      ? await fetchAssignableWorkers(targetDate)
-      : [];
+  const assignableWorkers = isAdmin || isButler ? await fetchAssignableWorkers(targetDate) : [];
   const buildingCounts = normalized.reduce<Record<number, number>>((acc, row) => {
     acc[row.buildingId] = (acc[row.buildingId] ?? 0) + 1;
     return acc;

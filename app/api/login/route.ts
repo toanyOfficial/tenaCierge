@@ -177,7 +177,7 @@ export async function POST(request: Request) {
   }
 
   const cookieStore = cookies();
-  const secure = process.env.NODE_ENV === 'production';
+  const secure = isSecureRequest(request);
 
   const sharedOptions = {
     httpOnly: true,

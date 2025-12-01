@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import datetime as dt
 import json
 import logging
@@ -16,11 +17,13 @@ from decimal import Decimal
 from typing import Dict, Iterable, List, Optional, Sequence, Set
 
 import mysql.connector
+from mysql.connector import errors as mysql_errors
 import requests
 
 KST = dt.timezone(dt.timedelta(hours=9))
 MAX_OPENAI_CALLS_PER_RUN = 3
 COMMENT_DB_LIMIT = 240
+SCHEMA_CSV_PATH = Path(__file__).resolve().parent.parent / "docsForCodex" / "schema.csv"
 
 
 def configure_logging() -> None:
@@ -895,22 +898,8 @@ class CleanerRankingBatch:
         if not eligible_ids:
             return
 
-        # column 존재 여부 확인
-        has_column = False
-        with self.conn.cursor(dictionary=True) as cur:
-            cur.execute(
-                """
-                SELECT 1
-                FROM information_schema.columns
-                WHERE table_schema = DATABASE()
-                  AND table_name = 'worker_header'
-                  AND column_name = 'score_20days'
-                LIMIT 1
-                """
-            )
-            has_column = cur.fetchone() is not None
-
-        if not has_column:
+        worker_columns = self._get_table_columns("worker_header")
+        if "score_20days" not in worker_columns:
             logging.warning("worker_header.score_20days 컬럼이 없어 점수 누적을 건너뜁니다.")
             return
 
