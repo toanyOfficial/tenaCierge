@@ -259,6 +259,12 @@ class CleanerRankingBatch:
             )
             return
 
+        logging.info(
+            "[additional_price] 조회 결과: works=%s건 (room_id 포함=%s건)",
+            len(works),
+            len([w for w in works if w.get("room_id") is not None]),
+        )
+
         room_ids = [int(w["room_id"]) for w in works if w.get("room_id") is not None]
         if not room_ids:
             logging.info(
@@ -333,6 +339,8 @@ class CleanerRankingBatch:
             for row in cur:
                 price_map[int(row["id"])] = row
 
+        logging.info("[additional_price] price_map 로드: %s건", len(price_map))
+
         price_set_columns = self._get_table_columns("client_price_set_detail")
         set_amount_col = "amount_per_cleaning" if "amount_per_cleaning" in price_set_columns else None
         price_set_ids = {int(r.get("price_set_id")) for r in rooms.values() if r.get("price_set_id")}
@@ -356,6 +364,12 @@ class CleanerRankingBatch:
                 )
                 for row in cur:
                     set_price_map[(int(row["price_set_id"]), int(row["price_id"]))] = row
+
+        logging.info(
+            "[additional_price] set_price_map 로드: price_set_id=%s개, 매핑=%s건",
+            len(price_set_ids),
+            len(set_price_map),
+        )
 
         if not price_map:
             logging.warning("[additional_price] price_map 비어 있음 - 필요한 ID 9,10,15,16 없음")
@@ -383,6 +397,12 @@ class CleanerRankingBatch:
                 per_room_max_seq[room_id] = max(per_room_max_seq.get(room_id, 0), int(row.get("seq") or 0))
 
         inserts: List[Dict[str, object]] = []
+
+        logging.info(
+            "[additional_price] 기존 추가금 내역: %s건 (대상 room=%s개)",
+            len(existing_titles),
+            len(per_room_max_seq),
+        )
 
         for work in works:
             room_id = int(work["room_id"])
@@ -414,6 +434,13 @@ class CleanerRankingBatch:
 
             def add_charge(price_id: int, quantity: int, reason: str) -> None:
                 if quantity <= 0:
+                    logging.debug(
+                        "[additional_price] 건너뜀 qty<=0: work_id=%s, room_id=%s, price_id=%s, reason=%s",
+                        work.get("id"),
+                        room_id,
+                        price_id,
+                        reason,
+                    )
                     return
                 price_row = resolve_price_row(price_id)
                 if not price_row or price_row.get("amount") is None:
@@ -426,6 +453,12 @@ class CleanerRankingBatch:
                     return
                 title = price_row.get("title") or ""
                 if (room_id, title) in existing_titles:
+                    logging.info(
+                        "[additional_price] 중복 방지로 스킵: work_id=%s, room_id=%s, title=%s",
+                        work.get("id"),
+                        room_id,
+                        title,
+                    )
                     return
                 unit_amount = Decimal(str(price_row.get("amount")))
                 amount_value = unit_amount if has_qty_column else unit_amount * Decimal(quantity)
@@ -445,6 +478,15 @@ class CleanerRankingBatch:
                     entry["ratio_yn"] = price_row.get("ratio_yn", 0)
                 if "comment" in additional_columns:
                     entry["comment"] = reason
+                logging.info(
+                    "[additional_price] 추가요금 생성: work_id=%s room_id=%s price_id=%s qty=%s amount=%s reason=%s",
+                    work.get("id"),
+                    room_id,
+                    price_id,
+                    quantity,
+                    amount_value,
+                    reason,
+                )
                 inserts.append(entry)
                 existing_titles.add((room_id, title))
 
