@@ -1,11 +1,11 @@
 .commonBar {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 10px 12px;
-  background: var(--surface);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: linear-gradient(180deg, var(--surface) 0%, #f9fbff 100%);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   color: var(--text-strong);
   width: 100%;
   max-width: 960px;
@@ -58,8 +58,8 @@
   gap: 6px;
   font-size: 0.82rem;
   white-space: nowrap;
-  padding: 4px 8px;
-  border-radius: 999px;
+  padding: 6px 10px;
+  border-radius: var(--radius-pill);
   background: var(--surface-muted);
   border: 1px solid rgba(15, 23, 42, 0.08);
 }
@@ -113,7 +113,7 @@
   border: 1px solid rgba(15, 23, 42, 0.12);
   background: var(--surface-muted);
   color: var(--text-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 6px 10px;
   font-size: 0.72rem;
   text-transform: uppercase;
@@ -162,7 +162,7 @@
   left: 0;
   min-width: 160px;
   width: max-content;
-  background: var(--surface);
+  background: linear-gradient(180deg, var(--surface) 0%, #f7faff 100%);
   border-radius: 12px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   box-shadow: var(--shadow-soft);
@@ -175,7 +175,7 @@
   position: absolute;
   left: 0;
   min-width: 160px;
-  background: var(--surface);
+  background: linear-gradient(180deg, var(--surface) 0%, #f7faff 100%);
   border-radius: 12px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   box-shadow: var(--shadow-soft);
@@ -236,7 +236,7 @@
   justify-content: center;
   padding: 6px 10px;
   font-size: 0.75rem;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   background: var(--surface-muted);
   color: var(--text-strong);
@@ -359,9 +359,9 @@
 .adminPanel {
   width: 100%;
   background: var(--surface);
-  border-radius: 32px;
+  border-radius: 26px;
   border: 1px solid var(--border);
-  padding: 24px;
+  padding: var(--space-5);
   box-shadow: var(--shadow-soft);
 }
 
@@ -417,7 +417,7 @@
 
 .panelEmpty {
   margin: 0;
-  padding: 24px;
+  padding: var(--space-4);
   border-radius: 20px;
   border: 1px dashed rgba(148, 163, 184, 0.6);
   text-align: center;
@@ -469,8 +469,8 @@
 }
 
 .statusBadge {
-  background: #ecfccb;
-  color: #3f6212;
+  background: rgba(52, 199, 89, 0.15);
+  color: var(--success);
   padding: 6px 14px;
   border-radius: 999px;
   font-weight: 600;
@@ -493,7 +493,7 @@
   gap: 6px;
   border-radius: 999px;
   border: 1px solid rgba(15, 23, 42, 0.12);
-  padding: 10px 18px;
+  padding: 12px 18px;
   font-weight: 600;
   color: var(--text-strong);
   background: var(--surface-muted);

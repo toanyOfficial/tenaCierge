@@ -3,17 +3,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--surface-muted);
-  padding: 24px;
+  background: linear-gradient(180deg, var(--surface-muted) 0%, #ffffff 100%);
+  padding: var(--space-5);
 }
 
 .card {
   max-width: 420px;
   width: 100%;
   background: var(--surface);
-  border-radius: 24px;
+  border-radius: 22px;
   border: 1px solid var(--border);
-  padding: 32px;
+  padding: clamp(var(--space-4), 4vw, var(--space-6));
   text-align: center;
   box-shadow: var(--shadow-soft);
 }
@@ -33,12 +33,12 @@
 
 .successText {
   margin: 6px 0 0;
-  color: #0f9d58;
+  color: var(--success);
 }
 
 .errorText {
   margin: 6px 0 0;
-  color: #dc2626;
+  color: var(--danger);
 }
 
 .backLink {
@@ -46,7 +46,7 @@
   align-items: center;
   justify-content: center;
   padding: 10px 16px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid rgba(15, 23, 42, 0.12);
   color: var(--text-strong);
   text-decoration: none;
@@ -62,7 +62,7 @@
   background: linear-gradient(180deg, var(--surface-muted) 0%, var(--surface) 100%);
   width: 100%;
   overflow-x: hidden;
-  padding: 24px 12px 60px;
+  padding: var(--space-4) var(--space-2) 60px;
   box-sizing: border-box;
   display: flex;
   justify-content: center;
@@ -85,7 +85,7 @@
   background: var(--surface);
   border-radius: 20px;
   border: 1px solid var(--border);
-  padding: clamp(18px, 2vw + 8px, 26px);
+  padding: clamp(var(--space-3), 2vw + 8px, var(--space-5));
   box-shadow: var(--shadow-soft);
   display: flex;
   flex-direction: column;
@@ -111,7 +111,7 @@
 }
 
 .roomHero {
-  background: linear-gradient(135deg, #e9f0ff, #f7f9ff);
+  background: linear-gradient(135deg, #eef3ff, #f9fbff);
   color: var(--text-strong);
   border-radius: 16px;
   padding: 18px 20px;
@@ -131,7 +131,7 @@
 
 .heroTitle {
   margin: 0;
-  font-size: 2rem;
+  font-size: clamp(1.75rem, 3vw, 2rem);
   font-weight: 800;
   letter-spacing: -0.01em;
 }
@@ -151,7 +151,7 @@
 
 .sectionTitle {
   margin: 4px 0 0;
-  font-size: 1.8rem;
+  font-size: clamp(1.4rem, 2vw + 1rem, 1.8rem);
   color: var(--text-strong);
 }
 
