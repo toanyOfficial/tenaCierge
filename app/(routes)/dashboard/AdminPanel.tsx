@@ -18,7 +18,8 @@ const adminLinks = [
   { id: '007', label: '평가이력' },
   { id: '008', label: '정산관리' },
   { id: '009', label: '인원관리' },
-  { id: '010', label: '고객관리' }
+  { id: '010', label: '고객관리' },
+  { id: '011', label: '소모품구매' }
 ];
 
 export default function AdminPanel({ notice }: Props) {

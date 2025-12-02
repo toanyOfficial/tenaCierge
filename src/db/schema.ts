@@ -123,6 +123,20 @@ export const clientPriceSetDetail = mysqlTable('client_price_set_detail', {
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
 
+export const clientSupplements = mysqlTable('client_supplements', {
+  id: bigintNumber('id', { unsigned: true }).autoincrement().notNull(),
+  clientId: int('client_id').notNull(),
+  roomId: int('room_id').notNull(),
+  date: date('date').notNull(),
+  nextDate: date('next_date'),
+  title: varchar('title', { length: 255 }).notNull(),
+  dscpt: varchar('dscpt', { length: 255 }),
+  bunYn: boolean('bun_yn').default(false).notNull(),
+  buyYn: boolean('buy_yn').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
 export const etcBaseCode = mysqlTable(
   'etc_baseCode',
   {

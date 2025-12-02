@@ -57,7 +57,7 @@ export function buildDateOptions(maxDays = 7, baseDate = getKstNow()) {
     const value = formatDateKey(date);
     const tag = offset === 0 ? 'D0' : (`D+${offset}` as WorkWindowTag);
 
-    options.push({ value, tag, label: formatFullDateLabel(date) });
+    options.push({ value, tag, label: formatWorkDateLabel(tag, value) });
   }
 
   return options;
@@ -76,6 +76,25 @@ export function isDateWithinRange(targetKey: string, maxDays = 7, baseDate = get
 
 export function formatDateKey(date: Date) {
   return formatKstDateKey(date);
+}
+
+export function formatWorkDateLabel(tag: WorkWindowTag, dateKey: string | Date) {
+  const value = typeof dateKey === 'string' ? dateKey : formatDateKey(dateKey);
+  return `${tag} ${value}`;
+}
+
+export function clampDateWithinRange(targetKey: string, maxDays = 7, baseDate = getKstNow()) {
+  const baseKey = formatDateKey(baseDate);
+  const diff = calculateDiffDays(baseKey, targetKey);
+
+  if (Number.isNaN(diff) || diff < 0) return baseKey;
+  if (diff > maxDays) {
+    const capped = new Date(baseDate);
+    capped.setDate(capped.getDate() + maxDays);
+    return formatDateKey(capped);
+  }
+
+  return targetKey;
 }
 
 function parseDateKey(value: string) {

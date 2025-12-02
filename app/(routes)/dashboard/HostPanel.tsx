@@ -5,7 +5,8 @@ import styles from './dashboard.module.css';
 const hostLinks = [
   { screenId: '002', label: '오더관리' },
   { screenId: '004', label: '과업지시서' },
-  { screenId: '008', label: '정산관리' }
+  { screenId: '008', label: '정산관리' },
+  { screenId: '011', label: '소모품구매' }
 ];
 
 export default function HostPanel() {

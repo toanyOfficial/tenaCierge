@@ -1,0 +1,32 @@
+# 클린 라이트 테마 가이드
+
+본 문서는 앱 전역에 적용한 "클린 라이트" 테마 규칙을 기록해 향후 디자인 수정 시 일관성을 유지하기 위한 참고자료입니다.
+
+## 팔레트
+- **기본 배경**: `#f8f9fb` → 그라디언트로 상단을 살짝 밝게 처리.
+- **서피스**: `#ffffff` (`var(--surface)`), 서브 서피스 `#f2f5f9` (`var(--surface-muted)`).
+- **텍스트**: 진한 본문 `#0f172a`, 보조 `#4b5563`, 소프트 `#94a3b8`.
+- **포인트**: 액션/하이라이트 `#2563eb` (`var(--accent)`), 소프트 포인트 `#e3edff`.
+- **상태**: 성공 `#34c759`, 경고 `#ffb020`, 오류 `#ef4444`.
+- **테두리/쉐도우**: `#e5e7eb`를 기본 경계선으로, 그림자는 `var(--shadow-soft)`(0 10px 30px rgba(15, 23, 42, 0.06)).
+- **포커스 링**: `var(--focus-ring)`으로 입력/버튼에 동일한 접근성 포커스 강조 적용.
+
+## 공간 및 라운드
+- **라운드**: 카드 18–22px, pill 999px, 입력/버튼 12–14px.
+- **여백**: `--space-1`~`--space-6`(8–32px) 스케일 사용, 모바일 기준 최소 12–14px, 섹션 간 18–24px.
+- **그리드 간격/폭**: 기본 카드 최소 폭 `--grid-min-card`(230px), 콤팩트 격자 `--grid-min-compact`(190px), 간격은 `--grid-gap`/`--grid-gap-tight`로 통일.
+- **라인 높이**: 본문 1.6, 제목은 자간 -0.01em 적용.
+
+## 적용 원칙
+1. **그림자 최소화**: 기존 진한 드롭섀도우는 `var(--shadow-soft)`로 통일.
+2. **배경 대비**: 짙은 색 배경을 모두 밝은 톤/소프트 그라디언트로 전환.
+3. **입력/CTA 가독성**: 입력 필드 배경을 `var(--surface-muted)`로, 포커스는 포인트 컬러 아웃라인을 사용.
+4. **상태/뱃지**: 파스텔 톤 배경 + 진한 텍스트 조합을 유지하여 시인성 확보.
+5. **모바일 우선**: 패딩과 폰트 크기를 clamp/상대 단위로 지정, 48–56px 터치 타겟 확보.
+6. **반응형 그리드**: 카드·데이터 그리드는 `repeat(auto-fit, minmax(var(--grid-min-card|compact), 1fr))`로 정의하고, 720px 이하에서는 간격을 `--grid-gap-tight`로 줄이며 640px 이하에서는 1열 스택을 강제해 모바일 가독성을 확보.
+
+## 참고
+- 전역 CSS 변수 정의: `app/globals.css`
+- 주요 화면 스타일: `app/(routes)/login/login.module.css`, `app/(routes)/dashboard/dashboard.module.css`, `app/(routes)/screens/[screenId]/screens.module.css`, `app/(routes)/screens/[screenId]/settlement.module.css`
+
+테마 변경 시 위 변수와 규칙을 먼저 업데이트하고, 각 모듈 CSS는 변수 사용 여부를 확인 후 맞춰주세요.
