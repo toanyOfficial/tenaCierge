@@ -11,6 +11,7 @@ import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { getKstNow } from '@/src/utils/workWindow';
 import type { ProfileSummary } from '@/src/utils/profile';
 import { getActivePenalty } from '@/src/server/penalties';
+import { logServerError } from '@/src/server/errorLogger';
 
 // Next.js route config (must be declared once)
 const routeConfig = { dynamic: 'force-dynamic' as const, revalidate: 0 as const };
@@ -27,41 +28,48 @@ type Body = {
 };
 
 export async function PATCH(request: Request, { params }: { params: { applyId: string } }) {
-  const applyId = Number(params.applyId);
+  let applyId: number | null = null;
 
-  if (!Number.isFinite(applyId) || applyId <= 0) {
-    return NextResponse.json({ message: '잘못된 요청입니다.' }, { status: 400 });
+  try {
+    applyId = Number(params.applyId);
+
+    if (!Number.isFinite(applyId) || applyId <= 0) {
+      return NextResponse.json({ message: '잘못된 요청입니다.' }, { status: 400 });
+    }
+
+    const profile = await getProfileWithDynamicRoles();
+    const hasAccess = profile.roles.some((role) => ALLOWED_ROLES.includes(role as (typeof ALLOWED_ROLES)[number]));
+
+    if (!hasAccess) {
+      return NextResponse.json({ message: '신청 권한이 없습니다.' }, { status: 403 });
+    }
+
+    const body = (await request.json()) as Body;
+
+    if (body.action !== 'apply' && body.action !== 'cancel') {
+      return NextResponse.json({ message: '지원하지 않는 동작입니다.' }, { status: 400 });
+    }
+
+    const slot = await getApplyRowById(applyId);
+
+    if (!slot) {
+      return NextResponse.json({ message: '해당 업무를 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    const now = getKstNow();
+    const daysUntil = computeDaysUntil(slot.workDate, now);
+    const isButlerSlot = slot.position === 2;
+    const occupantId = slot.workerId && slot.workerId > 0 ? slot.workerId : null;
+
+    if (body.action === 'apply') {
+      return handleApply({ profile, slot, now, daysUntil, isButlerSlot, occupantId, body });
+    }
+
+    return handleCancel({ profile, slot, now, daysUntil, isButlerSlot, occupantId });
+  } catch (error) {
+    await logServerError({ appName: 'work-apply', message: '업무 신청/취소 처리 실패', error, context: { applyId } });
+    return NextResponse.json({ message: '신청 처리 중 오류가 발생했습니다.' }, { status: 500 });
   }
-
-  const profile = await getProfileWithDynamicRoles();
-  const hasAccess = profile.roles.some((role) => ALLOWED_ROLES.includes(role as (typeof ALLOWED_ROLES)[number]));
-
-  if (!hasAccess) {
-    return NextResponse.json({ message: '신청 권한이 없습니다.' }, { status: 403 });
-  }
-
-  const body = (await request.json()) as Body;
-
-  if (body.action !== 'apply' && body.action !== 'cancel') {
-    return NextResponse.json({ message: '지원하지 않는 동작입니다.' }, { status: 400 });
-  }
-
-  const slot = await getApplyRowById(applyId);
-
-  if (!slot) {
-    return NextResponse.json({ message: '해당 업무를 찾을 수 없습니다.' }, { status: 404 });
-  }
-
-  const now = getKstNow();
-  const daysUntil = computeDaysUntil(slot.workDate, now);
-  const isButlerSlot = slot.position === 2;
-  const occupantId = slot.workerId && slot.workerId > 0 ? slot.workerId : null;
-
-  if (body.action === 'apply') {
-    return handleApply({ profile, slot, now, daysUntil, isButlerSlot, occupantId, body });
-  }
-
-  return handleCancel({ profile, slot, now, daysUntil, isButlerSlot, occupantId });
 }
 
 type ApplyContext = {

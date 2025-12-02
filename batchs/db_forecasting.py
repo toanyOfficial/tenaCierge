@@ -211,14 +211,14 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def get_db_connection() -> mysql.connector.MySQLConnection:
+def get_db_connection(*, autocommit: bool = False) -> mysql.connector.MySQLConnection:
     cfg = dict(
         host=os.environ.get("DB_HOST", "127.0.0.1"),
         port=int(os.environ.get("DB_PORT", 3306)),
         user=os.environ.get("DB_USER", "root"),
         password=os.environ.get("DB_PASSWORD", ""),
         database=os.environ.get("DB_NAME", "tenaCierge"),
-        autocommit=False,
+        autocommit=autocommit,
     )
     if not cfg["password"]:
         raise SystemExit(
@@ -372,7 +372,7 @@ def save_model_variables(conn, values: Dict[str, float]) -> None:
 
 
 def log_error(
-    conn: mysql.connector.MySQLConnection,
+    conn: Optional[mysql.connector.MySQLConnection],
     *,
     message: str,
     stacktrace: Optional[str] = None,
@@ -383,9 +383,11 @@ def log_error(
 ) -> None:
     """etc_errorLogs 테이블에 오류 정보를 적재한다."""
 
+    log_conn = conn if conn is not None and conn.is_connected() else get_db_connection(autocommit=True)
+    should_close = log_conn is not conn
     try:
         context_json = json.dumps({"run_date": str(run_date or seoul_today())})
-        with conn.cursor() as cur:
+        with log_conn.cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO etc_errorLogs
@@ -403,9 +405,62 @@ def log_error(
                     context_json,
                 ),
             )
-        conn.commit()
+        log_conn.commit()
     except Exception as exc:  # pragma: no cover - 실패 시 로그만 남김
         logging.error("에러로그 저장 실패: %s", exc)
+    finally:
+        if should_close:
+            log_conn.close()
+
+
+def log_batch_execution(
+    conn: Optional[mysql.connector.MySQLConnection],
+    *,
+    app_name: str,
+    start_dttm: dt.datetime,
+    end_dttm: dt.datetime,
+    end_flag: int,
+    context: Optional[Dict[str, object]] = None,
+) -> None:
+    """배치 실행 이력을 DB에 남긴다."""
+
+    log_conn = conn if conn is not None and conn.is_connected() else get_db_connection(autocommit=True)
+    should_close = log_conn is not conn
+    try:
+        with log_conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS etc_errorLogs_batch (
+                    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                    app_name VARCHAR(64) NOT NULL,
+                    start_dttm DATETIME NOT NULL,
+                    end_dttm DATETIME NOT NULL,
+                    end_flag TINYINT NOT NULL,
+                    context_json JSON NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                """,
+            )
+            cur.execute(
+                """
+                INSERT INTO etc_errorLogs_batch
+                    (app_name, start_dttm, end_dttm, end_flag, context_json)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    app_name,
+                    start_dttm,
+                    end_dttm,
+                    end_flag,
+                    json.dumps(context or {}, ensure_ascii=False),
+                ),
+            )
+        log_conn.commit()
+    except Exception as exc:  # pragma: no cover - 실패 시 로그만 남김
+        logging.error("배치 실행 로그 저장 실패: %s", exc)
+    finally:
+        if should_close:
+            log_conn.close()
 
 
 def _fetch_supply_reports(
@@ -841,7 +896,7 @@ class BatchRunner:
                 else:
                     label = ""
                 has_checkout = out_time is not None
-                actual_observed = (target_date == self.run_date) and (not self.today_only)
+                actual_observed = (target_date == self.run_date) and self.today_only
                 prediction = Prediction(
                     room=room,
                     target_date=target_date,
@@ -857,13 +912,14 @@ class BatchRunner:
         self._persist_predictions(predictions)
         self._persist_work_header(predictions)
 
-        if not self.today_only:
+        if self.today_only:
+            self._persist_accuracy(predictions)
+            self._adjust_threshold(predictions)
+        else:
             for offset in range(self.start_offset, self.end_offset + 1):
                 self._persist_work_apply_slots(
                     self.run_date + dt.timedelta(days=offset), predictions
                 )
-            self._persist_accuracy(predictions)
-            self._adjust_threshold(predictions)
 
         logging.info(
             "ICS 다운로드 결과: 기대 %s건 중 %s건", self.expected_ics, self.downloaded_ics
@@ -1362,7 +1418,10 @@ def main() -> None:
         run_date = today_seoul
     now_seoul = dt.datetime.now(dt.timezone.utc).astimezone(SEOUL)
     logging.info("기준일(KST): %s (현재 서울 시각 %s)", run_date, now_seoul.strftime("%Y-%m-%d %H:%M:%S"))
+    start_dttm = dt.datetime.now(dt.timezone.utc)
+    conn: Optional[mysql.connector.MySQLConnection] = None
     conn = get_db_connection()
+    end_flag = 1
     try:
         runner = BatchRunner(
             conn=conn,
@@ -1376,6 +1435,7 @@ def main() -> None:
         _persist_client_supplements(conn, run_date)
         logging.info("배치 정상 종료")
     except Exception as exc:
+        end_flag = 2
         stack = traceback.format_exc()
         logging.error("배치 비정상 종료", exc_info=exc)
         try:
@@ -1388,7 +1448,24 @@ def main() -> None:
             logging.error("에러로그 저장 중 추가 오류 발생", exc_info=True)
         raise
     finally:
-        conn.close()
+        try:
+            log_batch_execution(
+                conn,
+                app_name="db_forecasting",
+                start_dttm=start_dttm,
+                end_dttm=dt.datetime.now(dt.timezone.utc),
+                end_flag=end_flag,
+                context={
+                    "run_date": str(run_date),
+                    "start_offset": args.start_offset,
+                    "end_offset": args.end_offset,
+                    "today_only": args.today_only,
+                },
+            )
+        except Exception:
+            logging.error("배치 실행 로그 저장 실패", exc_info=True)
+        if conn is not None and conn.is_connected():
+            conn.close()
 
 
 if __name__ == "__main__":
