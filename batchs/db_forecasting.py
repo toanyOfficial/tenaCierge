@@ -483,11 +483,10 @@ def _persist_client_supplements(conn: mysql.connector.MySQLConnection, run_date:
         logging.info("공급품 체크리스트 매핑 없음 - 적재 스킵(run_date=%s)", run_date)
         return
 
-    inserts: List[Tuple[int, int, dt.date, Optional[dt.date], str, Optional[str]]] = []
+    inserts: List[Tuple[int, dt.date, Optional[dt.date], str, Optional[str]]] = []
 
     for row in reports:
         room_id = int(row.get("room_id"))
-        client_id = int(row.get("client_id"))
         ids = _extract_ids_from_json(row.get("contents1"))
         if not ids:
             continue
@@ -505,7 +504,7 @@ def _persist_client_supplements(conn: mysql.connector.MySQLConnection, run_date:
             if description is None or str(description).strip() == "":
                 description = _extract_supply_note(notes, cid)
 
-            inserts.append((client_id, room_id, run_date, next_date, title, description))
+            inserts.append((room_id, run_date, next_date, title, description))
 
     if not inserts:
         logging.info("적재할 공급품 데이터가 없음(run_date=%s)", run_date)
@@ -517,8 +516,8 @@ def _persist_client_supplements(conn: mysql.connector.MySQLConnection, run_date:
         cur.execute("DELETE FROM client_supplements WHERE date = %s", (run_date,))
         cur.executemany(
             """
-            INSERT INTO client_supplements (client_id, room_id, date, next_date, title, dscpt)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO client_supplements (room_id, date, next_date, title, dscpt)
+            VALUES (%s, %s, %s, %s, %s)
             """,
             inserts,
         )

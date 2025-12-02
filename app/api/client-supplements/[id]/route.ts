@@ -34,7 +34,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     })
     .from(clientSupplements)
     .innerJoin(clientRooms, eq(clientRooms.id, clientSupplements.roomId))
-    .innerJoin(clientHeader, eq(clientHeader.id, clientSupplements.clientId))
+    .innerJoin(clientHeader, eq(clientHeader.id, clientRooms.clientId))
     .where(eq(clientSupplements.id, supplyId))
     .limit(1);
 

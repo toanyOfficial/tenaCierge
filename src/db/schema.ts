@@ -125,7 +125,6 @@ export const clientPriceSetDetail = mysqlTable('client_price_set_detail', {
 
 export const clientSupplements = mysqlTable('client_supplements', {
   id: bigintNumber('id', { unsigned: true }).autoincrement().notNull(),
-  clientId: int('client_id').notNull(),
   roomId: int('room_id').notNull(),
   date: date('date').notNull(),
   nextDate: date('next_date'),

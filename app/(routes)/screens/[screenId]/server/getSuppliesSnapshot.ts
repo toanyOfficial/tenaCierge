@@ -155,7 +155,7 @@ export async function getSuppliesSnapshot(profile: ProfileSummary): Promise<Supp
       })
       .from(clientSupplements)
       .innerJoin(clientRooms, eq(clientRooms.id, clientSupplements.roomId))
-      .innerJoin(clientHeader, eq(clientHeader.id, clientSupplements.clientId))
+      .innerJoin(clientHeader, eq(clientHeader.id, clientRooms.clientId))
       .innerJoin(etcBuildings, eq(etcBuildings.id, clientRooms.buildingId))
       .where(whereClause)
       .orderBy(
