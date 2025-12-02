@@ -379,13 +379,13 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
         body: JSON.stringify(payload)
       });
 
-      const payload = await response.json().catch(() => ({}));
+      const responseBody = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(payload?.message ?? '저장에 실패했습니다.');
+        throw new Error(responseBody?.message ?? '저장에 실패했습니다.');
       }
 
-      const updated = payload.work as CleaningWork;
+      const updated = responseBody.work as CleaningWork;
       setWorks((prev) => prev.map((entry) => (entry.id === workId ? updated : entry)));
       setBaseline((prev) => prev.map((entry) => (entry.id === workId ? updated : entry)));
       setStatusMap((prev) => ({ ...prev, [workId]: '저장되었습니다.' }));
@@ -518,14 +518,14 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
         body: JSON.stringify(payload)
       });
 
-      const payload = await response.json().catch(() => ({}));
+      const responseBody = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        const detail = payload?.message || payload?.error || payload?.reason;
+        const detail = responseBody?.message || responseBody?.error || responseBody?.reason;
         throw new Error(detail ? String(detail) : `작업 추가에 실패했습니다. (코드 ${response.status})`);
       }
 
-      const created = payload.work as CleaningWork | undefined;
+      const created = responseBody.work as CleaningWork | undefined;
 
       if (!created || !created.id) {
         throw new Error('생성 결과를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');
