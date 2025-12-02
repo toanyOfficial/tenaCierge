@@ -47,6 +47,7 @@ export default async function ScreenPage({
     workerId?: string;
     month?: string;
     hostId?: string;
+    targetDate?: string;
   };
 }) {
   const { screenId } = params;
@@ -206,7 +207,7 @@ export default async function ScreenPage({
     }
 
     const workerId = searchParams?.workerId ? Number(searchParams.workerId) : undefined;
-    const snapshot = await getEvaluationSnapshot(profile, workerId);
+    const snapshot = await getEvaluationSnapshot(profile, workerId, searchParams?.targetDate);
 
     return (
       <div className={styles.screenWrapper}>
