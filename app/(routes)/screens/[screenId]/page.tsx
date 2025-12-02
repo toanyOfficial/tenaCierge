@@ -16,6 +16,7 @@ import { getWorkListSnapshot } from './server/getWorkListSnapshot';
 import { getCleaningReportSnapshot } from './server/getCleaningReportSnapshot';
 import { getSupervisingReportSnapshot } from './server/getSupervisingReportSnapshot';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
+import { logServerError } from '@/src/server/errorLogger';
 import { getEvaluationSnapshot } from '@/src/server/evaluations';
 import { getSettlementSnapshot } from './server/getSettlementSnapshot';
 import { getSuppliesSnapshot } from './server/getSuppliesSnapshot';
@@ -207,13 +208,36 @@ export default async function ScreenPage({
     }
 
     const workerId = searchParams?.workerId ? Number(searchParams.workerId) : undefined;
-    const snapshot = await getEvaluationSnapshot(profile, workerId, searchParams?.targetDate);
+    try {
+      const snapshot = await getEvaluationSnapshot(profile, workerId, searchParams?.targetDate);
 
-    return (
-      <div className={styles.screenWrapper}>
-        <EvaluationHistoryClient profile={profile} snapshot={snapshot} />
-      </div>
-    );
+      return (
+        <div className={styles.screenWrapper}>
+          <EvaluationHistoryClient profile={profile} snapshot={snapshot} />
+        </div>
+      );
+    } catch (error) {
+      await logServerError({
+        appName: 'evaluations',
+        message: '평가 이력 화면 로드 실패',
+        error,
+        context: { workerId, targetDate: searchParams?.targetDate ?? null }
+      });
+
+      const message = error instanceof Error ? error.message : '평가 이력 데이터를 불러오지 못했습니다.';
+
+      return (
+        <section className={styles.placeholder}>
+          <div className={styles.card}>
+            <p className={styles.lead}>평가 이력 화면을 불러오지 못했습니다.</p>
+            <p className={styles.helper}>{message}</p>
+            <Link className={styles.backLink} href="/dashboard">
+              대시보드로 돌아가기
+            </Link>
+          </div>
+        </section>
+      );
+    }
   }
 
   if (screenId === '008') {
