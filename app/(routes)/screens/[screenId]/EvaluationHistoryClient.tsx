@@ -247,40 +247,6 @@ export default function EvaluationHistoryClient({ profile, snapshot }: Props) {
           ) : null}
         </div>
 
-        {canSearch && (
-          <form className={styles.searchBar} onSubmit={handleSearch}>
-            <div className={styles.searchInputWrap}>
-              <input
-                type="text"
-                placeholder="근로자 이름, 연락처 또는 등록번호로 검색"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <button type="submit" className={styles.searchButton} disabled={searching}>
-                {searching ? '검색중...' : '검색'}
-              </button>
-            </div>
-            {searchResults.length > 0 && (
-              <div className={styles.searchResults}>
-                {searchResults.map((worker) => (
-                  <button
-                    key={worker.id}
-                    type="button"
-                    className={styles.searchResultRow}
-                    onClick={() => handleSelectWorker(worker.id)}
-                  >
-                    <div className={styles.searchResultMeta}>
-                      <span className={styles.workerName}>{worker.name}</span>
-                      <span className={styles.workerCode}>{worker.registerCode}</span>
-                    </div>
-                    <span className={styles.workerTier}>{worker.tierLabel}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </form>
-        )}
-
         {!hasWorker ? (
           <div className={styles.emptyState}>
             <p className={styles.lead}>{snapshot.message ?? '조회할 근로자를 선택해 주세요.'}</p>
@@ -406,6 +372,41 @@ export default function EvaluationHistoryClient({ profile, snapshot }: Props) {
                     </div>
                   </div>
                 </div>
+                {canSearch && (
+                  <div className={styles.adminSearchBlock}>
+                    <form className={styles.searchBar} onSubmit={handleSearch}>
+                      <div className={styles.searchInputWrap}>
+                        <input
+                          type="text"
+                          placeholder="근로자 이름, 연락처 또는 등록번호로 검색"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                        <button type="submit" className={styles.searchButton} disabled={searching}>
+                          {searching ? '검색중...' : '검색'}
+                        </button>
+                      </div>
+                    </form>
+                    {searchResults.length > 0 && (
+                      <div className={styles.searchResults}>
+                        {searchResults.map((worker) => (
+                          <button
+                            key={worker.id}
+                            type="button"
+                            className={styles.searchResultRow}
+                            onClick={() => handleSelectWorker(worker.id)}
+                          >
+                            <div className={styles.searchResultMeta}>
+                              <span className={styles.workerName}>{worker.name}</span>
+                              <span className={styles.workerCode}>{worker.registerCode}</span>
+                            </div>
+                            <span className={styles.workerTier}>{worker.tierLabel}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </section>
             ) : null}
             <div className={styles.statsGrid}>
@@ -491,8 +492,9 @@ function buildDateOptions(): { value: string; label: string }[] {
     const date = new Date(kstToday);
     date.setHours(0, 0, 0, 0);
     date.setDate(date.getDate() - i);
-    const label = i === 0 ? 'D0 (오늘)' : `D-${i}`;
-    options.push({ value: date.toISOString().slice(0, 10), label: `${label}` });
+    const iso = date.toISOString().slice(0, 10);
+    const label = i === 0 ? 'D0' : `D-${i}`;
+    options.push({ value: iso, label: `${label} ${iso}` });
   }
 
   return options;
