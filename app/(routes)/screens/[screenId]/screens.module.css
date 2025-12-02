@@ -735,12 +735,13 @@
 .detailGridHeader,
 .detailGridRow {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(var(--grid-min-compact), 1fr));
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
   gap: var(--grid-gap-tight);
   padding: 8px 0;
   font-size: 0.95rem;
   justify-items: stretch;
   text-align: left;
+  min-width: 600px;
 }
 
 .detailColumnHeader {
@@ -773,6 +774,7 @@
 .detailGridBody {
   max-height: 60vh;
   overflow-y: auto;
+  overflow-x: auto;
 }
 
 .detailBuildingBlock {
@@ -1271,10 +1273,11 @@
 @media (max-width: 720px) {
   .detailGridHeader,
   .detailGridRow {
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    grid-template-columns: repeat(5, minmax(104px, 1fr));
     justify-items: stretch;
     text-align: left;
     row-gap: 6px;
+    font-size: 0.9rem;
   }
 
   .inlineFieldGroup,
@@ -2342,15 +2345,8 @@
   .reportSummaryGrid,
   .roomInfoGrid,
   .supervisingGuide,
-  .supplyRow,
   .captureToggleRow {
     grid-template-columns: 1fr;
-  }
-
-  .detailGridHeader,
-  .detailGridRow {
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    justify-items: stretch;
   }
 
   .applyRow {
@@ -3115,8 +3111,9 @@
 @media (max-width: 720px) {
   .supplyGridHeader,
   .supplyRow {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    min-width: 100%;
+    grid-template-columns: 104px 104px 1fr 1.4fr 64px;
+    min-width: 540px;
+    font-size: 0.92rem;
   }
 }
 
