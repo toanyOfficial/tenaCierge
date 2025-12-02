@@ -80,15 +80,15 @@ tenaCierge,client_rooms,ical_url_2,varchar(2083),YES,
 tenaCierge,client_rooms,weight,tinyint,NO,
 tenaCierge,client_rooms,created_at,timestamp,NO,
 tenaCierge,client_rooms,updated_at,timestamp,NO,
-tenaCierge,client_suppliements,id,int unsigned,NO,PK
-tenaCierge,client_suppliements,room_id,int,NO,
-tenaCierge,client_suppliements,date,date,NO,
-tenaCierge,client_suppliements,next_date,date,NO,
-tenaCierge,client_suppliements,title,varchar(20),YES,
-tenaCierge,client_suppliements,dscpt,varchar(2083),NO,
-tenaCierge,client_suppliements,buy_yn,tinyint(1),NO,"0:구매안함, 1:구매함"
-tenaCierge,client_suppliements,created_at,timestamp,NO,
-tenaCierge,client_suppliements,updated_at,timestamp,NO,
+tenaCierge,client_supplements,id,int unsigned,NO,PK
+tenaCierge,client_supplements,room_id,int,NO,
+tenaCierge,client_supplements,date,date,NO,
+tenaCierge,client_supplements,next_date,date,NO,
+tenaCierge,client_supplements,title,varchar(20),YES,
+tenaCierge,client_supplements,dscpt,varchar(2083),NO,
+tenaCierge,client_supplements,buy_yn,tinyint(1),NO,"0:구매안함, 1:구매함"
+tenaCierge,client_supplements,created_at,timestamp,NO,
+tenaCierge,client_supplements,updated_at,timestamp,NO,
 tenaCierge,etc_baseCode,code_group,varchar(30),NO,코드그룹명
 tenaCierge,etc_baseCode,code,varchar(10),NO,코드
 tenaCierge,etc_baseCode,value,varchar(255),NO,값
