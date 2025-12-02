@@ -163,6 +163,8 @@ export async function POST(req: Request) {
       .set({ cleaningFlag: 4, cleaningEndTime: nowTime })
       .where(eq(workHeader.id, workId));
 
+    await upsertCleaningWorkReport(workId, { field: 'contents2', key: 'end_dttm' });
+
     return NextResponse.json({ ok: true, images: rowsToInsert.find((row) => row.type === 3)?.contents1 ?? [] });
   } catch (error) {
     await logServerError({ appName: 'work-reports', message: '청소완료보고 저장 실패', error });
@@ -225,4 +227,53 @@ function safeParseSupplyNotes(value: FormDataEntryValue | null): Record<number, 
 
 function hasSupplyNotes(notes: Record<number, string>) {
   return Object.values(notes).some((val) => Boolean(val?.trim()));
+}
+
+async function upsertCleaningWorkReport(
+  workId: number,
+  options: { field: 'contents1' | 'contents2'; key: 'start_dttm' | 'end_dttm' }
+) {
+  const now = getKstNow().toISOString();
+
+  const existing = await db
+    .select({ id: workReports.id, contents1: workReports.contents1, contents2: workReports.contents2 })
+    .from(workReports)
+    .where(and(eq(workReports.workId, workId), eq(workReports.type, 6)))
+    .limit(1);
+
+  const target = existing[0];
+
+  if (!target) {
+    const payload: { workId: number; type: number; contents1: unknown; contents2?: unknown | null } = {
+      workId,
+      type: 6,
+      contents1: options.field === 'contents1' ? { [options.key]: now } : {},
+      contents2: options.field === 'contents2' ? { [options.key]: now } : null
+    };
+
+    await db.insert(workReports).values(payload);
+    return;
+  }
+
+  const contents1 = normalizeRecord(target.contents1);
+  const contents2 = normalizeRecord(target.contents2);
+
+  const updates: Record<string, unknown> = {};
+
+  if (options.field === 'contents1') {
+    updates.contents1 = { ...contents1, [options.key]: now };
+  }
+
+  if (options.field === 'contents2') {
+    updates.contents2 = { ...contents2, [options.key]: now };
+  }
+
+  if (Object.keys(updates).length) {
+    await db.update(workReports).set(updates).where(eq(workReports.id, target.id));
+  }
+}
+
+function normalizeRecord(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {} as Record<string, unknown>;
+  return value as Record<string, unknown>;
 }
