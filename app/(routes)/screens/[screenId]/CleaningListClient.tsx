@@ -361,17 +361,22 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
     setErrorMap((prev) => ({ ...prev, [workId]: '' }));
 
     try {
+      const payload: Record<string, unknown> = {
+        checkoutTime: work.checkoutTime,
+        checkinTime: work.checkinTime,
+        blanketQty: work.blanketQty,
+        amenitiesQty: work.amenitiesQty,
+        cancelYn: work.cancelYn
+      };
+
+      if (viewingAsAdmin) {
+        payload.requirements = work.requirements;
+      }
+
       const response = await fetch(`/api/works/${workId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          checkoutTime: work.checkoutTime,
-          checkinTime: work.checkinTime,
-          blanketQty: work.blanketQty,
-          amenitiesQty: work.amenitiesQty,
-          cancelYn: work.cancelYn,
-          requirements: work.requirements
-        })
+        body: JSON.stringify(payload)
       });
 
       const payload = await response.json().catch(() => ({}));
@@ -492,20 +497,25 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
     setAddError('');
 
     try {
+      const payload: Record<string, unknown> = {
+        roomId: addForm.roomId,
+        date: addForm.date,
+        checkoutTime: addForm.checkoutTime,
+        checkinTime: addForm.checkinTime,
+        blanketQty: addForm.blanketQty,
+        amenitiesQty: addForm.amenitiesQty,
+        cleaningYn: addForm.cleaningYn,
+        conditionCheckYn: addForm.conditionCheckYn
+      };
+
+      if (viewingAsAdmin && addForm.requirements.trim()) {
+        payload.requirements = addForm.requirements;
+      }
+
       const response = await fetch('/api/works', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomId: addForm.roomId,
-          date: addForm.date,
-          checkoutTime: addForm.checkoutTime,
-          checkinTime: addForm.checkinTime,
-          blanketQty: addForm.blanketQty,
-          amenitiesQty: addForm.amenitiesQty,
-          requirements: addForm.requirements,
-          cleaningYn: addForm.cleaningYn,
-          conditionCheckYn: addForm.conditionCheckYn
-        })
+        body: JSON.stringify(payload)
       });
 
       const payload = await response.json().catch(() => ({}));
