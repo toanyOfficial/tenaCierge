@@ -463,6 +463,51 @@ def log_batch_execution(
             log_conn.close()
 
 
+def log_batch_execution(
+    conn: mysql.connector.MySQLConnection,
+    *,
+    app_name: str,
+    start_dttm: dt.datetime,
+    end_dttm: dt.datetime,
+    end_flag: int,
+    context: Optional[Dict[str, object]] = None,
+) -> None:
+    """배치 실행 이력을 DB에 남긴다."""
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS etc_batchLogs (
+                    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                    app_name VARCHAR(64) NOT NULL,
+                    start_dttm DATETIME NOT NULL,
+                    end_dttm DATETIME NOT NULL,
+                    end_flag TINYINT NOT NULL,
+                    context_json JSON NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                """
+            )
+            cur.execute(
+                """
+                INSERT INTO etc_batchLogs
+                    (app_name, start_dttm, end_dttm, end_flag, context_json)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    app_name,
+                    start_dttm,
+                    end_dttm,
+                    end_flag,
+                    json.dumps(context or {}, ensure_ascii=False),
+                ),
+            )
+        conn.commit()
+    except Exception as exc:  # pragma: no cover - 실패 시 로그만 남김
+        logging.error("배치 실행 로그 저장 실패: %s", exc)
+
+
 def _fetch_supply_reports(
     conn: mysql.connector.MySQLConnection, run_date: dt.date
 ) -> List[Dict[str, object]]:
