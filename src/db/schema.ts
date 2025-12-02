@@ -131,7 +131,6 @@ export const clientSupplements = mysqlTable('client_supplements', {
   nextDate: date('next_date'),
   title: varchar('title', { length: 255 }).notNull(),
   dscpt: varchar('dscpt', { length: 255 }),
-  bunYn: boolean('bun_yn').default(false).notNull(),
   buyYn: boolean('buy_yn').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()

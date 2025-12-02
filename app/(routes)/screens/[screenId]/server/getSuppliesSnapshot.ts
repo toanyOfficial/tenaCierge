@@ -4,6 +4,7 @@ import { db } from '@/src/db/client';
 import { clientHeader, clientRooms, clientSupplements, etcBuildings } from '@/src/db/schema';
 import type { ClientSummary } from '@/src/server/clients';
 import { findClientByProfile } from '@/src/server/clients';
+import { logServerError } from '@/src/server/errorLogger';
 import type { ProfileSummary } from '@/src/utils/profile';
 import { formatDateKey } from '@/src/utils/workWindow';
 
@@ -117,53 +118,64 @@ function mapRow(row: SupplyRow) {
 }
 
 export async function getSuppliesSnapshot(profile: ProfileSummary): Promise<SuppliesSnapshot> {
-  const isAdmin = profile.roles.includes('admin');
-  const isHost = profile.roles.includes('host');
+  try {
+    const isAdmin = profile.roles.includes('admin');
+    const isHost = profile.roles.includes('host');
 
-  let client: ClientSummary | null = null;
+    let client: ClientSummary | null = null;
 
-  if (!isAdmin && isHost) {
-    client = await findClientByProfile(profile);
+    if (!isAdmin && isHost) {
+      client = await findClientByProfile(profile);
 
-    if (!client) {
-      return { groups: [] };
+      if (!client) {
+        return { groups: [] };
+      }
     }
+
+    const conditions = [eq(clientSupplements.buyYn, false)];
+
+    if (client) {
+      conditions.push(eq(clientHeader.id, client.id));
+    }
+
+    const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
+
+    const rows = await db
+      .select({
+        id: clientSupplements.id,
+        hostId: clientHeader.id,
+        hostName: clientHeader.name,
+        buildingShortName: etcBuildings.shortName,
+        roomNo: clientRooms.roomNo,
+        date: clientSupplements.date,
+        nextDate: clientSupplements.nextDate,
+        title: clientSupplements.title,
+        description: clientSupplements.dscpt,
+        buyYn: clientSupplements.buyYn
+      })
+      .from(clientSupplements)
+      .innerJoin(clientRooms, eq(clientRooms.id, clientSupplements.roomId))
+      .innerJoin(clientHeader, eq(clientHeader.id, clientSupplements.clientId))
+      .innerJoin(etcBuildings, eq(etcBuildings.id, clientRooms.buildingId))
+      .where(whereClause)
+      .orderBy(
+        asc(clientHeader.name),
+        asc(etcBuildings.shortName),
+        asc(clientRooms.roomNo),
+        asc(clientSupplements.date)
+      );
+
+    const mapped = rows.map(mapRow);
+
+    return { groups: groupRows(mapped) };
+  } catch (error) {
+    await logServerError({
+      appName: 'supplies',
+      message: '소모품 스냅샷 조회 실패',
+      error,
+      context: { roles: profile.roles }
+    });
+
+    return { groups: [] };
   }
-
-  const conditions = [eq(clientSupplements.bunYn, false)];
-
-  if (client) {
-    conditions.push(eq(clientHeader.id, client.id));
-  }
-
-  const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
-
-  const rows = await db
-    .select({
-      id: clientSupplements.id,
-      hostId: clientHeader.id,
-      hostName: clientHeader.name,
-      buildingShortName: etcBuildings.shortName,
-      roomNo: clientRooms.roomNo,
-      date: clientSupplements.date,
-      nextDate: clientSupplements.nextDate,
-      title: clientSupplements.title,
-      description: clientSupplements.dscpt,
-      buyYn: clientSupplements.buyYn
-    })
-    .from(clientSupplements)
-    .innerJoin(clientRooms, eq(clientRooms.id, clientSupplements.roomId))
-    .innerJoin(clientHeader, eq(clientHeader.id, clientSupplements.clientId))
-    .innerJoin(etcBuildings, eq(etcBuildings.id, clientRooms.buildingId))
-    .where(whereClause)
-    .orderBy(
-      asc(clientHeader.name),
-      asc(etcBuildings.shortName),
-      asc(clientRooms.roomNo),
-      asc(clientSupplements.date)
-    );
-
-  const mapped = rows.map(mapRow);
-
-  return { groups: groupRows(mapped) };
 }
