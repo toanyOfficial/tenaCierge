@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
-import { clientHeader, clientRooms, clientSuppliments, workHeader } from '@/src/db/schema';
+import { clientHeader, clientRooms, clientSupplements } from '@/src/db/schema';
 import { findClientByProfile } from '@/src/server/clients';
 import { logServerError } from '@/src/server/errorLogger';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
@@ -33,14 +33,13 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
     const [row] = await db
       .select({
-        id: clientSuppliments.id,
+        id: clientSupplements.id,
         clientId: clientHeader.id
       })
-      .from(clientSuppliments)
-      .innerJoin(workHeader, eq(workHeader.id, clientSuppliments.workId))
-      .innerJoin(clientRooms, eq(clientRooms.id, workHeader.roomId))
+      .from(clientSupplements)
+      .innerJoin(clientRooms, eq(clientRooms.id, clientSupplements.roomId))
       .innerJoin(clientHeader, eq(clientHeader.id, clientRooms.clientId))
-      .where(eq(clientSuppliments.id, supplyId))
+      .where(eq(clientSupplements.id, supplyId))
       .limit(1);
 
     if (!row) {
@@ -54,7 +53,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       }
     }
 
-    await db.update(clientSuppliments).set({ buyYn }).where(eq(clientSuppliments.id, supplyId));
+    await db.update(clientSupplements).set({ buyYn }).where(eq(clientSupplements.id, supplyId));
 
     return NextResponse.json({ id: supplyId, buyYn });
   } catch (error) {

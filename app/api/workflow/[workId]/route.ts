@@ -12,13 +12,12 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function PATCH(request: Request, { params }: { params: { workId: string } }) {
-  let workId: number | null = null;
+  const workId = Number(params.workId);
+  if (!Number.isFinite(workId)) {
+    return NextResponse.json({ message: '유효한 작업 ID가 아닙니다.' }, { status: 400 });
+  }
 
   try {
-    workId = Number(params.workId);
-    if (!Number.isFinite(workId)) {
-      return NextResponse.json({ message: '유효한 작업 ID가 아닙니다.' }, { status: 400 });
-    }
 
     const body = (await request.json().catch(() => null)) ?? {};
     const profile = await getProfileWithDynamicRoles();
