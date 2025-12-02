@@ -164,12 +164,15 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
       updates.supplyYn = body.supplyYn;
     }
 
+    let shouldRecordCleaningStart = false;
+
     if (typeof body.cleaningFlag === 'number') {
       if (!isAdmin && !isButler && !isCleaner) {
         return NextResponse.json({ message: '청소 상태 변경 권한이 없습니다.' }, { status: 403 });
       }
       const nextFlag = clamp(body.cleaningFlag, 1, 4);
       updates.cleaningFlag = nextFlag;
+      shouldRecordCleaningStart = current.cleaningFlag === 1 && nextFlag === 2;
     }
 
     if (typeof body.supervisingDone === 'boolean') {
@@ -227,6 +230,10 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
 
   await db.update(workHeader).set(updates).where(eq(workHeader.id, workId));
 
+  if (shouldRecordCleaningStart) {
+    await upsertCleaningWorkReport(workId, { field: 'contents1', key: 'start_dttm' });
+  }
+
   const refreshed = await db
     .select({
       id: workHeader.id,
@@ -262,4 +269,57 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
+}
+
+async function upsertCleaningWorkReport(
+  workId: number,
+  options: { field: 'contents1' | 'contents2'; key: 'start_dttm' | 'end_dttm' }
+) {
+  const now = getKstNow().toISOString();
+
+  const existing = await db
+    .select({
+      id: workReports.id,
+      contents1: workReports.contents1,
+      contents2: workReports.contents2
+    })
+    .from(workReports)
+    .where(and(eq(workReports.workId, workId), eq(workReports.type, 6)))
+    .limit(1);
+
+  const target = existing[0];
+
+  if (!target) {
+    const payload: { workId: number; type: number; contents1: unknown; contents2?: unknown | null } = {
+      workId,
+      type: 6,
+      contents1: options.field === 'contents1' ? { [options.key]: now } : {},
+      contents2: options.field === 'contents2' ? { [options.key]: now } : null
+    };
+
+    await db.insert(workReports).values(payload);
+    return;
+  }
+
+  const contents1 = normalizeRecord(target.contents1);
+  const contents2 = normalizeRecord(target.contents2);
+
+  const updates: Record<string, unknown> = {};
+
+  if (options.field === 'contents1') {
+    updates.contents1 = { ...contents1, [options.key]: now };
+  }
+
+  if (options.field === 'contents2') {
+    updates.contents2 = { ...contents2, [options.key]: now };
+  }
+
+  if (Object.keys(updates).length) {
+    await db.update(workReports).set(updates).where(eq(workReports.id, target.id));
+  }
+}
+
+function normalizeRecord(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {} as Record<string, unknown>;
+  return value as Record<string, unknown>;
 }
