@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: '체크리스트 세트가 없습니다.' }, { status: 400 });
     }
 
-  const [checklistRows, imageSlotRows] = await Promise.all([
+  const [checklistRows, supplyChecklistRows, imageSlotRows] = await Promise.all([
     db
       .select({
         id: workChecklistSetDetail.id,
@@ -60,21 +60,26 @@ export async function POST(req: Request) {
       })
       .from(workChecklistSetDetail)
       .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
-      .where(and(eq(workChecklistSetDetail.checklistHeaderId, targetWork.checklistSetId), inArray(workChecklistList.type, [1, 3])))
-      .orderBy(asc(workChecklistList.type), asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
-      targetWork.imagesSetId
-        ? db
-            .select({
-              id: workImagesSetDetail.id,
-              required: workImagesSetDetail.required,
-              listRequired: workImagesList.required
-            })
-            .from(workImagesSetDetail)
-            .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
-            .where(and(eq(workImagesSetDetail.imagesSetId, targetWork.imagesSetId), eq(workImagesList.role, 1)))
-            .orderBy(asc(workImagesSetDetail.id))
-        : Promise.resolve([])
-    ]);
+      .where(and(eq(workChecklistSetDetail.checklistHeaderId, targetWork.checklistSetId), eq(workChecklistList.type, 1)))
+      .orderBy(asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
+    db
+      .select({ id: workChecklistList.id, type: workChecklistList.type })
+      .from(workChecklistList)
+      .where(eq(workChecklistList.type, 3))
+      .orderBy(asc(workChecklistList.id)),
+    targetWork.imagesSetId
+      ? db
+          .select({
+            id: workImagesSetDetail.id,
+            required: workImagesSetDetail.required,
+            listRequired: workImagesList.required
+          })
+          .from(workImagesSetDetail)
+          .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
+          .where(and(eq(workImagesSetDetail.imagesSetId, targetWork.imagesSetId), eq(workImagesList.role, 1)))
+          .orderBy(asc(workImagesSetDetail.id))
+      : Promise.resolve([])
+  ]);
 
     const cleaningChecklistIds = checklistRows.filter((row) => row.type === 1).map((row) => row.id);
     const readinessMessages: string[] = [];
@@ -134,7 +139,7 @@ export async function POST(req: Request) {
     }[];
 
     const cleaningOnly = cleaningChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 1));
-    const supplyOnly = supplyChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 3));
+    const supplyOnly = supplyChecks.filter((id) => supplyChecklistRows.some((row) => row.id === id));
     if (cleaningOnly.length) {
       rowsToInsert.push({ workId, type: 1, contents1: cleaningOnly });
     }
@@ -162,6 +167,8 @@ export async function POST(req: Request) {
       .update(workHeader)
       .set({ cleaningFlag: 4, cleaningEndTime: nowTime })
       .where(eq(workHeader.id, workId));
+
+    await upsertCleaningWorkReport(workId, { field: 'contents2', key: 'end_dttm' });
 
     return NextResponse.json({ ok: true, images: rowsToInsert.find((row) => row.type === 3)?.contents1 ?? [] });
   } catch (error) {
@@ -225,4 +232,53 @@ function safeParseSupplyNotes(value: FormDataEntryValue | null): Record<number, 
 
 function hasSupplyNotes(notes: Record<number, string>) {
   return Object.values(notes).some((val) => Boolean(val?.trim()));
+}
+
+async function upsertCleaningWorkReport(
+  workId: number,
+  options: { field: 'contents1' | 'contents2'; key: 'start_dttm' | 'end_dttm' }
+) {
+  const now = getKstNow().toISOString();
+
+  const existing = await db
+    .select({ id: workReports.id, contents1: workReports.contents1, contents2: workReports.contents2 })
+    .from(workReports)
+    .where(and(eq(workReports.workId, workId), eq(workReports.type, 6)))
+    .limit(1);
+
+  const target = existing[0];
+
+  if (!target) {
+    const payload: { workId: number; type: number; contents1: unknown; contents2?: unknown | null } = {
+      workId,
+      type: 6,
+      contents1: options.field === 'contents1' ? { [options.key]: now } : {},
+      contents2: options.field === 'contents2' ? { [options.key]: now } : null
+    };
+
+    await db.insert(workReports).values(payload);
+    return;
+  }
+
+  const contents1 = normalizeRecord(target.contents1);
+  const contents2 = normalizeRecord(target.contents2);
+
+  const updates: Record<string, unknown> = {};
+
+  if (options.field === 'contents1') {
+    updates.contents1 = { ...contents1, [options.key]: now };
+  }
+
+  if (options.field === 'contents2') {
+    updates.contents2 = { ...contents2, [options.key]: now };
+  }
+
+  if (Object.keys(updates).length) {
+    await db.update(workReports).set(updates).where(eq(workReports.id, target.id));
+  }
+}
+
+function normalizeRecord(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {} as Record<string, unknown>;
+  return value as Record<string, unknown>;
 }
