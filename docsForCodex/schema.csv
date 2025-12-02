@@ -83,7 +83,7 @@ tenaCierge,client_rooms,updated_at,timestamp,NO,
 tenaCierge,client_supplements,id,int unsigned,NO,PK
 tenaCierge,client_supplements,room_id,int,NO,
 tenaCierge,client_supplements,date,date,NO,
-tenaCierge,client_supplements,next_date,date,NO,
+tenaCierge,client_supplements,next_date,date,YES,
 tenaCierge,client_supplements,title,varchar(20),YES,
 tenaCierge,client_supplements,dscpt,varchar(2083),NO,
 tenaCierge,client_supplements,buy_yn,tinyint(1),NO,"0:구매안함, 1:구매함"
@@ -94,6 +94,13 @@ tenaCierge,etc_baseCode,code,varchar(10),NO,코드
 tenaCierge,etc_baseCode,value,varchar(255),NO,값
 tenaCierge,etc_baseCode,created_at,timestamp,NO,
 tenaCierge,etc_baseCode,updated_at,timestamp,NO,
+tenaCierge,etc_batchLogs,id,bigint,NO,
+tenaCierge,etc_batchLogs,app_name,varchar(64),NO,
+tenaCierge,etc_batchLogs,start_dttm,datetime,NO,
+tenaCierge,etc_batchLogs,end_dttm,datetime,NO,
+tenaCierge,etc_batchLogs,end_flag,tinyint,NO,
+tenaCierge,etc_batchLogs,context_json,json,YES,
+tenaCierge,etc_batchLogs,created_at,timestamp,NO,
 tenaCierge,etc_buildings,id,tinyint unsigned,NO,PK
 tenaCierge,etc_buildings,basecode_sector,varchar(10),NO,지역코드
 tenaCierge,etc_buildings,basecode_code,varchar(255),NO,지역값
