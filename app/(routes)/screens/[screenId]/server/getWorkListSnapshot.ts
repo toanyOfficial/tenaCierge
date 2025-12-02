@@ -306,7 +306,8 @@ export async function getWorkListSnapshot(
       )
       .leftJoin(workerHeader, eq(workHeader.cleanerId, workerHeader.id));
 
-    const baseQuery = baseQueryBuilder.where(eq(workHeader.date, targetDateSql));
+    const baseWhere = and(eq(workHeader.date, targetDateSql), eq(workHeader.cancelYn, false));
+    const baseQuery = baseQueryBuilder.where(baseWhere);
 
     let rows: Awaited<typeof baseQuery> | undefined = undefined;
 
@@ -319,7 +320,7 @@ export async function getWorkListSnapshot(
         rows = [];
       } else {
         rows = await baseQueryBuilder
-          .where(and(eq(workHeader.date, targetDateSql), eq(clientRooms.clientId, client.id)))
+          .where(and(baseWhere, eq(clientRooms.clientId, client.id)))
           .limit(1000);
       }
     } else if (isCleaner) {
@@ -335,7 +336,7 @@ export async function getWorkListSnapshot(
           emptyMessage = hasApplication ? '아직 할당된 업무가 없습니다.' : '오늘,내일자 업무 신청 내역이 없습니다.';
         } else {
         rows = await baseQueryBuilder
-          .where(and(eq(workHeader.date, targetDateSql), inArray(workHeader.id, assignedWorkIds)))
+          .where(and(baseWhere, inArray(workHeader.id, assignedWorkIds)))
           .limit(1000);
         }
       }

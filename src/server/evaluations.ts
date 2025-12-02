@@ -1,7 +1,16 @@
-import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
-import { clientRooms, etcBuildings, workHeader, workerEvaluateHistory } from '@/src/db/schema';
+import {
+  clientRooms,
+  etcBuildings,
+  workHeader,
+  workerEvaluateHistory,
+  workerHeader,
+  workerSalaryHistory,
+  workerTierRules
+} from '@/src/db/schema';
+import { logServerError } from '@/src/server/errorLogger';
 import type { ProfileSummary } from '@/src/utils/profile';
 import { getTierLabel } from '@/src/utils/tier';
 import { formatFullDateLabel, getKstNow } from '@/src/utils/workWindow';
@@ -40,7 +49,40 @@ export type EvaluationSnapshot = {
   summary: EvaluationSummary | null;
   groups: EvaluationGroup[];
   nextCursor: string | null;
+  adminView?: AdminEvaluationView | null;
   message?: string;
+};
+
+export type DailyWageRow = {
+  workerId: number;
+  name: string;
+  startTime: Date | null;
+  endTime: Date | null;
+  tier: number | null;
+  tierLabel: string;
+  hourlyWage: number | null;
+  dailyWage: number | null;
+  bank: string | null;
+  accountNo: string | null;
+  phone: string | null;
+};
+
+export type TierChangeRow = {
+  workerId: number;
+  name: string;
+  totalScore: number;
+  recentScore: number;
+  percentile: number | null;
+  tierBefore: number | null;
+  tierAfter: number | null;
+  tierBeforeLabel: string;
+  tierAfterLabel: string;
+};
+
+export type AdminEvaluationView = {
+  targetDate: string;
+  dailyWages: DailyWageRow[];
+  tierChanges: TierChangeRow[];
 };
 
 const PAGE_SIZE = 5;
@@ -226,7 +268,8 @@ export async function fetchEvaluationPage(
 
 export async function getEvaluationSnapshot(
   profile: ProfileSummary,
-  requestedWorkerId?: number
+  requestedWorkerId?: number,
+  targetDateStr?: string
 ): Promise<EvaluationSnapshot> {
   const { worker, reason } = await resolveEvaluationWorker(profile, requestedWorkerId);
 
@@ -243,12 +286,37 @@ export async function getEvaluationSnapshot(
   const summary = await fetchEvaluationSummary(worker);
   const page = await fetchEvaluationPage(worker.id);
 
+  let adminView: AdminEvaluationView | null = null;
+  if (profile.roles.includes('admin')) {
+    try {
+      adminView = await fetchAdminEvaluationView(targetDateStr);
+    } catch (error) {
+      await logServerError({
+        appName: 'evaluations-admin',
+        message: '관리자 일급/티어 조회 실패',
+        error,
+        context: { targetDate: targetDateStr ?? undefined }
+      });
+    }
+  }
+
   return {
     worker,
     summary,
     groups: page.groups,
-    nextCursor: page.nextCursor
+    nextCursor: page.nextCursor,
+    adminView
   };
+}
+
+export async function fetchAdminEvaluationView(targetDateStr?: string): Promise<AdminEvaluationView> {
+  const targetDate = normalizeTargetDate(targetDateStr);
+  const targetKey = toDateKey(targetDate);
+
+  const dailyWages = await fetchDailyWageRows(targetDate);
+  const tierChanges = await fetchTierChangeRows(targetDate, dailyWages.map((row) => row.workerId));
+
+  return { targetDate: targetKey, dailyWages, tierChanges };
 }
 
 function buildStart(dateKey: string) {
@@ -270,4 +338,178 @@ function startOfKstDay(date: Date) {
   const copy = new Date(date);
   copy.setHours(0, 0, 0, 0);
   return copy;
+}
+
+function toDateKey(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function normalizeTargetDate(input?: string) {
+  const now = getKstNow();
+  const todayStart = startOfKstDay(now);
+  const defaultDate = getDefaultTargetDate(now);
+
+  if (!input) return defaultDate;
+
+  const parsed = new Date(`${input}T00:00:00+09:00`);
+  if (Number.isNaN(parsed.getTime())) return defaultDate;
+
+  const parsedStart = startOfKstDay(parsed);
+  const diffDays = Math.floor((todayStart.getTime() - parsedStart.getTime()) / (24 * 60 * 60 * 1000));
+  if (diffDays < 0 || diffDays > 6) {
+    return defaultDate;
+  }
+  return parsedStart;
+}
+
+function getDefaultTargetDate(now: Date) {
+  const kstNow = new Date(now);
+  const cutoffHour = 16;
+  const cutoffMinute = 20;
+  const isAfterCutoff =
+    kstNow.getHours() > cutoffHour || (kstNow.getHours() === cutoffHour && kstNow.getMinutes() >= cutoffMinute);
+
+  const base = startOfKstDay(kstNow);
+  if (isAfterCutoff) return base;
+
+  const previous = new Date(base);
+  previous.setDate(previous.getDate() - 1);
+  return previous;
+}
+
+function chooseDateTime<T extends Date | string | null | undefined>(
+  primary?: T | null,
+  fallback?: T | null
+): Date | null {
+  const candidate = primary ?? fallback;
+  if (!candidate) return null;
+  const parsed = candidate instanceof Date ? candidate : new Date(candidate);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+async function fetchDailyWageRows(targetDate: Date): Promise<DailyWageRow[]> {
+  const rows = await db
+    .select({
+      workerId: workerSalaryHistory.workerId,
+      name: workerHeader.name,
+      startTime: workerSalaryHistory.startTime,
+      endTime: workerSalaryHistory.endTime,
+      hourlyWage: workerSalaryHistory.wagePerHour,
+      dailyWage: sql<string | null>`COALESCE(${workerSalaryHistory.dailyWage}, ${workerSalaryHistory.totalWage}, ${workerSalaryHistory.amount})`,
+      tier: workerHeader.tier,
+      bank: workerHeader.bankValue,
+      accountNo: workerHeader.accountNo,
+      phone: workerHeader.phone
+    })
+    .from(workerSalaryHistory)
+    .innerJoin(workerHeader, eq(workerSalaryHistory.workerId, workerHeader.id))
+    .where(eq(workerSalaryHistory.workDate, startOfKstDay(targetDate)))
+    .orderBy(workerHeader.name);
+
+  return rows.map((row) => ({
+    workerId: Number(row.workerId),
+    name: row.name,
+    startTime: chooseDateTime(row.startTime, null),
+    endTime: chooseDateTime(row.endTime, null),
+    tier: typeof row.tier === 'number' ? row.tier : null,
+    tierLabel: getTierLabel(row.tier),
+    hourlyWage: toNumber(row.hourlyWage),
+    dailyWage: toNumber(row.dailyWage),
+    bank: row.bank ?? null,
+    accountNo: row.accountNo ?? null,
+    phone: row.phone ?? null
+  }));
+}
+
+async function fetchTierChangeRows(targetDate: Date, workerIds: number[]): Promise<TierChangeRow[]> {
+  if (!workerIds.length) return [];
+
+  const windowEnd = startOfKstDay(targetDate);
+  const windowStart = new Date(windowEnd);
+  windowStart.setDate(windowStart.getDate() - 19);
+  const windowNextDay = new Date(windowEnd);
+  windowNextDay.setDate(windowNextDay.getDate() + 1);
+
+  const [recentRows, totalRows, workers, tierRules] = await Promise.all([
+    db
+      .select({
+        workerId: workerEvaluateHistory.workerId,
+        recentScore: sql<number>`COALESCE(SUM(${workerEvaluateHistory.checklistPointSum}), 0)`
+      })
+      .from(workerEvaluateHistory)
+      .where(
+        and(
+          inArray(workerEvaluateHistory.workerId, workerIds),
+          gte(workerEvaluateHistory.evaluatedAt, windowStart),
+          lt(workerEvaluateHistory.evaluatedAt, windowNextDay)
+        )
+      )
+      .groupBy(workerEvaluateHistory.workerId),
+    db
+      .select({
+        workerId: workerEvaluateHistory.workerId,
+        totalScore: sql<number>`COALESCE(SUM(${workerEvaluateHistory.checklistPointSum}), 0)`
+      })
+      .from(workerEvaluateHistory)
+      .where(and(inArray(workerEvaluateHistory.workerId, workerIds), lt(workerEvaluateHistory.evaluatedAt, windowNextDay)))
+      .groupBy(workerEvaluateHistory.workerId),
+    db
+      .select({
+        workerId: workerHeader.id,
+        name: workerHeader.name,
+        tier: workerHeader.tier
+      })
+      .from(workerHeader)
+      .where(inArray(workerHeader.id, workerIds)),
+    db
+      .select({ minPercentage: workerTierRules.minPercentage, maxPercentage: workerTierRules.maxPercentage, tier: workerTierRules.tier })
+      .from(workerTierRules)
+  ]);
+
+  const recentMap = new Map<number, number>(recentRows.map((row) => [Number(row.workerId), Number(row.recentScore)]));
+  const totalMap = new Map<number, number>(totalRows.map((row) => [Number(row.workerId), Number(row.totalScore)]));
+
+  const population = workers
+    .filter((worker) => worker.tier != null)
+    .map((worker) => ({
+      workerId: Number(worker.workerId),
+      score: recentMap.get(Number(worker.workerId)) ?? 0
+    }))
+    .sort((a, b) => Number(b.score) - Number(a.score));
+
+  const percentileMap = new Map<number, number>();
+  const n = population.length;
+  population.forEach((row, idx) => {
+    if (!n) return;
+    const percentileTop = ((n - idx) / n) * 100;
+    percentileMap.set(row.workerId, percentileTop);
+  });
+
+  const orderedRules = tierRules.sort((a, b) => Number(b.maxPercentage) - Number(a.maxPercentage));
+
+  return workers.map((worker) => {
+    const workerId = Number(worker.workerId);
+    const percentile = percentileMap.get(workerId) ?? null;
+    const matchedRule = percentile
+      ? orderedRules.find((rule) => percentile >= rule.minPercentage && percentile <= rule.maxPercentage)
+      : null;
+
+    return {
+      workerId,
+      name: worker.name,
+      totalScore: totalMap.get(workerId) ?? 0,
+      recentScore: recentMap.get(workerId) ?? 0,
+      percentile,
+      tierBefore: typeof worker.tier === 'number' ? worker.tier : null,
+      tierAfter: matchedRule ? matchedRule.tier : null,
+      tierBeforeLabel: getTierLabel(worker.tier),
+      tierAfterLabel: getTierLabel(matchedRule?.tier ?? null)
+    };
+  });
+}
+
+function toNumber(value: string | number | null): number | null {
+  if (value == null) return null;
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
 }
