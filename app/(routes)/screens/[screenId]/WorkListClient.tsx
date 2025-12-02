@@ -99,6 +99,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const router = useRouter();
   const params = useSearchParams();
   const [activeRole, setActiveRole] = useState(profile.primaryRole ?? profile.roles[0] ?? null);
+  const hasAdminRole = profile.roles.includes('admin');
   const [works, setWorks] = useState(snapshot.works);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
@@ -118,7 +119,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const [sortMode, setSortMode] = useState<'checkout' | 'roomDesc'>('checkout');
   const isHost = activeRole === 'host';
   const isAfterFour = snapshot.currentMinutes >= 16 * 60;
-  const hostLocked = isHost && Boolean(snapshot.hostReadOnly);
+  const hostLocked = isHost && !hasAdminRole && Boolean(snapshot.hostReadOnly);
 
   useEffect(() => {
     setWorks(snapshot.works);
@@ -144,10 +145,9 @@ export default function WorkListClient({ profile, snapshot }: Props) {
     [activeRole]
   );
 
-  const canToggleSupply = (activeRole === 'admin' || activeRole === 'butler') && !hostLocked;
-  const canToggleCleaning =
-    (activeRole === 'admin' || activeRole === 'butler' || activeRole === 'cleaner') && !hostLocked;
-  const canToggleSupervising = (activeRole === 'admin' || activeRole === 'butler') && !hostLocked;
+  const canToggleSupply = (hasAdminRole || activeRole === 'butler') && !hostLocked;
+  const canToggleCleaning = (hasAdminRole || activeRole === 'butler' || activeRole === 'cleaner') && !hostLocked;
+  const canToggleSupervising = (hasAdminRole || activeRole === 'butler') && !hostLocked;
   const canAssignCleaner = canToggleSupervising;
 
   const sortedWorks = useMemo(() => sortWorks(works, sortMode), [works, sortMode]);
@@ -483,7 +483,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
             <p className={styles.subtle}>현재 {snapshot.windowLabel} 업무 리스트</p>
           </div>
           <div className={styles.windowMeta}>
-            {activeRole === 'butler' || activeRole === 'admin' || activeRole === 'cleaner' ? (
+            {hasAdminRole || activeRole === 'butler' || activeRole === 'cleaner' ? (
               <div className={styles.windowToggleRow}>
                 <button
                   type="button"
@@ -505,34 +505,35 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                 </button>
                 <label className={styles.fieldLabel}>
                   날짜 선택
-                  <input
-                    type="date"
+                  <select
                     className={styles.dateInput}
                     value={selectedDate}
                     onChange={(e) => handleDateChange(e.target.value)}
-                    list="work-window-dates"
-                  />
+                  >
+                    {snapshot.dateOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               </div>
             ) : (
               <label className={styles.fieldLabel}>
                 날짜 선택
-                <input
-                  type="date"
+                <select
                   className={styles.dateInput}
                   value={selectedDate}
                   onChange={(e) => handleDateChange(e.target.value)}
-                  list="work-window-dates"
-                />
+                >
+                  {snapshot.dateOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </label>
             )}
-            <datalist id="work-window-dates">
-              {snapshot.dateOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </datalist>
           </div>
         </div>
 
@@ -921,7 +922,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                 <p className={styles.infoLabel}>객실</p>
                 <p className={`${styles.infoValue} ${styles.infoRoomName}`}>{infoTarget.roomName}</p>
               </div>
-              {activeRole === 'admin' ? (
+              {hasAdminRole ? (
                 <div>
                   <p className={styles.infoLabel}>고객사</p>
                   <p className={styles.infoValue}>{infoTarget.clientName || '정보 없음'}</p>
