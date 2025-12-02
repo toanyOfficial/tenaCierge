@@ -67,20 +67,27 @@ export async function getCleaningReportSnapshot(
       throw new Error('체크리스트 세트가 지정되지 않았습니다.');
     }
 
-    const checklistRows = await db
-      .select({
-        id: workChecklistSetDetail.id,
-        title: workChecklistSetDetail.title,
-        fallbackTitle: workChecklistList.title,
-        description: workChecklistSetDetail.description,
-        fallbackDescription: workChecklistList.description,
-        type: workChecklistList.type,
-        score: workChecklistSetDetail.score
-      })
-      .from(workChecklistSetDetail)
-      .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
-      .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), inArray(workChecklistList.type, [1, 3])))
-      .orderBy(asc(workChecklistList.type), asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id));
+    const [checklistRows, supplyRows] = await Promise.all([
+      db
+        .select({
+          id: workChecklistSetDetail.id,
+          title: workChecklistSetDetail.title,
+          fallbackTitle: workChecklistList.title,
+          description: workChecklistSetDetail.description,
+          fallbackDescription: workChecklistList.description,
+          type: workChecklistList.type,
+          score: workChecklistSetDetail.score
+        })
+        .from(workChecklistSetDetail)
+        .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
+        .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), eq(workChecklistList.type, 1)))
+        .orderBy(asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
+      db
+        .select({ id: workChecklistList.id, title: workChecklistList.title, description: workChecklistList.description })
+        .from(workChecklistList)
+        .where(eq(workChecklistList.type, 3))
+        .orderBy(asc(workChecklistList.id))
+    ]);
 
     const cleaningChecklist = checklistRows
       .filter((item) => item.type === 1)
@@ -92,15 +99,15 @@ export async function getCleaningReportSnapshot(
         description: description ?? fallbackDescription ?? null
       }));
 
-    const suppliesChecklist = checklistRows
-      .filter((item) => item.type === 3)
-      .map(({ id, title, fallbackTitle, type, score, description, fallbackDescription }) => ({
+    const suppliesChecklist = sortSuppliesWithDescriptionLast(
+      supplyRows.map(({ id, title, description }) => ({
         id,
-        title: title ?? fallbackTitle ?? '',
-        type: Number(type ?? 0),
-        score: Number(score) || 0,
-        description: description ?? fallbackDescription ?? null
-      }));
+        title: title ?? '',
+        type: 3,
+        score: 0,
+        description: description ?? null
+      }))
+    );
 
     const imageSlots = await (async () => {
       if (!workRow.imagesSetId) return [] as ImageSlot[];
@@ -217,4 +224,13 @@ export async function getCleaningReportSnapshot(
     });
     throw error;
   }
+}
+
+function sortSuppliesWithDescriptionLast<T extends { description: string | null }>(supplies: T[]) {
+  return supplies.slice().sort((a, b) => {
+    const aNull = !a.description;
+    const bNull = !b.description;
+    if (aNull === bNull) return 0;
+    return aNull ? 1 : -1;
+  });
 }

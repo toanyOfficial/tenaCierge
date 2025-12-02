@@ -4,6 +4,7 @@ import {
   char,
   date,
   datetime,
+  double,
   decimal,
   smallint,
   int,
@@ -417,6 +418,26 @@ export const workerHeader = mysqlTable('worker_header', {
   accountNo: varchar('account_no', { length: 50 }),
   tier: tinyint('tier').notNull(),
   comments: varchar('comments', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const workerSalaryHistory = mysqlTable('worker_salary_history', {
+  id: bigintNumber('id', { unsigned: true }).autoincrement().notNull(),
+  workerId: int('worker_id', { unsigned: true }).notNull(),
+  workDate: date('work_date').notNull(),
+  workId: bigintNumber('work_id', { unsigned: true }),
+  startTime: datetime('start_time'),
+  endTime: datetime('end_time'),
+  workMinutes: double('work_minutes'),
+  workTimeMinutes: double('work_time_minutes'),
+  workHours: double('work_hours'),
+  workTimeHours: double('work_time_hours'),
+  hourlyWageTargetDate: date('hourly_wage_target_date'),
+  wagePerHour: decimal('wage_per_hour', { precision: 11, scale: 2 }),
+  dailyWage: decimal('daily_wage', { precision: 13, scale: 2 }),
+  totalWage: decimal('total_wage', { precision: 13, scale: 2 }),
+  amount: decimal('amount', { precision: 13, scale: 2 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
