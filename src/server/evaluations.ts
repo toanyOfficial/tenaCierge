@@ -394,7 +394,7 @@ async function fetchDailyWageRows(targetDate: Date): Promise<DailyWageRow[]> {
     })
     .from(workerSalaryHistory)
     .innerJoin(workerHeader, eq(workerSalaryHistory.workerId, workerHeader.id))
-    .where(eq(workerSalaryHistory.workDate, toDateKey(targetDate)))
+    .where(eq(workerSalaryHistory.workDate, startOfKstDay(targetDate)))
     .orderBy(workerHeader.name);
 
   return rows.map((row) => ({
@@ -494,7 +494,7 @@ async function fetchTierChangeRows(targetDate: Date, workerIds: number[]): Promi
       tierBefore: typeof worker.tier === 'number' ? worker.tier : null,
       tierAfter: matchedRule ? matchedRule.tier : null,
       tierBeforeLabel: getTierLabel(worker.tier),
-      tierAfterLabel: getTierLabel(matchedRule?.tier)
+      tierAfterLabel: getTierLabel(matchedRule?.tier ?? null)
     };
   });
 }
