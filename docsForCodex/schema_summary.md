@@ -1,3 +1,7 @@
+## 2025-12-03 스키마 변경 요약
+- 추가된 컬럼: worker_salary_history.id, worker_salary_history.worker_id, worker_salary_history.work_date, worker_salary_history.start_dttm, worker_salary_history.end_dttm 외 4건
+- 테이블 수: 39개, 컬럼 수: 351개
+
 ## 2025-12-02 스키마 변경 요약
 - 추가된 컬럼: etc_batchLogs.id, etc_batchLogs.app_name, etc_batchLogs.start_dttm, etc_batchLogs.end_dttm, etc_batchLogs.end_flag 외 2건
 - 변경된 컬럼: client_supplements.next_date: date -> date

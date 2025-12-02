@@ -319,6 +319,15 @@ tenaCierge,worker_penaltyHistory,interval,tinyint,NO,
 tenaCierge,worker_penaltyHistory,comment,varchar(255),NO,
 tenaCierge,worker_penaltyHistory,created_at,timestamp,NO,
 tenaCierge,worker_penaltyHistory,updated_at,timestamp,NO,
+tenaCierge,worker_salary_history,id,bigint unsigned,NO,PK
+tenaCierge,worker_salary_history,worker_id,int unsigned,NO,worker_header참조
+tenaCierge,worker_salary_history,work_date,date,NO,
+tenaCierge,worker_salary_history,start_dttm,datetime,NO,
+tenaCierge,worker_salary_history,end_dttm,datetime,NO,
+tenaCierge,worker_salary_history,tier_target_date,tinyint,NO,
+tenaCierge,worker_salary_history,hourly_wage_target_date,smallint,NO,
+tenaCierge,worker_salary_history,created_at,timestamp,NO,
+tenaCierge,worker_salary_history,updated_at,timestamp,NO,
 tenaCierge,worker_schedule_exception,id,int unsigned,NO,PK
 tenaCierge,worker_schedule_exception,worker_id,int unsigned,NO,client_header 참조
 tenaCierge,worker_schedule_exception,excpt_date,date,NO,0:일요일 ~ 6:토요일
