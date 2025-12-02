@@ -14,6 +14,7 @@ import os
 import traceback
 import time
 from decimal import Decimal
+from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Set
 
 import mysql.connector
@@ -27,7 +28,18 @@ SCHEMA_CSV_PATH = Path(__file__).resolve().parent.parent / "docsForCodex" / "sch
 
 
 def configure_logging() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+    base_dir = Path(__file__).resolve().parent
+    log_path = base_dir / "update_cleaner_ranking.log"
+    handlers = [logging.StreamHandler()]
+    try:
+        handlers.append(logging.FileHandler(log_path, encoding="utf-8"))
+    except Exception:
+        pass
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=handlers,
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -967,12 +979,17 @@ def main() -> None:
     configure_logging()
     args = parse_args()
     conn = get_db_connection()
+    logging.info("클리너 랭킹 배치 시작")
     try:
         CleanerRankingBatch(
             conn,
             args.target_date,
             disable_ai_comment=bool(getattr(args, "disable_ai_comment", False)),
         ).run()
+        logging.info("클리너 랭킹 배치 정상 종료")
+    except Exception as exc:
+        logging.error("클리너 랭킹 배치 비정상 종료", exc_info=exc)
+        raise
     finally:
         conn.close()
 

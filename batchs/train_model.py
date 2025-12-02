@@ -15,6 +15,7 @@ import argparse
 import datetime as dt
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
 import mysql.connector
@@ -62,7 +63,18 @@ class ParameterUpdate:
 
 
 def configure_logging() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+    base_dir = Path(__file__).resolve().parent
+    log_path = base_dir / "train_model.log"
+    handlers = [logging.StreamHandler()]
+    try:
+        handlers.append(logging.FileHandler(log_path, encoding="utf-8"))
+    except Exception:
+        pass
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=handlers,
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -377,6 +389,7 @@ def main() -> None:
     configure_logging()
     args = parse_args()
     conn = get_db_connection()
+    logging.info("모델 학습 배치 시작")
     try:
         ensure_model_table(conn)
         trainer = ModelTrainer(
@@ -390,6 +403,10 @@ def main() -> None:
             apply_changes=args.apply,
         )
         trainer.run()
+        logging.info("모델 학습 배치 정상 종료")
+    except Exception as exc:
+        logging.error("모델 학습 배치 비정상 종료", exc_info=exc)
+        raise
     finally:
         conn.close()
 
