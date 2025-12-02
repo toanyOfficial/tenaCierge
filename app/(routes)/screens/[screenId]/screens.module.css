@@ -2963,6 +2963,8 @@
   gap: 10px;
   align-items: center;
   min-width: 720px;
+  justify-items: center;
+  text-align: center;
 }
 
 .supplyGridHeader {
