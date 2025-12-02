@@ -71,6 +71,51 @@ def get_db_connection() -> mysql.connector.MySQLConnection:
     return mysql.connector.connect(**cfg)
 
 
+def log_batch_execution(
+    conn: mysql.connector.MySQLConnection,
+    *,
+    app_name: str,
+    start_dttm: dt.datetime,
+    end_dttm: dt.datetime,
+    end_flag: int,
+    context: Optional[Dict[str, object]] = None,
+) -> None:
+    """배치 실행 이력을 DB에 적재한다."""
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS etc_batchLogs (
+                    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                    app_name VARCHAR(64) NOT NULL,
+                    start_dttm DATETIME NOT NULL,
+                    end_dttm DATETIME NOT NULL,
+                    end_flag TINYINT NOT NULL,
+                    context_json JSON NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                """
+            )
+            cur.execute(
+                """
+                INSERT INTO etc_batchLogs
+                    (app_name, start_dttm, end_dttm, end_flag, context_json)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    app_name,
+                    start_dttm,
+                    end_dttm,
+                    end_flag,
+                    json.dumps(context or {}, ensure_ascii=False),
+                ),
+            )
+        conn.commit()
+    except Exception:
+        logging.error("배치 실행 로그 저장 실패", exc_info=True)
+
+
 class CleanerRankingBatch:
     def __init__(self, conn, target_date: dt.date, *, disable_ai_comment: bool = False) -> None:
         self.conn = conn
@@ -978,19 +1023,43 @@ class CleanerRankingBatch:
 def main() -> None:
     configure_logging()
     args = parse_args()
+    start_dttm = dt.datetime.now(dt.timezone.utc)
     conn = get_db_connection()
+    end_flag = 1
     logging.info("클리너 랭킹 배치 시작")
+    batch: Optional[CleanerRankingBatch] = None
     try:
-        CleanerRankingBatch(
+        batch = CleanerRankingBatch(
             conn,
             args.target_date,
             disable_ai_comment=bool(getattr(args, "disable_ai_comment", False)),
-        ).run()
+        )
+        batch.run()
         logging.info("클리너 랭킹 배치 정상 종료")
     except Exception as exc:
+        end_flag = 2
         logging.error("클리너 랭킹 배치 비정상 종료", exc_info=exc)
+        if batch is not None:
+            try:
+                batch._log_error(  # pylint: disable=protected-access
+                    message=str(exc),
+                    stacktrace=traceback.format_exc(),
+                )
+            except Exception:
+                logging.error("에러로그 저장 실패", exc_info=True)
         raise
     finally:
+        try:
+            log_batch_execution(
+                conn,
+                app_name="update_cleaner_ranking",
+                start_dttm=start_dttm,
+                end_dttm=dt.datetime.now(dt.timezone.utc),
+                end_flag=end_flag,
+                context={"target_date": str(args.target_date)},
+            )
+        except Exception:
+            logging.error("배치 실행 로그 저장 실패", exc_info=True)
         conn.close()
 
 
