@@ -58,21 +58,21 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def get_db_connection() -> mysql.connector.MySQLConnection:
+def get_db_connection(*, autocommit: bool = False) -> mysql.connector.MySQLConnection:
     cfg = dict(
         host=os.environ.get("DB_HOST", "127.0.0.1"),
         port=int(os.environ.get("DB_PORT", 3306)),
         user=os.environ.get("DB_USER", "root"),
         password=os.environ.get("DB_PASSWORD", ""),
         database=os.environ.get("DB_NAME", "tenaCierge"),
-        autocommit=False,
+        autocommit=autocommit,
     )
     logging.info("DB 접속 정보: %s:%s/%s", cfg["host"], cfg["port"], cfg["database"])
     return mysql.connector.connect(**cfg)
 
 
 def log_batch_execution(
-    conn: mysql.connector.MySQLConnection,
+    conn: Optional[mysql.connector.MySQLConnection],
     *,
     app_name: str,
     start_dttm: dt.datetime,
@@ -82,11 +82,13 @@ def log_batch_execution(
 ) -> None:
     """배치 실행 이력을 DB에 적재한다."""
 
+    log_conn = conn if conn is not None and conn.is_connected() else get_db_connection(autocommit=True)
+    should_close = log_conn is not conn
     try:
-        with conn.cursor() as cur:
+        with log_conn.cursor() as cur:
             cur.execute(
                 """
-                CREATE TABLE IF NOT EXISTS etc_batchLogs (
+                CREATE TABLE IF NOT EXISTS etc_errorLogs_batch (
                     id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                     app_name VARCHAR(64) NOT NULL,
                     start_dttm DATETIME NOT NULL,
@@ -95,11 +97,11 @@ def log_batch_execution(
                     context_json JSON NULL,
                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-                """
+                """,
             )
             cur.execute(
                 """
-                INSERT INTO etc_batchLogs
+                INSERT INTO etc_errorLogs_batch
                     (app_name, start_dttm, end_dttm, end_flag, context_json)
                 VALUES (%s, %s, %s, %s, %s)
                 """,
@@ -111,9 +113,12 @@ def log_batch_execution(
                     json.dumps(context or {}, ensure_ascii=False),
                 ),
             )
-        conn.commit()
+        log_conn.commit()
     except Exception:
         logging.error("배치 실행 로그 저장 실패", exc_info=True)
+    finally:
+        if should_close:
+            log_conn.close()
 
 
 class CleanerRankingBatch:
@@ -899,8 +904,12 @@ class CleanerRankingBatch:
         level: int = 2,
         context: Optional[Dict[str, object]] = None,
     ) -> None:
+        log_conn = (
+            self.conn if hasattr(self, "conn") and self.conn and self.conn.is_connected() else get_db_connection(autocommit=True)
+        )
+        should_close = log_conn is not getattr(self, "conn", None)
         try:
-            with self.conn.cursor() as cur:
+            with log_conn.cursor() as cur:
                 cur.execute(
                     """
                     INSERT INTO etc_errorLogs
@@ -921,9 +930,12 @@ class CleanerRankingBatch:
                         ),
                     ),
                 )
-            self.conn.commit()
+            log_conn.commit()
         except Exception:  # pragma: no cover - 실패 시 로그만 남김
             logging.error("에러로그 저장 실패", exc_info=True)
+        finally:
+            if should_close:
+                log_conn.close()
 
     def _persist_comments(
         self, comments: Dict[int, str], evaluations: Dict[int, List[Dict[str, object]]]
@@ -1024,6 +1036,7 @@ def main() -> None:
     configure_logging()
     args = parse_args()
     start_dttm = dt.datetime.now(dt.timezone.utc)
+    conn: Optional[mysql.connector.MySQLConnection] = None
     conn = get_db_connection()
     end_flag = 1
     logging.info("클리너 랭킹 배치 시작")
@@ -1060,7 +1073,8 @@ def main() -> None:
             )
         except Exception:
             logging.error("배치 실행 로그 저장 실패", exc_info=True)
-        conn.close()
+        if conn is not None and conn.is_connected():
+            conn.close()
 
 
 if __name__ == "__main__":

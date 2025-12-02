@@ -211,14 +211,14 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def get_db_connection() -> mysql.connector.MySQLConnection:
+def get_db_connection(*, autocommit: bool = False) -> mysql.connector.MySQLConnection:
     cfg = dict(
         host=os.environ.get("DB_HOST", "127.0.0.1"),
         port=int(os.environ.get("DB_PORT", 3306)),
         user=os.environ.get("DB_USER", "root"),
         password=os.environ.get("DB_PASSWORD", ""),
         database=os.environ.get("DB_NAME", "tenaCierge"),
-        autocommit=False,
+        autocommit=autocommit,
     )
     if not cfg["password"]:
         raise SystemExit(
@@ -372,7 +372,7 @@ def save_model_variables(conn, values: Dict[str, float]) -> None:
 
 
 def log_error(
-    conn: mysql.connector.MySQLConnection,
+    conn: Optional[mysql.connector.MySQLConnection],
     *,
     message: str,
     stacktrace: Optional[str] = None,
@@ -383,9 +383,11 @@ def log_error(
 ) -> None:
     """etc_errorLogs 테이블에 오류 정보를 적재한다."""
 
+    log_conn = conn if conn is not None and conn.is_connected() else get_db_connection(autocommit=True)
+    should_close = log_conn is not conn
     try:
         context_json = json.dumps({"run_date": str(run_date or seoul_today())})
-        with conn.cursor() as cur:
+        with log_conn.cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO etc_errorLogs
@@ -403,9 +405,62 @@ def log_error(
                     context_json,
                 ),
             )
-        conn.commit()
+        log_conn.commit()
     except Exception as exc:  # pragma: no cover - 실패 시 로그만 남김
         logging.error("에러로그 저장 실패: %s", exc)
+    finally:
+        if should_close:
+            log_conn.close()
+
+
+def log_batch_execution(
+    conn: Optional[mysql.connector.MySQLConnection],
+    *,
+    app_name: str,
+    start_dttm: dt.datetime,
+    end_dttm: dt.datetime,
+    end_flag: int,
+    context: Optional[Dict[str, object]] = None,
+) -> None:
+    """배치 실행 이력을 DB에 남긴다."""
+
+    log_conn = conn if conn is not None and conn.is_connected() else get_db_connection(autocommit=True)
+    should_close = log_conn is not conn
+    try:
+        with log_conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS etc_errorLogs_batch (
+                    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                    app_name VARCHAR(64) NOT NULL,
+                    start_dttm DATETIME NOT NULL,
+                    end_dttm DATETIME NOT NULL,
+                    end_flag TINYINT NOT NULL,
+                    context_json JSON NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                """,
+            )
+            cur.execute(
+                """
+                INSERT INTO etc_errorLogs_batch
+                    (app_name, start_dttm, end_dttm, end_flag, context_json)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    app_name,
+                    start_dttm,
+                    end_dttm,
+                    end_flag,
+                    json.dumps(context or {}, ensure_ascii=False),
+                ),
+            )
+        log_conn.commit()
+    except Exception as exc:  # pragma: no cover - 실패 시 로그만 남김
+        logging.error("배치 실행 로그 저장 실패: %s", exc)
+    finally:
+        if should_close:
+            log_conn.close()
 
 
 def log_batch_execution(
@@ -1408,6 +1463,7 @@ def main() -> None:
     now_seoul = dt.datetime.now(dt.timezone.utc).astimezone(SEOUL)
     logging.info("기준일(KST): %s (현재 서울 시각 %s)", run_date, now_seoul.strftime("%Y-%m-%d %H:%M:%S"))
     start_dttm = dt.datetime.now(dt.timezone.utc)
+    conn: Optional[mysql.connector.MySQLConnection] = None
     conn = get_db_connection()
     end_flag = 1
     try:
@@ -1452,7 +1508,8 @@ def main() -> None:
             )
         except Exception:
             logging.error("배치 실행 로그 저장 실패", exc_info=True)
-        conn.close()
+        if conn is not None and conn.is_connected():
+            conn.close()
 
 
 if __name__ == "__main__":

@@ -18,7 +18,7 @@ import logging
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import mysql.connector
 
@@ -81,7 +81,7 @@ def configure_logging() -> None:
 
 
 def log_error(
-    conn: mysql.connector.MySQLConnection,
+    conn: Optional[mysql.connector.MySQLConnection],
     *,
     message: str,
     stacktrace: str,
@@ -90,8 +90,10 @@ def log_error(
 ) -> None:
     """etc_errorLogs에 에러 정보를 기록한다."""
 
+    log_conn = conn if conn is not None and conn.is_connected() else get_db_connection(autocommit=True)
+    should_close = log_conn is not conn
     try:
-        with conn.cursor() as cur:
+        with log_conn.cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO etc_errorLogs
@@ -109,9 +111,12 @@ def log_error(
                     json.dumps({}, ensure_ascii=False),
                 ),
             )
-        conn.commit()
+        log_conn.commit()
     except Exception:
         logging.error("에러로그 저장 실패", exc_info=True)
+    finally:
+        if should_close:
+            log_conn.close()
 
 
 def parse_args() -> argparse.Namespace:
@@ -426,6 +431,7 @@ def main() -> None:
     configure_logging()
     args = parse_args()
     start_dttm = dt.datetime.now(dt.timezone.utc)
+    conn: Optional[mysql.connector.MySQLConnection] = None
     conn = get_db_connection()
     end_flag = 1
     logging.info("모델 학습 배치 시작")
@@ -468,7 +474,8 @@ def main() -> None:
             )
         except Exception:
             logging.error("배치 실행 로그 저장 실패", exc_info=True)
-        conn.close()
+        if conn is not None and conn.is_connected():
+            conn.close()
 
 
 if __name__ == "__main__":
