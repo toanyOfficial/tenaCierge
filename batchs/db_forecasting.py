@@ -272,6 +272,63 @@ def clamp(value: float, lo: float = 0.0, hi: float = 1.0) -> float:
     return max(lo, min(hi, value))
 
 
+def _safe_json_loads(value: object) -> object:
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except Exception:
+            return value
+    return value
+
+
+def _extract_ids_from_json(value: object) -> List[int]:
+    ids: List[int] = []
+    parsed = _safe_json_loads(value)
+
+    def walk(node: object) -> None:
+        if isinstance(node, list):
+            for item in node:
+                walk(item)
+        elif isinstance(node, dict):
+            for item in node.values():
+                walk(item)
+        elif isinstance(node, (int, float)) and not isinstance(node, bool):
+            if isinstance(node, float) and math.isnan(node):
+                return
+            try:
+                ids.append(int(node))
+            except (TypeError, ValueError, OverflowError):
+                return
+        elif isinstance(node, str):
+            try:
+                parsed_int = int(node)
+            except (TypeError, ValueError):
+                return
+            ids.append(parsed_int)
+
+    walk(parsed)
+    return ids
+
+
+def _extract_supply_note(contents: object, checklist_id: int) -> Optional[str]:
+    parsed = _safe_json_loads(contents)
+
+    if isinstance(parsed, dict):
+        for key in (checklist_id, str(checklist_id)):
+            if key in parsed:
+                note = parsed.get(key)
+                if note is None:
+                    return None
+                if isinstance(note, (str, int, float)):
+                    text = str(note).strip()
+                    return text or None
+    elif isinstance(parsed, str):
+        stripped = parsed.strip()
+        return stripped or None
+
+    return None
+
+
 # ------------------------------ DB 로더 ------------------------------
 def ensure_model_table(conn) -> None:
     with conn.cursor() as cur:
@@ -349,6 +406,102 @@ def log_error(
         conn.commit()
     except Exception as exc:  # pragma: no cover - 실패 시 로그만 남김
         logging.error("에러로그 저장 실패: %s", exc)
+
+
+def _fetch_supply_reports(
+    conn: mysql.connector.MySQLConnection, run_date: dt.date
+) -> List[Dict[str, object]]:
+    sql = """
+        SELECT wr.work_id, wr.contents1, wr.contents2
+        FROM work_reports AS wr
+        INNER JOIN work_header AS wh ON wh.id = wr.work_id
+        WHERE wh.date = %s AND wr.type = 2
+    """
+    with conn.cursor(dictionary=True) as cur:
+        cur.execute(sql, (run_date,))
+        return list(cur)
+
+
+def _fetch_checklist_lookup(
+    conn: mysql.connector.MySQLConnection, ids: Sequence[int]
+) -> Dict[int, Dict[str, Optional[str]]]:
+    if not ids:
+        return {}
+
+    sql = """
+        SELECT id, title, dscpt
+        FROM work_checklist_list
+        WHERE id IN (%s)
+    """ % (", ".join(["%s"] * len(ids)))
+
+    lookup: Dict[int, Dict[str, Optional[str]]] = {}
+    with conn.cursor(dictionary=True) as cur:
+        cur.execute(sql, tuple(ids))
+        for row in cur:
+            lookup[int(row["id"])] = {
+                "title": row.get("title") or "",
+                "dscpt": row.get("dscpt"),
+            }
+    return lookup
+
+
+def _persist_client_suppliments(conn: mysql.connector.MySQLConnection, run_date: dt.date) -> None:
+    reports = _fetch_supply_reports(conn, run_date)
+    if not reports:
+        logging.info("공급품 보고 없음 - 적재 스킵(run_date=%s)", run_date)
+        return
+
+    checklist_ids: List[int] = []
+    for row in reports:
+        checklist_ids.extend(_extract_ids_from_json(row.get("contents1")))
+
+    checklist_lookup = _fetch_checklist_lookup(conn, sorted({cid for cid in checklist_ids}))
+    if not checklist_lookup:
+        logging.info("공급품 체크리스트 매핑 없음 - 적재 스킵(run_date=%s)", run_date)
+        return
+
+    inserts: List[Tuple[int, str, Optional[str]]] = []
+    work_ids: set[int] = set()
+
+    for row in reports:
+        work_id = int(row.get("work_id"))
+        ids = _extract_ids_from_json(row.get("contents1"))
+        if not ids:
+            continue
+        notes = row.get("contents2")
+
+        for cid in ids:
+            checklist = checklist_lookup.get(cid)
+            if not checklist:
+                logging.warning("체크리스트 ID %s를 찾을 수 없어 건너뜀 (work_id=%s)", cid, work_id)
+                continue
+
+            title = checklist.get("title") or f"항목 {cid}"
+            description = checklist.get("dscpt")
+            if description is None or str(description).strip() == "":
+                description = _extract_supply_note(notes, cid)
+
+            inserts.append((work_id, title, description))
+            work_ids.add(work_id)
+
+    if not inserts:
+        logging.info("적재할 공급품 데이터가 없음(run_date=%s)", run_date)
+        return
+
+    logging.info("client_suppliments 적재 준비: work_id %s건, row %s건", len(work_ids), len(inserts))
+
+    with conn.cursor() as cur:
+        placeholders = ", ".join(["%s"] * len(work_ids))
+        cur.execute(
+            f"DELETE FROM client_suppliments WHERE work_id IN ({placeholders})",
+            tuple(work_ids),
+        )
+        cur.executemany(
+            "INSERT INTO client_suppliments (work_id, title, dscpt) VALUES (%s, %s, %s)",
+            inserts,
+        )
+    conn.commit()
+    logging.info("client_suppliments 적재 완료: %s건", len(inserts))
 
 
 def fetch_rooms(conn, reference_date: dt.date) -> List[Room]:
@@ -1199,6 +1352,7 @@ def main() -> None:
             today_only=args.today_only,
         )
         runner.run()
+        _persist_client_suppliments(conn, run_date)
         logging.info("배치 정상 종료")
     except Exception as exc:
         stack = traceback.format_exc()
