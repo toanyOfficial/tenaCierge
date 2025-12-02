@@ -51,7 +51,7 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
     }
   }
 
-  const validation = validateWorkInput(body, current, { canEditRequirements: false });
+  const validation = validateWorkInput(body, current, { canEditRequirements: isAdmin });
 
   if (!validation.ok) {
     return NextResponse.json({ message: validation.message }, { status: 400 });
