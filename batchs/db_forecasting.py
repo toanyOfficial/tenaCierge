@@ -1175,6 +1175,7 @@ class BatchRunner:
 
 def main() -> None:
     configure_logging()
+    logging.info("배치 시작")
     args = parse_args()
     today_seoul = seoul_today()
     run_date = args.run_date or today_seoul
@@ -1198,9 +1199,10 @@ def main() -> None:
             today_only=args.today_only,
         )
         runner.run()
+        logging.info("배치 정상 종료")
     except Exception as exc:
         stack = traceback.format_exc()
-        logging.error("배치 실행 실패", exc_info=exc)
+        logging.error("배치 비정상 종료", exc_info=exc)
         try:
             log_error(conn, message=str(exc), stacktrace=stack, run_date=run_date)
         except Exception:
