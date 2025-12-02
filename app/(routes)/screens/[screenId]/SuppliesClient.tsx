@@ -2,11 +2,15 @@
 
 import { useMemo, useState } from 'react';
 
+import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
+import type { ProfileSummary } from '@/src/utils/profile';
+
 import type { SuppliesSnapshot, SupplyHostGroup, SupplyItem } from './server/getSuppliesSnapshot';
 import styles from './screens.module.css';
 
 type Props = {
   snapshot: SuppliesSnapshot;
+  profile: ProfileSummary;
 };
 
 function isLink(text: string | null) {
@@ -19,7 +23,9 @@ function getRoomLabel(building: string, room: string) {
   return `${building} ${room}`.trim();
 }
 
-export default function SuppliesClient({ snapshot }: Props) {
+export default function SuppliesClient({ snapshot, profile }: Props) {
+  const initialRole = profile.primaryRole ?? profile.roles[0] ?? null;
+  const [activeRole, setActiveRole] = useState(initialRole);
   const [groups, setGroups] = useState<SupplyHostGroup[]>(snapshot.groups);
   const [collapsedHosts, setCollapsedHosts] = useState<Record<number, boolean>>({});
   const [pending, setPending] = useState<Record<number, boolean>>({});
@@ -89,6 +95,8 @@ export default function SuppliesClient({ snapshot }: Props) {
 
   return (
     <div className={styles.screenShell}>
+      <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} compact />
+
       <section className={styles.noticeCard}>
         <h1 className={styles.sectionTitle}>소모품 구매 안내</h1>
         <ol className={styles.noticeList}>

@@ -266,7 +266,7 @@ export default async function ScreenPage({
 
     return (
       <div className={styles.screenWrapper}>
-        <SuppliesClient snapshot={snapshot} />
+        <SuppliesClient snapshot={snapshot} profile={profile} />
       </div>
     );
   }
