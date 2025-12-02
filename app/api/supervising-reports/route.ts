@@ -54,7 +54,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: '체크리스트 세트가 없습니다.' }, { status: 400 });
     }
 
-    const [checklistRows, imageSlotRows] = await Promise.all([
+    const [checklistRows, supplyChecklistRows, imageSlotRows] = await Promise.all([
       db
         .select({
           id: workChecklistSetDetail.id,
@@ -63,8 +63,13 @@ export async function POST(req: Request) {
         })
         .from(workChecklistSetDetail)
         .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
-        .where(and(eq(workChecklistSetDetail.checklistHeaderId, targetWork.checklistSetId), inArray(workChecklistList.type, [2, 3])))
-        .orderBy(asc(workChecklistList.type), asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
+        .where(and(eq(workChecklistSetDetail.checklistHeaderId, targetWork.checklistSetId), eq(workChecklistList.type, 2)))
+        .orderBy(asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
+      db
+        .select({ id: workChecklistList.id })
+        .from(workChecklistList)
+        .where(eq(workChecklistList.type, 3))
+        .orderBy(asc(workChecklistList.id)),
       targetWork.imagesSetId
         ? db
             .select({
@@ -137,7 +142,7 @@ export async function POST(req: Request) {
       contents2?: unknown | null;
     }[];
 
-    const validSupplyChecks = supplyChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 3));
+    const validSupplyChecks = supplyChecks.filter((id) => supplyChecklistRows.some((row) => row.id === id));
 
     rowsToInsert.push({
       workId,

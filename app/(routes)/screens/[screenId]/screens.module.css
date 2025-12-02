@@ -2773,10 +2773,114 @@
   color: var(--text-muted);
 }
 
+.adminPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.adminControls {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.downloadButton {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--text-strong);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.downloadButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+
+.adminGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.adminCard {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.adminCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.adminCardTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--text-strong);
+}
+
+.adminHint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.adminTableWrap {
+  overflow-x: auto;
+}
+
+.adminTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.adminTable th,
+.adminTable td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.adminTable th {
+  background: var(--surface-muted);
+  font-weight: 700;
+}
+
+.emptyCell {
+  text-align: center;
+  color: var(--text-muted);
+}
+
 .searchBar {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.adminSearchBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
 }
 
 .searchInputWrap {
