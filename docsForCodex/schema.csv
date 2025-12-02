@@ -322,8 +322,8 @@ tenaCierge,worker_penaltyHistory,updated_at,timestamp,NO,
 tenaCierge,worker_salary_history,id,bigint unsigned,NO,PK
 tenaCierge,worker_salary_history,worker_id,int unsigned,NO,worker_header참조
 tenaCierge,worker_salary_history,work_date,date,NO,
-tenaCierge,worker_salary_history,start_dttm,datetime,NO,
-tenaCierge,worker_salary_history,end_dttm,datetime,NO,
+tenaCierge,worker_salary_history,start_time,time,NO,
+tenaCierge,worker_salary_history,end_time,time,NO,
 tenaCierge,worker_salary_history,tier_target_date,tinyint,NO,
 tenaCierge,worker_salary_history,hourly_wage_target_date,smallint,NO,
 tenaCierge,worker_salary_history,created_at,timestamp,NO,

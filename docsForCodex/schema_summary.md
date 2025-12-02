@@ -1,4 +1,9 @@
 ## 2025-12-03 스키마 변경 요약
+- 추가된 컬럼: worker_salary_history.start_time, worker_salary_history.end_time
+- 제거된 컬럼: worker_salary_history.start_dttm, worker_salary_history.end_dttm
+- 테이블 수: 39개, 컬럼 수: 351개
+
+## 2025-12-03 스키마 변경 요약
 - 추가된 컬럼: worker_salary_history.id, worker_salary_history.worker_id, worker_salary_history.work_date, worker_salary_history.start_dttm, worker_salary_history.end_dttm 외 4건
 - 테이블 수: 39개, 컬럼 수: 351개
 
