@@ -58,17 +58,67 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def get_db_connection() -> mysql.connector.MySQLConnection:
+def get_db_connection(*, autocommit: bool = False) -> mysql.connector.MySQLConnection:
     cfg = dict(
         host=os.environ.get("DB_HOST", "127.0.0.1"),
         port=int(os.environ.get("DB_PORT", 3306)),
         user=os.environ.get("DB_USER", "root"),
         password=os.environ.get("DB_PASSWORD", ""),
         database=os.environ.get("DB_NAME", "tenaCierge"),
-        autocommit=False,
+        autocommit=autocommit,
     )
     logging.info("DB 접속 정보: %s:%s/%s", cfg["host"], cfg["port"], cfg["database"])
     return mysql.connector.connect(**cfg)
+
+
+def log_batch_execution(
+    conn: Optional[mysql.connector.MySQLConnection],
+    *,
+    app_name: str,
+    start_dttm: dt.datetime,
+    end_dttm: dt.datetime,
+    end_flag: int,
+    context: Optional[Dict[str, object]] = None,
+) -> None:
+    """배치 실행 이력을 DB에 적재한다."""
+
+    log_conn = conn if conn is not None and conn.is_connected() else get_db_connection(autocommit=True)
+    should_close = log_conn is not conn
+    try:
+        with log_conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS etc_errorLogs_batch (
+                    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                    app_name VARCHAR(64) NOT NULL,
+                    start_dttm DATETIME NOT NULL,
+                    end_dttm DATETIME NOT NULL,
+                    end_flag TINYINT NOT NULL,
+                    context_json JSON NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                """,
+            )
+            cur.execute(
+                """
+                INSERT INTO etc_errorLogs_batch
+                    (app_name, start_dttm, end_dttm, end_flag, context_json)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    app_name,
+                    start_dttm,
+                    end_dttm,
+                    end_flag,
+                    json.dumps(context or {}, ensure_ascii=False),
+                ),
+            )
+        log_conn.commit()
+    except Exception:
+        logging.error("배치 실행 로그 저장 실패", exc_info=True)
+    finally:
+        if should_close:
+            log_conn.close()
 
 
 class CleanerRankingBatch:
@@ -103,6 +153,7 @@ class CleanerRankingBatch:
         tier_population = self._load_tiering_population()
         tier_updates = self._calculate_tiers(tier_population, tier_rules)
         self._persist_tiers(tier_updates)
+        self._persist_daily_hourly_wage()
         self.conn.commit()
 
     def _award_butler_bonus(self) -> None:
@@ -854,8 +905,12 @@ class CleanerRankingBatch:
         level: int = 2,
         context: Optional[Dict[str, object]] = None,
     ) -> None:
+        log_conn = (
+            self.conn if hasattr(self, "conn") and self.conn and self.conn.is_connected() else get_db_connection(autocommit=True)
+        )
+        should_close = log_conn is not getattr(self, "conn", None)
         try:
-            with self.conn.cursor() as cur:
+            with log_conn.cursor() as cur:
                 cur.execute(
                     """
                     INSERT INTO etc_errorLogs
@@ -876,9 +931,12 @@ class CleanerRankingBatch:
                         ),
                     ),
                 )
-            self.conn.commit()
+            log_conn.commit()
         except Exception:  # pragma: no cover - 실패 시 로그만 남김
             logging.error("에러로그 저장 실패", exc_info=True)
+        finally:
+            if should_close:
+                log_conn.close()
 
     def _persist_comments(
         self, comments: Dict[int, str], evaluations: Dict[int, List[Dict[str, object]]]
@@ -935,6 +993,212 @@ class CleanerRankingBatch:
                 )
         logging.info("tier 업데이트 %s건", len(updates))
 
+    def _persist_daily_hourly_wage(self) -> None:
+        work_report_columns = self._get_table_columns("work_reports")
+        work_header_columns = self._get_table_columns("work_header")
+        if "date" not in work_report_columns and "date" not in work_header_columns:
+            self._log_error(
+                message="work_reports/work_header에 date 컬럼이 없어 시급 적재를 건너뜁니다.",
+                context={
+                    "work_reports_columns": sorted(work_report_columns),
+                    "work_header_columns": sorted(work_header_columns),
+                },
+            )
+            return
+
+        date_filter = "wr.date" if "date" in work_report_columns else "wh.date"
+        sql = f"""
+            SELECT
+                wr.work_id,
+                wr.contents1,
+                wr.contents2,
+                wr.created_at,
+                wr.updated_at,
+                wh.cleaner_id,
+                wh.butler_id,
+                wh.date AS work_date
+            FROM work_reports AS wr
+            JOIN work_header AS wh ON wh.id = wr.work_id
+            WHERE wr.type = 6
+              AND {date_filter} = %s
+        """
+
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(sql, (self.target_date,))
+            rows = list(cur)
+
+        if not rows:
+            return
+
+        worker_ids: Set[int] = set()
+        for row in rows:
+            for key in ("cleaner_id", "butler_id"):
+                value = row.get(key)
+                if value is not None:
+                    try:
+                        worker_ids.add(int(value))
+                    except (TypeError, ValueError):
+                        continue
+
+        if not worker_ids:
+            return
+
+        placeholders = ", ".join(["%s"] * len(worker_ids))
+        worker_map: Dict[int, Dict[str, object]] = {}
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(
+                f"SELECT id, tier FROM worker_header WHERE id IN ({placeholders})",
+                tuple(worker_ids),
+            )
+            for row in cur:
+                worker_map[int(row["id"])] = row
+
+        if not worker_map:
+            return
+
+        tier_wage: Dict[int, Decimal] = {}
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute("SELECT tier, hourly_wage FROM worker_tier_rules WHERE hourly_wage IS NOT NULL")
+            for row in cur:
+                tier = row.get("tier")
+                hourly_wage = row.get("hourly_wage")
+                if tier is None or hourly_wage is None:
+                    continue
+                tier_int = int(tier)
+                if tier_int not in tier_wage:
+                    tier_wage[tier_int] = Decimal(str(hourly_wage))
+
+        salary_columns = self._get_table_columns("worker_salary_history")
+        if not {"worker_id", "work_date"}.issubset(salary_columns):
+            self._log_error(
+                message="worker_salary_history 컬럼을 확인해주세요.",
+                context={"columns": sorted(salary_columns)},
+            )
+            return
+
+        candidate_column_order = [
+            "worker_id",
+            "work_date",
+            "work_id",
+            "start_dttm",
+            "start_time",
+            "end_dttm",
+            "end_time",
+            "work_minutes",
+            "work_time_minutes",
+            "work_hours",
+            "work_time_hours",
+            "hourly_wage",
+            "wage_per_hour",
+            "daily_wage",
+            "total_wage",
+            "amount",
+        ]
+
+        targets: Dict[int, List[Dict[str, object]]] = {}
+        for row in rows:
+            worker_id = row.get("cleaner_id") or row.get("butler_id")
+            if worker_id is None:
+                continue
+            try:
+                worker_int = int(worker_id)
+            except (TypeError, ValueError):
+                continue
+            worker_info = worker_map.get(worker_int)
+            if not worker_info:
+                continue
+            tier = worker_info.get("tier")
+            if tier is None:
+                continue
+            try:
+                tier_int = int(tier)
+            except (TypeError, ValueError):
+                continue
+            if tier_int == 99:
+                continue
+            targets.setdefault(worker_int, []).append(row)
+
+        for worker_id, worker_rows in targets.items():
+            start_dt = self._select_timestamp(worker_rows, "contents1", "start_dttm", earliest=True)
+            end_dt = self._select_timestamp(worker_rows, "contents2", "end_dttm", earliest=False)
+            if start_dt is None or end_dt is None:
+                self._log_error(
+                    message="시급 계산을 위한 시작/종료 시간이 없습니다.",
+                    context={
+                        "worker_id": worker_id,
+                        "missing": [
+                            key for key, value in {"start_dttm": start_dt, "end_dttm": end_dt}.items() if value is None
+                        ],
+                    },
+                )
+                continue
+
+            duration_seconds = (end_dt - start_dt).total_seconds()
+            if duration_seconds <= 0:
+                self._log_error(
+                    message="퇴근 시간이 출근 시간보다 빠릅니다.",
+                    context={"worker_id": worker_id, "start_dttm": str(start_dt), "end_dttm": str(end_dt)},
+                )
+                continue
+
+            tier_value = worker_map[worker_id].get("tier")
+            try:
+                tier_int = int(tier_value) if tier_value is not None else None
+            except (TypeError, ValueError):
+                tier_int = None
+
+            hourly_wage = tier_wage.get(tier_int)
+            if hourly_wage is None:
+                self._log_error(
+                    message="해당 tier의 시급 정보를 찾을 수 없습니다.",
+                    context={"worker_id": worker_id, "tier": tier_value},
+                )
+                continue
+
+            work_minutes = Decimal(str(duration_seconds)) / Decimal(60)
+            work_hours = work_minutes / Decimal(60)
+            total_wage = (hourly_wage * work_hours).quantize(Decimal("0.01"))
+
+            value_map = {
+                "worker_id": worker_id,
+                "work_date": self.target_date,
+                "work_id": None,
+                "start_dttm": self._to_naive_utc(start_dt),
+                "start_time": self._to_naive_utc(start_dt),
+                "end_dttm": self._to_naive_utc(end_dt),
+                "end_time": self._to_naive_utc(end_dt),
+                "work_minutes": float(work_minutes),
+                "work_time_minutes": float(work_minutes),
+                "work_hours": float(work_hours),
+                "work_time_hours": float(work_hours),
+                "hourly_wage": float(hourly_wage),
+                "wage_per_hour": float(hourly_wage),
+                "daily_wage": float(total_wage),
+                "total_wage": float(total_wage),
+                "amount": float(total_wage),
+            }
+
+            insert_columns = [
+                col for col in candidate_column_order if col in salary_columns and value_map.get(col) is not None
+            ]
+            if len(insert_columns) < 2:  # worker_id, work_date만 남는 경우는 스킵
+                self._log_error(
+                    message="worker_salary_history에 적재할 데이터가 부족합니다.",
+                    context={"worker_id": worker_id, "available_columns": insert_columns},
+                )
+                continue
+
+            placeholders = ", ".join(["%s"] * len(insert_columns))
+            update_clause = ", ".join([f"{col}=VALUES({col})" for col in insert_columns if col not in {"id"}])
+            sql_insert = f"INSERT INTO worker_salary_history ({', '.join(insert_columns)}) VALUES ({placeholders})"
+            if update_clause:
+                sql_insert += f" ON DUPLICATE KEY UPDATE {update_clause}"
+
+            with self.conn.cursor() as cur:
+                cur.execute(sql_insert, tuple(value_map[col] for col in insert_columns))
+
+        logging.info("시급 적재 대상 %s명 완료", len(targets))
+
     def _get_table_columns(self, table: str) -> Set[str]:
         with self.conn.cursor(dictionary=True) as cur:
             cur.execute(
@@ -969,6 +1233,56 @@ class CleanerRankingBatch:
                     continue
         return None
 
+    def _select_timestamp(
+        self,
+        rows: Sequence[Dict[str, object]],
+        contents_key: str,
+        timestamp_key: str,
+        *,
+        earliest: bool,
+    ) -> Optional[dt.datetime]:
+        candidates: List[tuple[Optional[dt.datetime], dt.datetime]] = []
+        for row in rows:
+            ts_value = self._extract_timestamp(row.get(contents_key), timestamp_key)
+            if ts_value is None:
+                continue
+            reference = row.get("created_at" if earliest else "updated_at")
+            ref_dt = reference if isinstance(reference, dt.datetime) else None
+            candidates.append((ref_dt, ts_value))
+
+        if not candidates:
+            return None
+
+        key_fn = (lambda pair: pair[0] or (dt.datetime.max if earliest else dt.datetime.min))
+        selected = min(candidates, key=key_fn) if earliest else max(candidates, key=key_fn)
+        return selected[1]
+
+    def _extract_timestamp(self, payload: object, key: str) -> Optional[dt.datetime]:
+        if payload is None:
+            return None
+
+        obj = payload
+        if isinstance(obj, str):
+            try:
+                obj = json.loads(obj)
+            except Exception:
+                obj = None
+
+        if isinstance(obj, dict):
+            raw_value = obj.get(key)
+            if isinstance(raw_value, str):
+                normalized = raw_value.replace("Z", "+00:00")
+                try:
+                    return dt.datetime.fromisoformat(normalized)
+                except ValueError:
+                    return None
+        return None
+
+    def _to_naive_utc(self, value: dt.datetime) -> dt.datetime:
+        if value.tzinfo is None:
+            return value
+        return value.astimezone(dt.timezone.utc).replace(tzinfo=None)
+
     def _diff_minutes(self, later: dt.time, earlier: dt.time) -> int:
         later_minutes = later.hour * 60 + later.minute + later.second // 60
         earlier_minutes = earlier.hour * 60 + earlier.minute + earlier.second // 60
@@ -978,20 +1292,46 @@ class CleanerRankingBatch:
 def main() -> None:
     configure_logging()
     args = parse_args()
+    start_dttm = dt.datetime.now(dt.timezone.utc)
+    conn: Optional[mysql.connector.MySQLConnection] = None
     conn = get_db_connection()
+    end_flag = 1
     logging.info("클리너 랭킹 배치 시작")
+    batch: Optional[CleanerRankingBatch] = None
     try:
-        CleanerRankingBatch(
+        batch = CleanerRankingBatch(
             conn,
             args.target_date,
             disable_ai_comment=bool(getattr(args, "disable_ai_comment", False)),
-        ).run()
+        )
+        batch.run()
         logging.info("클리너 랭킹 배치 정상 종료")
     except Exception as exc:
+        end_flag = 2
         logging.error("클리너 랭킹 배치 비정상 종료", exc_info=exc)
+        if batch is not None:
+            try:
+                batch._log_error(  # pylint: disable=protected-access
+                    message=str(exc),
+                    stacktrace=traceback.format_exc(),
+                )
+            except Exception:
+                logging.error("에러로그 저장 실패", exc_info=True)
         raise
     finally:
-        conn.close()
+        try:
+            log_batch_execution(
+                conn,
+                app_name="update_cleaner_ranking",
+                start_dttm=start_dttm,
+                end_dttm=dt.datetime.now(dt.timezone.utc),
+                end_flag=end_flag,
+                context={"target_date": str(args.target_date)},
+            )
+        except Exception:
+            logging.error("배치 실행 로그 저장 실패", exc_info=True)
+        if conn is not None and conn.is_connected():
+            conn.close()
 
 
 if __name__ == "__main__":

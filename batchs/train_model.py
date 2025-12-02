@@ -13,10 +13,12 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import json
 import logging
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import mysql.connector
 
@@ -26,6 +28,7 @@ from db_forecasting import (
     clamp,
     ensure_model_table,
     get_db_connection,
+    log_batch_execution,
     load_model_variables,
     save_model_variables,
     sigmoid,
@@ -75,6 +78,45 @@ def configure_logging() -> None:
         format="%(asctime)s [%(levelname)s] %(message)s",
         handlers=handlers,
     )
+
+
+def log_error(
+    conn: Optional[mysql.connector.MySQLConnection],
+    *,
+    message: str,
+    stacktrace: str,
+    error_code: str = "train_model",
+    level: int = 2,
+) -> None:
+    """etc_errorLogs에 에러 정보를 기록한다."""
+
+    log_conn = conn if conn is not None and conn.is_connected() else get_db_connection(autocommit=True)
+    should_close = log_conn is not conn
+    try:
+        with log_conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO etc_errorLogs
+                    (level, app_name, error_code, message, stacktrace, request_id, user_id, context_json)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    level,
+                    "train_model",
+                    error_code,
+                    message[:500],
+                    stacktrace,
+                    None,
+                    None,
+                    json.dumps({}, ensure_ascii=False),
+                ),
+            )
+        log_conn.commit()
+    except Exception:
+        logging.error("에러로그 저장 실패", exc_info=True)
+    finally:
+        if should_close:
+            log_conn.close()
 
 
 def parse_args() -> argparse.Namespace:
@@ -388,7 +430,10 @@ class ModelTrainer:
 def main() -> None:
     configure_logging()
     args = parse_args()
+    start_dttm = dt.datetime.now(dt.timezone.utc)
+    conn: Optional[mysql.connector.MySQLConnection] = None
     conn = get_db_connection()
+    end_flag = 1
     logging.info("모델 학습 배치 시작")
     try:
         ensure_model_table(conn)
@@ -405,10 +450,32 @@ def main() -> None:
         trainer.run()
         logging.info("모델 학습 배치 정상 종료")
     except Exception as exc:
+        end_flag = 2
         logging.error("모델 학습 배치 비정상 종료", exc_info=exc)
+        try:
+            log_error(conn, message=str(exc), stacktrace=traceback.format_exc())
+        except Exception:
+            logging.error("에러로그 저장 실패", exc_info=True)
         raise
     finally:
-        conn.close()
+        try:
+            log_batch_execution(
+                conn,
+                app_name="train_model",
+                start_dttm=start_dttm,
+                end_dttm=dt.datetime.now(dt.timezone.utc),
+                end_flag=end_flag,
+                context={
+                    "days": args.days,
+                    "horizon": args.horizon,
+                    "apply": args.apply,
+                    "min_samples": args.min_samples,
+                },
+            )
+        except Exception:
+            logging.error("배치 실행 로그 저장 실패", exc_info=True)
+        if conn is not None and conn.is_connected():
+            conn.close()
 
 
 if __name__ == "__main__":

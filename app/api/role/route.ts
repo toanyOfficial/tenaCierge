@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
+import { logServerError } from '@/src/server/errorLogger';
 import { getSeoul1630Expiry, isSecureRequest } from '@/src/utils/cookie';
 const roleOrder = ['admin', 'host', 'butler', 'cleaner'] as const;
 
@@ -38,30 +39,35 @@ function parseRoles(raw: string | undefined | null) {
 }
 
 export async function POST(request: Request) {
-  const payload = await request.json().catch(() => ({}));
-  const role = typeof payload.role === 'string' ? payload.role.trim().toLowerCase() : '';
+  try {
+    const payload = await request.json().catch(() => ({}));
+    const role = typeof payload.role === 'string' ? payload.role.trim().toLowerCase() : '';
 
-  if (!roleOrder.includes(role as (typeof roleOrder)[number])) {
-    return NextResponse.json({ message: '지원되지 않는 역할입니다.' }, { status: 400 });
+    if (!roleOrder.includes(role as (typeof roleOrder)[number])) {
+      return NextResponse.json({ message: '지원되지 않는 역할입니다.' }, { status: 400 });
+    }
+
+    const cookieStore = cookies();
+    const allowedRoles = parseRoles(cookieStore.get('role_arrange')?.value ?? cookieStore.get('tc_roles')?.value);
+
+    if (!allowedRoles.includes(role)) {
+      return NextResponse.json({ message: '쿠키에 포함되지 않은 역할입니다.' }, { status: 403 });
+    }
+
+    const secure = isSecureRequest(request);
+    const options = {
+      httpOnly: true,
+      sameSite: 'lax' as const,
+      secure,
+      path: '/',
+      expires: getSeoul1630Expiry()
+    };
+
+    cookieStore.set('role', role, options);
+
+    return NextResponse.json({ role });
+  } catch (error) {
+    await logServerError({ appName: 'role', message: '역할 설정 실패', error });
+    return NextResponse.json({ message: '역할을 설정하는 중 오류가 발생했습니다.' }, { status: 500 });
   }
-
-  const cookieStore = cookies();
-  const allowedRoles = parseRoles(cookieStore.get('role_arrange')?.value ?? cookieStore.get('tc_roles')?.value);
-
-  if (!allowedRoles.includes(role)) {
-    return NextResponse.json({ message: '쿠키에 포함되지 않은 역할입니다.' }, { status: 403 });
-  }
-
-  const secure = isSecureRequest(request);
-  const options = {
-    httpOnly: true,
-    sameSite: 'lax' as const,
-    secure,
-    path: '/',
-    expires: getSeoul1630Expiry()
-  };
-
-  cookieStore.set('role', role, options);
-
-  return NextResponse.json({ role });
 }
