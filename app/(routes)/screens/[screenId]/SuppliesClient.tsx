@@ -68,7 +68,7 @@ export default function SuppliesClient({ snapshot }: Props) {
     updateItemState(item.id, (current) => ({ ...current, buyYn: next }));
 
     try {
-      const response = await fetch(`/api/client-suppliments/${item.id}`, {
+      const response = await fetch(`/api/client-supplements/${item.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ buyYn: next })

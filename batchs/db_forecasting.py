@@ -412,9 +412,11 @@ def _fetch_supply_reports(
     conn: mysql.connector.MySQLConnection, run_date: dt.date
 ) -> List[Dict[str, object]]:
     sql = """
-        SELECT wr.work_id, wr.contents1, wr.contents2, wh.room_id
+        SELECT wr.work_id, wr.contents1, wr.contents2,
+               wh.room_id, cr.client_id, cr.building_id
         FROM work_reports AS wr
         INNER JOIN work_header AS wh ON wh.id = wr.work_id
+        INNER JOIN client_rooms AS cr ON cr.id = wh.room_id
         WHERE wh.date = %s AND wr.type = 2
     """
     with conn.cursor(dictionary=True) as cur:
@@ -464,7 +466,7 @@ def _fetch_checklist_lookup(
     return lookup
 
 
-def _persist_client_suppliments(conn: mysql.connector.MySQLConnection, run_date: dt.date) -> None:
+def _persist_client_supplements(conn: mysql.connector.MySQLConnection, run_date: dt.date) -> None:
     reports = _fetch_supply_reports(conn, run_date)
     if not reports:
         logging.info("공급품 보고 없음 - 적재 스킵(run_date=%s)", run_date)
@@ -481,12 +483,11 @@ def _persist_client_suppliments(conn: mysql.connector.MySQLConnection, run_date:
         logging.info("공급품 체크리스트 매핑 없음 - 적재 스킵(run_date=%s)", run_date)
         return
 
-    inserts: List[Tuple[int, dt.date, Optional[dt.date], str, Optional[str]]] = []
-    work_ids: set[int] = set()
+    inserts: List[Tuple[int, int, dt.date, Optional[dt.date], str, Optional[str]]] = []
 
     for row in reports:
-        work_id = int(row.get("work_id"))
         room_id = int(row.get("room_id"))
+        client_id = int(row.get("client_id"))
         ids = _extract_ids_from_json(row.get("contents1"))
         if not ids:
             continue
@@ -496,7 +497,7 @@ def _persist_client_suppliments(conn: mysql.connector.MySQLConnection, run_date:
         for cid in ids:
             checklist = checklist_lookup.get(cid)
             if not checklist:
-                logging.warning("체크리스트 ID %s를 찾을 수 없어 건너뜀 (work_id=%s)", cid, work_id)
+                logging.warning("체크리스트 ID %s를 찾을 수 없어 건너뜀 (room_id=%s)", cid, room_id)
                 continue
 
             title = checklist.get("title") or f"항목 {cid}"
@@ -504,30 +505,25 @@ def _persist_client_suppliments(conn: mysql.connector.MySQLConnection, run_date:
             if description is None or str(description).strip() == "":
                 description = _extract_supply_note(notes, cid)
 
-            inserts.append((work_id, run_date, next_date, title, description))
-            work_ids.add(work_id)
+            inserts.append((client_id, room_id, run_date, next_date, title, description))
 
     if not inserts:
         logging.info("적재할 공급품 데이터가 없음(run_date=%s)", run_date)
         return
 
-    logging.info("client_suppliments 적재 준비: work_id %s건, row %s건", len(work_ids), len(inserts))
+    logging.info("client_supplements 적재 준비: row %s건", len(inserts))
 
     with conn.cursor() as cur:
-        placeholders = ", ".join(["%s"] * len(work_ids))
-        cur.execute(
-            f"DELETE FROM client_suppliments WHERE work_id IN ({placeholders})",
-            tuple(work_ids),
-        )
+        cur.execute("DELETE FROM client_supplements WHERE date = %s", (run_date,))
         cur.executemany(
             """
-            INSERT INTO client_suppliments (work_id, date, next_date, title, dscpt)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO client_supplements (client_id, room_id, date, next_date, title, dscpt)
+            VALUES (%s, %s, %s, %s, %s, %s)
             """,
             inserts,
         )
     conn.commit()
-    logging.info("client_suppliments 적재 완료: %s건", len(inserts))
+    logging.info("client_supplements 적재 완료: %s건", len(inserts))
 
 
 def fetch_rooms(conn, reference_date: dt.date) -> List[Room]:
@@ -1378,11 +1374,15 @@ def main() -> None:
             today_only=args.today_only,
         )
         runner.run()
-        _persist_client_suppliments(conn, run_date)
+        _persist_client_supplements(conn, run_date)
         logging.info("배치 정상 종료")
     except Exception as exc:
         stack = traceback.format_exc()
         logging.error("배치 비정상 종료", exc_info=exc)
+        try:
+            conn.rollback()
+        except Exception:
+            logging.error("에러 발생 후 롤백 실패", exc_info=True)
         try:
             log_error(conn, message=str(exc), stacktrace=stack, run_date=run_date)
         except Exception:

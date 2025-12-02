@@ -1,13 +1,7 @@
 import { and, asc, eq } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
-import {
-  clientHeader,
-  clientRooms,
-  clientSuppliments,
-  etcBuildings,
-  workHeader
-} from '@/src/db/schema';
+import { clientHeader, clientRooms, clientSupplements, etcBuildings } from '@/src/db/schema';
 import type { ClientSummary } from '@/src/server/clients';
 import { findClientByProfile } from '@/src/server/clients';
 import type { ProfileSummary } from '@/src/utils/profile';
@@ -15,7 +9,6 @@ import { formatDateKey } from '@/src/utils/workWindow';
 
 export type SupplyItem = {
   id: number;
-  workId: number;
   dateLabel: string;
   nextDateLabel: string | null;
   title: string;
@@ -82,7 +75,6 @@ function groupRows(rows: Array<ReturnType<typeof mapRow>>): SupplyHostGroup[] {
 
     room.items.push({
       id: row.id,
-      workId: row.workId,
       dateLabel: row.dateLabel,
       nextDateLabel: row.nextDateLabel,
       title: row.title,
@@ -98,7 +90,6 @@ function groupRows(rows: Array<ReturnType<typeof mapRow>>): SupplyHostGroup[] {
 
 type SupplyRow = {
   id: number;
-  workId: number;
   hostId: number;
   hostName: string;
   buildingShortName: string;
@@ -113,7 +104,6 @@ type SupplyRow = {
 function mapRow(row: SupplyRow) {
   return {
     id: Number(row.id),
-    workId: Number(row.workId),
     hostId: Number(row.hostId),
     hostName: row.hostName,
     buildingShortName: row.buildingShortName,
@@ -140,7 +130,7 @@ export async function getSuppliesSnapshot(profile: ProfileSummary): Promise<Supp
     }
   }
 
-  const conditions = [eq(clientSuppliments.bunYn, false)];
+  const conditions = [eq(clientSupplements.bunYn, false)];
 
   if (client) {
     conditions.push(eq(clientHeader.id, client.id));
@@ -150,29 +140,27 @@ export async function getSuppliesSnapshot(profile: ProfileSummary): Promise<Supp
 
   const rows = await db
     .select({
-      id: clientSuppliments.id,
-      workId: clientSuppliments.workId,
+      id: clientSupplements.id,
       hostId: clientHeader.id,
       hostName: clientHeader.name,
       buildingShortName: etcBuildings.shortName,
       roomNo: clientRooms.roomNo,
-      date: clientSuppliments.date,
-      nextDate: clientSuppliments.nextDate,
-      title: clientSuppliments.title,
-      description: clientSuppliments.dscpt,
-      buyYn: clientSuppliments.buyYn
+      date: clientSupplements.date,
+      nextDate: clientSupplements.nextDate,
+      title: clientSupplements.title,
+      description: clientSupplements.dscpt,
+      buyYn: clientSupplements.buyYn
     })
-    .from(clientSuppliments)
-    .innerJoin(workHeader, eq(workHeader.id, clientSuppliments.workId))
-    .innerJoin(clientRooms, eq(clientRooms.id, workHeader.roomId))
-    .innerJoin(clientHeader, eq(clientHeader.id, clientRooms.clientId))
+    .from(clientSupplements)
+    .innerJoin(clientRooms, eq(clientRooms.id, clientSupplements.roomId))
+    .innerJoin(clientHeader, eq(clientHeader.id, clientSupplements.clientId))
     .innerJoin(etcBuildings, eq(etcBuildings.id, clientRooms.buildingId))
     .where(whereClause)
     .orderBy(
       asc(clientHeader.name),
       asc(etcBuildings.shortName),
       asc(clientRooms.roomNo),
-      asc(clientSuppliments.date)
+      asc(clientSupplements.date)
     );
 
   const mapped = rows.map(mapRow);
