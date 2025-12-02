@@ -1,4 +1,8 @@
 ## 2025-12-02 스키마 변경 요약
+- 추가된 컬럼: etc_errorLogs_batch.id, etc_errorLogs_batch.level, etc_errorLogs_batch.app_name, etc_errorLogs_batch.error_code, etc_errorLogs_batch.message 외 9건
+- 테이블 수: 37개, 컬럼 수: 335개
+
+## 2025-12-02 스키마 변경 요약
 - 추가된 컬럼: client_supplements.id, client_supplements.room_id, client_supplements.date, client_supplements.next_date, client_supplements.title 외 4건
 - 제거된 컬럼: client_suppliements.id, client_suppliements.room_id, client_suppliements.date, client_suppliements.next_date, client_suppliements.title 외 4건
 - 테이블 수: 36개, 컬럼 수: 321개
