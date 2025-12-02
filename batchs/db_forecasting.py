@@ -412,7 +412,7 @@ def _fetch_supply_reports(
     conn: mysql.connector.MySQLConnection, run_date: dt.date
 ) -> List[Dict[str, object]]:
     sql = """
-        SELECT wr.work_id, wr.contents1, wr.contents2
+        SELECT wr.work_id, wr.contents1, wr.contents2, wh.room_id
         FROM work_reports AS wr
         INNER JOIN work_header AS wh ON wh.id = wr.work_id
         WHERE wh.date = %s AND wr.type = 2
@@ -420,6 +420,25 @@ def _fetch_supply_reports(
     with conn.cursor(dictionary=True) as cur:
         cur.execute(sql, (run_date,))
         return list(cur)
+
+
+def _fetch_next_work_dates(
+    conn: mysql.connector.MySQLConnection, run_date: dt.date
+) -> Dict[int, dt.date]:
+    sql = """
+        SELECT room_id, MIN(date) AS next_date
+        FROM work_header
+        WHERE date > %s
+        GROUP BY room_id
+    """
+
+    next_dates: Dict[int, dt.date] = {}
+    with conn.cursor(dictionary=True) as cur:
+        cur.execute(sql, (run_date,))
+        for row in cur:
+            if row.get("next_date"):
+                next_dates[int(row["room_id"])] = row["next_date"]
+    return next_dates
 
 
 def _fetch_checklist_lookup(
@@ -451,6 +470,8 @@ def _persist_client_suppliments(conn: mysql.connector.MySQLConnection, run_date:
         logging.info("공급품 보고 없음 - 적재 스킵(run_date=%s)", run_date)
         return
 
+    next_dates = _fetch_next_work_dates(conn, run_date)
+
     checklist_ids: List[int] = []
     for row in reports:
         checklist_ids.extend(_extract_ids_from_json(row.get("contents1")))
@@ -460,15 +481,17 @@ def _persist_client_suppliments(conn: mysql.connector.MySQLConnection, run_date:
         logging.info("공급품 체크리스트 매핑 없음 - 적재 스킵(run_date=%s)", run_date)
         return
 
-    inserts: List[Tuple[int, str, Optional[str]]] = []
+    inserts: List[Tuple[int, dt.date, Optional[dt.date], str, Optional[str]]] = []
     work_ids: set[int] = set()
 
     for row in reports:
         work_id = int(row.get("work_id"))
+        room_id = int(row.get("room_id"))
         ids = _extract_ids_from_json(row.get("contents1"))
         if not ids:
             continue
         notes = row.get("contents2")
+        next_date = next_dates.get(room_id)
 
         for cid in ids:
             checklist = checklist_lookup.get(cid)
@@ -481,7 +504,7 @@ def _persist_client_suppliments(conn: mysql.connector.MySQLConnection, run_date:
             if description is None or str(description).strip() == "":
                 description = _extract_supply_note(notes, cid)
 
-            inserts.append((work_id, title, description))
+            inserts.append((work_id, run_date, next_date, title, description))
             work_ids.add(work_id)
 
     if not inserts:
@@ -497,7 +520,10 @@ def _persist_client_suppliments(conn: mysql.connector.MySQLConnection, run_date:
             tuple(work_ids),
         )
         cur.executemany(
-            "INSERT INTO client_suppliments (work_id, title, dscpt) VALUES (%s, %s, %s)",
+            """
+            INSERT INTO client_suppliments (work_id, date, next_date, title, dscpt)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
             inserts,
         )
     conn.commit()
