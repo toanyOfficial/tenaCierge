@@ -433,7 +433,7 @@ export const workerSalaryHistory = mysqlTable('worker_salary_history', {
   workTimeMinutes: double('work_time_minutes'),
   workHours: double('work_hours'),
   workTimeHours: double('work_time_hours'),
-  hourlyWage: decimal('hourly_wage', { precision: 11, scale: 2 }),
+  hourlyWageTargetDate: date('hourly_wage_target_date'),
   wagePerHour: decimal('wage_per_hour', { precision: 11, scale: 2 }),
   dailyWage: decimal('daily_wage', { precision: 13, scale: 2 }),
   totalWage: decimal('total_wage', { precision: 13, scale: 2 }),

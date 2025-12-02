@@ -10,6 +10,7 @@ import {
   workerSalaryHistory,
   workerTierRules
 } from '@/src/db/schema';
+import { logServerError } from '@/src/server/errorLogger';
 import type { ProfileSummary } from '@/src/utils/profile';
 import { getTierLabel } from '@/src/utils/tier';
 import { formatFullDateLabel, getKstNow } from '@/src/utils/workWindow';
@@ -285,9 +286,19 @@ export async function getEvaluationSnapshot(
   const summary = await fetchEvaluationSummary(worker);
   const page = await fetchEvaluationPage(worker.id);
 
-  const adminView = profile.roles.includes('admin')
-    ? await fetchAdminEvaluationView(targetDateStr)
-    : null;
+  let adminView: AdminEvaluationView | null = null;
+  if (profile.roles.includes('admin')) {
+    try {
+      adminView = await fetchAdminEvaluationView(targetDateStr);
+    } catch (error) {
+      await logServerError({
+        appName: 'evaluations-admin',
+        message: '관리자 일급/티어 조회 실패',
+        error,
+        context: { targetDate: targetDateStr ?? undefined }
+      });
+    }
+  }
 
   return {
     worker,
@@ -383,7 +394,7 @@ async function fetchDailyWageRows(targetDate: Date): Promise<DailyWageRow[]> {
       name: workerHeader.name,
       startTime: workerSalaryHistory.startTime,
       endTime: workerSalaryHistory.endTime,
-      hourlyWage: sql<string | null>`COALESCE(${workerSalaryHistory.hourlyWage}, ${workerSalaryHistory.wagePerHour})`,
+      hourlyWage: workerSalaryHistory.wagePerHour,
       dailyWage: sql<string | null>`COALESCE(${workerSalaryHistory.dailyWage}, ${workerSalaryHistory.totalWage}, ${workerSalaryHistory.amount})`,
       tier: workerHeader.tier,
       bank: workerHeader.bankValue,
