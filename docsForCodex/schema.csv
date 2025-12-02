@@ -83,7 +83,7 @@ tenaCierge,client_rooms,updated_at,timestamp,NO,
 tenaCierge,client_supplements,id,int unsigned,NO,PK
 tenaCierge,client_supplements,room_id,int,NO,
 tenaCierge,client_supplements,date,date,NO,
-tenaCierge,client_supplements,next_date,date,NO,
+tenaCierge,client_supplements,next_date,date,YES,
 tenaCierge,client_supplements,title,varchar(20),YES,
 tenaCierge,client_supplements,dscpt,varchar(2083),NO,
 tenaCierge,client_supplements,buy_yn,tinyint(1),NO,"0:구매안함, 1:구매함"
@@ -94,6 +94,13 @@ tenaCierge,etc_baseCode,code,varchar(10),NO,코드
 tenaCierge,etc_baseCode,value,varchar(255),NO,값
 tenaCierge,etc_baseCode,created_at,timestamp,NO,
 tenaCierge,etc_baseCode,updated_at,timestamp,NO,
+tenaCierge,etc_batchLogs,id,bigint,NO,
+tenaCierge,etc_batchLogs,app_name,varchar(64),NO,
+tenaCierge,etc_batchLogs,start_dttm,datetime,NO,
+tenaCierge,etc_batchLogs,end_dttm,datetime,NO,
+tenaCierge,etc_batchLogs,end_flag,tinyint,NO,
+tenaCierge,etc_batchLogs,context_json,json,YES,
+tenaCierge,etc_batchLogs,created_at,timestamp,NO,
 tenaCierge,etc_buildings,id,tinyint unsigned,NO,PK
 tenaCierge,etc_buildings,basecode_sector,varchar(10),NO,지역코드
 tenaCierge,etc_buildings,basecode_code,varchar(255),NO,지역값
@@ -121,6 +128,20 @@ tenaCierge,etc_errorLogs,user_id,bigint unsigned,YES,에러 발생 유저 PK
 tenaCierge,etc_errorLogs,context_json,json,YES,추가 상태/파라미터 JSON
 tenaCierge,etc_errorLogs,created_at,timestamp,NO,
 tenaCierge,etc_errorLogs,updated_at,timestamp,NO,
+tenaCierge,etc_errorLogs_batch,id,int unsigned,NO,PK
+tenaCierge,etc_errorLogs_batch,level,tinyint unsigned,NO,1:FATAL/2:ERROR/3:WARN/4:INFO/5:DEBUG
+tenaCierge,etc_errorLogs_batch,app_name,varchar(50),NO,서비스 또는 모듈 또는 프로그램 명
+tenaCierge,etc_errorLogs_batch,error_code,varchar(50),YES,비즈니스 에러코드
+tenaCierge,etc_errorLogs_batch,message,varchar(500),NO,요약 에러 메시지
+tenaCierge,etc_errorLogs_batch,stacktrace,text,YES,전체 스택 트레이스
+tenaCierge,etc_errorLogs_batch,request_id,varchar(100),YES,트랜잭션/요청 추적용 ID
+tenaCierge,etc_errorLogs_batch,user_id,bigint unsigned,YES,에러 발생 유저 PK
+tenaCierge,etc_errorLogs_batch,context_json,json,YES,추가 상태/파라미터 JSON
+tenaCierge,etc_errorLogs_batch,start_dttm,timestamp,NO,시작 dttm. 무조건 남는다.
+tenaCierge,etc_errorLogs_batch,end_dttm,timestamp,NO,종료 dttm. 무조건 남는다.
+tenaCierge,etc_errorLogs_batch,end_flag,tinyint(1),NO,"1:정상종료, 2:비정상종료"
+tenaCierge,etc_errorLogs_batch,created_at,timestamp,NO,
+tenaCierge,etc_errorLogs_batch,updated_at,timestamp,NO,
 tenaCierge,etc_notice,id,int unsigned,NO,PK
 tenaCierge,etc_notice,notice_date,date,NO,
 tenaCierge,etc_notice,notice,varchar(255),NO,
@@ -298,6 +319,15 @@ tenaCierge,worker_penaltyHistory,interval,tinyint,NO,
 tenaCierge,worker_penaltyHistory,comment,varchar(255),NO,
 tenaCierge,worker_penaltyHistory,created_at,timestamp,NO,
 tenaCierge,worker_penaltyHistory,updated_at,timestamp,NO,
+tenaCierge,worker_salary_history,id,bigint unsigned,NO,PK
+tenaCierge,worker_salary_history,worker_id,int unsigned,NO,worker_header참조
+tenaCierge,worker_salary_history,work_date,date,NO,
+tenaCierge,worker_salary_history,start_time,time,NO,
+tenaCierge,worker_salary_history,end_time,time,NO,
+tenaCierge,worker_salary_history,tier_target_date,tinyint,NO,
+tenaCierge,worker_salary_history,hourly_wage_target_date,smallint,NO,
+tenaCierge,worker_salary_history,created_at,timestamp,NO,
+tenaCierge,worker_salary_history,updated_at,timestamp,NO,
 tenaCierge,worker_schedule_exception,id,int unsigned,NO,PK
 tenaCierge,worker_schedule_exception,worker_id,int unsigned,NO,client_header 참조
 tenaCierge,worker_schedule_exception,excpt_date,date,NO,0:일요일 ~ 6:토요일
