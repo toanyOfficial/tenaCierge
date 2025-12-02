@@ -10,9 +10,10 @@ import type { CleaningWork } from '@/src/server/workTypes';
 import type { ProfileSummary } from '@/src/utils/profile';
 import {
   buildDateOptions,
+  clampDateWithinRange,
   formatDateKey,
   getKstNow,
-  formatFullDateLabel,
+  formatWorkDateLabel,
   resolveWorkWindow,
   type WorkWindowMeta
 } from '@/src/utils/workWindow';
@@ -52,7 +53,8 @@ export async function getCleaningSnapshot(profile: ProfileSummary, targetDate?: 
   const now = getKstNow();
   const today = formatDateKey(now);
   const maxDate = buildMaxDate(today, 7);
-  const meta = resolveWorkWindow(undefined, targetDate || undefined);
+  const boundedTargetDate = clampDateWithinRange(targetDate || today, 7, now);
+  const meta = resolveWorkWindow(undefined, boundedTargetDate);
   const availableDates = await fetchAvailableWorkDates();
   const dateOptions = buildExtendedOptions(buildDateOptions(7, now), availableDates, meta.targetDate, now);
   const client = profile.roles.includes('host') ? await findClientByProfile(profile) : null;
@@ -98,6 +100,7 @@ function buildExtendedOptions(
   const today = formatDateKey(now);
   const seen = new Set(options.map((option) => option.value));
   const todayDate = new Date(`${today}T00:00:00+09:00`);
+  const maxDate = new Date(`${buildMaxDate(today, 7)}T00:00:00+09:00`);
 
   const withAvailable = [
     ...options,
@@ -105,16 +108,19 @@ function buildExtendedOptions(
       .filter((date) => !seen.has(date))
       .filter((date) => {
         const parsed = new Date(`${date}T00:00:00+09:00`);
-        return !Number.isNaN(parsed.getTime()) && parsed >= todayDate;
+        return !Number.isNaN(parsed.getTime()) && parsed >= todayDate && parsed <= maxDate;
       })
-      .map((date) => ({ value: date, tag: resolveTag(today, date), label: formatFullDateLabel(new Date(`${date}T00:00:00+09:00`)) }))
+      .map((date) => {
+        const tag = resolveTag(today, date);
+        return { value: date, tag, label: formatWorkDateLabel(tag, date) };
+      })
   ];
 
-  if (!seen.has(targetDate)) {
+  if (!seen.has(targetDate) && targetDate >= formatDateKey(todayDate) && targetDate <= formatDateKey(maxDate)) {
     withAvailable.unshift({
       value: targetDate,
       tag: resolveTag(today, targetDate),
-      label: formatFullDateLabel(new Date(`${targetDate}T00:00:00+09:00`))
+      label: formatWorkDateLabel(resolveTag(today, targetDate), targetDate)
     });
   }
 
