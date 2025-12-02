@@ -896,7 +896,7 @@ class BatchRunner:
                 else:
                     label = ""
                 has_checkout = out_time is not None
-                actual_observed = (target_date == self.run_date) and (not self.today_only)
+                actual_observed = (target_date == self.run_date) and self.today_only
                 prediction = Prediction(
                     room=room,
                     target_date=target_date,
@@ -912,13 +912,14 @@ class BatchRunner:
         self._persist_predictions(predictions)
         self._persist_work_header(predictions)
 
-        if not self.today_only:
+        if self.today_only:
+            self._persist_accuracy(predictions)
+            self._adjust_threshold(predictions)
+        else:
             for offset in range(self.start_offset, self.end_offset + 1):
                 self._persist_work_apply_slots(
                     self.run_date + dt.timedelta(days=offset), predictions
                 )
-            self._persist_accuracy(predictions)
-            self._adjust_threshold(predictions)
 
         logging.info(
             "ICS 다운로드 결과: 기대 %s건 중 %s건", self.expected_ics, self.downloaded_ics

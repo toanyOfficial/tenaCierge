@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: '체크리스트 세트가 없습니다.' }, { status: 400 });
     }
 
-  const [checklistRows, imageSlotRows] = await Promise.all([
+  const [checklistRows, supplyChecklistRows, imageSlotRows] = await Promise.all([
     db
       .select({
         id: workChecklistSetDetail.id,
@@ -60,21 +60,26 @@ export async function POST(req: Request) {
       })
       .from(workChecklistSetDetail)
       .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
-      .where(and(eq(workChecklistSetDetail.checklistHeaderId, targetWork.checklistSetId), inArray(workChecklistList.type, [1, 3])))
-      .orderBy(asc(workChecklistList.type), asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
-      targetWork.imagesSetId
-        ? db
-            .select({
-              id: workImagesSetDetail.id,
-              required: workImagesSetDetail.required,
-              listRequired: workImagesList.required
-            })
-            .from(workImagesSetDetail)
-            .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
-            .where(and(eq(workImagesSetDetail.imagesSetId, targetWork.imagesSetId), eq(workImagesList.role, 1)))
-            .orderBy(asc(workImagesSetDetail.id))
-        : Promise.resolve([])
-    ]);
+      .where(and(eq(workChecklistSetDetail.checklistHeaderId, targetWork.checklistSetId), eq(workChecklistList.type, 1)))
+      .orderBy(asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
+    db
+      .select({ id: workChecklistList.id, type: workChecklistList.type })
+      .from(workChecklistList)
+      .where(eq(workChecklistList.type, 3))
+      .orderBy(asc(workChecklistList.id)),
+    targetWork.imagesSetId
+      ? db
+          .select({
+            id: workImagesSetDetail.id,
+            required: workImagesSetDetail.required,
+            listRequired: workImagesList.required
+          })
+          .from(workImagesSetDetail)
+          .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
+          .where(and(eq(workImagesSetDetail.imagesSetId, targetWork.imagesSetId), eq(workImagesList.role, 1)))
+          .orderBy(asc(workImagesSetDetail.id))
+      : Promise.resolve([])
+  ]);
 
     const cleaningChecklistIds = checklistRows.filter((row) => row.type === 1).map((row) => row.id);
     const readinessMessages: string[] = [];
@@ -134,7 +139,7 @@ export async function POST(req: Request) {
     }[];
 
     const cleaningOnly = cleaningChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 1));
-    const supplyOnly = supplyChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 3));
+    const supplyOnly = supplyChecks.filter((id) => supplyChecklistRows.some((row) => row.id === id));
     if (cleaningOnly.length) {
       rowsToInsert.push({ workId, type: 1, contents1: cleaningOnly });
     }
