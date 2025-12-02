@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { desc, eq } from 'drizzle-orm';
 
 import { etcNotice } from '@/src/db/schema';
+import { logServerError } from '@/src/server/errorLogger';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -27,11 +28,8 @@ export async function GET() {
       updatedAt: latest?.updatedAt ?? null
     });
   } catch (error) {
-    console.error('공지 조회 실패', error);
-    return NextResponse.json(
-      { error: '공지 사항을 불러오지 못했습니다.' },
-      { status: 500 }
-    );
+    await logServerError({ appName: 'notice', message: '공지 조회 실패', error });
+    return NextResponse.json({ error: '공지 사항을 불러오지 못했습니다.' }, { status: 500 });
   }
 }
 
@@ -78,7 +76,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(saved ?? { id: null, notice: noticeInput, noticeDate: today, updatedAt: null });
   } catch (error) {
-    console.error('공지 저장 실패', error);
+    await logServerError({ appName: 'notice', message: '공지 저장 실패', error, context: { requestedId } });
     return NextResponse.json({ error: '공지 저장 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }
