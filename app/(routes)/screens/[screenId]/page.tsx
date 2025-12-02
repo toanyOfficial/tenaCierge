@@ -9,6 +9,7 @@ import CleaningReportClient from './CleaningReportClient';
 import SupervisingReportClient from './SupervisingReportClient';
 import EvaluationHistoryClient from './EvaluationHistoryClient';
 import SettlementClient from './SettlementClient';
+import SuppliesClient from './SuppliesClient';
 import { getCleaningSnapshot } from './server/getCleaningSnapshot';
 import { getApplySnapshot } from './server/getApplySnapshot';
 import { getWorkListSnapshot } from './server/getWorkListSnapshot';
@@ -17,6 +18,7 @@ import { getSupervisingReportSnapshot } from './server/getSupervisingReportSnaps
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { getEvaluationSnapshot } from '@/src/server/evaluations';
 import { getSettlementSnapshot } from './server/getSettlementSnapshot';
+import { getSuppliesSnapshot } from './server/getSuppliesSnapshot';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -49,7 +51,7 @@ export default async function ScreenPage({
 }) {
   const { screenId } = params;
 
-  if (!['002', '003', '004', '005', '006', '007', '008'].includes(screenId)) {
+  if (!['002', '003', '004', '005', '006', '007', '008', '011'].includes(screenId)) {
     return (
       <section className={styles.placeholder}>
         <div className={styles.card}>
@@ -239,6 +241,32 @@ export default async function ScreenPage({
           isAdmin={profile.roles.includes('admin')}
           profile={profile}
         />
+      </div>
+    );
+  }
+
+  if (screenId === '011') {
+    const allowedRoles = ['admin', 'host'];
+    const canAccess = profile.roles.some((role) => allowedRoles.includes(role));
+
+    if (!canAccess) {
+      return (
+        <section className={styles.placeholder}>
+          <div className={styles.card}>
+            <p className={styles.lead}>소모품구매 화면은 관리자와 호스트만 볼 수 있습니다.</p>
+            <Link className={styles.backLink} href="/dashboard">
+              대시보드로 돌아가기
+            </Link>
+          </div>
+        </section>
+      );
+    }
+
+    const snapshot = await getSuppliesSnapshot(profile);
+
+    return (
+      <div className={styles.screenWrapper}>
+        <SuppliesClient snapshot={snapshot} profile={profile} />
       </div>
     );
   }
