@@ -24,7 +24,9 @@ type WorkerResult = {
 export default function EvaluationHistoryClient({ profile, snapshot }: Props) {
   const router = useRouter();
   const params = useSearchParams();
-  const [activeRole, setActiveRole] = useState(profile.primaryRole ?? profile.roles[0] ?? 'admin');
+  const [activeRole, setActiveRole] = useState(
+    profile.roles.includes('admin') ? 'admin' : profile.primaryRole ?? profile.roles[0] ?? 'admin'
+  );
   const [groups, setGroups] = useState<EvaluationGroup[]>(snapshot.groups);
   const [nextCursor, setNextCursor] = useState<string | null>(snapshot.nextCursor ?? null);
   const [folded, setFolded] = useState<Record<string, boolean>>({});
@@ -53,7 +55,8 @@ export default function EvaluationHistoryClient({ profile, snapshot }: Props) {
   const canSearch = profile.roles.includes('admin');
   const hasWorker = Boolean(snapshot.worker);
   const hasMore = Boolean(nextCursor);
-  const isAdminView = profile.roles.includes('admin') && activeRole === 'admin';
+  const shouldShowAdminPanel = profile.roles.includes('admin') && activeRole === 'admin';
+  const adminData = adminView ?? { targetDate, dailyWages: [], tierChanges: [] };
 
   const dateOptions = useMemo(() => buildDateOptions(), []);
 
@@ -147,7 +150,7 @@ export default function EvaluationHistoryClient({ profile, snapshot }: Props) {
   const handleSelectWorker = (workerId: number) => {
     const nextParams = new URLSearchParams(params?.toString() ?? '');
     nextParams.set('workerId', String(workerId));
-    if (isAdminView && targetDate) {
+    if (shouldShowAdminPanel && targetDate) {
       nextParams.set('targetDate', targetDate);
     }
     setSearchResults([]);
@@ -163,6 +166,7 @@ export default function EvaluationHistoryClient({ profile, snapshot }: Props) {
       const res = await fetch(`/api/evaluations/admin?targetDate=${encodeURIComponent(value)}`);
       if (!res.ok) {
         setAdminError('데이터를 불러오지 못했습니다.');
+        setAdminView((prev) => prev ?? { targetDate: value, dailyWages: [], tierChanges: [] });
         return;
       }
       const body = (await res.json()) as AdminEvaluationView;
@@ -172,14 +176,21 @@ export default function EvaluationHistoryClient({ profile, snapshot }: Props) {
       }
     } catch (err) {
       setAdminError('데이터를 불러오지 못했습니다.');
+      setAdminView((prev) => prev ?? { targetDate: value, dailyWages: [], tierChanges: [] });
     } finally {
       setAdminLoading(false);
     }
   };
 
+  useEffect(() => {
+    if (!shouldShowAdminPanel || adminView || adminLoading) return;
+    handleTargetDateChange(targetDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldShowAdminPanel, adminView, adminLoading, targetDate]);
+
   const handleDownload = () => {
-    if (!adminView) return;
-    const depositLabel = formatDepositLabel(adminView.targetDate);
+    if (!shouldShowAdminPanel) return;
+    const depositLabel = formatDepositLabel(adminData.targetDate);
     const header = [
       '입금은행',
       '입금계좌번호',
@@ -192,7 +203,7 @@ export default function EvaluationHistoryClient({ profile, snapshot }: Props) {
       '받는분 휴대폰번호'
     ];
 
-    const rows = adminView.dailyWages.map((row) => [
+    const rows = adminData.dailyWages.map((row) => [
       safeString(row.bank),
       safeString(row.accountNo),
       formatMoney(row.dailyWage),
@@ -212,7 +223,7 @@ export default function EvaluationHistoryClient({ profile, snapshot }: Props) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `daily-wages-${adminView.targetDate}.csv`;
+    link.download = `daily-wages-${adminData.targetDate}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -276,7 +287,7 @@ export default function EvaluationHistoryClient({ profile, snapshot }: Props) {
           </div>
         ) : (
           <>
-            {isAdminView && adminView ? (
+            {shouldShowAdminPanel ? (
               <section className={styles.adminPanel}>
                 <div className={styles.sectionHeader}>
                   <div>
@@ -302,7 +313,7 @@ export default function EvaluationHistoryClient({ profile, snapshot }: Props) {
                       type="button"
                       className={styles.downloadButton}
                       onClick={handleDownload}
-                      disabled={adminLoading || !adminView.dailyWages.length}
+                      disabled={adminLoading || !adminData.dailyWages.length}
                     >
                       엑셀 다운로드
                     </button>
@@ -330,14 +341,14 @@ export default function EvaluationHistoryClient({ profile, snapshot }: Props) {
                           </tr>
                         </thead>
                         <tbody>
-                          {adminView.dailyWages.length === 0 ? (
+                          {adminData.dailyWages.length === 0 ? (
                             <tr>
                               <td colSpan={8} className={styles.emptyCell}>
                                 데이터가 없습니다.
                               </td>
                             </tr>
                           ) : (
-                            adminView.dailyWages.map((row) => (
+                            adminData.dailyWages.map((row) => (
                               <tr key={row.workerId}>
                                 <td>{row.name}</td>
                                 <td>{formatTime(row.startTime)}</td>
@@ -372,14 +383,14 @@ export default function EvaluationHistoryClient({ profile, snapshot }: Props) {
                           </tr>
                         </thead>
                         <tbody>
-                          {adminView.tierChanges.length === 0 ? (
+                          {adminData.tierChanges.length === 0 ? (
                             <tr>
                               <td colSpan={6} className={styles.emptyCell}>
                                 데이터가 없습니다.
                               </td>
                             </tr>
                           ) : (
-                            adminView.tierChanges.map((row) => (
+                            adminData.tierChanges.map((row) => (
                               <tr key={row.workerId}>
                                 <td>{row.name}</td>
                                 <td>{row.totalScore}</td>
