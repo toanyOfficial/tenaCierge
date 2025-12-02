@@ -381,9 +381,7 @@ async function fetchDailyWageRows(targetDate: Date): Promise<DailyWageRow[]> {
     .select({
       workerId: workerSalaryHistory.workerId,
       name: workerHeader.name,
-      startDttm: workerSalaryHistory.startDttm,
       startTime: workerSalaryHistory.startTime,
-      endDttm: workerSalaryHistory.endDttm,
       endTime: workerSalaryHistory.endTime,
       hourlyWage: sql<string | null>`COALESCE(${workerSalaryHistory.hourlyWage}, ${workerSalaryHistory.wagePerHour})`,
       dailyWage: sql<string | null>`COALESCE(${workerSalaryHistory.dailyWage}, ${workerSalaryHistory.totalWage}, ${workerSalaryHistory.amount})`,
@@ -400,8 +398,8 @@ async function fetchDailyWageRows(targetDate: Date): Promise<DailyWageRow[]> {
   return rows.map((row) => ({
     workerId: Number(row.workerId),
     name: row.name,
-    startTime: chooseDateTime(row.startDttm, row.startTime),
-    endTime: chooseDateTime(row.endDttm, row.endTime),
+    startTime: chooseDateTime(row.startTime, null),
+    endTime: chooseDateTime(row.endTime, null),
     tier: typeof row.tier === 'number' ? row.tier : null,
     tierLabel: getTierLabel(row.tier),
     hourlyWage: toNumber(row.hourlyWage),
