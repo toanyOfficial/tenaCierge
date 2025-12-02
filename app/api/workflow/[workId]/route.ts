@@ -105,6 +105,7 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
             cleanerId: null,
             butlerId: null,
             manualUptYn: true,
+            supplyYn: true,
             cleaningFlag: 4,
             cleaningEndTime: nowTime,
             supervisingYn: true,
