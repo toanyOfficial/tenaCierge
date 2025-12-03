@@ -3103,6 +3103,15 @@
   color: var(--text-strong);
 }
 
+.supplyCell {
+  width: 100%;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  text-align: inherit;
+  word-break: break-word;
+}
+
 .mono {
   font-family: var(--font-mono, 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', 'Courier New', monospace);
   font-weight: 700;
