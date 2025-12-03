@@ -34,3 +34,19 @@ The Kakao account-status and channel webhooks are backend-only HTTP endpoints. R
   - 차단 시 `kakao_channel_subscribers` 상태를 BLOCKED로 업데이트하고 `kakao_optout_logs`에 수신 거부 이력 기록
   - 발송 파이프라인에서 friend/blocked 상태와 opt-out 여부를 필터링해 향후 메시지 전송을 제어
   - 이벤트 처리 성공 시 200 OK 응답
+
+## 현재 상황과 해야 할 일 (404 발생 케이스 기준)
+- **상황 요약**: 카카오가 `Content-Type: application/secevent+jwt`로 서명된 JWT를 `/api/kakao/account-status`에 POST했으나 404가 응답되었음. 이는 해당 경로에 라우트 파일이 없거나 배포 환경에 반영되지 않았음을 의미함.
+- **받은 요청 형태**
+  - 헤더 예시: `{ "kid": "9f252dadd5f233f93d2fa528d12fea", "typ": "secevent+jwt", "alg": "RS256" }`
+  - 페이로드 예시: `events` 안에 `user-linked` 이벤트가 포함된 JWT(`aud`, `iss`, `sub`, `iat`, `toe`, `jti` 등 표준 클레임과 `events` 객체가 포함)
+  - 실제 POST 바디는 위 JWT를 직렬화한 문자열 하나가 전송됨.
+- **지금 해야 하는 작업** (코드 작성 전 개요)
+  1. `/api/kakao/account-status` 경로에 POST를 처리할 백엔드 라우트 파일을 추가(Next.js라면 `app/api/kakao/account-status/route.ts`).
+  2. 수신한 JWT를 파싱·검증: `kid`로 공개키 조회 → `RS256` 서명 검증 → `aud`가 우리 앱의 REST API 키(또는 지정 aud)인지 확인 → `iss`가 `https://kauth.kakao.com`인지 확인 → 만료/재생 공격 방지(`toe`, `iat`, `jti` 검증 및 재사용 방지 저장소 고려).
+  3. `events` 내 이벤트 타입별로 내부 오퍼레이션 분기: `user-linked`면 구독자 연결 처리, `user-unlinked`/`tokens-revoked` 등은 구독자 상태/토큰 폐기, opt-out 로그 기록 등.
+  4. 처리 결과를 로깅·DB 반영 후 200 OK를 반환해 카카오 재시도를 막음. 오류 시 4xx/5xx와 함께 원인 로그 남김.
+- **작업 후 기대 변화**
+  - 카카오 콘솔에서 테스트/실제 이벤트를 보내면 200 OK가 반환되고, `kakao_channel_subscribers`·`kakao_optout_logs`·발송 토큰 상태 등이 즉시 최신화됨.
+  - 서명 검증과 aud/iss 검증이 완료되므로 위조 요청을 차단할 수 있음.
+  - 동일 토큰 재전송 시 재사용 검증 로직으로 중복 처리 방지 가능.
