@@ -171,19 +171,30 @@ export default function SuppliesClient({ snapshot, profile }: Props) {
 
                           {room.items.map((item) => (
                             <div key={item.id} className={styles.supplyRow}>
-                              <span className={styles.mono}>{item.dateLabel}</span>
-                              <span className={styles.mono}>{item.nextDateLabel ?? '-'}</span>
-                              <span className={styles.strongText}>{item.title}</span>
-                              <span>
+                              <span className={`${styles.mono} ${styles.supplyCell}`} data-label="일자">
+                                {item.dateLabel}
+                              </span>
+                              <span className={`${styles.mono} ${styles.supplyCell}`} data-label="다음체크인">
+                                {item.nextDateLabel ?? '-'}
+                              </span>
+                              <span className={`${styles.strongText} ${styles.supplyCell}`} data-label="항목">
+                                {item.title}
+                              </span>
+                              <span className={styles.supplyCell} data-label="내용">
                                 {isLink(item.description) ? (
-                                  <a href={item.description ?? '#'} target="_blank" rel="noopener noreferrer" className={styles.linkButtonGhost}>
+                                  <a
+                                    href={item.description ?? '#'}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={styles.linkButtonGhost}
+                                  >
                                     링크 이동
                                   </a>
                                 ) : (
                                   item.description ?? '-'
                                 )}
                               </span>
-                              <label className={styles.checkboxCell}>
+                              <label className={`${styles.checkboxCell} ${styles.supplyCell}`} data-label="구매">
                                 <input
                                   type="checkbox"
                                   checked={item.buyYn}

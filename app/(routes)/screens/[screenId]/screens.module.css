@@ -3068,10 +3068,11 @@
 .supplyGridHeader,
 .supplyRow {
   display: grid;
-  grid-template-columns: 120px 120px 1.1fr 1.6fr 70px;
+  grid-template-columns: minmax(96px, 1fr) minmax(96px, 1fr) minmax(140px, 1.05fr)
+    minmax(160px, 1.35fr) minmax(64px, 0.6fr);
   gap: 10px;
   align-items: center;
-  min-width: 720px;
+  min-width: min(720px, 100%);
   justify-items: center;
   text-align: center;
 }
@@ -3086,6 +3087,15 @@
   padding: 8px 0;
   border-top: 1px solid var(--border);
   color: var(--text-strong);
+}
+
+.supplyCell {
+  width: 100%;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  text-align: inherit;
+  word-break: break-word;
 }
 
 .mono {
@@ -3118,11 +3128,49 @@
 }
 
 @media (max-width: 720px) {
-  .supplyGridHeader,
+  .supplyRoomGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .supplyGridHeader {
+    display: none;
+  }
+
   .supplyRow {
-    grid-template-columns: 104px 104px 1fr 1.4fr 64px;
-    min-width: 540px;
-    font-size: 0.92rem;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    min-width: 100%;
+    font-size: 0.95rem;
+    text-align: left;
+    justify-items: stretch;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow-soft);
+    background: #fff;
+  }
+
+  .supplyRow + .supplyRow {
+    margin-top: 12px;
+  }
+
+  .supplyCell {
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-direction: column;
+    gap: 6px;
+    text-align: left;
+  }
+
+  .supplyCell::before {
+    content: attr(data-label);
+    font-size: 0.85rem;
+    color: var(--text-soft);
+    font-weight: 700;
+  }
+
+  .checkboxCell {
+    justify-content: flex-start;
   }
 }
 
