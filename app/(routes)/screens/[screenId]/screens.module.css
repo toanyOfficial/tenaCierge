@@ -3049,7 +3049,6 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  overflow-x: auto;
 }
 
 .supplyRoomHeader {
@@ -3064,28 +3063,43 @@
   font-weight: 800;
   font-size: 1rem;
 }
-
-.supplyGridHeader,
-.supplyRow {
-  display: grid;
-  grid-template-columns: minmax(96px, 1fr) minmax(96px, 1fr) minmax(140px, 1.05fr)
-    minmax(160px, 1.35fr) minmax(64px, 0.6fr);
+.supplyList {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
-  align-items: center;
-  min-width: min(720px, 100%);
-  justify-items: center;
-  text-align: center;
+  width: 100%;
 }
 
-.supplyGridHeader {
-  font-size: 0.9rem;
+.supplyItemCard {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.supplyItemRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.supplyItemLabel {
+  margin: 0;
+  min-width: 92px;
   color: var(--text-soft);
   font-weight: 700;
+  font-size: 0.95rem;
 }
 
-.supplyRow {
-  padding: 8px 0;
-  border-top: 1px solid var(--border);
+.supplyItemValue {
+  margin: 0;
+  flex: 1;
+  word-break: break-word;
   color: var(--text-strong);
 }
 
@@ -3132,41 +3146,18 @@
     grid-template-columns: 1fr;
   }
 
-  .supplyGridHeader {
-    display: none;
-  }
-
-  .supplyRow {
-    grid-template-columns: 1fr;
-    gap: 12px;
-    min-width: 100%;
-    font-size: 0.95rem;
-    text-align: left;
-    justify-items: stretch;
+  .supplyItemCard {
     padding: 12px;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    box-shadow: var(--shadow-soft);
-    background: #fff;
   }
 
-  .supplyRow + .supplyRow {
-    margin-top: 12px;
-  }
-
-  .supplyCell {
-    align-items: flex-start;
-    justify-content: flex-start;
+  .supplyItemRow {
     flex-direction: column;
+    align-items: flex-start;
     gap: 6px;
-    text-align: left;
   }
 
-  .supplyCell::before {
-    content: attr(data-label);
-    font-size: 0.85rem;
-    color: var(--text-soft);
-    font-weight: 700;
+  .supplyItemLabel {
+    min-width: 0;
   }
 
   .checkboxCell {
