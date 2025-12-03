@@ -161,38 +161,54 @@ export default function SuppliesClient({ snapshot, profile }: Props) {
                             <span className={styles.metaPill}>{room.items.length} 건</span>
                           </header>
 
-                          <div className={styles.supplyGridHeader}>
-                            <span>일자</span>
-                            <span>다음체크인</span>
-                            <span>항목</span>
-                            <span>내용</span>
-                            <span>구매</span>
+                          <div className={styles.supplyList}>
+                            {room.items.map((item) => (
+                              <article key={item.id} className={styles.supplyItemCard}>
+                                <div className={styles.supplyItemRow}>
+                                  <p className={styles.supplyItemLabel}>일자</p>
+                                  <p className={`${styles.mono} ${styles.supplyItemValue}`}>{item.dateLabel}</p>
+                                </div>
+                                <div className={styles.supplyItemRow}>
+                                  <p className={styles.supplyItemLabel}>다음체크인</p>
+                                  <p className={`${styles.mono} ${styles.supplyItemValue}`}>
+                                    {item.nextDateLabel ?? '-'}
+                                  </p>
+                                </div>
+                                <div className={styles.supplyItemRow}>
+                                  <p className={styles.supplyItemLabel}>항목</p>
+                                  <p className={`${styles.strongText} ${styles.supplyItemValue}`}>{item.title}</p>
+                                </div>
+                                <div className={styles.supplyItemRow}>
+                                  <p className={styles.supplyItemLabel}>내용</p>
+                                  <div className={styles.supplyItemValue}>
+                                    {isLink(item.description) ? (
+                                      <a
+                                        href={item.description ?? '#'}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={styles.linkButtonGhost}
+                                      >
+                                        링크 이동
+                                      </a>
+                                    ) : (
+                                      item.description ?? '-'
+                                    )}
+                                  </div>
+                                </div>
+                                <div className={styles.supplyItemRow}>
+                                  <p className={styles.supplyItemLabel}>구매</p>
+                                  <label className={`${styles.checkboxCell} ${styles.supplyItemValue}`}>
+                                    <input
+                                      type="checkbox"
+                                      checked={item.buyYn}
+                                      onChange={() => handleToggle(item)}
+                                      disabled={pending[item.id]}
+                                    />
+                                  </label>
+                                </div>
+                              </article>
+                            ))}
                           </div>
-
-                          {room.items.map((item) => (
-                            <div key={item.id} className={styles.supplyRow}>
-                              <span className={styles.mono}>{item.dateLabel}</span>
-                              <span className={styles.mono}>{item.nextDateLabel ?? '-'}</span>
-                              <span className={styles.strongText}>{item.title}</span>
-                              <span>
-                                {isLink(item.description) ? (
-                                  <a href={item.description ?? '#'} target="_blank" rel="noopener noreferrer" className={styles.linkButtonGhost}>
-                                    링크 이동
-                                  </a>
-                                ) : (
-                                  item.description ?? '-'
-                                )}
-                              </span>
-                              <label className={styles.checkboxCell}>
-                                <input
-                                  type="checkbox"
-                                  checked={item.buyYn}
-                                  onChange={() => handleToggle(item)}
-                                  disabled={pending[item.id]}
-                                />
-                              </label>
-                            </div>
-                          ))}
                         </section>
                       ))}
                     </div>
