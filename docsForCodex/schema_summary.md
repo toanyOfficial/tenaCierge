@@ -1,4 +1,8 @@
 ## 2025-12-03 스키마 변경 요약
+- 추가된 컬럼: kakao_channel_subscribers.id, kakao_channel_subscribers.user_type, kakao_channel_subscribers.user_id, kakao_channel_subscribers.phone, kakao_channel_subscribers.kakao_user_uuid 외 46건
+- 테이블 수: 43개, 컬럼 수: 402개
+
+## 2025-12-03 스키마 변경 요약
 - 추가된 컬럼: worker_salary_history.start_time, worker_salary_history.end_time
 - 제거된 컬럼: worker_salary_history.start_dttm, worker_salary_history.end_dttm
 - 테이블 수: 39개, 컬럼 수: 351개
