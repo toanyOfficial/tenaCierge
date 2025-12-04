@@ -29,8 +29,10 @@ export class UploadError extends Error {
   }
 }
 
-const DEFAULT_MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const DEFAULT_MAX_TOTAL_SIZE = 20 * 1024 * 1024; // 20MB per request
+// Many smartphone cameras produce 8~12MB JPEGs; allow some headroom so uploads
+// are accepted before compression/resize kicks in.
+const DEFAULT_MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
+const DEFAULT_MAX_TOTAL_SIZE = 60 * 1024 * 1024; // 60MB per request
 const DEFAULT_MAX_DIMENSION = 1600;
 const DEFAULT_JPEG_QUALITY = 78;
 
