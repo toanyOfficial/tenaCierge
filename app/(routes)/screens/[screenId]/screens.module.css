@@ -1348,9 +1348,10 @@
   }
 
   .groupHeader {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 6px;
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 8px;
   }
 
   .workTitleRow {
@@ -1454,6 +1455,7 @@
     border-color: var(--border);
     border-radius: 14px;
     padding: 12px 14px;
+    flex-wrap: nowrap;
   }
 
   .buildingCard > .groupBody {
