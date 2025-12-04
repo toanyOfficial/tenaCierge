@@ -1,4 +1,3 @@
-import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 
 import { and, asc, eq, inArray } from 'drizzle-orm';
@@ -17,6 +16,7 @@ import {
 import { logServerError } from '@/src/server/errorLogger';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { fetchWorkRowById } from '@/src/server/workQueries';
+import { processImageUploads, UploadError } from '@/src/server/imageUpload';
 import { getKstNow } from '@/src/utils/workWindow';
 
 export const runtime = 'nodejs';
@@ -96,17 +96,19 @@ export async function POST(req: Request) {
 
     const uploads: { slotId: number; url: string }[] = [];
     if (imageFiles.length) {
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'work', String(workId), 'supervising');
-      await mkdir(uploadDir, { recursive: true });
-
-      for (const [index, file] of imageFiles.entries()) {
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        const safeName = sanitizeFilename(file.name);
-        const destName = `${Date.now()}-${safeName}`;
-        const destPath = path.join(uploadDir, destName);
-        await writeFile(destPath, buffer);
-        uploads.push({ slotId: imageFileSlots[index], url: path.posix.join('/uploads/work', String(workId), 'supervising', destName) });
+      try {
+        const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'work', String(workId), 'supervising');
+        const urlPrefix = path.posix.join('/uploads/work', String(workId), 'supervising');
+        uploads.push(
+          ...await processImageUploads({ files: imageFiles, slots: imageFileSlots, baseDir: uploadDir, urlPrefix })
+        );
+      } catch (error) {
+        if (error instanceof UploadError) {
+          const status = error.code === 'FILE_TOO_LARGE' || error.code === 'TOTAL_TOO_LARGE' ? 413 : 400;
+          const message = mapUploadErrorMessage(error.code);
+          return NextResponse.json({ message }, { status });
+        }
+        throw error;
       }
     }
 
@@ -248,10 +250,6 @@ function safeParseChecklistFlags(value: FormDataEntryValue | null): Record<numbe
   }
 }
 
-function sanitizeFilename(name: string) {
-  return name.replace(/[^a-zA-Z0-9_.-]/g, '_');
-}
-
 function safeParseImageMappings(value: FormDataEntryValue | null): { slotId: number; url: string }[] {
   if (!value || typeof value !== 'string') return [];
   try {
@@ -290,4 +288,17 @@ function safeParseSupplyNotes(value: FormDataEntryValue | null): Record<number, 
 
 function hasSupplyNotes(notes: Record<number, string>) {
   return Object.values(notes).some((val) => Boolean(val?.trim()));
+}
+
+function mapUploadErrorMessage(code: UploadError['code']) {
+  switch (code) {
+    case 'FILE_TOO_LARGE':
+      return '이미지 용량이 너무 큽니다. 5MB 이하로 업로드해 주세요.';
+    case 'TOTAL_TOO_LARGE':
+      return '이미지 총 용량이 너무 큽니다. 용량을 줄여 다시 시도해 주세요.';
+    case 'INVALID_SLOT':
+      return '이미지 매핑 정보가 올바르지 않습니다.';
+    default:
+      return '이미지 업로드 중 오류가 발생했습니다.';
+  }
 }
