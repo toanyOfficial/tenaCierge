@@ -376,10 +376,6 @@
 }
 
 .groupSection {
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
-  padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -399,6 +395,7 @@
   color: var(--text-strong);
   font-weight: 700;
   cursor: pointer;
+  flex-wrap: nowrap;
 }
 
 .groupHeaderText {
@@ -412,11 +409,13 @@
 .buildingCount {
   color: var(--text-muted);
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .foldIcon {
   color: var(--text-soft);
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .buildingStack {
