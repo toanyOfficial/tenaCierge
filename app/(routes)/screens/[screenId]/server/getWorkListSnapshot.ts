@@ -74,6 +74,12 @@ export type AssignableWorker = {
   tier: number;
 };
 
+export type PaginationInfo = {
+  page: number;
+  pageSize: number;
+  total?: number;
+};
+
 export type WorkListSnapshot = {
   notice: string;
   targetDate: string;
@@ -86,7 +92,11 @@ export type WorkListSnapshot = {
   emptyMessage?: string;
   currentMinutes: number;
   hostReadOnly?: boolean;
+  pageInfo?: PaginationInfo;
 };
+
+const DEFAULT_PAGE_SIZE = 200;
+const MAX_PAGE_SIZE = 500;
 
 function buildKstDate(dateKey: string) {
   return new Date(`${dateKey}T00:00:00Z`);
@@ -124,6 +134,15 @@ function buildDateOptions(now: Date) {
   }
 
   return options;
+}
+
+function resolvePagination(pageParam?: string, pageSizeParam?: string) {
+  const page = Math.max(1, Number.parseInt(pageParam ?? '1', 10) || 1);
+  const requestedSize = Number.parseInt(pageSizeParam ?? `${DEFAULT_PAGE_SIZE}`, 10);
+  const pageSize = Math.min(Math.max(1, Number.isFinite(requestedSize) ? requestedSize : DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE);
+  const offset = (page - 1) * pageSize;
+
+  return { page, pageSize, offset };
 }
 
 function safeParseJson(value: string) {
@@ -208,11 +227,13 @@ function resolveWindow(
 
 export async function getWorkListSnapshot(
   profile: ProfileSummary,
-  dateParam?: string,
-  windowParam?: 'd0' | 'd1'
+  options?: { dateParam?: string; windowParam?: 'd0' | 'd1'; page?: string; pageSize?: string }
 ): Promise<WorkListSnapshot> {
   noStore();
   try {
+    const dateParam = options?.dateParam;
+    const windowParam = options?.windowParam;
+    const pagination = resolvePagination(options?.page, options?.pageSize);
     const now = getKstNow();
     const minutes = now.getHours() * 60 + now.getMinutes();
     const initialWindow = resolveWindow(now, minutes, dateParam, windowParam);
@@ -265,8 +286,8 @@ export async function getWorkListSnapshot(
         id: workHeader.id,
         date: workHeader.date,
         roomId: workHeader.roomId,
-        // Some deployments miss `work_header.checkout_time`; fall back to room defaults to avoid hard failures.
-        checkoutTime: clientRooms.checkoutTime,
+        // Prefer per-work checkout time; fall back to room defaults when missing for older datasets.
+        checkoutTime: sql<string>`COALESCE(${workHeader.checkoutTime}, ${clientRooms.checkoutTime})`,
         checkinTime: workHeader.checkinTime,
         blanketQty: workHeader.blanketQty,
         amenitiesQty: workHeader.amenitiesQty,
@@ -310,11 +331,14 @@ export async function getWorkListSnapshot(
     const baseQuery = baseQueryBuilder.where(baseWhere);
 
     let rows: Awaited<typeof baseQuery> | undefined = undefined;
-
+    let pageInfo: PaginationInfo | undefined;
     let emptyMessage: string | undefined;
 
     if (isAdmin || isButler) {
-      rows = await baseQuery;
+      const countRows = await db.select({ value: sql<number>`COUNT(*)` }).from(workHeader).where(baseWhere);
+      const total = Number(countRows[0]?.value ?? 0);
+      rows = await baseQuery.limit(pagination.pageSize).offset(pagination.offset);
+      pageInfo = { page: pagination.page, pageSize: pagination.pageSize, total };
     } else if (isHost) {
       if (!client) {
         rows = [];
@@ -343,13 +367,13 @@ export async function getWorkListSnapshot(
     }
 
     const normalized = (rows ?? []).map((row) => normalizeRow(row));
-  const supplyMap = await fetchLatestSupplyReports(normalized.map((row) => row.id));
-  const photoMap = await fetchLatestPhotoReports(normalized.map((row) => row.id));
-  const assignableWorkers = isAdmin || isButler ? await fetchAssignableWorkers(targetDate) : [];
-  const buildingCounts = normalized.reduce<Record<number, number>>((acc, row) => {
-    acc[row.buildingId] = (acc[row.buildingId] ?? 0) + 1;
-    return acc;
-  }, {});
+    const supplyMap = await fetchLatestSupplyReports(normalized.map((row) => row.id));
+    const photoMap = await fetchLatestPhotoReports(normalized.map((row) => row.id));
+    const assignableWorkers = isAdmin || isButler ? await fetchAssignableWorkers(targetDate) : [];
+    const buildingCounts = normalized.reduce<Record<number, number>>((acc, row) => {
+      acc[row.buildingId] = (acc[row.buildingId] ?? 0) + 1;
+      return acc;
+    }, {});
 
     const works = normalized
       .map((work) => ({
@@ -377,7 +401,8 @@ export async function getWorkListSnapshot(
       assignableWorkers,
       emptyMessage,
       currentMinutes: minutes,
-      hostReadOnly
+      hostReadOnly,
+      pageInfo
     };
     await logInfo({
       message: 'work list snapshot fetched',
