@@ -447,7 +447,8 @@
   display: flex;
   gap: 8px;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
 }
 
 .workTitle {
@@ -469,6 +470,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  white-space: nowrap;
+  flex: 0 1 auto;
 }
 
 .infoButton:hover {
@@ -1539,6 +1542,7 @@
   padding: 6px 14px;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .infoButton:hover {
