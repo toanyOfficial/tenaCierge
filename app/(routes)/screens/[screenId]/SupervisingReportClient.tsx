@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 
 import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
 import styles from './screens.module.css';
+import { resizeImageFile } from './clientImageResize';
 import type { ImageSlot, SupervisingReportSnapshot } from './server/getSupervisingReportSnapshot';
 import type { ProfileSummary } from '@/src/utils/profile';
 
@@ -18,7 +19,7 @@ type ImageTileProps = {
   slot: ImageSlot;
   selectedFile?: File | null;
   previewUrl?: string | null;
-  onChange: (slotKey: string, files: FileList | null) => void;
+  onChange: (slotKey: string, files: FileList | null) => void | Promise<void>;
   required?: boolean;
 };
 
@@ -214,11 +215,13 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     setSupervisingCompletionChecks((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const handleImageChange = (slotKey: string, files: FileList | null) => {
+  const handleImageChange = async (slotKey: string, files: FileList | null) => {
     if (!files || !files[0]) return;
     const [file] = files;
-    setImageSelections((prev) => ({ ...prev, [slotKey]: file }));
-    setImagePreviews((prev) => ({ ...prev, [slotKey]: URL.createObjectURL(file) }));
+
+    const resizedFile = await resizeImageFile(file);
+    setImageSelections((prev) => ({ ...prev, [slotKey]: resizedFile }));
+    setImagePreviews((prev) => ({ ...prev, [slotKey]: URL.createObjectURL(resizedFile) }));
   };
 
   const handleSubmit = async () => {
