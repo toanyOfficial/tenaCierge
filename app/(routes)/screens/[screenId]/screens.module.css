@@ -729,13 +729,13 @@
 .detailGridHeader,
 .detailGridRow {
   display: grid;
-  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  grid-template-columns: repeat(5, minmax(40px, 1fr));
   gap: 6px;
   padding: 4px 0;
   font-size: 0.92rem;
-  justify-items: stretch;
-  text-align: left;
-  min-width: 600px;
+  justify-items: center;
+  text-align: center;
+  min-width: 200px;
 }
 
 .detailColumnHeader {
@@ -1399,9 +1399,9 @@
 @media (max-width: 720px) {
   .detailGridHeader,
   .detailGridRow {
-    grid-template-columns: repeat(5, minmax(104px, 1fr));
-    justify-items: stretch;
-    text-align: left;
+    grid-template-columns: repeat(5, minmax(35px, 1fr));
+    justify-items: center;
+    text-align: center;
     row-gap: 6px;
     font-size: 0.9rem;
   }
