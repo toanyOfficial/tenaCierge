@@ -620,6 +620,33 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                   {building.works.map((work) => {
                                     const cleaningLabel = cleaningLabels[(work.cleaningFlag || 1) - 1] ?? cleaningLabels[0];
                                     const supervisingLabel = work.supervisingYn ? '검수완료' : '검수대기';
+                                    const isNoShowState =
+                                      !work.cleanerId &&
+                                      work.supplyYn &&
+                                      work.cleaningFlag === 4 &&
+                                      work.supervisingYn;
+                                    const assignState = isNoShowState
+                                      ? 'noShow'
+                                      : work.cleanerId
+                                        ? 'assigned'
+                                        : 'unassigned';
+                                    const assignClassName = [
+                                      styles.toggleButton,
+                                      assignState === 'assigned'
+                                        ? styles.assignAssigned
+                                        : assignState === 'noShow'
+                                          ? styles.assignNoShow
+                                          : styles.assignUnassigned,
+                                      !canAssignCleaner ? styles.toggleButtonReadOnly : ''
+                                    ]
+                                      .filter(Boolean)
+                                      .join(' ');
+                                    const assignLabel =
+                                      assignState === 'noShow'
+                                        ? '노쇼'
+                                        : work.cleanerName
+                                          ? `담당자 ${work.cleanerName}`
+                                          : '배정하기';
                                     const disabledLine = !work.cleaningYn;
                                     const canViewRealtime = !isHost || work.realtimeOverviewYn;
                                     const canViewPhotos = !isHost || work.imagesYn;
@@ -698,17 +725,17 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                             </button>
 
                                             <button
-                                              className={canAssignCleaner ? styles.toggleButton : styles.toggleButtonDisabled}
+                                              className={assignClassName}
                                               disabled={!canAssignCleaner}
                                               data-compact-label="담"
                                               onClick={() => {
                                                 setAssignTarget(work);
-                                                setAssignSelection(work.cleanerId ?? null);
+                                                setAssignSelection(isNoShowState ? 'noShow' : work.cleanerId ?? null);
                                                 setAssignQuery('');
                                                 setAssignError('');
                                               }}
                                             >
-                                              {work.cleanerName ? `담당자 ${work.cleanerName}` : '배정하기'}
+                                              {assignLabel}
                                             </button>
 
                                             <button
