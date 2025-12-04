@@ -1389,13 +1389,33 @@
   }
 
   .workRowCompact {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    gap: 8px;
   }
 
   .workRowCompact .toggleButton,
   .workRowCompact .toggleButtonDisabled {
-    width: 100%;
+    flex: 0 0 40px;
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 999px;
+    font-size: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .workRowCompact .toggleButton::first-letter,
+  .workRowCompact .toggleButtonDisabled::first-letter {
+    font-size: 1rem;
+    line-height: 1;
   }
 }
 
