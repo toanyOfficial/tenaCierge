@@ -49,8 +49,8 @@ export async function fetchWorkRowsByDate(targetDate: string) {
       cleaningYn: workHeader.cleaningYn,
       // Some deployments omit `condition_check_yn`; default to false when absent.
       conditionCheckYn: sql<boolean>`0`,
-      // Some DBs may miss `work_header.checkout_time`; prefer room default to avoid failures.
-      checkoutTime: clientRooms.checkoutTime,
+      // Prefer per-work checkout times; fall back to room defaults when unavailable.
+      checkoutTime: sql<string>`COALESCE(${workHeader.checkoutTime}, ${clientRooms.checkoutTime})`,
       checkinTime: workHeader.checkinTime,
       blanketQty: workHeader.blanketQty,
       amenitiesQty: workHeader.amenitiesQty,
@@ -112,8 +112,8 @@ export async function fetchWorkRowById(workId: number) {
       cleaningYn: workHeader.cleaningYn,
       // Some deployments omit `condition_check_yn`; default to false when absent.
       conditionCheckYn: sql<boolean>`0`,
-      // Some DBs may miss `work_header.checkout_time`; prefer room default to avoid failures.
-      checkoutTime: clientRooms.checkoutTime,
+      // Prefer per-work checkout times; fall back to room defaults when unavailable.
+      checkoutTime: sql<string>`COALESCE(${workHeader.checkoutTime}, ${clientRooms.checkoutTime})`,
       checkinTime: workHeader.checkinTime,
       blanketQty: workHeader.blanketQty,
       amenitiesQty: workHeader.amenitiesQty,
@@ -157,8 +157,8 @@ export async function fetchLatestWorkByDateAndRoom(date: string, roomId: number)
       cleaningYn: workHeader.cleaningYn,
       // Some deployments omit `condition_check_yn`; default to false when absent.
       conditionCheckYn: sql<boolean>`0`,
-      // Some DBs may miss `work_header.checkout_time`; prefer room default to avoid failures.
-      checkoutTime: clientRooms.checkoutTime,
+      // Prefer per-work checkout times; fall back to room defaults when unavailable.
+      checkoutTime: sql<string>`COALESCE(${workHeader.checkoutTime}, ${clientRooms.checkoutTime})`,
       checkinTime: workHeader.checkinTime,
       blanketQty: workHeader.blanketQty,
       amenitiesQty: workHeader.amenitiesQty,
