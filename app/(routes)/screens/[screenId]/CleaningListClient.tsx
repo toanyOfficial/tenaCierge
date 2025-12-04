@@ -874,7 +874,7 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
                         <em>L.C / E.C 최대 2시간</em>
                       </small>
                     </div>
-                    <div className={styles.addGrid}>
+                    <div className={styles.timeRow}>
                       <AddField label="체크아웃">
                         <select
                           className={styles.timeSelect}
@@ -917,7 +917,7 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
                     <div className={styles.addRowHeader}>
                       <span className={styles.fieldLabel}>침구수량 / 어메니티</span>
                     </div>
-                    <div className={styles.addGrid}>
+                    <div className={styles.qtyRow}>
                       <AddField label="침구 수량" hint={`${addBlanketBounds.min}~${addBlanketBounds.max}세트`}>
                         <QuantityStepper
                           value={addForm.blanketQty}
