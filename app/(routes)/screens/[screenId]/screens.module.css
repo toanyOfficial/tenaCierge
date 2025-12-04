@@ -730,9 +730,9 @@
 .detailGridRow {
   display: grid;
   grid-template-columns: repeat(5, minmax(120px, 1fr));
-  gap: var(--grid-gap-tight);
-  padding: 8px 0;
-  font-size: 0.95rem;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: 0.92rem;
   justify-items: stretch;
   text-align: left;
   min-width: 600px;
@@ -741,7 +741,7 @@
 .detailColumnHeader {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   align-items: center;
   justify-content: center;
   text-align: center;
@@ -756,8 +756,8 @@
 .detailSection {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 14px;
+  gap: 4px;
+  margin-bottom: 8px;
 }
 
 .detailGridHeader {
@@ -772,7 +772,7 @@
 }
 
 .detailBuildingBlock {
-  padding: 6px 0 10px;
+  padding: 4px 0 6px;
 }
 
 .buildingLabel {
