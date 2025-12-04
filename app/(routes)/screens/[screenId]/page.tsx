@@ -44,6 +44,8 @@ export default async function ScreenPage({
   searchParams?: {
     date?: string;
     window?: 'd0' | 'd1';
+    page?: string;
+    pageSize?: string;
     workId?: string;
     workerId?: string;
     month?: string;
@@ -98,7 +100,12 @@ export default async function ScreenPage({
   }
 
   if (screenId === '004') {
-    const snapshot = await getWorkListSnapshot(profile, searchParams?.date, searchParams?.window);
+    const snapshot = await getWorkListSnapshot(profile, {
+      dateParam: searchParams?.date,
+      windowParam: searchParams?.window,
+      page: searchParams?.page,
+      pageSize: searchParams?.pageSize
+    });
     return (
       <div className={styles.screenWrapper}>
         <WorkListClient profile={profile} snapshot={snapshot} />
