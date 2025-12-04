@@ -422,18 +422,13 @@
 .buildingStack {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .buildingGroup {
-  border: none;
-  border-radius: 10px;
-  padding: 6px 8px;
-  background: var(--surface-muted);
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  box-shadow: inset 0 0 0 1px var(--border);
+  gap: 6px;
 }
 
 .workCardHeader {
@@ -862,6 +857,30 @@
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--grid-gap);
   width: 100%;
+}
+
+.splitFieldControls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+.subField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.subFieldLabel {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.subFieldHint {
+  color: var(--text-soft);
+  line-height: 1.35;
 }
 
 .fieldRow {
