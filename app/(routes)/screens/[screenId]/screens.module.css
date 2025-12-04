@@ -1090,6 +1090,18 @@
   margin-top: 0;
 }
 
+.addRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.addRowHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .addTypeRow {
   display: flex;
   gap: 12px;
@@ -1188,15 +1200,39 @@
   margin-top: 0;
 }
 
-@media (max-width: 340px) {
+@media (max-width: 450px) {
+  .addForm {
+    padding: 14px 12px;
+  }
+
   .addGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--grid-gap-tight);
+  }
+
+  .addRowHeader {
+    gap: 0;
+  }
+
+  .addForm .fieldControl {
+    gap: 4px;
+  }
+
+  .timeSelect {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .stepper {
+    width: 100%;
+    justify-content: space-between;
   }
 }
 
-@media (max-width: 450px) {
+@media (max-width: 340px) {
   .addGrid {
-    gap: var(--grid-gap-tight);
+    grid-template-columns: 1fr;
   }
 }
 

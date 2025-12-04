@@ -846,10 +846,10 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
                     </select>
                   </label>
                 </div>
-                <AddField label="작업 유형" hint="청소/상태확인 중 한 가지만 선택">
-                  <div className={styles.addTypeRow}>
-                    {viewingAsHost ? null : (
-                      <label className={styles.addTypeSwitch}>
+                  <AddField label="작업 유형" hint="청소/상태확인 중 한 가지만 선택">
+                    <div className={styles.addTypeRow}>
+                      {viewingAsHost ? null : (
+                        <label className={styles.addTypeSwitch}>
                         <input
                           type="checkbox"
                           role="switch"
@@ -862,77 +862,90 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
                         </span>
                       </label>
                     )}
-                    <p className={styles.addTypeNote}>
-                      {addForm.cleaningYn ? '이 건은 청소 대상입니다.' : '이 건은 상태확인 대상입니다.'}
-                    </p>
-                  </div>
-                </AddField>
-                  <div className={styles.addGrid}>
-                    <AddField label="체크아웃" hint="L.C.최대2시간">
-                      <select
-                        className={styles.timeSelect}
-                        value={addForm.checkoutTime}
-                        onChange={(event) =>
-                          setAddForm((prev) => ({
-                            ...prev,
-                            checkoutTime: clampTime(event.target.value, addCheckoutBounds.min, addCheckoutBounds.max)
-                          }))
-                        }
-                      >
-                        {buildTimeOptions(addCheckoutBounds.min, addCheckoutBounds.max).map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </AddField>
-                    <AddField label="체크인" hint="E.C.최대2시간">
-                      <select
-                        className={styles.timeSelect}
-                        value={addForm.checkinTime}
-                        onChange={(event) =>
-                          setAddForm((prev) => ({
-                            ...prev,
-                            checkinTime: clampTime(event.target.value, addCheckinBounds.min, addCheckinBounds.max)
-                          }))
-                        }
-                      >
-                        {buildTimeOptions(addCheckinBounds.min, addCheckinBounds.max).map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </AddField>
-                  </div>
-                <div className={styles.addGrid}>
-                  <AddField label="침구 수량" hint={`${addBlanketBounds.min}~${addBlanketBounds.max}세트`}>
-                    <QuantityStepper
-                      value={addForm.blanketQty}
-                      min={addBlanketBounds.min}
-                      max={addBlanketBounds.max}
-                      onChange={(next) =>
-                        setAddForm((prev) => ({
-                          ...prev,
-                          blanketQty: clampNumber(next, addBlanketBounds.min, addBlanketBounds.max)
-                        }))
-                      }
-                    />
+                      <p className={styles.addTypeNote}>
+                        {addForm.cleaningYn ? '이 건은 청소 대상입니다.' : '이 건은 상태확인 대상입니다.'}
+                      </p>
+                    </div>
                   </AddField>
-                  <AddField label="어메니티" hint={`${addAmenitiesBounds.min}~${addAmenitiesBounds.max}세트`}>
-                    <QuantityStepper
-                      value={addForm.amenitiesQty}
-                      min={addAmenitiesBounds.min}
-                      max={addAmenitiesBounds.max}
-                      onChange={(next) =>
-                        setAddForm((prev) => ({
-                          ...prev,
-                          amenitiesQty: clampNumber(next, addAmenitiesBounds.min, addAmenitiesBounds.max)
-                        }))
-                      }
-                    />
-                  </AddField>
-                </div>
+                  <div className={styles.addRow}>
+                    <div className={styles.addRowHeader}>
+                      <span className={styles.fieldLabel}>체크아웃 / 체크인</span>
+                      <small className={styles.fieldHint}>
+                        <em>L.C / E.C 최대 2시간</em>
+                      </small>
+                    </div>
+                    <div className={styles.addGrid}>
+                      <AddField label="체크아웃">
+                        <select
+                          className={styles.timeSelect}
+                          value={addForm.checkoutTime}
+                          onChange={(event) =>
+                            setAddForm((prev) => ({
+                              ...prev,
+                              checkoutTime: clampTime(event.target.value, addCheckoutBounds.min, addCheckoutBounds.max)
+                            }))
+                          }
+                        >
+                          {buildTimeOptions(addCheckoutBounds.min, addCheckoutBounds.max).map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </AddField>
+                      <AddField label="체크인">
+                        <select
+                          className={styles.timeSelect}
+                          value={addForm.checkinTime}
+                          onChange={(event) =>
+                            setAddForm((prev) => ({
+                              ...prev,
+                              checkinTime: clampTime(event.target.value, addCheckinBounds.min, addCheckinBounds.max)
+                            }))
+                          }
+                        >
+                          {buildTimeOptions(addCheckinBounds.min, addCheckinBounds.max).map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </AddField>
+                    </div>
+                  </div>
+                  <div className={styles.addRow}>
+                    <div className={styles.addRowHeader}>
+                      <span className={styles.fieldLabel}>침구수량 / 어메니티</span>
+                    </div>
+                    <div className={styles.addGrid}>
+                      <AddField label="침구 수량" hint={`${addBlanketBounds.min}~${addBlanketBounds.max}세트`}>
+                        <QuantityStepper
+                          value={addForm.blanketQty}
+                          min={addBlanketBounds.min}
+                          max={addBlanketBounds.max}
+                          onChange={(next) =>
+                            setAddForm((prev) => ({
+                              ...prev,
+                              blanketQty: clampNumber(next, addBlanketBounds.min, addBlanketBounds.max)
+                            }))
+                          }
+                        />
+                      </AddField>
+                      <AddField label="어메니티" hint={`${addAmenitiesBounds.min}~${addAmenitiesBounds.max}세트`}>
+                        <QuantityStepper
+                          value={addForm.amenitiesQty}
+                          min={addAmenitiesBounds.min}
+                          max={addAmenitiesBounds.max}
+                          onChange={(next) =>
+                            setAddForm((prev) => ({
+                              ...prev,
+                              amenitiesQty: clampNumber(next, addAmenitiesBounds.min, addAmenitiesBounds.max)
+                            }))
+                          }
+                        />
+                      </AddField>
+                    </div>
+                  </div>
                 {viewingAsAdmin ? (
                   <label className={styles.formControl}>
                     <span>요청사항 (선택)</span>
