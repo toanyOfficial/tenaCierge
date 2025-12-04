@@ -112,13 +112,11 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState('');
   const [infoTarget, setInfoTarget] = useState<WorkListEntry | null>(null);
-  const [supplyTarget, setSupplyTarget] = useState<WorkListEntry | null>(null);
   const [photoTarget, setPhotoTarget] = useState<WorkListEntry | null>(null);
   const [searchResults, setSearchResults] = useState<AssignableWorker[]>([]);
   const [assignOptions, setAssignOptions] = useState<AssignableWorker[]>(snapshot.assignableWorkers);
   const [sortMode, setSortMode] = useState<'checkout' | 'roomDesc'>('checkout');
   const isHost = activeRole === 'host';
-  const isAfterFour = snapshot.currentMinutes >= 16 * 60;
   const hostLocked = isHost && !hasAdminRole && Boolean(snapshot.hostReadOnly);
 
   useEffect(() => {
@@ -534,6 +532,9 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                 </select>
               </label>
             )}
+            <button type="button" className={styles.infoButton} onClick={() => setDetailOpen(true)}>
+              현황 보기
+            </button>
           </div>
         </div>
 
@@ -622,7 +623,6 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                     const disabledLine = !work.cleaningYn;
                                     const canViewRealtime = !isHost || work.realtimeOverviewYn;
                                     const canViewPhotos = !isHost || work.imagesYn;
-                                    const canViewSupplyPurchase = !isHost || work.realtimeOverviewYn || isAfterFour;
 
                                     if (disabledLine) {
                                       return (
@@ -650,16 +650,6 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                                   사진보기
                                                 </button>
                                               ) : null}
-                                              {work.hasSupplyReport && canViewSupplyPurchase ? (
-                                                <button
-                                                  type="button"
-                                                  className={styles.infoButton}
-                                                  onClick={() => setSupplyTarget(work)}
-                                                  aria-label="소모품 구매 안내 보기"
-                                                >
-                                                  소모품 구매
-                                                </button>
-                                              ) : null}
                                               <button
                                                 type="button"
                                                 className={styles.infoButton}
@@ -671,8 +661,26 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                             </div>
                                           </div>
                                           <p className={styles.workSubtitle}>
-                                            체크아웃 {work.checkoutTime} · 체크인 {work.checkinTime} · 침구 {work.blanketQty} · 어메니티
-                                            {` ${work.amenitiesQty}`}
+                                            체크아웃{' '}
+                                            <span
+                                              className={
+                                                work.checkoutTime === '12:00' ? undefined : styles.valueEmphasis
+                                              }
+                                            >
+                                              {work.checkoutTime}
+                                            </span>
+                                            {' '}· 체크인{' '}
+                                            <span className={work.checkinTime === '16:00' ? undefined : styles.valueEmphasis}>
+                                              {work.checkinTime}
+                                            </span>
+                                            {' '}· 침구{' '}
+                                            <span className={work.blanketQty === 1 ? undefined : styles.valueEmphasis}>
+                                              {work.blanketQty}
+                                            </span>
+                                            {' '}· 어메니티{' '}
+                                            <span className={work.amenitiesQty === 1 ? undefined : styles.valueEmphasis}>
+                                              {work.amenitiesQty}
+                                            </span>
                                           </p>
                                         </div>
 
@@ -683,6 +691,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                             <button
                                               className={`${styles.toggleButton} ${work.supplyYn ? styles.supplyOn : styles.supplyOff}`}
                                               disabled={!canToggleSupply}
+                                              data-compact-label="배"
                                               onClick={() => updateWork(work.id, { supplyYn: !work.supplyYn })}
                                             >
                                               배급 {work.supplyYn ? '완료' : '대기'}
@@ -691,6 +700,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                             <button
                                               className={canAssignCleaner ? styles.toggleButton : styles.toggleButtonDisabled}
                                               disabled={!canAssignCleaner}
+                                              data-compact-label="담"
                                               onClick={() => {
                                                 setAssignTarget(work);
                                                 setAssignSelection(work.cleanerId ?? null);
@@ -704,6 +714,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                             <button
                                               className={`${styles.toggleButton} ${cleaningTone(work.cleaningFlag)}`}
                                               disabled={!canToggleCleaning}
+                                              data-compact-label="청"
                                               onClick={() => {
                                                 if (work.cleaningFlag === 3) {
                                                   const ok = window.confirm(
@@ -723,6 +734,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                             <button
                                               className={`${styles.toggleButton} ${work.supervisingYn ? styles.superviseOn : styles.superviseOff}`}
                                               disabled={!canToggleSupervising}
+                                              data-compact-label="검"
                                               onClick={() => {
                                                 if (!work.supervisingYn) {
                                                   const ok = window.confirm(
@@ -1016,59 +1028,6 @@ export default function WorkListClient({ profile, snapshot }: Props) {
 
             <div className={styles.modalFoot}>
               <button type="button" className={styles.primaryButton} onClick={() => setPhotoTarget(null)}>
-                닫기
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {supplyTarget ? (
-        <div className={styles.modalBackdrop}>
-          <div className={styles.modalCard} role="dialog" aria-modal="true">
-            <div className={styles.modalHead}>
-              <span>소모품 구매</span>
-              <button onClick={() => setSupplyTarget(null)} aria-label="닫기" className={styles.iconButton}>
-                ✕
-              </button>
-            </div>
-
-            <div className={styles.supplyModalBody}>
-              <div className={styles.supplyNotice}>
-                <p>
-                  1. 소모품은 가급적 바로바로 구매 해주시기 바랍니다. 소모품이 부족하면 청소 완성도가 떨어지고, 클리너들이
-                  해당 방에 대한 소모품 부족 노티를 소홀히 여기게 됩니다.
-                </p>
-                <p>
-                  2. 가급적 저희가 제안드리는 상품으로 구매해주시기 바랍니다. 2개 이하 번들로 구매하시면 재고가 완전히 소진되는
-                  상황이 자주 발생합니다. 또한 수만건에 달하는 청소 경험과 그것을 바탕으로 한 매뉴얼에 기반하여 제안드리는 상품임을
-                  꼭 고려해주시기 바랍니다. 아주 사소한 부분들에 까지 해당 제품이어야 하는 이유가 있는 제품들이오며 이 제품을
-                  제안드림으로 인해 저희가 얻는 금전적 이득은 일절 없습니다.
-                </p>
-              </div>
-
-              <div className={styles.supplyGrid}>
-                {supplyTarget.supplyRecommendations.length ? (
-                  supplyTarget.supplyRecommendations.map((item, idx) => (
-                    <div key={`${item.title}-${idx}`} className={styles.supplyRow}>
-                      <p className={styles.supplyTitle}>{item.title}</p>
-                      {item.href ? (
-                        <a className={styles.supplyLink} href={item.href} target="_blank" rel="noreferrer">
-                          {item.description || '링크 바로가기'}
-                        </a>
-                      ) : (
-                        <p className={styles.supplyDescription}>{item.description}</p>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <p className={styles.helper}>제안된 소모품 정보가 없습니다.</p>
-                )}
-              </div>
-            </div>
-
-            <div className={styles.modalFoot}>
-              <button type="button" className={styles.primaryButton} onClick={() => setSupplyTarget(null)}>
                 닫기
               </button>
             </div>
