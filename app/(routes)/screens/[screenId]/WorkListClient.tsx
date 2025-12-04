@@ -534,6 +534,9 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                 </select>
               </label>
             )}
+            <button type="button" className={styles.infoButton} onClick={() => setDetailOpen(true)}>
+              현황 보기
+            </button>
           </div>
         </div>
 
@@ -671,8 +674,26 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                             </div>
                                           </div>
                                           <p className={styles.workSubtitle}>
-                                            체크아웃 {work.checkoutTime} · 체크인 {work.checkinTime} · 침구 {work.blanketQty} · 어메니티
-                                            {` ${work.amenitiesQty}`}
+                                            체크아웃{' '}
+                                            <span
+                                              className={
+                                                work.checkoutTime === '12:00' ? undefined : styles.valueEmphasis
+                                              }
+                                            >
+                                              {work.checkoutTime}
+                                            </span>
+                                            {' '}· 체크인{' '}
+                                            <span className={work.checkinTime === '16:00' ? undefined : styles.valueEmphasis}>
+                                              {work.checkinTime}
+                                            </span>
+                                            {' '}· 침구{' '}
+                                            <span className={work.blanketQty === 1 ? undefined : styles.valueEmphasis}>
+                                              {work.blanketQty}
+                                            </span>
+                                            {' '}· 어메니티{' '}
+                                            <span className={work.amenitiesQty === 1 ? undefined : styles.valueEmphasis}>
+                                              {work.amenitiesQty}
+                                            </span>
                                           </p>
                                         </div>
 
