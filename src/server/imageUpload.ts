@@ -2,6 +2,7 @@ import { createWriteStream } from 'fs';
 import { mkdir, unlink } from 'fs/promises';
 import path from 'path';
 import { Readable, Transform } from 'stream';
+import type { ReadableStream as WebReadableStream } from 'stream/web';
 import { pipeline } from 'stream/promises';
 
 import sharp from 'sharp';
@@ -92,7 +93,7 @@ export async function processImageUploads({
     const baseName = safeName.replace(/\.[^.]+$/, '');
     const destName = `${Date.now()}-${index}-${baseName || 'image'}.jpg`;
     const destPath = path.join(baseDir, destName);
-    const fileStream = Readable.fromWeb(file.stream());
+    const fileStream = Readable.fromWeb(file.stream() as unknown as WebReadableStream);
     const limiter = createSizeLimiter(maxFileSizeBytes);
     const resizeTransform = sharp()
       .rotate()

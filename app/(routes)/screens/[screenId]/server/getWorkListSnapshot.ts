@@ -230,9 +230,9 @@ export async function getWorkListSnapshot(
   options?: { dateParam?: string; windowParam?: 'd0' | 'd1'; page?: string; pageSize?: string }
 ): Promise<WorkListSnapshot> {
   noStore();
+  const dateParam = options?.dateParam;
+  const windowParam = options?.windowParam;
   try {
-    const dateParam = options?.dateParam;
-    const windowParam = options?.windowParam;
     const pagination = resolvePagination(options?.page, options?.pageSize);
     const now = getKstNow();
     const minutes = now.getHours() * 60 + now.getMinutes();
