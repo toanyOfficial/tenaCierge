@@ -286,8 +286,8 @@ export async function getWorkListSnapshot(
         id: workHeader.id,
         date: workHeader.date,
         roomId: workHeader.roomId,
-        // Some deployments miss `work_header.checkout_time`; fall back to room defaults to avoid hard failures.
-        checkoutTime: clientRooms.checkoutTime,
+        // Prefer per-work checkout time; fall back to room defaults when missing for older datasets.
+        checkoutTime: sql<string>`COALESCE(${workHeader.checkoutTime}, ${clientRooms.checkoutTime})`,
         checkinTime: workHeader.checkinTime,
         blanketQty: workHeader.blanketQty,
         amenitiesQty: workHeader.amenitiesQty,
