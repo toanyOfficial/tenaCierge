@@ -872,6 +872,30 @@
   min-width: 0;
 }
 
+@media (min-width: 341px) and (max-width: 450px) {
+  .splitFieldControls {
+    display: flex;
+    flex-wrap: nowrap !important;
+    gap: 8px;
+  }
+
+  .subField {
+    flex: 1 1 0 !important;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 340px) {
+  .splitFieldControls {
+    display: flex;
+    flex-wrap: wrap !important;
+  }
+
+  .subField {
+    width: 100% !important;
+  }
+}
+
 .subFieldLabel {
   font-weight: 600;
   color: var(--text-strong);
