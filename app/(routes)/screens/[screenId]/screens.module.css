@@ -1391,17 +1391,19 @@
   .workRowCompact {
     flex-direction: row;
     align-items: center;
-    justify-content: space-between;
+    justify-content: space-evenly;
     flex-wrap: nowrap;
-    gap: 8px;
+    gap: 6px;
+    width: 100%;
+    padding: 0 4px;
   }
 
   .workRowCompact .toggleButton,
   .workRowCompact .toggleButtonDisabled {
-    flex: 0 0 40px;
-    width: 40px;
-    min-width: 40px;
-    height: 40px;
+    flex: 0 0 46px;
+    width: 46px;
+    min-width: 46px;
+    height: 46px;
     padding: 0;
     border-radius: 999px;
     font-size: 0;
@@ -1412,10 +1414,13 @@
     overflow: hidden;
   }
 
-  .workRowCompact .toggleButton::first-letter,
-  .workRowCompact .toggleButtonDisabled::first-letter {
+  .workRowCompact .toggleButton::after,
+  .workRowCompact .toggleButtonDisabled::after {
+    content: attr(data-compact-label);
     font-size: 1rem;
     line-height: 1;
+    color: inherit;
+    font-weight: 700;
   }
 }
 

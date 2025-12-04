@@ -691,6 +691,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                             <button
                                               className={`${styles.toggleButton} ${work.supplyYn ? styles.supplyOn : styles.supplyOff}`}
                                               disabled={!canToggleSupply}
+                                              data-compact-label="배"
                                               onClick={() => updateWork(work.id, { supplyYn: !work.supplyYn })}
                                             >
                                               배급 {work.supplyYn ? '완료' : '대기'}
@@ -699,6 +700,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                             <button
                                               className={canAssignCleaner ? styles.toggleButton : styles.toggleButtonDisabled}
                                               disabled={!canAssignCleaner}
+                                              data-compact-label="담"
                                               onClick={() => {
                                                 setAssignTarget(work);
                                                 setAssignSelection(work.cleanerId ?? null);
@@ -712,6 +714,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                             <button
                                               className={`${styles.toggleButton} ${cleaningTone(work.cleaningFlag)}`}
                                               disabled={!canToggleCleaning}
+                                              data-compact-label="청"
                                               onClick={() => {
                                                 if (work.cleaningFlag === 3) {
                                                   const ok = window.confirm(
@@ -731,6 +734,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                             <button
                                               className={`${styles.toggleButton} ${work.supervisingYn ? styles.superviseOn : styles.superviseOff}`}
                                               disabled={!canToggleSupervising}
+                                              data-compact-label="검"
                                               onClick={() => {
                                                 if (!work.supervisingYn) {
                                                   const ok = window.confirm(
