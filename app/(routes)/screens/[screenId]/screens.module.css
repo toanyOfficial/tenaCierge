@@ -1188,6 +1188,19 @@
   margin-top: 0;
 }
 
+@media (max-width: 450px) {
+  .addGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--grid-gap-tight);
+  }
+}
+
+@media (max-width: 340px) {
+  .addGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 
 .stepper {
   display: inline-flex;
@@ -1299,8 +1312,7 @@
     font-size: 0.9rem;
   }
 
-  .inlineFieldGroup,
-  .addGrid {
+  .inlineFieldGroup {
     grid-template-columns: 1fr;
   }
 
@@ -2363,7 +2375,6 @@
 @media (max-width: 640px) {
   .cardGrid,
   .inlineFieldGroup,
-  .addGrid,
   .applyGridHead,
   .applyRow,
   .infoGrid,
