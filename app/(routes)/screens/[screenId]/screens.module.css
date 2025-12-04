@@ -376,10 +376,6 @@
 }
 
 .groupSection {
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
-  padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -399,6 +395,7 @@
   color: var(--text-strong);
   font-weight: 700;
   cursor: pointer;
+  flex-wrap: nowrap;
 }
 
 .groupHeaderText {
@@ -412,28 +409,25 @@
 .buildingCount {
   color: var(--text-muted);
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .foldIcon {
   color: var(--text-soft);
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .buildingStack {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .buildingGroup {
-  border: none;
-  border-radius: 10px;
-  padding: 6px 8px;
-  background: var(--surface-muted);
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  box-shadow: inset 0 0 0 1px var(--border);
+  gap: 6px;
 }
 
 .workCardHeader {
@@ -735,19 +729,19 @@
 .detailGridHeader,
 .detailGridRow {
   display: grid;
-  grid-template-columns: repeat(5, minmax(120px, 1fr));
-  gap: var(--grid-gap-tight);
-  padding: 8px 0;
-  font-size: 0.95rem;
-  justify-items: stretch;
-  text-align: left;
-  min-width: 600px;
+  grid-template-columns: repeat(5, minmax(40px, 1fr));
+  gap: 6px;
+  padding: 4px 0;
+  font-size: 0.92rem;
+  justify-items: center;
+  text-align: center;
+  min-width: 200px;
 }
 
 .detailColumnHeader {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   align-items: center;
   justify-content: center;
   text-align: center;
@@ -762,8 +756,8 @@
 .detailSection {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 14px;
+  gap: 4px;
+  margin-bottom: 8px;
 }
 
 .detailGridHeader {
@@ -778,7 +772,7 @@
 }
 
 .detailBuildingBlock {
-  padding: 6px 0 10px;
+  padding: 4px 0 6px;
 }
 
 .buildingLabel {
@@ -794,6 +788,11 @@
 .timeWarning {
   color: #b45309;
   font-weight: 700;
+}
+
+.valueEmphasis {
+  font-weight: 800;
+  color: var(--text-strong);
 }
 
 .inspectText {
@@ -862,6 +861,54 @@
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--grid-gap);
   width: 100%;
+}
+
+.splitFieldControls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+.subField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+@media (min-width: 341px) and (max-width: 450px) {
+  .splitFieldControls {
+    display: flex;
+    flex-wrap: nowrap !important;
+    gap: 8px;
+  }
+
+  .subField {
+    flex: 1 1 0 !important;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 340px) {
+  .splitFieldControls {
+    display: flex;
+    flex-wrap: wrap !important;
+  }
+
+  .subField {
+    width: 100% !important;
+  }
+}
+
+.subFieldLabel {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.subFieldHint {
+  color: var(--text-soft);
+  line-height: 1.35;
 }
 
 .fieldRow {
@@ -1071,6 +1118,18 @@
   margin-top: 0;
 }
 
+.addRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.addRowHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .addTypeRow {
   display: flex;
   gap: 12px;
@@ -1159,7 +1218,7 @@
 
 .addGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--grid-gap);
   width: 100%;
 }
@@ -1167,6 +1226,72 @@
 .addForm .addGrid {
   gap: var(--grid-gap-tight);
   margin-top: 0;
+}
+
+.timeRow,
+.qtyRow {
+  display: flex;
+  gap: var(--grid-gap);
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+
+.timeRow > *,
+.qtyRow > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+@media (max-width: 450px) {
+  .addForm {
+    padding: 14px 12px;
+  }
+
+  .addGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--grid-gap-tight);
+  }
+
+  .timeRow,
+  .qtyRow {
+    gap: var(--grid-gap-tight);
+    flex-wrap: nowrap;
+  }
+
+  .addRowHeader {
+    gap: 0;
+  }
+
+  .addForm .fieldControl {
+    gap: 4px;
+  }
+
+  .timeSelect {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .stepper {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 340px) {
+  .addGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .timeRow,
+  .qtyRow {
+    flex-wrap: wrap;
+  }
+
+  .timeRow > *,
+  .qtyRow > * {
+    flex: 1 1 100%;
+  }
 }
 
 
@@ -1228,9 +1353,10 @@
   }
 
   .groupHeader {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 6px;
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 8px;
   }
 
   .workTitleRow {
@@ -1273,15 +1399,14 @@
 @media (max-width: 720px) {
   .detailGridHeader,
   .detailGridRow {
-    grid-template-columns: repeat(5, minmax(104px, 1fr));
-    justify-items: stretch;
-    text-align: left;
+    grid-template-columns: repeat(5, minmax(35px, 1fr));
+    justify-items: center;
+    text-align: center;
     row-gap: 6px;
     font-size: 0.9rem;
   }
 
-  .inlineFieldGroup,
-  .addGrid {
+  .inlineFieldGroup {
     grid-template-columns: 1fr;
   }
 
@@ -1335,6 +1460,7 @@
     border-color: var(--border);
     border-radius: 14px;
     padding: 12px 14px;
+    flex-wrap: nowrap;
   }
 
   .buildingCard > .groupBody {
@@ -2344,7 +2470,6 @@
 @media (max-width: 640px) {
   .cardGrid,
   .inlineFieldGroup,
-  .addGrid,
   .applyGridHead,
   .applyRow,
   .infoGrid,
