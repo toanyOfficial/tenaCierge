@@ -790,6 +790,11 @@
   font-weight: 700;
 }
 
+.valueEmphasis {
+  font-weight: 800;
+  color: var(--text-strong);
+}
+
 .inspectText {
   color: var(--text-muted);
   font-weight: 700;
