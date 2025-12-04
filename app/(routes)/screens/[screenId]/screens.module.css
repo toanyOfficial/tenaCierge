@@ -422,18 +422,13 @@
 .buildingStack {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .buildingGroup {
-  border: none;
-  border-radius: 10px;
-  padding: 6px 8px;
-  background: var(--surface-muted);
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  box-shadow: inset 0 0 0 1px var(--border);
+  gap: 6px;
 }
 
 .workCardHeader {
