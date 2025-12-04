@@ -594,59 +594,69 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
         </header>
 
         <div className={styles.workFields}>
-          <div className={styles.inlineFieldGroup}>
-            <FieldRow label="체크아웃" description="L.C.최대2시간">
-              <select
-                className={styles.timeSelect}
-                value={work.checkoutTime}
-                disabled={!canEdit}
-                onChange={(event) => handleTimeChange(work.id, 'checkoutTime', event.target.value, checkoutBounds)}
-              >
-                {buildTimeOptions(checkoutBounds.min, checkoutBounds.max).map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </FieldRow>
-            <FieldRow label="체크인" description="E.C.최대2시간">
-              <select
-                className={styles.timeSelect}
-                value={work.checkinTime}
-                disabled={!canEdit}
-                onChange={(event) => handleTimeChange(work.id, 'checkinTime', event.target.value, checkinBounds)}
-              >
-                {buildTimeOptions(checkinBounds.min, checkinBounds.max).map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </FieldRow>
-          </div>
+          <FieldRow label="L.C/E.C 최대2시간">
+            <div className={styles.splitFieldControls}>
+              <label className={styles.subField}>
+                <span className={styles.subFieldLabel}>체크아웃</span>
+                <select
+                  className={styles.timeSelect}
+                  value={work.checkoutTime}
+                  disabled={!canEdit}
+                  onChange={(event) => handleTimeChange(work.id, 'checkoutTime', event.target.value, checkoutBounds)}
+                >
+                  {buildTimeOptions(checkoutBounds.min, checkoutBounds.max).map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={styles.subField}>
+                <span className={styles.subFieldLabel}>체크인</span>
+                <select
+                  className={styles.timeSelect}
+                  value={work.checkinTime}
+                  disabled={!canEdit}
+                  onChange={(event) => handleTimeChange(work.id, 'checkinTime', event.target.value, checkinBounds)}
+                >
+                  {buildTimeOptions(checkinBounds.min, checkinBounds.max).map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </FieldRow>
 
-          <div className={styles.inlineFieldGroup}>
-            <FieldRow label="침구 수량" description={`${blanketBounds.min}~${blanketBounds.max}세트`}>
-              <QuantityStepper
-                value={work.blanketQty}
-                min={blanketBounds.min}
-                max={blanketBounds.max}
-                disabled={!canEdit}
-                onChange={(next) => handleNumberChange(work.id, 'blanketQty', next, blanketBounds.min, blanketBounds.max)}
-              />
-            </FieldRow>
-            <FieldRow label="어메니티" description={`${amenitiesBounds.min}~${amenitiesBounds.max}세트`}>
-              <QuantityStepper
-                value={work.amenitiesQty}
-                min={amenitiesBounds.min}
-                max={amenitiesBounds.max}
-                disabled={!canEdit}
-                onChange={(next) =>
-                  handleNumberChange(work.id, 'amenitiesQty', next, amenitiesBounds.min, amenitiesBounds.max)
-                }
-              />
-            </FieldRow>
-          </div>
+          <FieldRow label="침구수량 · 어메니티">
+            <div className={styles.splitFieldControls}>
+              <label className={styles.subField}>
+                <span className={styles.subFieldLabel}>침구수량</span>
+                <small className={styles.subFieldHint}>{`${blanketBounds.min}~${blanketBounds.max}세트`}</small>
+                <QuantityStepper
+                  value={work.blanketQty}
+                  min={blanketBounds.min}
+                  max={blanketBounds.max}
+                  disabled={!canEdit}
+                  onChange={(next) => handleNumberChange(work.id, 'blanketQty', next, blanketBounds.min, blanketBounds.max)}
+                />
+              </label>
+              <label className={styles.subField}>
+                <span className={styles.subFieldLabel}>어메니티</span>
+                <small className={styles.subFieldHint}>{`${amenitiesBounds.min}~${amenitiesBounds.max}세트`}</small>
+                <QuantityStepper
+                  value={work.amenitiesQty}
+                  min={amenitiesBounds.min}
+                  max={amenitiesBounds.max}
+                  disabled={!canEdit}
+                  onChange={(next) =>
+                    handleNumberChange(work.id, 'amenitiesQty', next, amenitiesBounds.min, amenitiesBounds.max)
+                  }
+                />
+              </label>
+            </div>
+          </FieldRow>
 
           <FieldRow label="요청사항" description={canEditRequirements ? '255자 이내 수정 가능' : '열람 전용'}>
             {canEditRequirements ? (

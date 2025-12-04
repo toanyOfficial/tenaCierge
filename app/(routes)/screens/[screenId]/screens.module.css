@@ -859,6 +859,30 @@
   width: 100%;
 }
 
+.splitFieldControls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+.subField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.subFieldLabel {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.subFieldHint {
+  color: var(--text-soft);
+  line-height: 1.35;
+}
+
 .fieldRow {
   display: flex;
   flex-direction: column;
