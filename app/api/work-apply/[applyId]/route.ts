@@ -72,6 +72,41 @@ export async function PATCH(request: Request, { params }: { params: { applyId: s
   }
 }
 
+export async function DELETE(request: Request, { params }: { params: { applyId: string } }) {
+  let applyId: number | null = null;
+
+  try {
+    applyId = Number(params.applyId);
+
+    if (!Number.isFinite(applyId) || applyId <= 0) {
+      return NextResponse.json({ message: '잘못된 요청입니다.' }, { status: 400 });
+    }
+
+    const profile = await getProfileWithDynamicRoles();
+
+    if (!profile.roles.includes('admin')) {
+      return NextResponse.json({ message: '관리자만 슬롯을 삭제할 수 있습니다.' }, { status: 403 });
+    }
+
+    const slot = await getApplyRowById(applyId);
+
+    if (!slot) {
+      return NextResponse.json({ message: '해당 업무를 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    if (slot.workerId && slot.workerId > 0) {
+      return NextResponse.json({ message: '신청이 완료된 슬롯은 삭제할 수 없습니다.' }, { status: 400 });
+    }
+
+    await db.delete(workApply).where(eq(workApply.id, applyId));
+
+    return NextResponse.json({ message: '슬롯이 삭제되었습니다.' });
+  } catch (error) {
+    await logServerError({ appName: 'work-apply', message: '업무 신청 슬롯 삭제 실패', error, context: { applyId } });
+    return NextResponse.json({ message: '슬롯 삭제 중 오류가 발생했습니다.' }, { status: 500 });
+  }
+}
+
 type ApplyContext = {
   profile: ProfileSummary;
   slot: NonNullable<Awaited<ReturnType<typeof getApplyRowById>>>;

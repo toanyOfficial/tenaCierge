@@ -1,8 +1,8 @@
-import { and, asc, eq, gte, lte } from 'drizzle-orm';
+import { and, asc, eq, gte, lte, max } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 
 import { db } from '@/src/db/client';
-import { etcBaseCode, workApply, workerHeader } from '@/src/db/schema';
+import { etcBaseCode, etcBuildings, workApply, workerHeader } from '@/src/db/schema';
 
 const applicantWorker = alias(workerHeader, 'applyWorker');
 
@@ -20,6 +20,7 @@ const selection = {
 };
 
 export type ApplyRow = Awaited<ReturnType<typeof listApplyRows>>[number];
+export type ApplySectorOption = { codeGroup: string; code: string; label: string };
 
 export async function listApplyRows(startDate: string, endDate: string) {
   const start = new Date(`${startDate}T00:00:00+09:00`);
@@ -27,6 +28,66 @@ export async function listApplyRows(startDate: string, endDate: string) {
   return baseQuery()
     .where(and(gte(workApply.workDate, start), lte(workApply.workDate, end)))
     .orderBy(asc(workApply.workDate), asc(workApply.sectorValue), asc(workApply.id));
+}
+
+export async function listApplySectors(): Promise<ApplySectorOption[]> {
+  const rows = await db
+    .selectDistinct({
+      codeGroup: etcBuildings.sectorCode,
+      code: etcBuildings.sectorValue,
+      label: etcBaseCode.value
+    })
+    .from(etcBuildings)
+    .leftJoin(etcBaseCode, and(eq(etcBaseCode.codeGroup, etcBuildings.sectorCode), eq(etcBaseCode.code, etcBuildings.sectorValue)))
+    .orderBy(asc(etcBuildings.sectorCode), asc(etcBuildings.sectorValue));
+
+  return rows.map((row) => ({
+    codeGroup: row.codeGroup,
+    code: row.code,
+    label: row.label || row.code
+  }));
+}
+
+export async function createApplySlot({
+  workDate,
+  sectorCode,
+  sectorValue,
+  position
+}: {
+  workDate: string;
+  sectorCode: string;
+  sectorValue: string;
+  position: 1 | 2;
+}) {
+  const date = new Date(`${workDate}T00:00:00+09:00`);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error('잘못된 날짜 형식입니다.');
+  }
+
+  const [agg] = await db
+    .select({
+      maxSeq: max(workApply.seq)
+    })
+    .from(workApply)
+    .where(and(eq(workApply.workDate, date), eq(workApply.sectorCode, sectorCode), eq(workApply.position, position)))
+    .limit(1);
+
+  const nextSeq = Number(agg?.maxSeq ?? 0) + 1;
+  if (nextSeq > 127) {
+    throw new Error('슬롯 번호가 최대치를 초과했습니다. 다른 섹터를 선택해 주세요.');
+  }
+
+  const result = await db.insert(workApply).values({
+    workDate: date,
+    sectorCode,
+    sectorValue,
+    position,
+    seq: nextSeq,
+    workerId: null
+  });
+
+  const insertedId = (result as { insertId?: number }).insertId ?? null;
+  return { id: insertedId, seq: nextSeq };
 }
 
 export async function getApplyRowById(applyId: number) {

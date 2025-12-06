@@ -45,6 +45,15 @@ export default function ApplyClient({ profile, snapshot }: Props) {
   const [statusMap, setStatusMap] = useState<Record<number, string>>({});
   const [errorMap, setErrorMap] = useState<Record<number, string>>({});
   const [openDates, setOpenDates] = useState<Set<string>>(new Set());
+  const [createDate, setCreateDate] = useState(snapshot.todayKey);
+  const [createSector, setCreateSector] = useState(() => {
+    const first = snapshot.sectorOptions[0];
+    return first ? `${first.codeGroup}__${first.code}` : '';
+  });
+  const [createPosition, setCreatePosition] = useState<1 | 2>(1);
+  const [createStatus, setCreateStatus] = useState('');
+  const [createError, setCreateError] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const slots = useMemo(() => {
     return [...snapshot.slots].sort((a, b) => {
@@ -100,6 +109,14 @@ export default function ApplyClient({ profile, snapshot }: Props) {
     setOpenDates(new Set(dateGroups.map((group) => group.key)));
   }, [dateGroups]);
 
+  useEffect(() => {
+    const first = snapshot.sectorOptions[0];
+    if (first) {
+      setCreateSector(`${first.codeGroup}__${first.code}`);
+    }
+    setCreateDate(snapshot.todayKey);
+  }, [snapshot.sectorOptions, snapshot.todayKey]);
+
   const guard = snapshot.guardMessage;
   const penaltyNotice = snapshot.penaltyMessage;
   const disabledMessage = !snapshot.isAdmin && !snapshot.canApplyNow ? snapshot.applyStartLabel : null;
@@ -114,6 +131,48 @@ export default function ApplyClient({ profile, snapshot }: Props) {
       });
     } catch (error) {
       console.error('역할 저장 중 오류', error);
+    }
+  }
+
+  async function handleCreateSlot(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCreateStatus('');
+    setCreateError('');
+    setCreating(true);
+
+    const sector = snapshot.sectorOptions.find((option) => `${option.codeGroup}__${option.code}` === createSector);
+
+    if (!sector) {
+      setCreateError('섹터를 선택해 주세요.');
+      setCreating(false);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/work-apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workDate: createDate,
+          sectorCode: sector.codeGroup,
+          sectorValue: sector.code,
+          position: createPosition
+        })
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setCreateError(data.message || '슬롯 생성 중 오류가 발생했습니다.');
+        return;
+      }
+
+      setCreateStatus(data.message || '슬롯이 추가되었습니다.');
+      router.refresh();
+    } catch (error) {
+      setCreateError('슬롯 생성 중 오류가 발생했습니다.');
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -162,6 +221,38 @@ export default function ApplyClient({ profile, snapshot }: Props) {
     const name = slot.assignedWorkerName ?? '해당 작업자';
     if (window.confirm(`${name}님의 신청을 취소하시겠습니까?`)) {
       handleAction(slot, 'cancel');
+    }
+  }
+
+  async function handleDelete(slot: ApplySlot) {
+    if (slot.isTaken) {
+      setErrorMap((prev) => ({ ...prev, [slot.id]: '신청이 완료된 슬롯은 삭제할 수 없습니다.' }));
+      return;
+    }
+
+    if (!window.confirm('해당 슬롯을 삭제하시겠습니까?')) {
+      return;
+    }
+
+    setPendingId(slot.id);
+    setStatusMap((prev) => ({ ...prev, [slot.id]: '' }));
+    setErrorMap((prev) => ({ ...prev, [slot.id]: '' }));
+
+    try {
+      const response = await fetch(`/api/work-apply/${slot.id}`, { method: 'DELETE' });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setErrorMap((prev) => ({ ...prev, [slot.id]: data.message || '슬롯 삭제 중 오류가 발생했습니다.' }));
+        return;
+      }
+
+      setStatusMap((prev) => ({ ...prev, [slot.id]: data.message || '슬롯이 삭제되었습니다.' }));
+      router.refresh();
+    } catch (error) {
+      setErrorMap((prev) => ({ ...prev, [slot.id]: '슬롯 삭제 중 오류가 발생했습니다.' }));
+    } finally {
+      setPendingId(null);
     }
   }
 
@@ -277,6 +368,47 @@ export default function ApplyClient({ profile, snapshot }: Props) {
           </div>
         </header>
 
+        {snapshot.isAdmin ? (
+          <div className={styles.applyAdminCreate}>
+            <div>
+              <p className={styles.applyLabel}>관리자 전용</p>
+              <h2 className={styles.applyAdminTitle}>업무 신청 슬롯 수기 추가</h2>
+              <p className={styles.applyAdminHint}>날짜·섹터·포지션을 선택해 슬롯을 생성합니다. 생성 후 신청/배정 처리해 주세요.</p>
+            </div>
+            <form className={styles.applyAdminForm} onSubmit={handleCreateSlot}>
+              <label className={styles.applyAdminField}>
+                <span>날짜</span>
+                <input type="date" value={createDate} onChange={(event) => setCreateDate(event.target.value)} />
+              </label>
+              <label className={styles.applyAdminField}>
+                <span>섹터</span>
+                <select value={createSector} onChange={(event) => setCreateSector(event.target.value)}>
+                  {snapshot.sectorOptions.map((option) => (
+                    <option key={`${option.codeGroup}-${option.code}`} value={`${option.codeGroup}__${option.code}`}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={styles.applyAdminField}>
+                <span>포지션</span>
+                <select
+                  value={createPosition}
+                  onChange={(event) => setCreatePosition(event.target.value === '2' ? 2 : 1)}
+                >
+                  <option value={1}>클리너</option>
+                  <option value={2}>버틀러</option>
+                </select>
+              </label>
+              <button type="submit" className={styles.applyButton} disabled={creating || !snapshot.sectorOptions.length}>
+                {creating ? '생성 중...' : '슬롯 생성'}
+              </button>
+              {createStatus ? <p className={styles.applyStatus}>{createStatus}</p> : null}
+              {createError ? <p className={styles.applyError}>{createError}</p> : null}
+            </form>
+          </div>
+        ) : null}
+
         <p className={styles.applyWindow}>{snapshot.applyWindowHint}</p>
         {guard ? <p className={styles.guardNotice}>{guard}</p> : null}
         {penaltyNotice && !guard ? <p className={styles.guardNotice}>{penaltyNotice}</p> : null}
@@ -327,7 +459,19 @@ export default function ApplyClient({ profile, snapshot }: Props) {
                                         </span>
                                       ) : null}
                                     </div>
-                                    <div className={styles.applySlotAction}>{renderButton(slot, locked)}</div>
+                                    <div className={styles.applySlotAction}>
+                                      {renderButton(slot, locked)}
+                                      {snapshot.isAdmin ? (
+                                        <button
+                                          type="button"
+                                          className={styles.applyDeleteButton}
+                                          disabled={pendingId === slot.id || slot.isTaken}
+                                          onClick={() => handleDelete(slot)}
+                                        >
+                                          삭제
+                                        </button>
+                                      ) : null}
+                                    </div>
                                     <div className={styles.applySlotHelper}>{renderHelper(slot, locked)}</div>
                                   </li>
                                 );
