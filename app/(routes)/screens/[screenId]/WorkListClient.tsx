@@ -372,13 +372,29 @@ export default function WorkListClient({ profile, snapshot }: Props) {
       }, {});
 
     const sortEntries = (entries: [string, WorkListEntry[]][]) =>
-      entries.sort(([a], [b]) => a.localeCompare(b));
+      entries
+        .map(([building, works]) => ({
+          building,
+          works,
+          sector: works[0]?.sectorValue || works[0]?.sectorCode || '',
+          total: buildingTotals[building]?.total ?? works.length,
+        }))
+        .sort((a, b) => {
+          const sectorDiff = a.sector.localeCompare(b.sector, 'ko');
+          if (sectorDiff !== 0) return sectorDiff;
+
+          const totalDiff = (b.total ?? 0) - (a.total ?? 0);
+          if (totalDiff !== 0) return totalDiff;
+
+          return a.building.localeCompare(b.building, 'ko');
+        })
+        .map(({ building, works }) => [building, works] as [string, WorkListEntry[]]);
 
     return {
       inProgress: sortEntries(Object.entries(mapList(inProgressWorks))),
       finished: sortEntries(Object.entries(mapList(finishedWorks))),
     };
-  }, [finishedWorks, inProgressWorks]);
+  }, [buildingTotals, finishedWorks, inProgressWorks]);
 
   const combinedWorkers = useMemo(() => {
     const map = new Map<number, AssignableWorker>();
