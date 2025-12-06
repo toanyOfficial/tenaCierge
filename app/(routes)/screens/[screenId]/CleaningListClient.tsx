@@ -694,7 +694,6 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
 
           {viewingAsAdmin ? (
             <div className={styles.switchRow}>
-              <span className={styles.switchMiniLabel}>상태확인</span>
               <label className={`${styles.switchControl} ${styles.switchControlMini}`} aria-label="청소/상태확인 전환">
                 <input
                   type="checkbox"
@@ -704,7 +703,7 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
                 />
                 <span className={`${styles.switchSlider} ${styles.switchSliderMini}`} aria-hidden="true" />
               </label>
-              <span className={styles.switchMiniLabel}>청소대상</span>
+              <span className={styles.switchMiniLabel}>{work.cleaningYn ? '청소대상' : '상태확인'}</span>
             </div>
           ) : null}
         </div>
