@@ -45,7 +45,7 @@ export default function ApplyClient({ profile, snapshot }: Props) {
   const [statusMap, setStatusMap] = useState<Record<number, string>>({});
   const [errorMap, setErrorMap] = useState<Record<number, string>>({});
   const [openDates, setOpenDates] = useState<Set<string>>(new Set());
-  const [createDate, setCreateDate] = useState(snapshot.todayKey);
+  const [createDate, setCreateDate] = useState(snapshot.dateOptions[0]?.value ?? snapshot.todayKey);
   const [createSector, setCreateSector] = useState(() => {
     const first = snapshot.sectorOptions[0];
     return first ? `${first.codeGroup}__${first.code}` : '';
@@ -114,8 +114,10 @@ export default function ApplyClient({ profile, snapshot }: Props) {
     if (first) {
       setCreateSector(`${first.codeGroup}__${first.code}`);
     }
-    setCreateDate(snapshot.todayKey);
-  }, [snapshot.sectorOptions, snapshot.todayKey]);
+
+    const firstDate = snapshot.dateOptions[0]?.value;
+    setCreateDate(firstDate ?? snapshot.todayKey);
+  }, [snapshot.sectorOptions, snapshot.todayKey, snapshot.dateOptions]);
 
   const guard = snapshot.guardMessage;
   const penaltyNotice = snapshot.penaltyMessage;
@@ -149,6 +151,12 @@ export default function ApplyClient({ profile, snapshot }: Props) {
     }
 
     try {
+      console.info('[apply-slot:create] request', {
+        workDate: createDate,
+        sector,
+        position: createPosition
+      });
+
       const response = await fetch('/api/work-apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -161,6 +169,12 @@ export default function ApplyClient({ profile, snapshot }: Props) {
       });
 
       const data = await response.json().catch(() => ({}));
+
+      console.info('[apply-slot:create] response', {
+        workDate: createDate,
+        storedDate: data.workDate ?? data.storedDate,
+        raw: data
+      });
 
       if (!response.ok) {
         setCreateError(data.message || '슬롯 생성 중 오류가 발생했습니다.');
@@ -378,7 +392,13 @@ export default function ApplyClient({ profile, snapshot }: Props) {
             <form className={styles.applyAdminForm} onSubmit={handleCreateSlot}>
               <label className={styles.applyAdminField}>
                 <span>날짜</span>
-                <input type="date" value={createDate} onChange={(event) => setCreateDate(event.target.value)} />
+                <select value={createDate} onChange={(event) => setCreateDate(event.target.value)}>
+                  {snapshot.dateOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className={styles.applyAdminField}>
                 <span>섹터</span>

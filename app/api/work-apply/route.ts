@@ -34,6 +34,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: '포지션은 클리너(1) 또는 버틀러(2)만 선택할 수 있습니다.' }, { status: 400 });
     }
 
+    console.info('[work-apply:create] request', {
+      workDate: body.workDate,
+      sectorCode: body.sectorCode,
+      sectorValue: body.sectorValue,
+      position: body.position
+    });
+
     const sector = await db
       .select({ code: etcBaseCode.code })
       .from(etcBaseCode)
@@ -51,7 +58,13 @@ export async function POST(request: Request) {
       position: body.position
     });
 
-    return NextResponse.json({ message: '슬롯이 추가되었습니다.', id: result.id, seq: result.seq });
+    console.info('[work-apply:create] stored', {
+      requestedDate: body.workDate,
+      storedDate: result.storedDate,
+      id: result.id
+    });
+
+    return NextResponse.json({ message: '슬롯이 추가되었습니다.', id: result.id, seq: result.seq, workDate: result.storedDate });
   } catch (error) {
     await logServerError({ appName: 'work-apply-create', message: '업무 신청 슬롯 생성 실패', error });
     return NextResponse.json({ message: '슬롯 생성 중 오류가 발생했습니다.' }, { status: 500 });

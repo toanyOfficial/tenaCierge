@@ -23,8 +23,8 @@ export type ApplyRow = Awaited<ReturnType<typeof listApplyRows>>[number];
 export type ApplySectorOption = { codeGroup: string; code: string; label: string };
 
 export async function listApplyRows(startDate: string, endDate: string) {
-  const start = new Date(`${startDate}T00:00:00+09:00`);
-  const end = new Date(`${endDate}T00:00:00+09:00`);
+  const start = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate}T00:00:00Z`);
   return baseQuery()
     .where(and(gte(workApply.workDate, start), lte(workApply.workDate, end)))
     .orderBy(asc(workApply.workDate), asc(workApply.sectorValue), asc(workApply.id));
@@ -59,7 +59,7 @@ export async function createApplySlot({
   sectorValue: string;
   position: 1 | 2;
 }) {
-  const date = new Date(`${workDate}T00:00:00+09:00`);
+  const date = new Date(`${workDate}T00:00:00Z`);
   if (Number.isNaN(date.getTime())) {
     throw new Error('잘못된 날짜 형식입니다.');
   }
@@ -87,7 +87,7 @@ export async function createApplySlot({
   });
 
   const insertedId = (result as { insertId?: number }).insertId ?? null;
-  return { id: insertedId, seq: nextSeq };
+  return { id: insertedId, seq: nextSeq, storedDate: date.toISOString().slice(0, 10) };
 }
 
 export async function getApplyRowById(applyId: number) {
