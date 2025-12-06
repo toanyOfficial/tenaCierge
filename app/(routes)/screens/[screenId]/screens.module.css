@@ -2083,6 +2083,23 @@
   justify-content: flex-end;
 }
 
+.subtleActionButton {
+  align-self: flex-start;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--text-soft);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.subtleActionButton:hover {
+  color: var(--text-strong);
+  border-color: var(--text-muted);
+}
+
 .assignSearch {
   display: flex;
   flex-direction: column;
