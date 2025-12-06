@@ -59,7 +59,8 @@ export async function POST(req: Request) {
         .select({
           id: workChecklistSetDetail.id,
           type: workChecklistList.type,
-          score: workChecklistSetDetail.score
+          listScore: workChecklistList.score,
+          setScore: workChecklistSetDetail.score
         })
         .from(workChecklistSetDetail)
         .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
@@ -186,8 +187,11 @@ export async function POST(req: Request) {
         .set({ supervisingYn: true, supervisingEndTime: nowTime })
         .where(eq(workHeader.id, workId));
 
-      const scoredIds = [...new Set(validSupplyChecks)];
-      const scoreMap = new Map<number, number>(checklistRows.map((row) => [row.id, Number(row.score) || 0]));
+      const findingIds = supervisingChecklistIds.filter((id) => supervisingFindings[id]);
+      const scoredIds = [...new Set(findingIds)];
+      const scoreMap = new Map<number, number>(
+        checklistRows.map((row) => [row.id, Number(row.setScore ?? row.listScore) || 0])
+      );
       const checklistPointSum = scoredIds.reduce((sum, id) => sum + (scoreMap.get(id) ?? 0), 0);
 
       if (targetWork.cleanerId) {
