@@ -1679,6 +1679,66 @@
   gap: 10px;
 }
 
+.applyAdminCreate {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 16px;
+  background: #f8fafc;
+}
+
+.applyAdminTitle {
+  margin: 2px 0 6px;
+  font-size: 1.15rem;
+  color: var(--text-strong);
+}
+
+.applyAdminHint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.applyAdminForm {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 12px;
+  align-items: end;
+}
+
+.applyAdminField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.applyAdminField input,
+.applyAdminField select {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 1rem;
+}
+
+.applyAdminField select {
+  background: #fff;
+}
+
+@media (max-width: 720px) {
+  .applyAdminCreate {
+    grid-template-columns: 1fr;
+  }
+
+  .applyAdminForm {
+    grid-template-columns: 1fr;
+  }
+}
+
 .infoButton {
   border: 1px solid var(--text-strong);
   background: transparent;
