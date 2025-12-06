@@ -124,6 +124,16 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     [cleaningChecklist, existingSupervisingCompletionChecks, scoredChecklistIds]
   );
 
+  const baseChecklistFlags = useMemo(
+    () => Object.fromEntries(cleaningChecklist.map(({ id }) => [id, false] as const)),
+    [cleaningChecklist]
+  );
+
+  const autoCheckedFlags = useMemo(
+    () => Object.fromEntries(scoredChecklistIds.map((id) => [id, true] as const)),
+    [scoredChecklistIds]
+  );
+
   const [supervisingFindingChecks, setSupervisingFindingChecks] = useState<Record<number, boolean>>(findingDefaults);
   const [supervisingCompletionChecks, setSupervisingCompletionChecks] = useState<Record<number, boolean>>(completionDefaults);
   const [supplyChecks, setSupplyChecks] = useState<Set<number>>(new Set(existingSupplyChecks ?? []));
@@ -241,9 +251,21 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
         .map((key) => ({ key, file: imageSelections[key] }))
         .filter((entry) => Boolean(entry.file)) as { key: string; file: File }[];
 
+      const persistableFindingChecks = {
+        ...baseChecklistFlags,
+        ...supervisingFindingChecks,
+        ...autoCheckedFlags
+      };
+
+      const persistableCompletionChecks = {
+        ...baseChecklistFlags,
+        ...supervisingCompletionChecks,
+        ...autoCheckedFlags
+      };
+
       formData.append('workId', String(work.id));
-      formData.append('supervisingFindings', JSON.stringify(supervisingFindingChecks));
-      formData.append('supervisingCompletion', JSON.stringify(supervisingCompletionChecks));
+      formData.append('supervisingFindings', JSON.stringify(persistableFindingChecks));
+      formData.append('supervisingCompletion', JSON.stringify(persistableCompletionChecks));
       formData.append('supplyChecks', JSON.stringify(Array.from(supplyChecks)));
 
       const normalizedNotes = Object.entries(supplyNotes).reduce((acc, [key, val]) => {
