@@ -95,7 +95,18 @@ function sortBuildingWorks(works: WorkListEntry[], mode: 'checkout' | 'roomDesc'
   return [...noCleaning, ...cleaning];
 }
 
-function pickUniqueWorkerLabel(name: string, used: Set<string>) {
+function pickUniqueWorkerLabel(
+  name: string,
+  used: Set<string>,
+  workerId?: number | null,
+  assignedByWorkerId?: Map<number, string>
+) {
+  if (workerId && assignedByWorkerId?.has(workerId)) {
+    const label = assignedByWorkerId.get(workerId)!;
+    used.add(label);
+    return label;
+  }
+
   const letters = Array.from(name.trim());
   const first = letters[0];
   const candidates = [letters[0], letters[1], letters[2]].filter(Boolean);
@@ -103,12 +114,18 @@ function pickUniqueWorkerLabel(name: string, used: Set<string>) {
   for (const candidate of candidates) {
     if (!used.has(candidate)) {
       used.add(candidate);
+      if (workerId && assignedByWorkerId) {
+        assignedByWorkerId.set(workerId, candidate);
+      }
       return candidate;
     }
   }
 
   if (first) {
     used.add(first);
+    if (workerId && assignedByWorkerId) {
+      assignedByWorkerId.set(workerId, first);
+    }
     return first;
   }
 
@@ -515,6 +532,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
     }
   }
 
+  const assignCompactLabelsByWorkerId = new Map<number, string>();
   const usedAssignCompactLabels = new Set<string>();
 
   return (
@@ -699,7 +717,12 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                       assignState === 'noShow'
                                         ? 'N'
                                         : work.cleanerName
-                                          ? pickUniqueWorkerLabel(work.cleanerName, usedAssignCompactLabels)
+                                          ? pickUniqueWorkerLabel(
+                                              work.cleanerName,
+                                              usedAssignCompactLabels,
+                                              work.cleanerId,
+                                              assignCompactLabelsByWorkerId
+                                            )
                                           : '담';
                                     const cleaningDone = work.cleaningFlag >= 4;
                                     const supervisingDone = Boolean(work.supervisingYn);
