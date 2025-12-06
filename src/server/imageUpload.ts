@@ -104,3 +104,62 @@ export async function processImageUploads({
 
   return uploads;
 }
+
+type RegionalDownscaleOptions = {
+  maxDimension: number;
+  jpegQuality: number;
+};
+
+async function applyRegionalDownscale(sharpFactory: () => any, input: Buffer, options: RegionalDownscaleOptions) {
+  const { maxDimension, jpegQuality } = options;
+  const base = sharpFactory();
+  const { data: resizedBuffer, info } = await base
+    .rotate()
+    .resize({ width: maxDimension, height: maxDimension, fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: jpegQuality, mozjpeg: true })
+    .toBuffer({ resolveWithObject: true });
+
+  const width = info.width ?? maxDimension;
+  const height = info.height ?? maxDimension;
+  const tileWidth = Math.ceil(width / 5);
+  const tileHeight = Math.ceil(height / 5);
+
+  const composites: { input: Buffer; left: number; top: number }[] = [];
+
+  for (let row = 0; row < 5; row += 1) {
+    for (let col = 0; col < 5; col += 1) {
+      const left = col * tileWidth;
+      const top = row * tileHeight;
+      if (left >= width || top >= height) {
+        continue;
+      }
+      const currentTileWidth = Math.min(tileWidth, width - left);
+      const currentTileHeight = Math.min(tileHeight, height - top);
+      const scale = row >= 1 && row <= 3 && col >= 1 && col <= 3 ? 0.5 : 0.2;
+
+      const tileBuffer = await sharpFactory()(resizedBuffer)
+        .extract({ left, top, width: currentTileWidth, height: currentTileHeight })
+        .resize({
+          width: Math.max(1, Math.round(currentTileWidth * scale)),
+          height: Math.max(1, Math.round(currentTileHeight * scale)),
+          fit: 'inside'
+        })
+        .resize({ width: currentTileWidth, height: currentTileHeight, fit: 'fill', kernel: 'nearest' })
+        .jpeg({ quality: jpegQuality, mozjpeg: true })
+        .toBuffer();
+
+      composites.push({ input: tileBuffer, left, top });
+    }
+  }
+
+  const degraded = sharpFactory()({
+    create: {
+      width,
+      height,
+      channels: 3,
+      background: { r: 255, g: 255, b: 255 }
+    }
+  });
+
+  return degraded.composite(composites).jpeg({ quality: jpegQuality, mozjpeg: true }).toBuffer();
+}
