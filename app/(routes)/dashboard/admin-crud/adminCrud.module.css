@@ -83,6 +83,13 @@
   width: 100%;
 }
 
+.verticalGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
 .formSection,
 .tableSection {
   border: 1px solid #e4e7ec;
