@@ -694,22 +694,17 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
 
           {viewingAsAdmin ? (
             <div className={styles.switchRow}>
-              <div className={styles.switchMeta}>
-                <p className={styles.switchLabel}>청소 / 상태확인 전환</p>
-                <p className={styles.switchHint}>
-                  {work.cleaningYn ? '이 건을 상태확인으로 전환합니다.' : '이 건을 청소 대상으로 전환합니다.'}
-                </p>
-              </div>
-              <label className={styles.switchControl}>
+              <span className={styles.switchMiniLabel}>상태확인</span>
+              <label className={`${styles.switchControl} ${styles.switchControlMini}`} aria-label="청소/상태확인 전환">
                 <input
                   type="checkbox"
                   checked={work.cleaningYn}
                   onChange={() => handleCleaningToggle(work.id)}
                   disabled={isSaving}
                 />
-                <span className={styles.switchSlider} aria-hidden="true" />
-                <span className={styles.switchState}>{work.cleaningYn ? '청소' : '상태확인'}</span>
+                <span className={`${styles.switchSlider} ${styles.switchSliderMini}`} aria-hidden="true" />
               </label>
+              <span className={styles.switchMiniLabel}>청소대상</span>
             </div>
           ) : null}
         </div>

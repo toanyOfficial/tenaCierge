@@ -1074,32 +1074,20 @@
 
 .switchRow {
   margin-top: 6px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px dashed var(--border);
   border-radius: 10px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: center;
+  gap: 10px;
 }
 
-.switchMeta {
-  flex: 1;
-  min-width: 0;
-}
-
-.switchLabel {
-  margin: 0;
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--text-strong);
-}
-
-.switchHint {
-  margin: 4px 0 0;
+.switchMiniLabel {
+  font-size: 0.85rem;
   color: var(--text-soft);
-  font-size: 0.9rem;
-  line-height: 1.35;
+  min-width: 64px;
+  text-align: center;
 }
 
 .switchControl {
@@ -1109,6 +1097,10 @@
   font-weight: 700;
   color: var(--text-strong);
   position: relative;
+}
+
+.switchControlMini {
+  gap: 6px;
 }
 
 .switchControl input {
@@ -1144,6 +1136,22 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   transition: transform 0.2s ease;
   pointer-events: none;
+}
+
+.switchControlMini input {
+  width: 36px;
+  height: 20px;
+}
+
+.switchSliderMini {
+  width: 16px;
+  height: 16px;
+  top: 2px;
+  left: 2px;
+}
+
+.switchControlMini input:checked + .switchSliderMini {
+  transform: translateX(16px);
 }
 
 .switchControl input:checked + .switchSlider {
