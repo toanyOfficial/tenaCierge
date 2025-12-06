@@ -47,8 +47,7 @@ export async function fetchWorkRowsByDate(targetDate: string) {
       checklistSetId: clientRooms.checklistSetId,
       cancelYn: workHeader.cancelYn,
       cleaningYn: workHeader.cleaningYn,
-      // Some deployments omit `condition_check_yn`; default to false when absent.
-      conditionCheckYn: sql<boolean>`0`,
+      conditionCheckYn: workHeader.conditionCheckYn,
       // Prefer per-work checkout times; fall back to room defaults when unavailable.
       checkoutTime: sql<string>`COALESCE(${workHeader.checkoutTime}, ${clientRooms.checkoutTime})`,
       checkinTime: workHeader.checkinTime,
@@ -110,8 +109,7 @@ export async function fetchWorkRowById(workId: number) {
       checklistSetId: clientRooms.checklistSetId,
       cancelYn: workHeader.cancelYn,
       cleaningYn: workHeader.cleaningYn,
-      // Some deployments omit `condition_check_yn`; default to false when absent.
-      conditionCheckYn: sql<boolean>`0`,
+      conditionCheckYn: workHeader.conditionCheckYn,
       // Prefer per-work checkout times; fall back to room defaults when unavailable.
       checkoutTime: sql<string>`COALESCE(${workHeader.checkoutTime}, ${clientRooms.checkoutTime})`,
       checkinTime: workHeader.checkinTime,
@@ -155,8 +153,7 @@ export async function fetchLatestWorkByDateAndRoom(date: string, roomId: number)
       checklistSetId: clientRooms.checklistSetId,
       cancelYn: workHeader.cancelYn,
       cleaningYn: workHeader.cleaningYn,
-      // Some deployments omit `condition_check_yn`; default to false when absent.
-      conditionCheckYn: sql<boolean>`0`,
+      conditionCheckYn: workHeader.conditionCheckYn,
       // Prefer per-work checkout times; fall back to room defaults when unavailable.
       checkoutTime: sql<string>`COALESCE(${workHeader.checkoutTime}, ${clientRooms.checkoutTime})`,
       checkinTime: workHeader.checkinTime,

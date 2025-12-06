@@ -1,9 +1,9 @@
 import type { ProfileSummary } from '@/src/utils/profile';
 import { getApplyHorizonDays, getApplyStartLabel, getTierLabel } from '@/src/utils/tier';
 import { parseTimeString } from '@/src/utils/time';
-import { formatDateKey, getKstNow } from '@/src/utils/workWindow';
+import { buildDateOptions, formatDateKey, getKstNow } from '@/src/utils/workWindow';
 import { findWorkerByProfile } from '@/src/server/workers';
-import { listApplyRows, type ApplyRow } from '@/src/server/workApply';
+import { listApplyRows, listApplySectors, type ApplyRow, type ApplySectorOption } from '@/src/server/workApply';
 import { getActivePenalty } from '@/src/server/penalties';
 import { workerTierRules } from '@/src/db/schema';
 
@@ -27,6 +27,9 @@ export type ApplySnapshot = {
   tierRules: TierRuleDisplay[];
   applyWindowHint: string;
   penaltyMessage: string | null;
+  sectorOptions: ApplySectorOption[];
+  todayKey: string;
+  dateOptions: { value: string; label: string }[];
 };
 
 export type ApplySlot = {
@@ -69,6 +72,7 @@ export async function getApplySnapshot(profile: ProfileSummary): Promise<ApplySn
   endDate.setDate(endDate.getDate() + FETCH_DAYS);
   const endKey = formatDateKey(endDate);
   const tierRules = await fetchTierRules();
+  const sectorOptions = await listApplySectors();
   const worker = await findWorkerByProfile(profile);
   const workerId = worker?.id ?? null;
   const workerTier = worker?.tier ?? (isAdmin ? 99 : null);
@@ -120,9 +124,12 @@ export async function getApplySnapshot(profile: ProfileSummary): Promise<ApplySn
     isAdmin,
     tierRules,
     applyWindowHint,
+    sectorOptions,
     penaltyMessage: penaltyInfo.active
       ? `패널티 기간(${penaltyInfo.start ?? ''}${penaltyInfo.end ? `~${penaltyInfo.end}` : ''})에는 업무를 신청할 수 없습니다.`
-      : null
+      : null,
+    todayKey,
+    dateOptions: buildDateOptions(7, now).map(({ value, label }) => ({ value, label }))
   };
 }
 
