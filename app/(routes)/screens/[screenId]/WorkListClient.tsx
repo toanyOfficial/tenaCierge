@@ -95,6 +95,26 @@ function sortBuildingWorks(works: WorkListEntry[], mode: 'checkout' | 'roomDesc'
   return [...noCleaning, ...cleaning];
 }
 
+function pickUniqueWorkerLabel(name: string, used: Set<string>) {
+  const letters = Array.from(name.trim());
+  const first = letters[0];
+  const candidates = [letters[0], letters[1], letters[2]].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (!used.has(candidate)) {
+      used.add(candidate);
+      return candidate;
+    }
+  }
+
+  if (first) {
+    used.add(first);
+    return first;
+  }
+
+  return '담';
+}
+
 export default function WorkListClient({ profile, snapshot }: Props) {
   const router = useRouter();
   const params = useSearchParams();
@@ -111,6 +131,9 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const [assignQuery, setAssignQuery] = useState('');
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState('');
+  const [reopenTarget, setReopenTarget] = useState<{ work: WorkListEntry; mode: 'cleaning' | 'supervising' } | null>(
+    null
+  );
   const [infoTarget, setInfoTarget] = useState<WorkListEntry | null>(null);
   const [photoTarget, setPhotoTarget] = useState<WorkListEntry | null>(null);
   const [searchResults, setSearchResults] = useState<AssignableWorker[]>([]);
@@ -431,6 +454,29 @@ export default function WorkListClient({ profile, snapshot }: Props) {
     router.refresh();
   }
 
+  function openReopenModal(work: WorkListEntry, mode: 'cleaning' | 'supervising') {
+    setReopenTarget({ work, mode });
+  }
+
+  function handleReopenConfirm() {
+    if (!reopenTarget) return;
+    const href = reopenTarget.mode === 'cleaning' ? `/screens/005?workId=${reopenTarget.work.id}` : `/screens/006?workId=${reopenTarget.work.id}`;
+    setReopenTarget(null);
+    router.push(href);
+  }
+
+  async function handleReopenReset() {
+    if (!reopenTarget) return;
+
+    if (reopenTarget.mode === 'cleaning') {
+      await updateWork(reopenTarget.work.id, { cleaningFlag: 1 });
+    } else {
+      await updateWork(reopenTarget.work.id, { supervisingDone: false });
+    }
+
+    setReopenTarget(null);
+  }
+
   async function handleAssignSave() {
     if (!assignTarget) return;
     if (assignSelection === 'noShow') {
@@ -468,6 +514,8 @@ export default function WorkListClient({ profile, snapshot }: Props) {
       setAssignLoading(false);
     }
   }
+
+  const usedAssignCompactLabels = new Set<string>();
 
   return (
     <div className={styles.screenShell}>
@@ -647,6 +695,14 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                         : work.cleanerName
                                           ? `담당자 ${work.cleanerName}`
                                           : '배정하기';
+                                    const assignCompactLabel =
+                                      assignState === 'noShow'
+                                        ? 'N'
+                                        : work.cleanerName
+                                          ? pickUniqueWorkerLabel(work.cleanerName, usedAssignCompactLabels)
+                                          : '담';
+                                    const cleaningDone = work.cleaningFlag >= 4;
+                                    const supervisingDone = Boolean(work.supervisingYn);
                                     const disabledLine = !work.cleaningYn;
                                     const canViewRealtime = !isHost || work.realtimeOverviewYn;
                                     const canViewPhotos = !isHost || work.imagesYn;
@@ -727,7 +783,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                             <button
                                               className={assignClassName}
                                               disabled={!canAssignCleaner}
-                                              data-compact-label="담"
+                                              data-compact-label={assignCompactLabel}
                                               onClick={() => {
                                                 setAssignTarget(work);
                                                 setAssignSelection(isNoShowState ? 'noShow' : work.cleanerId ?? null);
@@ -743,6 +799,11 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                               disabled={!canToggleCleaning}
                                               data-compact-label="청"
                                               onClick={() => {
+                                                if (cleaningDone) {
+                                                  openReopenModal(work, 'cleaning');
+                                                  return;
+                                                }
+
                                                 if (work.cleaningFlag === 3) {
                                                   const ok = window.confirm(
                                                     `${work.buildingShortName}${work.roomNo} 호실에 대하여 클리닝 완료 보고를 진행하시겠습니까?`
@@ -763,6 +824,11 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                               disabled={!canToggleSupervising}
                                               data-compact-label="검"
                                               onClick={() => {
+                                                if (supervisingDone) {
+                                                  openReopenModal(work, 'supervising');
+                                                  return;
+                                                }
+
                                                 if (!work.supervisingYn) {
                                                   const ok = window.confirm(
                                                     `${work.buildingShortName}${work.roomNo} 호실에 대하여 수퍼바이징 완료 보고를 진행하시겠습니까?`
@@ -800,6 +866,36 @@ export default function WorkListClient({ profile, snapshot }: Props) {
         {status ? <p className={styles.successText}>{status}</p> : null}
         {error ? <p className={styles.errorText}>{error}</p> : null}
       </section>
+
+      {reopenTarget ? (
+        <div className={styles.modalBackdrop}>
+          <div className={styles.modalCard} role="dialog" aria-modal="true">
+            <div className={styles.modalHead}>
+              <span>완료 보고 다시 진행</span>
+              <button onClick={() => setReopenTarget(null)} aria-label="닫기">
+                ✕
+              </button>
+            </div>
+
+            <p className={styles.modalBody}>
+              {`${reopenTarget.work.buildingShortName}${reopenTarget.work.roomNo}에 대한 완료 보고를 다시 진행하시겠습니까?`}
+            </p>
+
+            <button type="button" className={styles.subtleActionButton} onClick={handleReopenReset}>
+              보고 없이 상태만 되돌리기
+            </button>
+
+            <div className={styles.modalFoot}>
+              <button type="button" className={styles.secondaryButton} onClick={() => setReopenTarget(null)}>
+                아니오
+              </button>
+              <button type="button" className={styles.primaryButton} onClick={handleReopenConfirm}>
+                예
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {detailOpen ? (
         <div className={styles.modalOverlay} onClick={() => setDetailOpen(false)}>
