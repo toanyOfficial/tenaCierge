@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import { DateTime } from 'luxon';
 import { unstable_noStore as noStore } from 'next/cache';
@@ -14,6 +14,8 @@ import {
   workApply,
   workAssignment,
   workHeader,
+  workImagesList,
+  workImagesSetDetail,
   workReports,
   workerHeader
 } from '@/src/db/schema';
@@ -24,6 +26,13 @@ import { getKstNow, formatDateKey, formatWorkDateLabel, type WorkWindowTag } fro
 import { clampDateWithinRange } from '@/src/utils/workWindow';
 import { logError, logInfo } from '@/src/server/logger';
 import { logServerError } from '@/src/server/errorLogger';
+
+export type WorkImageSlot = {
+  id: number;
+  title: string;
+  comment: string | null;
+  required: boolean;
+};
 
 export type WorkListEntry = {
   id: number;
@@ -47,6 +56,7 @@ export type WorkListEntry = {
   cleaningFlag: number;
   cleaningYn: boolean;
   conditionCheckYn: boolean;
+  conditionChecked: boolean;
   supervisingYn: boolean;
   supervisingEndTime: string | null;
   cleanerId: number | null;
@@ -58,8 +68,11 @@ export type WorkListEntry = {
   supplyRecommendations: SupplyRecommendation[];
   hasPhotoReport: boolean;
   photos: WorkImage[];
+  conditionImageSlots: WorkImageSlot[];
+  conditionPhotos: WorkImage[];
   realtimeOverviewYn: boolean;
   imagesYn: boolean;
+  imagesSetId?: number | null;
 };
 
 export type SupplyRecommendation = { title: string; description: string; href?: string };
@@ -292,11 +305,11 @@ export async function getWorkListSnapshot(
         blanketQty: workHeader.blanketQty,
         amenitiesQty: workHeader.amenitiesQty,
         requirements: workHeader.requirements,
+        imagesSetId: clientRooms.imagesSetId,
         supplyYn: workHeader.supplyYn,
         cleaningFlag: workHeader.cleaningFlag,
         cleaningYn: workHeader.cleaningYn,
-        // Some deployments omit `condition_check_yn`; default to false when absent.
-        conditionCheckYn: sql<boolean>`0`,
+        conditionCheckYn: workHeader.conditionCheckYn,
         supervisingYn: workHeader.supervisingYn,
         supervisingEndTime: workHeader.supervisingEndTime,
         cleanerId: workHeader.cleanerId,
@@ -369,6 +382,8 @@ export async function getWorkListSnapshot(
     const normalized = (rows ?? []).map((row) => normalizeRow(row));
     const supplyMap = await fetchLatestSupplyReports(normalized.map((row) => row.id));
     const photoMap = await fetchLatestPhotoReports(normalized.map((row) => row.id));
+    const conditionSlotMap = await fetchConditionImageSlots(normalized);
+    const conditionPhotoMap = await fetchLatestConditionReports(normalized.map((row) => row.id));
     const assignableWorkers = isAdmin || isButler ? await fetchAssignableWorkers(targetDate) : [];
     const buildingCounts = normalized.reduce<Record<number, number>>((acc, row) => {
       acc[row.buildingId] = (acc[row.buildingId] ?? 0) + 1;
@@ -381,7 +396,11 @@ export async function getWorkListSnapshot(
         hasSupplyReport: supplyMap.has(work.id),
         supplyRecommendations: supplyMap.get(work.id)?.recommendations ?? [],
         hasPhotoReport: photoMap.has(work.id),
-        photos: photoMap.get(work.id)?.images ?? []
+        photos: photoMap.get(work.id)?.images ?? [],
+        conditionImageSlots: conditionSlotMap.get(work.imagesSetId ?? -1) ?? [],
+        conditionPhotos: conditionPhotoMap.get(work.id)?.images ?? [],
+        conditionChecked:
+          work.conditionCheckYn && (conditionPhotoMap.has(work.id) || Boolean(work.supervisingYn))
       }))
       .sort((a, b) => sortRows(a, b, buildingCounts));
 
@@ -504,10 +523,12 @@ function normalizeRow(row: any): WorkListEntry {
     blanketQty: Number(row.blanketQty ?? 0),
     amenitiesQty: Number(row.amenitiesQty ?? 0),
     requirements: row.requirements ?? '',
+    imagesSetId: row.imagesSetId ? Number(row.imagesSetId) : null,
     supplyYn: Boolean(row.supplyYn),
     cleaningFlag: Number(row.cleaningFlag ?? 1),
     cleaningYn: Boolean(row.cleaningYn),
     conditionCheckYn: Boolean(row.conditionCheckYn),
+    conditionChecked: false,
     supervisingYn: Boolean(row.supervisingYn),
     supervisingEndTime: row.supervisingEndTime ? toTime(row.supervisingEndTime) : null,
     cleanerId: row.cleanerId ? Number(row.cleanerId) : null,
@@ -519,6 +540,8 @@ function normalizeRow(row: any): WorkListEntry {
     supplyRecommendations: [],
     hasPhotoReport: false,
     photos: [],
+    conditionImageSlots: [],
+    conditionPhotos: [],
     realtimeOverviewYn: Boolean(row.realtimeOverviewYn),
     imagesYn: Boolean(row.imagesYn)
   };
@@ -607,6 +630,65 @@ async function fetchLatestPhotoReports(workIds: number[]) {
     .select({ workId: workReports.workId, contents1: workReports.contents1, createdAt: workReports.createdAt })
     .from(workReports)
     .where(and(inArray(workReports.workId, workIds), eq(workReports.type, 3)))
+    .orderBy(desc(workReports.createdAt));
+
+  rows.forEach((row) => {
+    const workId = Number(row.workId);
+    if (map.has(workId)) return;
+    map.set(workId, { images: parseWorkImages(row.contents1) });
+  });
+
+  return map;
+}
+
+async function fetchConditionImageSlots(works: { id: number; imagesSetId?: number | null; conditionCheckYn: boolean }[]) {
+  const map = new Map<number, WorkImageSlot[]>();
+  const setIds = Array.from(
+    new Set(works.filter((row) => row.conditionCheckYn && row.imagesSetId).map((row) => Number(row.imagesSetId)))
+  );
+
+  if (!setIds.length) return map;
+
+  const rows = await db
+    .select({
+      imagesSetId: workImagesSetDetail.imagesSetId,
+      id: workImagesSetDetail.id,
+      title: workImagesSetDetail.title,
+      listTitle: workImagesList.title,
+      comment: workImagesSetDetail.comment,
+      listComment: workImagesList.comment,
+      required: workImagesSetDetail.required,
+      listRequired: workImagesList.required
+    })
+    .from(workImagesSetDetail)
+    .innerJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
+    .where(and(inArray(workImagesSetDetail.imagesSetId, setIds), eq(workImagesList.role, 3)))
+    .orderBy(asc(workImagesSetDetail.id));
+
+  rows.forEach((row) => {
+    if (!row.imagesSetId) return;
+    const slots = map.get(Number(row.imagesSetId)) ?? [];
+    slots.push({
+      id: Number(row.id),
+      title: row.title || row.listTitle || '사진',
+      comment: row.comment || row.listComment || null,
+      required: Boolean(row.required ?? row.listRequired)
+    });
+    map.set(Number(row.imagesSetId), slots);
+  });
+
+  return map;
+}
+
+async function fetchLatestConditionReports(workIds: number[]) {
+  const map = new Map<number, { images: WorkImage[] }>();
+
+  if (!workIds.length) return map;
+
+  const rows = await db
+    .select({ workId: workReports.workId, contents1: workReports.contents1, createdAt: workReports.createdAt })
+    .from(workReports)
+    .where(and(inArray(workReports.workId, workIds), eq(workReports.type, 7)))
     .orderBy(desc(workReports.createdAt));
 
   rows.forEach((row) => {
