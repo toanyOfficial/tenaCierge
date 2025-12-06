@@ -1,7 +1,7 @@
 import { createWriteStream } from 'fs';
 import { mkdir, unlink } from 'fs/promises';
 import path from 'path';
-import { Readable, Transform, type TransformCallback } from 'stream';
+import { Readable, Transform } from 'stream';
 import type { ReadableStream as WebReadableStream } from 'stream/web';
 import { pipeline } from 'stream/promises';
 
@@ -56,28 +56,6 @@ function createSizeLimiter(limitBytes: number) {
   });
 }
 
-class PassthroughImageTransform extends Transform {
-  constructor() {
-    super();
-  }
-
-  _transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback): void {
-    callback(null, chunk);
-  }
-
-  rotate() {
-    return this;
-  }
-
-  resize() {
-    return this;
-  }
-
-  jpeg() {
-    return this;
-  }
-}
-
 function loadSharpFactory(): (() => any) | null {
   const requireFn = typeof __non_webpack_require__ === 'function' ? __non_webpack_require__ : require;
   const specifier = ['sharp'].join('');
@@ -129,17 +107,25 @@ export async function processImageUploads({
     const baseName = safeName.replace(/\.[^.]+$/, '');
     const destName = `${Date.now()}-${index}-${baseName || 'image'}.jpg`;
     const destPath = path.join(baseDir, destName);
-    const fileStream = Readable.fromWeb(file.stream() as unknown as WebReadableStream);
+
     const limiter = createSizeLimiter(maxFileSizeBytes);
-    const resizeTransform =
-      sharpFactory
-        ?.()
-        .rotate()
-        .resize({ width: maxDimension, height: maxDimension, fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: jpegQuality, mozjpeg: true }) ?? new PassthroughImageTransform();
+    const fileStream = Readable.fromWeb(file.stream() as unknown as WebReadableStream);
 
     try {
-      await pipeline(fileStream, limiter, resizeTransform, createWriteStream(destPath));
+      const chunks: Buffer[] = [];
+      await pipeline(fileStream, limiter, new Transform({
+        transform(chunk, _encoding, callback) {
+          chunks.push(Buffer.from(chunk));
+          callback(null, chunk);
+        }
+      }));
+
+      const sourceBuffer = Buffer.concat(chunks);
+      const processedBuffer = sharpFactory
+        ? await applyRegionalDownscale(sharpFactory, sourceBuffer, { maxDimension, jpegQuality })
+        : sourceBuffer;
+
+      await pipeline(Readable.from(processedBuffer), createWriteStream(destPath));
     } catch (error) {
       await unlink(destPath).catch(() => {});
       if (error instanceof UploadError) {
@@ -152,4 +138,63 @@ export async function processImageUploads({
   }
 
   return uploads;
+}
+
+type RegionalDownscaleOptions = {
+  maxDimension: number;
+  jpegQuality: number;
+};
+
+async function applyRegionalDownscale(sharpFactory: () => any, input: Buffer, options: RegionalDownscaleOptions) {
+  const { maxDimension, jpegQuality } = options;
+  const base = sharpFactory();
+  const { data: resizedBuffer, info } = await base
+    .rotate()
+    .resize({ width: maxDimension, height: maxDimension, fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: jpegQuality, mozjpeg: true })
+    .toBuffer({ resolveWithObject: true });
+
+  const width = info.width ?? maxDimension;
+  const height = info.height ?? maxDimension;
+  const tileWidth = Math.ceil(width / 5);
+  const tileHeight = Math.ceil(height / 5);
+
+  const composites: { input: Buffer; left: number; top: number }[] = [];
+
+  for (let row = 0; row < 5; row += 1) {
+    for (let col = 0; col < 5; col += 1) {
+      const left = col * tileWidth;
+      const top = row * tileHeight;
+      if (left >= width || top >= height) {
+        continue;
+      }
+      const currentTileWidth = Math.min(tileWidth, width - left);
+      const currentTileHeight = Math.min(tileHeight, height - top);
+      const scale = row >= 1 && row <= 3 && col >= 1 && col <= 3 ? 0.5 : 0.2;
+
+      const tileBuffer = await sharpFactory()(resizedBuffer)
+        .extract({ left, top, width: currentTileWidth, height: currentTileHeight })
+        .resize({
+          width: Math.max(1, Math.round(currentTileWidth * scale)),
+          height: Math.max(1, Math.round(currentTileHeight * scale)),
+          fit: 'inside'
+        })
+        .resize({ width: currentTileWidth, height: currentTileHeight, fit: 'fill', kernel: 'nearest' })
+        .jpeg({ quality: jpegQuality, mozjpeg: true })
+        .toBuffer();
+
+      composites.push({ input: tileBuffer, left, top });
+    }
+  }
+
+  const degraded = sharpFactory()({
+    create: {
+      width,
+      height,
+      channels: 3,
+      background: { r: 255, g: 255, b: 255 }
+    }
+  });
+
+  return degraded.composite(composites).jpeg({ quality: jpegQuality, mozjpeg: true }).toBuffer();
 }
