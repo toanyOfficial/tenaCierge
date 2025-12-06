@@ -310,24 +310,21 @@ class CleanerRankingBatch:
         self.admin_worker_ids = self._load_admin_workers()
         self._apply_additional_room_prices()
         self._award_butler_bonus()
-        scores = self._fetch_scores()
-        workers = self._load_workers(scores)
-        if not workers:
-            logging.info("worker_header 인원이 없어 종료합니다.")
-            return
-        tier_rules = self._load_tier_rules()
-        if not tier_rules:
-            logging.warning("worker_tier_rules 테이블이 비어 있어 tier 계산을 건너뜁니다.")
-            return
-        checklist_titles = self._load_checklist_titles()
+        checklist_titles, checklist_scores = self._load_checklist_metadata()
+        today_scores = self._update_daily_checklist_points(checklist_scores)
         daily_trend = self._load_daily_trend_scores()
         daily_evals = self._load_daily_evaluations(checklist_titles)
         comments = self._generate_comments(daily_evals, daily_trend)
         if comments:
             self._persist_comments(comments, daily_evals)
-        self._persist_score_20days(scores, workers)
+        workers = self._load_workers()
+        if not workers:
+            logging.info("worker_header 인원이 없어 종료합니다.")
+            return
+        self._persist_score_20days(today_scores, workers)
+        tier_rules = self._load_tier_rules()
         tier_population = self._load_tiering_population()
-        tier_updates = self._calculate_tiers(tier_population, tier_rules)
+        tier_updates = self._calculate_tiers(tier_population, tier_rules) if tier_rules else {}
         self._persist_tiers(tier_updates)
         self._persist_daily_hourly_wage()
         self.conn.commit()
@@ -684,26 +681,63 @@ class CleanerRankingBatch:
             logging.info("관리자(tier=99) 제외 대상: %s명", len(admin_ids))
         return admin_ids
 
-    def _load_workers(self, scores: Dict[int, float]) -> List[Dict[str, Optional[float]]]:
+    def _load_workers(self) -> List[Dict[str, Optional[float]]]:
         with self.conn.cursor(dictionary=True) as cur:
-            cur.execute("SELECT id, tier FROM worker_header")
+            cur.execute("SELECT id, tier, score_20days FROM worker_header")
             workers: List[Dict[str, Optional[float]]] = []
             for row in cur:
                 wid = row["id"]
                 if wid in self.admin_worker_ids:
                     continue
-                row["score"] = float(scores.get(wid, 0.0))
+                row["score_20days"] = float(row.get("score_20days") or 0.0)
                 workers.append(row)
         return workers
 
-    def _load_checklist_titles(self) -> Dict[int, str]:
-        sql = "SELECT id, title FROM work_checklist_list"
+    def _load_checklist_metadata(self) -> Tuple[Dict[int, str], Dict[int, int]]:
+        sql = "SELECT id, title, score FROM work_checklist_list"
         titles: Dict[int, str] = {}
+        scores: Dict[int, int] = {}
         with self.conn.cursor(dictionary=True) as cur:
             cur.execute(sql)
             for row in cur:
-                titles[int(row["id"])] = row.get("title") or ""
-        return titles
+                cid = int(row["id"])
+                titles[cid] = row.get("title") or ""
+                try:
+                    scores[cid] = int(row.get("score") or 0)
+                except (TypeError, ValueError):
+                    scores[cid] = 0
+        return titles, scores
+
+    def _update_daily_checklist_points(self, checklist_scores: Dict[int, int]) -> Dict[int, int]:
+        start_dt = dt.datetime.combine(self.target_date, dt.time.min)
+        end_dt = start_dt + dt.timedelta(days=1)
+        sql = """
+            SELECT id, worker_id, checklist_title_array
+            FROM worker_evaluateHistory
+            WHERE evaluate_dttm >= %s
+              AND evaluate_dttm < %s
+        """
+        updates: List[Tuple[int, int]] = []
+        today_scores: Dict[int, int] = {}
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(sql, (start_dt, end_dt))
+            for row in cur:
+                worker_id = int(row.get("worker_id"))
+                if worker_id in self.admin_worker_ids:
+                    continue
+                checklist_ids = _extract_ids_from_json(row.get("checklist_title_array"))
+                point_sum = sum(checklist_scores.get(cid, 0) for cid in checklist_ids)
+                today_scores[worker_id] = today_scores.get(worker_id, 0) + point_sum
+                updates.append((point_sum, int(row.get("id"))))
+
+        if updates:
+            with self.conn.cursor() as cur:
+                cur.executemany(
+                    "UPDATE worker_evaluateHistory SET checklist_point_sum=%s WHERE id=%s",
+                    updates,
+                )
+        logging.info("checklist_point_sum 갱신 %s건", len(updates))
+        return today_scores
 
     def _load_daily_trend_scores(self) -> Dict[int, List[Dict[str, object]]]:
         start_date = self.target_date - dt.timedelta(days=6)
@@ -784,9 +818,15 @@ class CleanerRankingBatch:
                 if worker_id in self.admin_worker_ids:
                     continue
                 checklist_raw = row.get("checklist_title_array")
+                parsed_checklists = None
                 try:
-                    checklist_ids: Iterable[int] = json.loads(checklist_raw) if checklist_raw else []
+                    parsed_checklists = json.loads(checklist_raw) if checklist_raw else []
                 except Exception:
+                    parsed_checklists = []
+                checklist_ids: Iterable[int]
+                if isinstance(parsed_checklists, list):
+                    checklist_ids = parsed_checklists
+                else:
                     checklist_ids = []
                 report_ids: List[int] = []
                 for key in ("contents1", "contents2"):
@@ -812,6 +852,7 @@ class CleanerRankingBatch:
                     evaluate_dttm=row.get("evaluate_dttm"),
                     room_name=room_label,
                     deductions=deductions,
+                    comment_candidate=isinstance(parsed_checklists, list),
                 )
                 evaluations.setdefault(worker_id, []).append(entry)
         logging.info("%s 일자 평가 건수: %s명", self.target_date, len(evaluations))
@@ -898,8 +939,11 @@ class CleanerRankingBatch:
             "workers": [],
         }
         for worker_id, entries in evaluations.items():
+            candidate_entries = [e for e in entries if e.get("comment_candidate")]
+            if not candidate_entries:
+                continue
             sorted_entries = sorted(
-                entries,
+                candidate_entries,
                 key=lambda e: (
                     e.get("evaluate_dttm") or dt.datetime.min,
                     e.get("id", 0),
@@ -1136,12 +1180,12 @@ class CleanerRankingBatch:
         logging.info("AI 코멘트 업데이트 %s명", len(comments))
 
     def _persist_score_20days(
-        self, scores: Dict[int, float], workers: Sequence[Dict[str, Optional[float]]]
+        self, today_scores: Dict[int, int], workers: Sequence[Dict[str, Optional[float]]]
     ) -> None:
-        """최근 20일 점수를 worker_header.score_20days에 적재."""
+        """오늘 점수를 worker_header.score_20days에 누적한다."""
 
-        eligible_ids = {int(w["id"]) for w in workers if w.get("tier") is not None and 2 <= int(w["tier"]) <= 7}
-        if not eligible_ids:
+        eligible = [w for w in workers if w.get("tier") is not None and 2 <= int(w["tier"]) <= 7]
+        if not eligible:
             return
 
         worker_columns = self._get_table_columns("worker_header")
@@ -1150,12 +1194,15 @@ class CleanerRankingBatch:
             return
 
         with self.conn.cursor() as cur:
-            for worker_id in eligible_ids:
+            for worker in eligible:
+                worker_id = int(worker["id"])
+                current_score = float(worker.get("score_20days") or 0.0)
+                new_score = current_score + float(today_scores.get(worker_id, 0.0))
                 cur.execute(
                     "UPDATE worker_header SET score_20days=%s WHERE id=%s",
-                    (float(scores.get(worker_id, 0.0)), worker_id),
+                    (new_score, worker_id),
                 )
-        logging.info("score_20days 업데이트 %s건", len(eligible_ids))
+        logging.info("score_20days 누적 업데이트 %s건", len(eligible))
 
     def _persist_tiers(self, updates: Dict[int, int]) -> None:
         if not updates:
