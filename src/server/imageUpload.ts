@@ -5,8 +5,6 @@ import { Readable, Transform } from 'stream';
 import type { ReadableStream as WebReadableStream } from 'stream/web';
 import { pipeline } from 'stream/promises';
 
-declare const __non_webpack_require__: NodeRequire;
-
 export type UploadedImage = { slotId: number; url: string };
 
 type ProcessImageOptions = {
@@ -16,8 +14,6 @@ type ProcessImageOptions = {
   urlPrefix: string;
   maxFileSizeBytes?: number;
   maxTotalSizeBytes?: number;
-  maxDimension?: number;
-  jpegQuality?: number;
 };
 
 export class UploadError extends Error {
@@ -34,8 +30,6 @@ export class UploadError extends Error {
 // are accepted before compression/resize kicks in.
 const DEFAULT_MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
 const DEFAULT_MAX_TOTAL_SIZE = 60 * 1024 * 1024; // 60MB per request
-const DEFAULT_MAX_DIMENSION = 1600;
-const DEFAULT_JPEG_QUALITY = 78;
 
 function sanitizeFilename(name: string) {
   return name.replace(/[^a-zA-Z0-9_.-]/g, '_');
@@ -56,28 +50,13 @@ function createSizeLimiter(limitBytes: number) {
   });
 }
 
-function loadSharpFactory(): (() => any) | null {
-  const requireFn = typeof __non_webpack_require__ === 'function' ? __non_webpack_require__ : require;
-  const specifier = ['sharp'].join('');
-
-  try {
-    const loaded = requireFn(specifier);
-    return (loaded?.default ?? loaded) as () => any;
-  } catch (error) {
-    console.warn('sharp가 설치되어 있지 않아 이미지 리사이즈 없이 저장합니다.', error);
-    return null;
-  }
-}
-
 export async function processImageUploads({
   files,
   slots,
   baseDir,
   urlPrefix,
   maxFileSizeBytes = DEFAULT_MAX_FILE_SIZE,
-  maxTotalSizeBytes = DEFAULT_MAX_TOTAL_SIZE,
-  maxDimension = DEFAULT_MAX_DIMENSION,
-  jpegQuality = DEFAULT_JPEG_QUALITY
+  maxTotalSizeBytes = DEFAULT_MAX_TOTAL_SIZE
 }: ProcessImageOptions): Promise<UploadedImage[]> {
   const totalSize = files.reduce((sum, file) => sum + (file.size || 0), 0);
 
@@ -91,7 +70,6 @@ export async function processImageUploads({
 
   await mkdir(baseDir, { recursive: true });
   const uploads: UploadedImage[] = [];
-  const sharpFactory = loadSharpFactory();
 
   for (const [index, file] of files.entries()) {
     if (file.size && file.size > maxFileSizeBytes) {
@@ -112,20 +90,7 @@ export async function processImageUploads({
     const fileStream = Readable.fromWeb(file.stream() as unknown as WebReadableStream);
 
     try {
-      const chunks: Buffer[] = [];
-      await pipeline(fileStream, limiter, new Transform({
-        transform(chunk, _encoding, callback) {
-          chunks.push(Buffer.from(chunk));
-          callback(null, chunk);
-        }
-      }));
-
-      const sourceBuffer = Buffer.concat(chunks);
-      const processedBuffer = sharpFactory
-        ? await applyRegionalDownscale(sharpFactory, sourceBuffer, { maxDimension, jpegQuality })
-        : sourceBuffer;
-
-      await pipeline(Readable.from(processedBuffer), createWriteStream(destPath));
+      await pipeline(fileStream, limiter, createWriteStream(destPath));
     } catch (error) {
       await unlink(destPath).catch(() => {});
       if (error instanceof UploadError) {
