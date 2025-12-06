@@ -59,7 +59,7 @@ export async function createApplySlot({
   sectorValue: string;
   position: 1 | 2;
 }) {
-  const date = new Date(`${workDate}T00:00:00`);
+  const date = new Date(`${workDate}T00:00:00+09:00`);
   if (Number.isNaN(date.getTime())) {
     throw new Error('잘못된 날짜 형식입니다.');
   }

@@ -1980,6 +1980,26 @@
   gap: 8px;
 }
 
+.applyDeleteButton {
+  padding: 4px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.applyDeleteButton:hover:not(:disabled) {
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+.applyDeleteButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .applySlotHelper {
   flex-basis: 100%;
 }

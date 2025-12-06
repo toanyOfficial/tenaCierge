@@ -224,6 +224,38 @@ export default function ApplyClient({ profile, snapshot }: Props) {
     }
   }
 
+  async function handleDelete(slot: ApplySlot) {
+    if (slot.isTaken) {
+      setErrorMap((prev) => ({ ...prev, [slot.id]: '신청이 완료된 슬롯은 삭제할 수 없습니다.' }));
+      return;
+    }
+
+    if (!window.confirm('해당 슬롯을 삭제하시겠습니까?')) {
+      return;
+    }
+
+    setPendingId(slot.id);
+    setStatusMap((prev) => ({ ...prev, [slot.id]: '' }));
+    setErrorMap((prev) => ({ ...prev, [slot.id]: '' }));
+
+    try {
+      const response = await fetch(`/api/work-apply/${slot.id}`, { method: 'DELETE' });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setErrorMap((prev) => ({ ...prev, [slot.id]: data.message || '슬롯 삭제 중 오류가 발생했습니다.' }));
+        return;
+      }
+
+      setStatusMap((prev) => ({ ...prev, [slot.id]: data.message || '슬롯이 삭제되었습니다.' }));
+      router.refresh();
+    } catch (error) {
+      setErrorMap((prev) => ({ ...prev, [slot.id]: '슬롯 삭제 중 오류가 발생했습니다.' }));
+    } finally {
+      setPendingId(null);
+    }
+  }
+
   function renderButton(slot: ApplySlot, locked = false) {
     const isPending = pendingId === slot.id;
 
@@ -427,7 +459,19 @@ export default function ApplyClient({ profile, snapshot }: Props) {
                                         </span>
                                       ) : null}
                                     </div>
-                                    <div className={styles.applySlotAction}>{renderButton(slot, locked)}</div>
+                                    <div className={styles.applySlotAction}>
+                                      {renderButton(slot, locked)}
+                                      {snapshot.isAdmin ? (
+                                        <button
+                                          type="button"
+                                          className={styles.applyDeleteButton}
+                                          disabled={pendingId === slot.id || slot.isTaken}
+                                          onClick={() => handleDelete(slot)}
+                                        >
+                                          삭제
+                                        </button>
+                                      ) : null}
+                                    </div>
                                     <div className={styles.applySlotHelper}>{renderHelper(slot, locked)}</div>
                                   </li>
                                 );
