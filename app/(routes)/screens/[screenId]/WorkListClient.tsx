@@ -95,6 +95,26 @@ function sortBuildingWorks(works: WorkListEntry[], mode: 'checkout' | 'roomDesc'
   return [...noCleaning, ...cleaning];
 }
 
+function pickUniqueWorkerLabel(name: string, used: Set<string>) {
+  const letters = Array.from(name.trim());
+  const first = letters[0];
+  const candidates = [letters[0], letters[1], letters[2]].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (!used.has(candidate)) {
+      used.add(candidate);
+      return candidate;
+    }
+  }
+
+  if (first) {
+    used.add(first);
+    return first;
+  }
+
+  return '담';
+}
+
 export default function WorkListClient({ profile, snapshot }: Props) {
   const router = useRouter();
   const params = useSearchParams();
@@ -469,6 +489,8 @@ export default function WorkListClient({ profile, snapshot }: Props) {
     }
   }
 
+  const usedAssignCompactLabels = new Set<string>();
+
   return (
     <div className={styles.screenShell}>
       <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={handleRoleChange} compact />
@@ -647,6 +669,12 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                         : work.cleanerName
                                           ? `담당자 ${work.cleanerName}`
                                           : '배정하기';
+                                    const assignCompactLabel =
+                                      assignState === 'noShow'
+                                        ? 'N'
+                                        : work.cleanerName
+                                          ? pickUniqueWorkerLabel(work.cleanerName, usedAssignCompactLabels)
+                                          : '담';
                                     const disabledLine = !work.cleaningYn;
                                     const canViewRealtime = !isHost || work.realtimeOverviewYn;
                                     const canViewPhotos = !isHost || work.imagesYn;
@@ -727,7 +755,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                             <button
                                               className={assignClassName}
                                               disabled={!canAssignCleaner}
-                                              data-compact-label="담"
+                                              data-compact-label={assignCompactLabel}
                                               onClick={() => {
                                                 setAssignTarget(work);
                                                 setAssignSelection(isNoShowState ? 'noShow' : work.cleanerId ?? null);
