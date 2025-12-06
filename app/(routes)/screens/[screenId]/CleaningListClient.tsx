@@ -77,7 +77,7 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
   const viewingAsCleaner = activeRole === 'cleaner';
   const canSeeList = viewingAsHost || viewingAsAdmin || viewingAsButler || viewingAsCleaner;
   const canEdit = viewingAsAdmin || (viewingAsHost && snapshot.hostCanEdit);
-  const canEditRequirements = false;
+  const canEditRequirements = viewingAsAdmin;
   const canAdd = viewingAsAdmin || (viewingAsHost && snapshot.hostCanAdd);
 
   const roomOptions = useMemo(() => {

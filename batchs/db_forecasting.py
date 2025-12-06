@@ -199,11 +199,6 @@ def parse_args() -> argparse.Namespace:
         help="ics 폴더 보관 일수 (README 규칙: 3일)",
     )
     parser.add_argument(
-        "--allow-backfill",
-        action="store_true",
-        help="지정된 run-date를 강제로 사용 (기본은 서울 오늘 날짜로 강제)",
-    )
-    parser.add_argument(
         "--today-only",
         action="store_true",
         help="당일(D0) work_header만 생성하고 apply/정확도 계산을 건너뜀",
@@ -1235,13 +1230,6 @@ def main() -> None:
     args = parse_args()
     today_seoul = seoul_today()
     run_date = args.run_date or today_seoul
-    if args.run_date and not args.allow_backfill and args.run_date != today_seoul:
-        logging.warning(
-            "입력 run-date %s가 현재 서울 날짜 %s와 달라 서울 날짜로 강제합니다. backfill 실행 시 --allow-backfill 사용",
-            args.run_date,
-            today_seoul,
-        )
-        run_date = today_seoul
     now_seoul = dt.datetime.now(dt.timezone.utc).astimezone(SEOUL)
     logging.info("기준일(KST): %s (현재 서울 시각 %s)", run_date, now_seoul.strftime("%Y-%m-%d %H:%M:%S"))
     start_dttm = dt.datetime.now(dt.timezone.utc)
