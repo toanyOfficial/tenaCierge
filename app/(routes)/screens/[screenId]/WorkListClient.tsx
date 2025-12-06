@@ -8,6 +8,7 @@ import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
 import styles from './screens.module.css';
 import type { AssignableWorker, WorkListEntry, WorkListSnapshot } from './server/getWorkListSnapshot';
 import type { ProfileSummary } from '@/src/utils/profile';
+import { resizeImageFile } from './clientImageResize';
 
 type Props = {
   profile: ProfileSummary;
@@ -32,6 +33,12 @@ function compareTimes(a: string, b: string) {
   const aMinutes = Number.isFinite(aH) && Number.isFinite(aM) ? aH * 60 + aM : Number.MAX_SAFE_INTEGER;
   const bMinutes = Number.isFinite(bH) && Number.isFinite(bM) ? bH * 60 + bM : Number.MAX_SAFE_INTEGER;
   return aMinutes - bMinutes;
+}
+
+function minutesFromTime(value: string) {
+  const [h, m] = value?.split(':').map((v) => Number(v)) ?? [];
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return -1;
+  return h * 60 + m;
 }
 
 function sortWorks(list: WorkListEntry[], mode: 'checkout' | 'roomDesc') {
@@ -95,6 +102,43 @@ function sortBuildingWorks(works: WorkListEntry[], mode: 'checkout' | 'roomDesc'
   return [...noCleaning, ...cleaning];
 }
 
+function pickUniqueWorkerLabel(
+  name: string,
+  used: Set<string>,
+  workerId?: number | null,
+  assignedByWorkerId?: Map<number, string>
+) {
+  if (workerId && assignedByWorkerId?.has(workerId)) {
+    const label = assignedByWorkerId.get(workerId)!;
+    used.add(label);
+    return label;
+  }
+
+  const letters = Array.from(name.trim());
+  const first = letters[0];
+  const candidates = [letters[0], letters[1], letters[2]].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (!used.has(candidate)) {
+      used.add(candidate);
+      if (workerId && assignedByWorkerId) {
+        assignedByWorkerId.set(workerId, candidate);
+      }
+      return candidate;
+    }
+  }
+
+  if (first) {
+    used.add(first);
+    if (workerId && assignedByWorkerId) {
+      assignedByWorkerId.set(workerId, first);
+    }
+    return first;
+  }
+
+  return '담';
+}
+
 export default function WorkListClient({ profile, snapshot }: Props) {
   const router = useRouter();
   const params = useSearchParams();
@@ -111,8 +155,17 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const [assignQuery, setAssignQuery] = useState('');
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState('');
+  const [reopenTarget, setReopenTarget] = useState<{ work: WorkListEntry; mode: 'cleaning' | 'supervising' } | null>(
+    null
+  );
   const [infoTarget, setInfoTarget] = useState<WorkListEntry | null>(null);
   const [photoTarget, setPhotoTarget] = useState<WorkListEntry | null>(null);
+  const [conditionTarget, setConditionTarget] = useState<WorkListEntry | null>(null);
+  const [conditionUploads, setConditionUploads] = useState<Record<number, File | null>>({});
+  const [conditionPreviews, setConditionPreviews] = useState<Record<number, string>>({});
+  const [conditionExisting, setConditionExisting] = useState<Record<number, string>>({});
+  const [conditionLoading, setConditionLoading] = useState(false);
+  const [conditionError, setConditionError] = useState('');
   const [searchResults, setSearchResults] = useState<AssignableWorker[]>([]);
   const [assignOptions, setAssignOptions] = useState<AssignableWorker[]>(snapshot.assignableWorkers);
   const [sortMode, setSortMode] = useState<'checkout' | 'roomDesc'>('checkout');
@@ -126,6 +179,12 @@ export default function WorkListClient({ profile, snapshot }: Props) {
     setAssignOptions(snapshot.assignableWorkers);
     setSearchResults([]);
   }, [snapshot]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(conditionPreviews).forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [conditionPreviews]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -147,6 +206,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const canToggleCleaning = (hasAdminRole || activeRole === 'butler' || activeRole === 'cleaner') && !hostLocked;
   const canToggleSupervising = (hasAdminRole || activeRole === 'butler') && !hostLocked;
   const canAssignCleaner = canToggleSupervising;
+  const canSubmitCondition = (hasAdminRole || activeRole === 'butler' || activeRole === 'cleaner') && !hostLocked;
 
   const sortedWorks = useMemo(() => sortWorks(works, sortMode), [works, sortMode]);
 
@@ -326,13 +386,29 @@ export default function WorkListClient({ profile, snapshot }: Props) {
       }, {});
 
     const sortEntries = (entries: [string, WorkListEntry[]][]) =>
-      entries.sort(([a], [b]) => a.localeCompare(b));
+      entries
+        .map(([building, works]) => ({
+          building,
+          works,
+          sector: works[0]?.sectorValue || works[0]?.sectorCode || '',
+          total: buildingTotals[building]?.total ?? works.length,
+        }))
+        .sort((a, b) => {
+          const sectorDiff = a.sector.localeCompare(b.sector, 'ko');
+          if (sectorDiff !== 0) return sectorDiff;
+
+          const totalDiff = (b.total ?? 0) - (a.total ?? 0);
+          if (totalDiff !== 0) return totalDiff;
+
+          return a.building.localeCompare(b.building, 'ko');
+        })
+        .map(({ building, works }) => [building, works] as [string, WorkListEntry[]]);
 
     return {
       inProgress: sortEntries(Object.entries(mapList(inProgressWorks))),
       finished: sortEntries(Object.entries(mapList(finishedWorks))),
     };
-  }, [finishedWorks, inProgressWorks]);
+  }, [buildingTotals, finishedWorks, inProgressWorks]);
 
   const combinedWorkers = useMemo(() => {
     const map = new Map<number, AssignableWorker>();
@@ -431,6 +507,29 @@ export default function WorkListClient({ profile, snapshot }: Props) {
     router.refresh();
   }
 
+  function openReopenModal(work: WorkListEntry, mode: 'cleaning' | 'supervising') {
+    setReopenTarget({ work, mode });
+  }
+
+  function handleReopenConfirm() {
+    if (!reopenTarget) return;
+    const href = reopenTarget.mode === 'cleaning' ? `/screens/005?workId=${reopenTarget.work.id}` : `/screens/006?workId=${reopenTarget.work.id}`;
+    setReopenTarget(null);
+    router.push(href);
+  }
+
+  async function handleReopenReset() {
+    if (!reopenTarget) return;
+
+    if (reopenTarget.mode === 'cleaning') {
+      await updateWork(reopenTarget.work.id, { cleaningFlag: 1 });
+    } else {
+      await updateWork(reopenTarget.work.id, { supervisingDone: false });
+    }
+
+    setReopenTarget(null);
+  }
+
   async function handleAssignSave() {
     if (!assignTarget) return;
     if (assignSelection === 'noShow') {
@@ -468,6 +567,135 @@ export default function WorkListClient({ profile, snapshot }: Props) {
       setAssignLoading(false);
     }
   }
+
+  function clearConditionPreviews() {
+    Object.values(conditionPreviews).forEach((url) => {
+      URL.revokeObjectURL(url);
+    });
+    setConditionPreviews({});
+    setConditionUploads({});
+  }
+
+  function resetConditionModal() {
+    clearConditionPreviews();
+    setConditionExisting({});
+    setConditionError('');
+    setConditionLoading(false);
+    setConditionTarget(null);
+  }
+
+  function openConditionModal(work: WorkListEntry) {
+    clearConditionPreviews();
+    const existing: Record<number, string> = {};
+    (work.conditionPhotos || []).forEach((img) => {
+      if (!img.slotId || !img.url) return;
+      existing[img.slotId] = img.url;
+    });
+    setConditionExisting(existing);
+    setConditionError('');
+    setConditionTarget(work);
+  }
+
+  async function handleConditionFile(slotId: number, files: FileList | null) {
+    if (!files || !files.length) return;
+    const file = files[0];
+    const resized = await resizeImageFile(file);
+
+    setConditionUploads((prev) => ({ ...prev, [slotId]: resized }));
+    setConditionPreviews((prev) => {
+      const next = { ...prev };
+      if (next[slotId]) {
+        URL.revokeObjectURL(next[slotId]);
+      }
+      next[slotId] = URL.createObjectURL(resized);
+      return next;
+    });
+  }
+
+  function ensureConditionReady() {
+    if (!conditionTarget) return '대상 업무가 없습니다.';
+
+    const requiredMissing = (conditionTarget.conditionImageSlots || []).filter(
+      (slot) =>
+        slot.required &&
+        !conditionUploads[slot.id] &&
+        !conditionPreviews[slot.id] &&
+        !conditionExisting[slot.id]
+    );
+
+    if (requiredMissing.length) {
+      return '필수 사진을 모두 첨부해주세요.';
+    }
+
+    return '';
+  }
+
+  async function handleConditionSave() {
+    if (!conditionTarget) return;
+
+    const readinessMessage = ensureConditionReady();
+    if (readinessMessage) {
+      setConditionError(readinessMessage);
+      return;
+    }
+
+    try {
+      setConditionError('');
+      setConditionLoading(true);
+
+      const slots: number[] = [];
+      const files: File[] = [];
+      Object.entries(conditionUploads).forEach(([slotId, file]) => {
+        if (!file) return;
+        const numericId = Number(slotId);
+        if (Number.isNaN(numericId)) return;
+        slots.push(numericId);
+        files.push(file);
+      });
+
+      const form = new FormData();
+      form.set('workId', String(conditionTarget.id));
+      form.set('imageFileSlots', JSON.stringify(slots));
+      form.set('existingImages', JSON.stringify(conditionTarget.conditionPhotos ?? []));
+      files.forEach((file) => form.append('images', file));
+
+      const res = await fetch('/api/condition-reports', { method: 'POST', body: form });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setConditionError(body?.message ?? '저장 중 오류가 발생했습니다.');
+        return;
+      }
+
+      const body = await res.json();
+      const images = Array.isArray(body?.images)
+        ? (body.images as { slotId: number; url: string }[])
+        : [];
+
+      setWorks((prev) =>
+        prev.map((work) => {
+          if (work.id !== conditionTarget.id) return work;
+          return {
+            ...work,
+            supervisingYn: true,
+            supervisingEndTime: body?.supervisingEndTime ?? work.supervisingEndTime,
+            conditionChecked: true,
+            conditionPhotos: images.map((img) => ({ slotId: img.slotId, url: img.url }))
+          } as WorkListEntry;
+        })
+      );
+
+      setStatus('상태확인 사진을 저장했습니다.');
+      resetConditionModal();
+    } catch (err) {
+      console.error('상태확인 사진 저장 실패', err);
+      setConditionError('저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      setConditionLoading(false);
+    }
+  }
+
+  const assignCompactLabelsByWorkerId = new Map<number, string>();
+  const usedAssignCompactLabels = new Set<string>();
 
   return (
     <div className={styles.screenShell}>
@@ -620,6 +848,8 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                   {building.works.map((work) => {
                                     const cleaningLabel = cleaningLabels[(work.cleaningFlag || 1) - 1] ?? cleaningLabels[0];
                                     const supervisingLabel = work.supervisingYn ? '검수완료' : '검수대기';
+                                    const conditionAvailable = work.conditionCheckYn;
+                                    const conditionDone = work.conditionChecked;
                                     const isNoShowState =
                                       !work.cleanerId &&
                                       work.supplyYn &&
@@ -647,6 +877,40 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                         : work.cleanerName
                                           ? `담당자 ${work.cleanerName}`
                                           : '배정하기';
+                                    const assignCompactLabel =
+                                      assignState === 'noShow'
+                                        ? 'N'
+                                        : work.cleanerName
+                                          ? pickUniqueWorkerLabel(
+                                              work.cleanerName,
+                                              usedAssignCompactLabels,
+                                              work.cleanerId,
+                                              assignCompactLabelsByWorkerId
+                                            )
+                                          : '담';
+                                    const checkoutMinutes = minutesFromTime(work.checkoutTime);
+                                    const checkoutLocked =
+                                      selectedDate === snapshot.windowDates.d0 && checkoutMinutes > snapshot.currentMinutes;
+                                    const roomMasked =
+                                      checkoutLocked && work.roomNo
+                                        ? (
+                                            <>
+                                              {work.roomNo.slice(0, -1)}
+                                              <span className={styles.checkoutGuardMark}>X</span>
+                                            </>
+                                          )
+                                        : work.roomNo;
+                                    const roomTitle = checkoutLocked ? (
+                                      <>
+                                        {work.buildingShortName}
+                                        {work.buildingShortName ? ' ' : ''}
+                                        {roomMasked}
+                                      </>
+                                    ) : (
+                                      work.roomName
+                                    );
+                                    const cleaningDone = work.cleaningFlag >= 4;
+                                    const supervisingDone = Boolean(work.supervisingYn);
                                     const disabledLine = !work.cleaningYn;
                                     const canViewRealtime = !isHost || work.realtimeOverviewYn;
                                     const canViewPhotos = !isHost || work.imagesYn;
@@ -655,7 +919,24 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                       return (
                                         <div key={work.id} className={`${styles.workCardMuted} ${styles.workCardMutedRow}`}>
                                           <span className={styles.workTitle}>{work.roomName}</span>
-                                          <span className={styles.statusCheckBadge}>상태확인</span>
+                                          <div className={styles.statusCheckRow}>
+                                            <span
+                                              className={`${styles.statusCheckBadge} ${
+                                                conditionDone ? styles.statusCheckDone : ''
+                                              }`}
+                                            >
+                                              {conditionDone ? '확인완료' : '상태확인'}
+                                            </span>
+                                            {conditionAvailable && canSubmitCondition ? (
+                                              <button
+                                                type="button"
+                                                className={styles.infoButton}
+                                                onClick={() => openConditionModal(work)}
+                                              >
+                                                사진제출
+                                              </button>
+                                            ) : null}
+                                          </div>
                                           <span className={styles.requirementsText}>{work.requirements || '요청사항 없음'}</span>
                                         </div>
                                       );
@@ -663,9 +944,9 @@ export default function WorkListClient({ profile, snapshot }: Props) {
 
                                     return (
                                       <div key={work.id} className={styles.workCard}>
-                                      <div className={styles.workCardHeader}>
+                                        <div className={styles.workCardHeader}>
                                           <div className={styles.workTitleRow}>
-                                            <p className={styles.workTitle}>{work.roomName}</p>
+                                            <p className={styles.workTitle}>{roomTitle}</p>
                                             <div className={styles.workTitleActions}>
                                               {work.hasPhotoReport && canViewPhotos ? (
                                                 <button
@@ -711,6 +992,10 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                           </p>
                                         </div>
 
+                                        {checkoutLocked ? (
+                                          <p className={styles.checkoutGuardNotice}>아직 퇴실시간이 도래하지 않았습니다.</p>
+                                        ) : null}
+
                                         <p className={styles.requirementsText}>{work.requirements || '요청사항 없음'}</p>
 
                                         {canViewRealtime ? (
@@ -727,7 +1012,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                             <button
                                               className={assignClassName}
                                               disabled={!canAssignCleaner}
-                                              data-compact-label="담"
+                                              data-compact-label={assignCompactLabel}
                                               onClick={() => {
                                                 setAssignTarget(work);
                                                 setAssignSelection(isNoShowState ? 'noShow' : work.cleanerId ?? null);
@@ -743,6 +1028,11 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                               disabled={!canToggleCleaning}
                                               data-compact-label="청"
                                               onClick={() => {
+                                                if (cleaningDone) {
+                                                  openReopenModal(work, 'cleaning');
+                                                  return;
+                                                }
+
                                                 if (work.cleaningFlag === 3) {
                                                   const ok = window.confirm(
                                                     `${work.buildingShortName}${work.roomNo} 호실에 대하여 클리닝 완료 보고를 진행하시겠습니까?`
@@ -763,6 +1053,11 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                               disabled={!canToggleSupervising}
                                               data-compact-label="검"
                                               onClick={() => {
+                                                if (supervisingDone) {
+                                                  openReopenModal(work, 'supervising');
+                                                  return;
+                                                }
+
                                                 if (!work.supervisingYn) {
                                                   const ok = window.confirm(
                                                     `${work.buildingShortName}${work.roomNo} 호실에 대하여 수퍼바이징 완료 보고를 진행하시겠습니까?`
@@ -800,6 +1095,36 @@ export default function WorkListClient({ profile, snapshot }: Props) {
         {status ? <p className={styles.successText}>{status}</p> : null}
         {error ? <p className={styles.errorText}>{error}</p> : null}
       </section>
+
+      {reopenTarget ? (
+        <div className={styles.modalBackdrop}>
+          <div className={styles.modalCard} role="dialog" aria-modal="true">
+            <div className={styles.modalHead}>
+              <span>완료 보고 다시 진행</span>
+              <button onClick={() => setReopenTarget(null)} aria-label="닫기">
+                ✕
+              </button>
+            </div>
+
+            <p className={styles.modalBody}>
+              {`${reopenTarget.work.buildingShortName}${reopenTarget.work.roomNo}에 대한 완료 보고를 다시 진행하시겠습니까?`}
+            </p>
+
+            <button type="button" className={styles.subtleActionButton} onClick={handleReopenReset}>
+              보고 없이 상태만 되돌리기
+            </button>
+
+            <div className={styles.modalFoot}>
+              <button type="button" className={styles.secondaryButton} onClick={() => setReopenTarget(null)}>
+                아니오
+              </button>
+              <button type="button" className={styles.primaryButton} onClick={handleReopenConfirm}>
+                예
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {detailOpen ? (
         <div className={styles.modalOverlay} onClick={() => setDetailOpen(false)}>
@@ -1056,6 +1381,85 @@ export default function WorkListClient({ profile, snapshot }: Props) {
             <div className={styles.modalFoot}>
               <button type="button" className={styles.primaryButton} onClick={() => setPhotoTarget(null)}>
                 닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {conditionTarget ? (
+        <div className={styles.modalBackdrop}>
+          <div className={styles.modalCard} role="dialog" aria-modal="true">
+            <div className={styles.modalHead}>
+              <span>상태확인 사진 제출</span>
+              <button onClick={resetConditionModal} aria-label="닫기" className={styles.iconButton}>
+                ✕
+              </button>
+            </div>
+
+            <p className={styles.modalBody}>
+              {`${conditionTarget.buildingShortName}${conditionTarget.roomNo} 상태확인 사진을 제출해주세요.`}
+            </p>
+
+            <div className={styles.uploadList}>
+              {conditionTarget.conditionImageSlots.length ? (
+                conditionTarget.conditionImageSlots.map((slot) => {
+                  const preview = conditionPreviews[slot.id] ?? conditionExisting[slot.id];
+                  return (
+                    <div key={slot.id} className={styles.uploadRow}>
+                      <div className={styles.uploadMeta}>
+                        <p className={styles.uploadTitle}>
+                          {slot.title}
+                          {slot.required ? <span className={styles.requiredMark}>*</span> : null}
+                        </p>
+                        {slot.comment ? <p className={styles.uploadComment}>{slot.comment}</p> : null}
+                      </div>
+                      <div className={styles.uploadActions}>
+                        {preview ? (
+                          <img
+                            src={preview}
+                            alt={`${slot.title} 미리보기`}
+                            className={styles.uploadPreview}
+                          />
+                        ) : (
+                          <span className={styles.helper}>사진 없음</span>
+                        )}
+                        <label className={styles.secondaryButton}>
+                          {preview ? '다시 촬영' : '사진 선택'}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className={styles.hiddenFileInput}
+                            onChange={(event) => handleConditionFile(slot.id, event.target.files)}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className={styles.helper}>업로드할 항목이 없습니다.</p>
+              )}
+            </div>
+
+            {conditionError ? <p className={styles.errorText}>{conditionError}</p> : null}
+
+            <div className={styles.modalFoot}>
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={resetConditionModal}
+                disabled={conditionLoading}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={handleConditionSave}
+                disabled={conditionLoading}
+              >
+                {conditionLoading ? '저장 중…' : '저장'}
               </button>
             </div>
           </div>
