@@ -440,6 +440,19 @@
   box-shadow: 0 2px 6px rgba(4, 108, 78, 0.08);
 }
 
+.statusCheckRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.statusCheckDone {
+  background: #2563eb;
+  border-color: #1d4ed8;
+  color: #f8fafc;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.18);
+}
+
 .groupStack {
   display: flex;
   flex-direction: column;
@@ -1984,6 +1997,67 @@
   line-height: 1.5;
   color: var(--text-strong);
   margin: 0;
+}
+
+.uploadList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.uploadRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-muted);
+}
+
+.uploadMeta {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.uploadTitle {
+  margin: 0 0 4px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.requiredMark {
+  color: #ef4444;
+  font-size: 0.9rem;
+}
+
+.uploadComment {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+
+.uploadActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.uploadPreview {
+  width: 140px;
+  height: 110px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.hiddenFileInput {
+  display: none;
 }
 
 .infoGrid {

@@ -8,6 +8,7 @@ import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
 import styles from './screens.module.css';
 import type { AssignableWorker, WorkListEntry, WorkListSnapshot } from './server/getWorkListSnapshot';
 import type { ProfileSummary } from '@/src/utils/profile';
+import { resizeImageFile } from './clientImageResize';
 
 type Props = {
   profile: ProfileSummary;
@@ -159,6 +160,12 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   );
   const [infoTarget, setInfoTarget] = useState<WorkListEntry | null>(null);
   const [photoTarget, setPhotoTarget] = useState<WorkListEntry | null>(null);
+  const [conditionTarget, setConditionTarget] = useState<WorkListEntry | null>(null);
+  const [conditionUploads, setConditionUploads] = useState<Record<number, File | null>>({});
+  const [conditionPreviews, setConditionPreviews] = useState<Record<number, string>>({});
+  const [conditionExisting, setConditionExisting] = useState<Record<number, string>>({});
+  const [conditionLoading, setConditionLoading] = useState(false);
+  const [conditionError, setConditionError] = useState('');
   const [searchResults, setSearchResults] = useState<AssignableWorker[]>([]);
   const [assignOptions, setAssignOptions] = useState<AssignableWorker[]>(snapshot.assignableWorkers);
   const [sortMode, setSortMode] = useState<'checkout' | 'roomDesc'>('checkout');
@@ -172,6 +179,12 @@ export default function WorkListClient({ profile, snapshot }: Props) {
     setAssignOptions(snapshot.assignableWorkers);
     setSearchResults([]);
   }, [snapshot]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(conditionPreviews).forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [conditionPreviews]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -193,6 +206,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const canToggleCleaning = (hasAdminRole || activeRole === 'butler' || activeRole === 'cleaner') && !hostLocked;
   const canToggleSupervising = (hasAdminRole || activeRole === 'butler') && !hostLocked;
   const canAssignCleaner = canToggleSupervising;
+  const canSubmitCondition = (hasAdminRole || activeRole === 'butler' || activeRole === 'cleaner') && !hostLocked;
 
   const sortedWorks = useMemo(() => sortWorks(works, sortMode), [works, sortMode]);
 
@@ -554,6 +568,132 @@ export default function WorkListClient({ profile, snapshot }: Props) {
     }
   }
 
+  function clearConditionPreviews() {
+    Object.values(conditionPreviews).forEach((url) => {
+      URL.revokeObjectURL(url);
+    });
+    setConditionPreviews({});
+    setConditionUploads({});
+  }
+
+  function resetConditionModal() {
+    clearConditionPreviews();
+    setConditionExisting({});
+    setConditionError('');
+    setConditionLoading(false);
+    setConditionTarget(null);
+  }
+
+  function openConditionModal(work: WorkListEntry) {
+    clearConditionPreviews();
+    const existing: Record<number, string> = {};
+    (work.conditionPhotos || []).forEach((img) => {
+      if (!img.slotId || !img.url) return;
+      existing[img.slotId] = img.url;
+    });
+    setConditionExisting(existing);
+    setConditionError('');
+    setConditionTarget(work);
+  }
+
+  async function handleConditionFile(slotId: number, files: FileList | null) {
+    if (!files || !files.length) return;
+    const file = files[0];
+    const resized = await resizeImageFile(file);
+
+    setConditionUploads((prev) => ({ ...prev, [slotId]: resized }));
+    setConditionPreviews((prev) => {
+      const next = { ...prev };
+      if (next[slotId]) {
+        URL.revokeObjectURL(next[slotId]);
+      }
+      next[slotId] = URL.createObjectURL(resized);
+      return next;
+    });
+  }
+
+  function ensureConditionReady() {
+    if (!conditionTarget) return '대상 업무가 없습니다.';
+
+    const requiredMissing = (conditionTarget.conditionImageSlots || []).filter(
+      (slot) =>
+        slot.required &&
+        !conditionUploads[slot.id] &&
+        !conditionPreviews[slot.id] &&
+        !conditionExisting[slot.id]
+    );
+
+    if (requiredMissing.length) {
+      return '필수 사진을 모두 첨부해주세요.';
+    }
+
+    return '';
+  }
+
+  async function handleConditionSave() {
+    if (!conditionTarget) return;
+
+    const readinessMessage = ensureConditionReady();
+    if (readinessMessage) {
+      setConditionError(readinessMessage);
+      return;
+    }
+
+    try {
+      setConditionError('');
+      setConditionLoading(true);
+
+      const slots: number[] = [];
+      const files: File[] = [];
+      Object.entries(conditionUploads).forEach(([slotId, file]) => {
+        if (!file) return;
+        const numericId = Number(slotId);
+        if (Number.isNaN(numericId)) return;
+        slots.push(numericId);
+        files.push(file);
+      });
+
+      const form = new FormData();
+      form.set('workId', String(conditionTarget.id));
+      form.set('imageFileSlots', JSON.stringify(slots));
+      form.set('existingImages', JSON.stringify(conditionTarget.conditionPhotos ?? []));
+      files.forEach((file) => form.append('images', file));
+
+      const res = await fetch('/api/condition-reports', { method: 'POST', body: form });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setConditionError(body?.message ?? '저장 중 오류가 발생했습니다.');
+        return;
+      }
+
+      const body = await res.json();
+      const images = Array.isArray(body?.images)
+        ? (body.images as { slotId: number; url: string }[])
+        : [];
+
+      setWorks((prev) =>
+        prev.map((work) => {
+          if (work.id !== conditionTarget.id) return work;
+          return {
+            ...work,
+            supervisingYn: true,
+            supervisingEndTime: body?.supervisingEndTime ?? work.supervisingEndTime,
+            conditionChecked: true,
+            conditionPhotos: images.map((img) => ({ slotId: img.slotId, url: img.url }))
+          } as WorkListEntry;
+        })
+      );
+
+      setStatus('상태확인 사진을 저장했습니다.');
+      resetConditionModal();
+    } catch (err) {
+      console.error('상태확인 사진 저장 실패', err);
+      setConditionError('저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      setConditionLoading(false);
+    }
+  }
+
   const assignCompactLabelsByWorkerId = new Map<number, string>();
   const usedAssignCompactLabels = new Set<string>();
 
@@ -708,6 +848,8 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                   {building.works.map((work) => {
                                     const cleaningLabel = cleaningLabels[(work.cleaningFlag || 1) - 1] ?? cleaningLabels[0];
                                     const supervisingLabel = work.supervisingYn ? '검수완료' : '검수대기';
+                                    const conditionAvailable = work.conditionCheckYn;
+                                    const conditionDone = work.conditionChecked;
                                     const isNoShowState =
                                       !work.cleanerId &&
                                       work.supplyYn &&
@@ -777,7 +919,24 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                       return (
                                         <div key={work.id} className={`${styles.workCardMuted} ${styles.workCardMutedRow}`}>
                                           <span className={styles.workTitle}>{work.roomName}</span>
-                                          <span className={styles.statusCheckBadge}>상태확인</span>
+                                          <div className={styles.statusCheckRow}>
+                                            <span
+                                              className={`${styles.statusCheckBadge} ${
+                                                conditionDone ? styles.statusCheckDone : ''
+                                              }`}
+                                            >
+                                              {conditionDone ? '확인완료' : '상태확인'}
+                                            </span>
+                                            {conditionAvailable && canSubmitCondition ? (
+                                              <button
+                                                type="button"
+                                                className={styles.infoButton}
+                                                onClick={() => openConditionModal(work)}
+                                              >
+                                                사진제출
+                                              </button>
+                                            ) : null}
+                                          </div>
                                           <span className={styles.requirementsText}>{work.requirements || '요청사항 없음'}</span>
                                         </div>
                                       );
@@ -1222,6 +1381,85 @@ export default function WorkListClient({ profile, snapshot }: Props) {
             <div className={styles.modalFoot}>
               <button type="button" className={styles.primaryButton} onClick={() => setPhotoTarget(null)}>
                 닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {conditionTarget ? (
+        <div className={styles.modalBackdrop}>
+          <div className={styles.modalCard} role="dialog" aria-modal="true">
+            <div className={styles.modalHead}>
+              <span>상태확인 사진 제출</span>
+              <button onClick={resetConditionModal} aria-label="닫기" className={styles.iconButton}>
+                ✕
+              </button>
+            </div>
+
+            <p className={styles.modalBody}>
+              {`${conditionTarget.buildingShortName}${conditionTarget.roomNo} 상태확인 사진을 제출해주세요.`}
+            </p>
+
+            <div className={styles.uploadList}>
+              {conditionTarget.conditionImageSlots.length ? (
+                conditionTarget.conditionImageSlots.map((slot) => {
+                  const preview = conditionPreviews[slot.id] ?? conditionExisting[slot.id];
+                  return (
+                    <div key={slot.id} className={styles.uploadRow}>
+                      <div className={styles.uploadMeta}>
+                        <p className={styles.uploadTitle}>
+                          {slot.title}
+                          {slot.required ? <span className={styles.requiredMark}>*</span> : null}
+                        </p>
+                        {slot.comment ? <p className={styles.uploadComment}>{slot.comment}</p> : null}
+                      </div>
+                      <div className={styles.uploadActions}>
+                        {preview ? (
+                          <img
+                            src={preview}
+                            alt={`${slot.title} 미리보기`}
+                            className={styles.uploadPreview}
+                          />
+                        ) : (
+                          <span className={styles.helper}>사진 없음</span>
+                        )}
+                        <label className={styles.secondaryButton}>
+                          {preview ? '다시 촬영' : '사진 선택'}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className={styles.hiddenFileInput}
+                            onChange={(event) => handleConditionFile(slot.id, event.target.files)}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className={styles.helper}>업로드할 항목이 없습니다.</p>
+              )}
+            </div>
+
+            {conditionError ? <p className={styles.errorText}>{conditionError}</p> : null}
+
+            <div className={styles.modalFoot}>
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={resetConditionModal}
+                disabled={conditionLoading}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={handleConditionSave}
+                disabled={conditionLoading}
+              >
+                {conditionLoading ? '저장 중…' : '저장'}
               </button>
             </div>
           </div>
