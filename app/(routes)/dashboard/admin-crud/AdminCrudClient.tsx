@@ -30,6 +30,22 @@ type Snapshot = {
 };
 
 const DEFAULT_LIMIT = 20;
+const CLIENT_ADDITIONAL_PRICE_CONFIG = {
+  hiddenColumns: new Set(['created_at', 'updated_at']),
+  booleanColumns: new Set(['minus_yn', 'ratio_yn']),
+  koreanLabels: {
+    id: '아이디',
+    room_id: '객실',
+    date: '날짜',
+    seq: '순번',
+    qty: '수량',
+    minus_yn: '차감 여부',
+    ratio_yn: '비율 여부',
+    title: '항목명',
+    amount: '금액',
+    comment: '비고'
+  }
+} as const;
 
 export default function AdminCrudClient({ tables, profile }: Props) {
   const [activeRole, setActiveRole] = useState<string | null>(profile.roles[0] ?? null);
@@ -43,6 +59,14 @@ export default function AdminCrudClient({ tables, profile }: Props) {
   const [referenceOptions, setReferenceOptions] = useState<Record<string, { value: string; label: string }[]>>({});
   const [referenceSearch, setReferenceSearch] = useState<Record<string, string>>({});
   const [referenceLoading, setReferenceLoading] = useState<Record<string, boolean>>({});
+
+  const isClientAdditionalPrice = selectedTable === 'client_additional_price';
+  const tableLabels: Record<string, string> = isClientAdditionalPrice ? CLIENT_ADDITIONAL_PRICE_CONFIG.koreanLabels : {};
+  const isHiddenColumn = (columnName: string) =>
+    isClientAdditionalPrice && CLIENT_ADDITIONAL_PRICE_CONFIG.hiddenColumns.has(columnName);
+  const visibleColumns = (snapshot?.columns ?? []).filter(
+    (column) => !isHiddenColumn(column.name)
+  );
 
   useEffect(() => {
     if (selectedTable) {
@@ -138,6 +162,7 @@ export default function AdminCrudClient({ tables, profile }: Props) {
     setFeedback(null);
     const defaults: Record<string, string> = {};
     columns.forEach((column) => {
+      if (isHiddenColumn(column.name)) return;
       const value = row[column.name];
       if (value === null || value === undefined) return;
       if (column.dataType === 'json') {
@@ -193,6 +218,7 @@ export default function AdminCrudClient({ tables, profile }: Props) {
 
     const payloadData: Record<string, unknown> = {};
     columns.forEach((column) => {
+      if (isHiddenColumn(column.name)) return;
       if (column.autoIncrement && mode === 'create') return;
       if (!(column.name in formValues)) return;
       payloadData[column.name] = parseValue(column, formValues[column.name]);
@@ -265,6 +291,16 @@ export default function AdminCrudClient({ tables, profile }: Props) {
     const type = toInputType(column);
     const value = formValues[column.name] ?? '';
     const isCheckbox = type === 'checkbox';
+
+    if (isClientAdditionalPrice && CLIENT_ADDITIONAL_PRICE_CONFIG.booleanColumns.has(column.name)) {
+      return (
+        <select id={column.name} value={value} onChange={(event) => handleInputChange(column, event.target.value)} disabled={loading}>
+          <option value="">선택하세요</option>
+          <option value="1">예</option>
+          <option value="0">아니오</option>
+        </select>
+      );
+    }
 
     if (selectedTable === 'work_apply' && column.name === 'position') {
       return (
@@ -369,7 +405,7 @@ export default function AdminCrudClient({ tables, profile }: Props) {
     <main className={styles.container}>
       <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} compact />
 
-      <header className={styles.header}>전체 테이블 CRUD</header>
+          <header className={styles.header}>전체 테이블 CRUD</header>
 
       <section className={styles.panel}>
         <div className={styles.toolbar}>
@@ -402,7 +438,7 @@ export default function AdminCrudClient({ tables, profile }: Props) {
           </p>
         </div>
 
-        <div className={styles.grid}>
+        <div className={isClientAdditionalPrice ? styles.verticalGrid : styles.grid}>
           <section className={styles.formSection}>
             <header>
               <h2>{mode === 'create' ? '신규 추가' : '행 수정'}</h2>
@@ -414,10 +450,11 @@ export default function AdminCrudClient({ tables, profile }: Props) {
             </header>
 
             <form onSubmit={handleSubmit} className={styles.formGrid}>
-              {columns.map((column) => (
+              {visibleColumns.map((column) => (
                 <label key={column.name} className={styles.formField}>
                   <span>
                     {column.name}
+                    {tableLabels[column.name] ? ` (${tableLabels[column.name]})` : ''}
                     {column.isPrimaryKey ? ' (PK)' : ''}
                     {column.references ? ` → ${column.references.table}.${column.references.column}` : ''}
                   </span>
@@ -445,8 +482,11 @@ export default function AdminCrudClient({ tables, profile }: Props) {
               <table>
                 <thead>
                   <tr>
-                    {columns.map((column) => (
-                      <th key={column.name}>{column.name}</th>
+                    {visibleColumns.map((column) => (
+                      <th key={column.name}>
+                        {column.name}
+                        {tableLabels[column.name] ? ` (${tableLabels[column.name]})` : ''}
+                      </th>
                     ))}
                     <th>액션</th>
                   </tr>
@@ -455,8 +495,8 @@ export default function AdminCrudClient({ tables, profile }: Props) {
                   {snapshot?.rows?.length ? (
                     snapshot.rows.map((row, index) => (
                       <tr key={index}>
-                        {columns.map((column) => {
-                          const displayValue = formatCellValue(row[column.name], column);
+                        {visibleColumns.map((column) => {
+                          const displayValue = formatCellValue(row[column.name], column, selectedTable);
                           return (
                             <td key={column.name}>
                               <span className={styles.cellContent} title={displayValue}>
@@ -477,7 +517,7 @@ export default function AdminCrudClient({ tables, profile }: Props) {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={columns.length + 1} className={styles.empty}>
+                      <td colSpan={visibleColumns.length + 1} className={styles.empty}>
                         데이터가 없습니다.
                       </td>
                     </tr>
@@ -492,8 +532,11 @@ export default function AdminCrudClient({ tables, profile }: Props) {
   );
 }
 
-function formatCellValue(value: unknown, column: AdminColumnMeta) {
+function formatCellValue(value: unknown, column: AdminColumnMeta, tableName?: string) {
   if (value === null || value === undefined) return '';
+  if (tableName === 'client_additional_price' && CLIENT_ADDITIONAL_PRICE_CONFIG.booleanColumns.has(column.name)) {
+    return value ? '예' : '아니오';
+  }
   if (column.dataType === 'json') {
     try {
       return JSON.stringify(value);
