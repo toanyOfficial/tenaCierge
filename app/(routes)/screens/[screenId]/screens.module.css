@@ -528,6 +528,18 @@
   color: var(--text-strong);
 }
 
+.checkoutGuardMark {
+  color: #dc2626;
+  font-weight: 800;
+  margin-left: 1px;
+}
+
+.checkoutGuardNotice {
+  margin: 0;
+  color: #dc2626;
+  font-weight: 700;
+}
+
 .infoButton {
   border: 1px solid var(--border);
   background: var(--surface-muted);

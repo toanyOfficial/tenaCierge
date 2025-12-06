@@ -34,6 +34,12 @@ function compareTimes(a: string, b: string) {
   return aMinutes - bMinutes;
 }
 
+function minutesFromTime(value: string) {
+  const [h, m] = value?.split(':').map((v) => Number(v)) ?? [];
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return -1;
+  return h * 60 + m;
+}
+
 function sortWorks(list: WorkListEntry[], mode: 'checkout' | 'roomDesc') {
   const buildingCounts = list.reduce<Record<number, number>>((acc, work) => {
     acc[work.buildingId] = (acc[work.buildingId] ?? 0) + 1;
@@ -724,6 +730,27 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                               assignCompactLabelsByWorkerId
                                             )
                                           : '담';
+                                    const checkoutMinutes = minutesFromTime(work.checkoutTime);
+                                    const checkoutLocked =
+                                      selectedDate === snapshot.windowDates.d0 && checkoutMinutes > snapshot.currentMinutes;
+                                    const roomMasked =
+                                      checkoutLocked && work.roomNo
+                                        ? (
+                                            <>
+                                              {work.roomNo.slice(0, -1)}
+                                              <span className={styles.checkoutGuardMark}>X</span>
+                                            </>
+                                          )
+                                        : work.roomNo;
+                                    const roomTitle = checkoutLocked ? (
+                                      <>
+                                        {work.buildingShortName}
+                                        {work.buildingShortName ? ' ' : ''}
+                                        {roomMasked}
+                                      </>
+                                    ) : (
+                                      work.roomName
+                                    );
                                     const cleaningDone = work.cleaningFlag >= 4;
                                     const supervisingDone = Boolean(work.supervisingYn);
                                     const disabledLine = !work.cleaningYn;
@@ -742,9 +769,9 @@ export default function WorkListClient({ profile, snapshot }: Props) {
 
                                     return (
                                       <div key={work.id} className={styles.workCard}>
-                                      <div className={styles.workCardHeader}>
+                                        <div className={styles.workCardHeader}>
                                           <div className={styles.workTitleRow}>
-                                            <p className={styles.workTitle}>{work.roomName}</p>
+                                            <p className={styles.workTitle}>{roomTitle}</p>
                                             <div className={styles.workTitleActions}>
                                               {work.hasPhotoReport && canViewPhotos ? (
                                                 <button
@@ -789,6 +816,10 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                             </span>
                                           </p>
                                         </div>
+
+                                        {checkoutLocked ? (
+                                          <p className={styles.checkoutGuardNotice}>아직 퇴실시간이 도래하지 않았습니다.</p>
+                                        ) : null}
 
                                         <p className={styles.requirementsText}>{work.requirements || '요청사항 없음'}</p>
 
