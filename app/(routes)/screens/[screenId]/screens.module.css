@@ -687,8 +687,8 @@
 }
 
 .cleaningNearDone {
-  background: #93c5fd;
-  color: var(--text-strong);
+  background: #60a5fa;
+  color: #0f172a;
 }
 
 .cleaningDone {
@@ -2081,6 +2081,23 @@
 .modalFoot {
   display: flex;
   justify-content: flex-end;
+}
+
+.subtleActionButton {
+  align-self: flex-start;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--text-soft);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.subtleActionButton:hover {
+  color: var(--text-strong);
+  border-color: var(--text-muted);
 }
 
 .assignSearch {
