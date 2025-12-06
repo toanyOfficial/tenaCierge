@@ -164,6 +164,9 @@ export async function POST(req: Request) {
 
     if (imageMap.size) {
       const images = Array.from(imageMap.entries()).map(([slotId, url]) => ({ slotId, url }));
+      // NOTE:
+      //  - contents1: canonical slotId→url 매핑
+      //  - contents2: legacy 호환을 위해 동일한 값을 중복 저장(과거 클라이언트가 contents2를 참조)
       rowsToInsert.push({ workId, type: 5, contents1: images, contents2: images });
     }
 
