@@ -273,6 +273,8 @@ def _persist_client_supplements(conn: mysql.connector.MySQLConnection, run_date:
             description = checklist.get("dscpt")
             if description is None or str(description).strip() == "":
                 description = _extract_supply_note(notes, cid)
+            if description is None:
+                description = ""
 
             inserts.append((room_id, run_date, next_date, title, description))
 
