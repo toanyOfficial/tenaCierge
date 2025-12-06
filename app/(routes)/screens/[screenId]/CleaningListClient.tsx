@@ -20,7 +20,12 @@ type Props = {
 
 type WorkField = keyof Pick<
   CleaningWork,
-  'checkoutTime' | 'checkinTime' | 'blanketQty' | 'amenitiesQty' | 'cancelYn' | 'requirements'
+  | 'checkoutTime'
+  | 'checkinTime'
+  | 'blanketQty'
+  | 'amenitiesQty'
+  | 'cancelYn'
+  | 'requirements'
 >;
 
 type AddFormState = {
@@ -77,7 +82,7 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
   const viewingAsCleaner = activeRole === 'cleaner';
   const canSeeList = viewingAsHost || viewingAsAdmin || viewingAsButler || viewingAsCleaner;
   const canEdit = viewingAsAdmin || (viewingAsHost && snapshot.hostCanEdit);
-  const canEditRequirements = false;
+  const canEditRequirements = viewingAsAdmin;
   const canAdd = viewingAsAdmin || (viewingAsHost && snapshot.hostCanAdd);
 
   const roomOptions = useMemo(() => {
@@ -349,6 +354,20 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
     handleFieldChange(id, field, clamped);
   }
 
+  function handleCleaningToggle(id: number) {
+    if (!viewingAsAdmin) {
+      return;
+    }
+
+    setWorks((prev) =>
+      prev.map((work) => {
+        if (work.id !== id) return work;
+        const nextCleaning = !work.cleaningYn;
+        return { ...work, cleaningYn: nextCleaning, conditionCheckYn: !nextCleaning };
+      })
+    );
+  }
+
   async function handleSave(workId: number) {
     const work = works.find((entry) => entry.id === workId);
 
@@ -366,7 +385,9 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
         checkinTime: work.checkinTime,
         blanketQty: work.blanketQty,
         amenitiesQty: work.amenitiesQty,
-        cancelYn: work.cancelYn
+        cancelYn: work.cancelYn,
+        cleaningYn: work.cleaningYn,
+        conditionCheckYn: work.conditionCheckYn
       };
 
       if (viewingAsAdmin) {
@@ -670,6 +691,27 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
               <p className={styles.readonlyText}>{work.requirements || '요청 사항 없음'}</p>
             )}
           </FieldRow>
+
+          {viewingAsAdmin ? (
+            <div className={styles.switchRow}>
+              <div className={styles.switchMeta}>
+                <p className={styles.switchLabel}>청소 / 상태확인 전환</p>
+                <p className={styles.switchHint}>
+                  {work.cleaningYn ? '이 건을 상태확인으로 전환합니다.' : '이 건을 청소 대상으로 전환합니다.'}
+                </p>
+              </div>
+              <label className={styles.switchControl}>
+                <input
+                  type="checkbox"
+                  checked={work.cleaningYn}
+                  onChange={() => handleCleaningToggle(work.id)}
+                  disabled={isSaving}
+                />
+                <span className={styles.switchSlider} aria-hidden="true" />
+                <span className={styles.switchState}>{work.cleaningYn ? '청소' : '상태확인'}</span>
+              </label>
+            </div>
+          ) : null}
         </div>
 
         <div className={styles.cardActions}>
@@ -1075,6 +1117,8 @@ function isWorkDirty(work: CleaningWork, baseline: CleaningWork[]) {
     origin.blanketQty !== work.blanketQty ||
     origin.amenitiesQty !== work.amenitiesQty ||
     origin.cancelYn !== work.cancelYn ||
+    origin.cleaningYn !== work.cleaningYn ||
+    origin.conditionCheckYn !== work.conditionCheckYn ||
     origin.requirements !== work.requirements
   );
 }
