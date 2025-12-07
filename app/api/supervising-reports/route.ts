@@ -59,7 +59,6 @@ export async function POST(req: Request) {
         .select({
           id: workChecklistSetDetail.id,
           type: workChecklistList.type,
-          listScore: workChecklistList.score,
           setScore: workChecklistSetDetail.score
         })
         .from(workChecklistSetDetail)
@@ -189,9 +188,7 @@ export async function POST(req: Request) {
 
       const findingIds = supervisingChecklistIds.filter((id) => supervisingFindings[id]);
       const scoredIds = [...new Set(findingIds)];
-      const scoreMap = new Map<number, number>(
-        checklistRows.map((row) => [row.id, Number(row.setScore ?? row.listScore) || 0])
-      );
+      const scoreMap = new Map<number, number>(checklistRows.map((row) => [row.id, Number(row.setScore) || 0]));
       const checklistPointSum = scoredIds.reduce((sum, id) => sum + (scoreMap.get(id) ?? 0), 0);
 
       if (targetWork.cleanerId) {
