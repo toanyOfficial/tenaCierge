@@ -62,7 +62,8 @@ export async function POST(req: Request) {
         .select({
           id: workChecklistSetDetail.id,
           type: workChecklistList.type,
-          setScore: workChecklistSetDetail.score
+          setScore: workChecklistSetDetail.score,
+          listScore: workChecklistList.score
         })
         .from(workChecklistSetDetail)
         .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
