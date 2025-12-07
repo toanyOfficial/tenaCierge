@@ -205,21 +205,22 @@ export default function EvaluationHistoryClient({ profile, snapshot }: Props) {
 
     const rows = adminData.dailyWages.map((row) => [
       safeString(row.bank),
-      safeString(row.accountNo),
-      formatMoney(row.dailyWage),
+      excelText(row.accountNo),
+      formatMoney(row.dailyWage, false),
       row.name,
       depositLabel,
       depositLabel,
       '',
       '',
-      safeString(row.phone)
+      excelText(row.phone)
     ]);
 
     const csv = [header, ...rows]
       .map((cols) => cols.map((col) => `"${col.replace(/"/g, '""')}"`).join(','))
       .join('\n');
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const utf8Bom = '\ufeff';
+    const blob = new Blob([utf8Bom, csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -465,34 +466,29 @@ export default function EvaluationHistoryClient({ profile, snapshot }: Props) {
   );
 }
 
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
 function buildDefaultTargetDate() {
   const now = new Date();
-  const offsetMinutes = 9 * 60 + now.getTimezoneOffset();
-  const kstNow = new Date(now.getTime() + offsetMinutes * 60 * 1000);
-  const afterCutoff =
-    kstNow.getHours() > 16 || (kstNow.getHours() === 16 && kstNow.getMinutes() >= 20);
+  const kstNow = new Date(now.getTime() + KST_OFFSET_MS);
+  const hours = kstNow.getUTCHours();
+  const minutes = kstNow.getUTCMinutes();
+  const afterCutoff = hours > 16 || (hours === 16 && minutes >= 20);
 
-  const base = new Date(kstNow);
-  base.setHours(0, 0, 0, 0);
-  if (afterCutoff) {
-    return base.toISOString().slice(0, 10);
+  if (!afterCutoff) {
+    kstNow.setUTCDate(kstNow.getUTCDate() - 1);
   }
 
-  base.setDate(base.getDate() - 1);
-  return base.toISOString().slice(0, 10);
+  return formatKstDate(kstNow);
 }
 
 function buildDateOptions(): { value: string; label: string }[] {
-  const today = new Date();
-  const offsetMinutes = 9 * 60 + today.getTimezoneOffset();
-  const kstToday = new Date(today.getTime() + offsetMinutes * 60 * 1000);
+  const now = Date.now();
   const options: { value: string; label: string }[] = [];
 
   for (let i = 0; i < 7; i += 1) {
-    const date = new Date(kstToday);
-    date.setHours(0, 0, 0, 0);
-    date.setDate(date.getDate() - i);
-    const iso = date.toISOString().slice(0, 10);
+    const kstDate = new Date(now + KST_OFFSET_MS - i * 24 * 60 * 60 * 1000);
+    const iso = formatKstDate(kstDate);
     const label = i === 0 ? 'D0' : `D-${i}`;
     options.push({ value: iso, label: `${label} ${iso}` });
   }
@@ -507,13 +503,20 @@ function formatTime(value: Date | null) {
   return `${hours}:${minutes}`;
 }
 
-function formatMoney(value: number | null) {
+function formatMoney(value: number | null, withUnit = true) {
   if (value == null || Number.isNaN(value)) return '-';
-  return `${value.toLocaleString('ko-KR')}원`;
+  const numeric = value.toLocaleString('ko-KR');
+  return withUnit ? `${numeric}원` : numeric;
 }
 
 function safeString(value: string | null | undefined) {
   return value?.trim() || '-';
+}
+
+function excelText(value: string | null | undefined) {
+  const str = safeString(value);
+  if (str === '-') return '';
+  return `'${str}`;
 }
 
 function formatDepositLabel(targetDate: string) {
@@ -522,4 +525,12 @@ function formatDepositLabel(targetDate: string) {
   const month = (parsed.getMonth() + 1).toString().padStart(2, '0');
   const day = parsed.getDate().toString().padStart(2, '0');
   return `${month}${day}일급`;
+}
+
+function formatKstDate(date: Date) {
+  const kstDate = new Date(date.getTime());
+  const year = kstDate.getUTCFullYear();
+  const month = (kstDate.getUTCMonth() + 1).toString().padStart(2, '0');
+  const day = kstDate.getUTCDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }

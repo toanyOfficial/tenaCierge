@@ -4,6 +4,7 @@ import { db } from '@/src/db/client';
 import {
   clientRooms,
   etcBuildings,
+  etcBaseCode,
   workHeader,
   workerEvaluateHistory,
   workerHeader,
@@ -13,6 +14,7 @@ import {
 import { logServerError } from '@/src/server/errorLogger';
 import type { ProfileSummary } from '@/src/utils/profile';
 import { getTierLabel } from '@/src/utils/tier';
+import { formatKstDateKey } from '@/src/lib/time';
 import { formatFullDateLabel, getKstNow } from '@/src/utils/workWindow';
 import { findWorkerById, findWorkerByProfile, type WorkerRecord } from './workers';
 
@@ -335,13 +337,12 @@ function buildRoomName(shortName?: string | null, roomNo?: string | null) {
 }
 
 function startOfKstDay(date: Date) {
-  const copy = new Date(date);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
+  const key = formatKstDateKey(date);
+  return new Date(`${key}T00:00:00+09:00`);
 }
 
 function toDateKey(date: Date) {
-  return date.toISOString().slice(0, 10);
+  return formatKstDateKey(date);
 }
 
 function normalizeTargetDate(input?: string) {
@@ -387,35 +388,88 @@ function chooseDateTime<T extends Date | string | null | undefined>(
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function toTimeString(value: Date | string | null): string | null {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return value.toISOString().substring(11, 19);
+  }
+  if (typeof value === 'string') {
+    const match = value.match(/^(\d{2}:\d{2}(?::\d{2})?)/);
+    if (!match) return null;
+    const timePart = match[1];
+    return timePart.length === 5 ? `${timePart}:00` : timePart;
+  }
+  return null;
+}
+
+function calculateDailyWage(
+  hourlyWageValue: number | string | null,
+  start: Date | string | null,
+  end: Date | string | null
+): number | null {
+  const hourlyWage = toNumber(hourlyWageValue);
+  const startStr = toTimeString(start);
+  const endStr = toTimeString(end);
+  if (hourlyWage == null || !startStr || !endStr) return null;
+
+  const toMinutes = (input: string) => {
+    const [hh, mm, ss = '0'] = input.split(':');
+    return Number(hh) * 60 + Number(mm) + Math.floor(Number(ss) / 60);
+  };
+
+  const minutes = toMinutes(endStr) - toMinutes(startStr);
+  if (Number.isNaN(minutes) || minutes <= 0) return null;
+
+  const raw = (hourlyWage * minutes) / 60;
+  return Math.ceil(raw / 10) * 10;
+}
+
+function toKstDateTimeFromTime(targetKey: string, time?: string | null) {
+  if (!time) return null;
+  const iso = `${targetKey}T${time}+09:00`;
+  const parsed = new Date(iso);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 async function fetchDailyWageRows(targetDate: Date): Promise<DailyWageRow[]> {
+  const targetKey = toDateKey(targetDate);
+
   const rows = await db
     .select({
       workerId: workerSalaryHistory.workerId,
       name: workerHeader.name,
       startTime: workerSalaryHistory.startTime,
       endTime: workerSalaryHistory.endTime,
-      hourlyWage: workerSalaryHistory.wagePerHour,
-      dailyWage: sql<string | null>`COALESCE(${workerSalaryHistory.dailyWage}, ${workerSalaryHistory.totalWage}, ${workerSalaryHistory.amount})`,
+      hourlyWage: workerSalaryHistory.hourlyWageTargetDate,
       tier: workerHeader.tier,
-      bank: workerHeader.bankValue,
+      bankCodeGroup: workerHeader.bankCode,
+      bankCode: workerHeader.bankValue,
+      bankLabel: etcBaseCode.value,
       accountNo: workerHeader.accountNo,
       phone: workerHeader.phone
     })
     .from(workerSalaryHistory)
     .innerJoin(workerHeader, eq(workerSalaryHistory.workerId, workerHeader.id))
-    .where(eq(workerSalaryHistory.workDate, startOfKstDay(targetDate)))
+    .leftJoin(
+      etcBaseCode,
+      and(
+        eq(etcBaseCode.codeGroup, workerHeader.bankCode),
+        eq(etcBaseCode.code, workerHeader.bankValue)
+      )
+    )
+    .where(eq(workerSalaryHistory.workDate, targetKey))
     .orderBy(workerHeader.name);
 
   return rows.map((row) => ({
     workerId: Number(row.workerId),
     name: row.name,
-    startTime: chooseDateTime(row.startTime, null),
-    endTime: chooseDateTime(row.endTime, null),
+    startTime: toKstDateTimeFromTime(targetKey, row.startTime),
+    endTime: toKstDateTimeFromTime(targetKey, row.endTime),
     tier: typeof row.tier === 'number' ? row.tier : null,
     tierLabel: getTierLabel(row.tier),
     hourlyWage: toNumber(row.hourlyWage),
-    dailyWage: toNumber(row.dailyWage),
-    bank: row.bank ?? null,
+    dailyWage: calculateDailyWage(row.hourlyWage, row.startTime, row.endTime),
+    bank: row.bankLabel ?? row.bankCode ?? row.bankCodeGroup ?? null,
     accountNo: row.accountNo ?? null,
     phone: row.phone ?? null
   }));
