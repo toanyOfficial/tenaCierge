@@ -33,6 +33,8 @@ export async function POST(req: Request) {
   try {
     const form = await req.formData();
     const workId = Number(form.get('workId'));
+    const mode = form.get('mode');
+    const isDraft = mode === 'draft';
     const supervisingFindings = safeParseChecklistFlags(form.get('supervisingFindings'));
     const supervisingCompletion = safeParseChecklistFlags(form.get('supervisingCompletion'));
     const supplyChecks = safeParseIds(form.get('supplyChecks'));
@@ -139,7 +141,7 @@ export async function POST(req: Request) {
       readinessMessages.push('필수 사진 항목을 확인하세요.');
     }
 
-    if (readinessMessages.length) {
+    if (!isDraft && readinessMessages.length) {
       return NextResponse.json({ message: readinessMessages.join(' / ') }, { status: 400 });
     }
 
@@ -177,9 +179,6 @@ export async function POST(req: Request) {
     }
 
     const targetTypes = [4, 2, 5];
-    const nowKst = getKstNow();
-    const nowTime = nowKst.toTimeString().slice(0, 8);
-
     await db.transaction(async (tx) => {
       await tx.delete(workReports).where(and(eq(workReports.workId, workId), inArray(workReports.type, targetTypes)));
 
@@ -187,25 +186,30 @@ export async function POST(req: Request) {
         await tx.insert(workReports).values(rowsToInsert);
       }
 
-      await tx
-        .update(workHeader)
-        .set({ supervisingYn: true, supervisingEndTime: nowTime })
-        .where(eq(workHeader.id, workId));
+      if (!isDraft) {
+        const nowKst = getKstNow();
+        const nowTime = nowKst.toTimeString().slice(0, 8);
 
-      const findingIds = supervisingChecklistIds.filter((id) => supervisingFindings[id]);
-      const scoredIds = [...new Set(findingIds)];
-      const scoreMap = new Map<number, number>(checklistRows.map((row) => [row.id, Number(row.setScore) || 0]));
-      const checklistPointSum = scoredIds.reduce((sum, id) => sum + (scoreMap.get(id) ?? 0), 0);
+        await tx
+          .update(workHeader)
+          .set({ supervisingYn: true, supervisingEndTime: nowTime })
+          .where(eq(workHeader.id, workId));
 
-      if (targetWork.cleanerId) {
-        await tx.insert(workerEvaluateHistory).values({
-          workerId: targetWork.cleanerId,
-          evaluatedAt: new Date(),
-          workId,
-          checklistTitleArray: scoredIds,
-          checklistPointSum,
-          comment: '수퍼바이징 결과'
-        });
+        const findingIds = supervisingChecklistIds.filter((id) => supervisingFindings[id]);
+        const scoredIds = [...new Set(findingIds)];
+        const scoreMap = new Map<number, number>(checklistRows.map((row) => [row.id, Number(row.setScore) || 0]));
+        const checklistPointSum = scoredIds.reduce((sum, id) => sum + (scoreMap.get(id) ?? 0), 0);
+
+        if (targetWork.cleanerId) {
+          await tx.insert(workerEvaluateHistory).values({
+            workerId: targetWork.cleanerId,
+            evaluatedAt: new Date(),
+            workId,
+            checklistTitleArray: scoredIds,
+            checklistPointSum,
+            comment: '수퍼바이징 결과'
+          });
+        }
       }
     });
 

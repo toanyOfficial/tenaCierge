@@ -234,6 +234,58 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     setImagePreviews((prev) => ({ ...prev, [slotKey]: URL.createObjectURL(resizedFile) }));
   };
 
+  const buildFormData = () => {
+    const formData = new FormData();
+    const selectedImages = imageSlotKeys
+      .map((key) => ({ key, file: imageSelections[key] }))
+      .filter((entry) => Boolean(entry.file)) as { key: string; file: File }[];
+
+    const persistableFindingChecks = {
+      ...baseChecklistFlags,
+      ...supervisingFindingChecks,
+      ...autoCheckedFlags
+    };
+
+    const persistableCompletionChecks = {
+      ...baseChecklistFlags,
+      ...supervisingCompletionChecks,
+      ...autoCheckedFlags
+    };
+
+    formData.append('workId', String(work.id));
+    formData.append('supervisingFindings', JSON.stringify(persistableFindingChecks));
+    formData.append('supervisingCompletion', JSON.stringify(persistableCompletionChecks));
+    formData.append('supplyChecks', JSON.stringify(Array.from(supplyChecks)));
+
+    const normalizedNotes = Object.entries(supplyNotes).reduce((acc, [key, val]) => {
+      const trimmed = val.trim();
+      if (trimmed) {
+        acc[key] = trimmed;
+      }
+      return acc;
+    }, {} as Record<string, string>);
+
+    if (Object.keys(normalizedNotes).length) {
+      formData.append('supplyNotes', JSON.stringify(normalizedNotes));
+    }
+    selectedImages.forEach((entry) => formData.append('images', entry.file));
+    formData.append(
+      'imageFileSlots',
+      JSON.stringify(selectedImages.map((entry) => Number.parseInt(entry.key, 10)).filter((v) => Number.isFinite(v)))
+    );
+    formData.append(
+      'existingImages',
+      JSON.stringify(
+        imageSlotKeys
+          .map((key) => ({ slotId: Number.parseInt(key, 10), url: imagePreviews[key], file: imageSelections[key] }))
+          .filter((item) => item.url && !item.file)
+          .map((item) => ({ slotId: item.slotId, url: item.url }))
+      )
+    );
+
+    return formData;
+  };
+
   const handleSubmit = async () => {
     setStatus('');
     setError('');
@@ -251,53 +303,7 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     setSubmitting(true);
 
     try {
-      const formData = new FormData();
-      const selectedImages = imageSlotKeys
-        .map((key) => ({ key, file: imageSelections[key] }))
-        .filter((entry) => Boolean(entry.file)) as { key: string; file: File }[];
-
-      const persistableFindingChecks = {
-        ...baseChecklistFlags,
-        ...supervisingFindingChecks,
-        ...autoCheckedFlags
-      };
-
-      const persistableCompletionChecks = {
-        ...baseChecklistFlags,
-        ...supervisingCompletionChecks,
-        ...autoCheckedFlags
-      };
-
-      formData.append('workId', String(work.id));
-      formData.append('supervisingFindings', JSON.stringify(persistableFindingChecks));
-      formData.append('supervisingCompletion', JSON.stringify(persistableCompletionChecks));
-      formData.append('supplyChecks', JSON.stringify(Array.from(supplyChecks)));
-
-      const normalizedNotes = Object.entries(supplyNotes).reduce((acc, [key, val]) => {
-        const trimmed = val.trim();
-        if (trimmed) {
-          acc[key] = trimmed;
-        }
-        return acc;
-      }, {} as Record<string, string>);
-
-      if (Object.keys(normalizedNotes).length) {
-        formData.append('supplyNotes', JSON.stringify(normalizedNotes));
-      }
-      selectedImages.forEach((entry) => formData.append('images', entry.file));
-      formData.append(
-        'imageFileSlots',
-        JSON.stringify(selectedImages.map((entry) => Number.parseInt(entry.key, 10)).filter((v) => Number.isFinite(v)))
-      );
-      formData.append(
-        'existingImages',
-        JSON.stringify(
-          imageSlotKeys
-            .map((key) => ({ slotId: Number.parseInt(key, 10), url: imagePreviews[key], file: imageSelections[key] }))
-            .filter((item) => item.url && !item.file)
-            .map((item) => ({ slotId: item.slotId, url: item.url }))
-        )
-      );
+      const formData = buildFormData();
 
       const res = await fetch('/api/supervising-reports', {
         method: 'POST',
@@ -315,6 +321,39 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
       router.push('/screens/004');
     } catch (err) {
       const message = err instanceof Error ? err.message : '저장 중 오류가 발생했습니다.';
+      if (message.toLowerCase().includes('failed to fetch')) {
+        setError('네트워크 연결이 불안정합니다. 잠시 후 다시 시도해주세요.');
+      } else {
+        setError(message);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDraftSave = async () => {
+    setStatus('');
+    setError('');
+    setSubmitting(true);
+
+    try {
+      const formData = buildFormData();
+      formData.append('mode', 'draft');
+
+      const res = await fetch('/api/supervising-reports', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.message || '임시저장 중 오류가 발생했습니다.');
+      }
+
+      setStatus('임시저장되었습니다.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '임시저장 중 오류가 발생했습니다.';
       if (message.toLowerCase().includes('failed to fetch')) {
         setError('네트워크 연결이 불안정합니다. 잠시 후 다시 시도해주세요.');
       } else {
@@ -474,6 +513,9 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
         </div>
 
         <footer className={styles.reportFooter}>
+          <button className={styles.secondaryButton} disabled={submitting} onClick={handleDraftSave}>
+            {submitting ? '임시저장 중...' : '임시저장'}
+          </button>
           <button className={styles.primaryButton} disabled={submitting || !isReadyToSubmit} onClick={handleSubmit}>
             {submitting ? '저장 중...' : '수퍼바이징 완료보고 저장'}
           </button>
