@@ -1296,23 +1296,10 @@ class CleanerRankingBatch:
         candidate_column_order = [
             "worker_id",
             "work_date",
-            "work_id",
-            "tier",
             "tier_target_date",
-            "start_dttm",
             "start_time",
-            "end_dttm",
             "end_time",
-            "work_minutes",
-            "work_time_minutes",
-            "work_hours",
-            "work_time_hours",
-            "hourly_wage",
             "hourly_wage_target_date",
-            "wage_per_hour",
-            "daily_wage",
-            "total_wage",
-            "amount",
         ]
 
         targets: Dict[int, List[Dict[str, object]]] = {}
@@ -1376,30 +1363,13 @@ class CleanerRankingBatch:
                 )
                 continue
 
-            work_minutes = Decimal(str(duration_seconds)) / Decimal(60)
-            work_hours = work_minutes / Decimal(60)
-            total_wage = (hourly_wage * work_hours).quantize(Decimal("0.01"))
-
             value_map = {
                 "worker_id": worker_id,
                 "work_date": self.target_date,
-                "work_id": None,
-                "tier": tier_int,
                 "tier_target_date": tier_int,
-                "start_dttm": self._to_naive_utc(start_dt),
-                "start_time": self._to_naive_utc(start_dt),
-                "end_dttm": self._to_naive_utc(end_dt),
-                "end_time": self._to_naive_utc(end_dt),
-                "work_minutes": float(work_minutes),
-                "work_time_minutes": float(work_minutes),
-                "work_hours": float(work_hours),
-                "work_time_hours": float(work_hours),
-                "hourly_wage": float(hourly_wage),
-                "hourly_wage_target_date": float(hourly_wage),
-                "wage_per_hour": float(hourly_wage),
-                "daily_wage": float(total_wage),
-                "total_wage": float(total_wage),
-                "amount": float(total_wage),
+                "start_time": self._to_kst_time(start_dt),
+                "end_time": self._to_kst_time(end_dt),
+                "hourly_wage_target_date": int(hourly_wage),
             }
 
             insert_columns = [
@@ -1469,6 +1439,11 @@ class CleanerRankingBatch:
                 except ValueError:
                     continue
         return None
+
+    def _to_kst_time(self, value: dt.datetime) -> Optional[dt.time]:
+        if value.tzinfo is None:
+            return value.time()
+        return value.astimezone(KST).time()
 
     def _select_timestamp(
         self,
