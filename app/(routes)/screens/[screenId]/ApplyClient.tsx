@@ -53,6 +53,7 @@ export default function ApplyClient({ profile, snapshot }: Props) {
   const [createStatus, setCreateStatus] = useState('');
   const [createError, setCreateError] = useState('');
   const [creating, setCreating] = useState(false);
+  const [collapsedDates, setCollapsedDates] = useState<Record<string, boolean>>({});
 
   const slots = useMemo(() => {
     return [...snapshot.slots].sort((a, b) => {
@@ -340,6 +341,13 @@ export default function ApplyClient({ profile, snapshot }: Props) {
     return null;
   }
 
+  function toggleDate(key: string) {
+    setCollapsedDates((prev) => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  }
+
   return (
     <div className={styles.screenShell}>
       <CommonHeader
@@ -420,62 +428,81 @@ export default function ApplyClient({ profile, snapshot }: Props) {
         {snapshot.hasAccess && !guard ? (
           dateGroups.length ? (
             <div className={styles.applyCardStack}>
-              {dateGroups.flatMap((group) =>
-                group.sectors.map((sector) => (
-                  <div key={`${group.key}-${sector.label}`} className={styles.applySectorGroup}>
-                    <header className={styles.applySectorHead}>
-                      <div className={styles.applySectorMeta}>
+              {dateGroups.map((group) => {
+                const collapsed = collapsedDates[group.key] ?? false;
+                return (
+                  <article key={group.key} className={styles.applyCard}>
+                    <header className={styles.applyCardHead}>
+                      <div className={styles.applyCardMeta}>
                         <p className={styles.applyDate}>{group.label}</p>
                         <span className={styles.applyDay}>{group.dayLabel}</span>
-                        <span className={styles.applySectorDivider} aria-hidden="true">
-                          ·
-                        </span>
-                        <span className={styles.applySector}>{sector.label}</span>
+                        {group.hasMine ? <span className={styles.applyMineBadge}>내 신청 포함</span> : null}
                       </div>
-                      <span className={styles.applySlotCount}>{sector.slots.length}건</span>
+                      <button
+                        type="button"
+                        className={styles.collapseButton}
+                        aria-expanded={!collapsed}
+                        onClick={() => toggleDate(group.key)}
+                      >
+                        {collapsed ? '펼치기' : '접기'}
+                      </button>
                     </header>
-                    <ul className={styles.applySlotList}>
-                      {sector.slots.map((slot) => {
-                        const takenByOther = slot.isTaken && !slot.isMine;
-                        const locked = !snapshot.isAdmin && group.hasMine && !slot.isMine;
-                        return (
-                          <li
-                            key={slot.id}
-                            className={`${styles.applySlot} ${takenByOther ? styles.applySlotTaken : ''} ${
-                              slot.isMine ? styles.applySlotMine : ''
-                            } ${locked ? styles.applySlotLocked : ''}`}
-                          >
-                            <div className={styles.applySlotMeta}>
-                              <span className={slot.isButlerSlot ? styles.positionButler : styles.positionCleaner}>
-                                {slot.positionLabel}
-                              </span>
-                              {slot.isTaken ? (
-                                <span className={styles.applyAssignee}>
-                                  {slot.isMine ? '내 신청' : slot.assignedWorkerName || '신청완료'}
-                                </span>
-                              ) : null}
-                            </div>
-                            <div className={styles.applySlotAction}>
-                              {renderButton(slot, locked)}
-                              {snapshot.isAdmin ? (
-                                <button
-                                  type="button"
-                                  className={styles.applyDeleteButton}
-                                  disabled={pendingId === slot.id || slot.isTaken}
-                                  onClick={() => handleDelete(slot)}
-                                >
-                                  삭제
-                                </button>
-                              ) : null}
-                            </div>
-                            <div className={styles.applySlotHelper}>{renderHelper(slot, locked)}</div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                ))
-              )}
+                    {!collapsed ? (
+                      <div className={styles.applyCardBody}>
+                        {group.sectors.map((sector) => (
+                          <div key={`${group.key}-${sector.label}`} className={styles.applySectorGroup}>
+                            <header className={styles.applySectorHead}>
+                              <div className={styles.applySectorMeta}>
+                                <span className={styles.applySector}>{sector.label}</span>
+                              </div>
+                              <span className={styles.applySlotCount}>{sector.slots.length}건</span>
+                            </header>
+                            <ul className={styles.applySlotList}>
+                              {sector.slots.map((slot) => {
+                                const takenByOther = slot.isTaken && !slot.isMine;
+                                const locked = !snapshot.isAdmin && group.hasMine && !slot.isMine;
+                                return (
+                                  <li
+                                    key={slot.id}
+                                    className={`${styles.applySlot} ${takenByOther ? styles.applySlotTaken : ''} ${
+                                      slot.isMine ? styles.applySlotMine : ''
+                                    } ${locked ? styles.applySlotLocked : ''}`}
+                                  >
+                                    <div className={styles.applySlotMeta}>
+                                      <span className={slot.isButlerSlot ? styles.positionButler : styles.positionCleaner}>
+                                        {slot.positionLabel}
+                                      </span>
+                                      {slot.isTaken ? (
+                                        <span className={styles.applyAssignee}>
+                                          {slot.isMine ? '내 신청' : slot.assignedWorkerName || '신청완료'}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    <div className={styles.applySlotAction}>
+                                      {renderButton(slot, locked)}
+                                      {snapshot.isAdmin ? (
+                                        <button
+                                          type="button"
+                                          className={styles.applyDeleteButton}
+                                          disabled={pendingId === slot.id || slot.isTaken}
+                                          onClick={() => handleDelete(slot)}
+                                        >
+                                          삭제
+                                        </button>
+                                      ) : null}
+                                    </div>
+                                    <div className={styles.applySlotHelper}>{renderHelper(slot, locked)}</div>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
             </div>
           ) : (
             <p className={styles.emptyMessage}>{emptyMessage ?? '표시할 신청 가능 업무가 없습니다.'}</p>

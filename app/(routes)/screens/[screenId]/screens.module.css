@@ -1895,6 +1895,22 @@
   gap: 12px;
 }
 
+.applyCardMeta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.applyMineBadge {
+  background: #e0ecff;
+  color: #2157a6;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
 .collapseButton {
   border: 1px solid var(--border);
   background: #fff;
