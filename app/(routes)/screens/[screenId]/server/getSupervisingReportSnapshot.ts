@@ -158,7 +158,7 @@ export async function getSupervisingReportSnapshot(
     };
 
     const parseSupplyNotes = (value: unknown) => {
-      if (!value || typeof value !== 'object') return {} as Record<number, string>;
+      if (!value || typeof value !== 'object' || value === null) return {} as Record<number, string>;
 
       if (Array.isArray(value)) {
         return value.reduce((acc, entry, idx) => {
@@ -170,7 +170,9 @@ export async function getSupervisingReportSnapshot(
         }, {} as Record<number, string>);
       }
 
-      return Object.entries(value as Record<string, unknown>).reduce((acc, [key, val]) => {
+      const entries = Object.entries(value as Record<string, unknown>);
+
+      return entries.reduce((acc, [key, val]) => {
         const note = typeof val === 'string' ? val.trim() : '';
         const numericKey = Number.parseInt(key, 10);
         if (note && Number.isFinite(numericKey)) {
@@ -203,7 +205,7 @@ export async function getSupervisingReportSnapshot(
         return Object.fromEntries(targetChecklist.map(({ id }) => [id, set.has(id)])) as Record<number, boolean>;
       }
 
-      if (typeof value === 'object') {
+      if (value && typeof value === 'object') {
         if ('checked' in (value as Record<string, unknown>) && typeof (value as { checked?: unknown }).checked === 'boolean') {
           return Object.fromEntries(
             targetChecklist.map(({ id }) => [id, Boolean((value as { checked?: boolean }).checked)])
