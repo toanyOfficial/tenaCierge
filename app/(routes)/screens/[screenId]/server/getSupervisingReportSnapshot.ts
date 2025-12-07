@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import {
@@ -19,7 +19,7 @@ export type SupervisingReportSnapshot = {
   suppliesChecklist: ChecklistItem[];
   imageSlots: ImageSlot[];
   existingSupervisingFindingChecks: Record<number, boolean>;
-  existingSupervisingCompletionChecks: Record<number, boolean>;
+  existingSupervisingComment: string;
   existingSupplyChecks: number[];
   existingSupplyNotes: Record<number, string>;
   savedImages: SavedImage[];
@@ -84,7 +84,10 @@ export async function getSupervisingReportSnapshot(
         .from(workChecklistSetDetail)
         .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
         .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), eq(workChecklistList.type, 2)))
-        .orderBy(asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
+        .orderBy(
+          asc(sql`COALESCE(${workChecklistSetDetail.ordering}, ${workChecklistList.ordering})`),
+          asc(workChecklistSetDetail.id)
+        ),
       db
         .select({
           id: workChecklistList.id,
@@ -94,7 +97,7 @@ export async function getSupervisingReportSnapshot(
         })
         .from(workChecklistList)
         .where(eq(workChecklistList.type, 3))
-        .orderBy(asc(workChecklistList.id))
+        .orderBy(asc(sql`COALESCE(${workChecklistList.ordering}, ${workChecklistList.id})`))
     ]);
 
     const cleaningChecklist = checklistRows
@@ -135,7 +138,10 @@ export async function getSupervisingReportSnapshot(
         .from(workImagesSetDetail)
         .innerJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
         .where(and(eq(workImagesSetDetail.imagesSetId, workRow.imagesSetId), eq(workImagesList.role, 2)))
-        .orderBy(asc(workImagesSetDetail.id));
+        .orderBy(
+          asc(sql`COALESCE(${workImagesSetDetail.ordering}, ${workImagesList.ordering})`),
+          asc(workImagesSetDetail.id)
+        );
 
       return rows.map(({ id, title, fallbackTitle, required, listRequired, comment, fallbackComment }) => ({
         id,
@@ -189,9 +195,13 @@ export async function getSupervisingReportSnapshot(
     };
 
     const rawSupervisingFindings = latestReports.get(4)?.contents1;
-    const rawSupervisingCompletion = latestReports.get(4)?.contents2;
     const rawSupplyChecks = latestReports.get(2)?.contents1 ?? [];
     const rawSupplyNotes = latestReports.get(2)?.contents2 ?? {};
+    const supervisingComment = (() => {
+      const rawComment = latestReports.get(4)?.contents2;
+      if (typeof rawComment === 'string') return rawComment.trim().slice(0, 15);
+      return '';
+    })();
 
     const parseChecklistFlags = (value: unknown, targetChecklist: ChecklistItem[]) => {
       const defaults = Object.fromEntries(targetChecklist.map(({ id }) => [id, false])) as Record<number, boolean>;
@@ -266,7 +276,7 @@ export async function getSupervisingReportSnapshot(
       suppliesChecklist,
       imageSlots,
       existingSupervisingFindingChecks: parseChecklistFlags(rawSupervisingFindings, cleaningChecklist),
-      existingSupervisingCompletionChecks: parseChecklistFlags(rawSupervisingCompletion, cleaningChecklist),
+      existingSupervisingComment: supervisingComment,
       existingSupplyChecks: parseIdArray(rawSupplyChecks),
       existingSupplyNotes: parseSupplyNotes(rawSupplyNotes),
       savedImages
