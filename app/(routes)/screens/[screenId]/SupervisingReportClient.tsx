@@ -427,14 +427,14 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
           </article>
 
           <article className={styles.reportCardWide}>
-            <header className={styles.reportCardHeader}>추가 코멘트 (최대 15자)</header>
+            <header className={styles.reportCardHeader}>추가 코멘트. 키워드단위 입력. 최대15자</header>
             <input
               type="text"
               maxLength={15}
               value={supervisingComment}
               onChange={(e) => setSupervisingComment(e.target.value.slice(0, 15))}
               className={styles.textInput}
-              placeholder="코멘트를 입력하세요"
+              placeholder="클리너에게 전달됩니다"
             />
           </article>
 
