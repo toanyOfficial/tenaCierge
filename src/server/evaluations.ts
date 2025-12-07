@@ -420,7 +420,8 @@ function calculateDailyWage(
   const minutes = toMinutes(endStr) - toMinutes(startStr);
   if (Number.isNaN(minutes) || minutes <= 0) return null;
 
-  return Number(((hourlyWage * minutes) / 60).toFixed(2));
+  const raw = (hourlyWage * minutes) / 60;
+  return Math.ceil(raw / 10) * 10;
 }
 
 function toKstDateTimeFromTime(targetKey: string, time?: string | null) {
