@@ -86,7 +86,12 @@ export async function getSupervisingReportSnapshot(
         .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), eq(workChecklistList.type, 2)))
         .orderBy(asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
       db
-        .select({ id: workChecklistList.id, title: workChecklistList.title, description: workChecklistList.description })
+        .select({
+          id: workChecklistList.id,
+          title: workChecklistList.title,
+          description: workChecklistList.description,
+          score: workChecklistList.score
+        })
         .from(workChecklistList)
         .where(eq(workChecklistList.type, 3))
         .orderBy(asc(workChecklistList.id))
@@ -104,11 +109,12 @@ export async function getSupervisingReportSnapshot(
       }));
 
     const suppliesChecklist = sortSuppliesWithDescriptionLast(
-      supplyRows.map(({ id, title, description }) => ({
+      supplyRows.map(({ id, title, score, description }) => ({
         id,
         title: title ?? '',
         type: 3,
-        score: 0,
+        score: Number(score) || 0,
+        listScore: Number(score) || 0,
         description: description ?? null
       }))
     );
