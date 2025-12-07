@@ -305,6 +305,7 @@ class CleanerRankingBatch:
         self.disable_ai_comment = disable_ai_comment
         self.openai_calls = 0
         self.admin_worker_ids: set[int] = set()
+        self.schema_columns = self._load_schema_columns()
 
     def run(self) -> None:
         self.admin_worker_ids = self._load_admin_workers()
@@ -1422,25 +1423,38 @@ class CleanerRankingBatch:
 
         logging.info("시급 적재 대상 %s명 완료", len(targets))
 
-    def _get_table_columns(self, table: str) -> Set[str]:
-        with self.conn.cursor(dictionary=True) as cur:
-            cur.execute(
-                """
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_schema = DATABASE()
-                  AND table_name = %s
-                """,
-                (table,),
-            )
-            return {str(row.get("column_name")).lower() for row in cur if row.get("column_name")}
-
     def _resolve_amount_column(self, columns: Set[str], candidates: Sequence[str]) -> Optional[str]:
         lowered = {c.lower() for c in columns}
         for candidate in candidates:
             if candidate.lower() in lowered:
                 return candidate.lower()
         return None
+
+    def _load_schema_columns(self) -> Dict[str, Set[str]]:
+        mapping: Dict[str, Set[str]] = {}
+        target_schema = os.environ.get("DB_NAME", "tenaCierge")
+        try:
+            with open(SCHEMA_CSV_PATH, newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row.get("table_schema") != target_schema:
+                        continue
+                    table_name = str(row.get("table_name") or "").lower()
+                    column_name = str(row.get("column_name") or "").lower()
+                    if not table_name or not column_name:
+                        continue
+                    mapping.setdefault(table_name, set()).add(column_name)
+        except FileNotFoundError:
+            logging.error("schema.csv 파일을 찾을 수 없어 컬럼 정보를 불러오지 못했습니다: %s", SCHEMA_CSV_PATH)
+        except Exception:
+            logging.error("schema.csv를 읽는 중 오류가 발생했습니다", exc_info=True)
+        return mapping
+
+    def _get_table_columns(self, table: str) -> Set[str]:
+        if self.schema_columns:
+            return set(self.schema_columns.get(table.lower(), set()))
+        logging.warning("schema.csv에서 %s 컬럼 정보를 찾지 못해 빈 집합을 반환합니다", table)
+        return set()
 
     def _to_time(self, value: object) -> Optional[dt.time]:
         if isinstance(value, dt.time):
