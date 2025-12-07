@@ -7,6 +7,7 @@ import { logServerError } from '@/src/server/errorLogger';
 import { findWorkerByProfile } from '@/src/server/workers';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { getKstNow } from '@/src/utils/workWindow';
+import { nowKst } from '@/src/lib/time';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -276,7 +277,7 @@ async function upsertCleaningWorkReport(
   workId: number,
   options: { field: 'contents1' | 'contents2'; key: 'start_dttm' | 'end_dttm' }
 ) {
-  const now = getKstNow().toISOString();
+  const now = nowKst().toISO();
 
   const existing = await db
     .select({

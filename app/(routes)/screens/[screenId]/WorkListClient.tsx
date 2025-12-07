@@ -287,6 +287,8 @@ export default function WorkListClient({ profile, snapshot }: Props) {
     return initial;
   });
 
+  const [collapsedWorks, setCollapsedWorks] = useState<Record<number, boolean>>({});
+
   useEffect(() => {
     setOpenGroups((prev) => {
       const next = { ...prev };
@@ -300,6 +302,23 @@ export default function WorkListClient({ profile, snapshot }: Props) {
 }, [groupedBySector]);
 
   const [openBuildings, setOpenBuildings] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setCollapsedWorks((prev) => {
+      const next = { ...prev };
+      works.forEach((work) => {
+        const fullyDone = work.supplyYn && work.cleaningFlag >= 4 && Boolean(work.supervisingYn);
+        if (fullyDone) {
+          if (typeof next[work.id] === 'undefined') {
+            next[work.id] = true;
+          }
+        } else if (next[work.id] !== undefined) {
+          delete next[work.id];
+        }
+      });
+      return next;
+    });
+  }, [works]);
 
   useEffect(() => {
     setOpenBuildings((prev) => {
@@ -911,6 +930,8 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                     );
                                     const cleaningDone = work.cleaningFlag >= 4;
                                     const supervisingDone = Boolean(work.supervisingYn);
+                                    const fullyDone = work.supplyYn && cleaningDone && supervisingDone;
+                                    const folded = fullyDone && (collapsedWorks[work.id] ?? true);
                                     const disabledLine = !work.cleaningYn;
                                     const canViewRealtime = !isHost || work.realtimeOverviewYn;
                                     const canViewPhotos = !isHost || work.imagesYn;
@@ -919,6 +940,31 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                     const requirementsClassName = `${styles.requirementsText}${
                                       hasRequirements ? ` ${styles.requirementsEmphasis}` : ''
                                     }`;
+
+                                    if (folded) {
+                                      return (
+                                        <div key={work.id} className={`${styles.workCard} ${styles.workCardFolded}`}>
+                                          <div className={styles.workCardHeader}>
+                                            <div className={styles.workTitleRow}>
+                                              <p className={styles.workTitle}>{roomTitle}</p>
+                                              <div className={styles.workTitleActions}>
+                                                <span className={`${styles.statusCheckBadge} ${styles.statusCheckDone}`}>
+                                                  완료
+                                                </span>
+                                                <button
+                                                  type="button"
+                                                  className={styles.collapseButton}
+                                                  onClick={() => setCollapsedWorks({ ...collapsedWorks, [work.id]: false })}
+                                                >
+                                                  펼치기
+                                                </button>
+                                              </div>
+                                            </div>
+                                            <p className={styles.workSubtitle}>배급 · 청소 · 검수 완료</p>
+                                          </div>
+                                        </div>
+                                      );
+                                    }
 
                                     if (disabledLine) {
                                       return (
@@ -971,6 +1017,15 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                               >
                                                 호실 정보
                                               </button>
+                                              {fullyDone ? (
+                                                <button
+                                                  type="button"
+                                                  className={styles.collapseButton}
+                                                  onClick={() => setCollapsedWorks({ ...collapsedWorks, [work.id]: true })}
+                                                >
+                                                  접기
+                                                </button>
+                                              ) : null}
                                             </div>
                                           </div>
                                           <p className={styles.workSubtitle}>
