@@ -13,6 +13,7 @@ import {
 import { logServerError } from '@/src/server/errorLogger';
 import type { ProfileSummary } from '@/src/utils/profile';
 import { getTierLabel } from '@/src/utils/tier';
+import { formatKstDateKey } from '@/src/lib/time';
 import { formatFullDateLabel, getKstNow } from '@/src/utils/workWindow';
 import { findWorkerById, findWorkerByProfile, type WorkerRecord } from './workers';
 
@@ -335,13 +336,12 @@ function buildRoomName(shortName?: string | null, roomNo?: string | null) {
 }
 
 function startOfKstDay(date: Date) {
-  const copy = new Date(date);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
+  const key = formatKstDateKey(date);
+  return new Date(`${key}T00:00:00+09:00`);
 }
 
 function toDateKey(date: Date) {
-  return date.toISOString().slice(0, 10);
+  return formatKstDateKey(date);
 }
 
 function normalizeTargetDate(input?: string) {
