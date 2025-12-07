@@ -76,7 +76,8 @@ export async function getCleaningReportSnapshot(
           description: workChecklistSetDetail.description,
           fallbackDescription: workChecklistList.description,
           type: workChecklistList.type,
-          score: workChecklistSetDetail.score
+          score: workChecklistSetDetail.score,
+          listScore: workChecklistList.score
         })
         .from(workChecklistSetDetail)
         .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
@@ -94,11 +95,11 @@ export async function getCleaningReportSnapshot(
 
     const cleaningChecklist = checklistRows
       .filter((item) => item.type === 1)
-      .map(({ id, title, fallbackTitle, type, score, description, fallbackDescription }) => ({
+      .map(({ id, title, fallbackTitle, type, score, listScore, description, fallbackDescription }) => ({
         id,
         title: title ?? fallbackTitle ?? '',
         type: Number(type ?? 0),
-        score: Number(score) || 0,
+        score: Number(score ?? listScore) || 0,
         description: description ?? fallbackDescription ?? null
       }));
 

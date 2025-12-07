@@ -15,13 +15,13 @@ work_checklist, work_images 조회 기준과 work_reports, worker_evaluate 적�
 
 ## 005. 청소완료보고 화면
 ### 조회 단계
-1. **체크리스트 로드**: 업무의 `checklist_set_id`로 `work_checklist_set_detail`을 조회 후 type=1(청소)만 사용, detail.ordering asc → list.ordering asc 순으로 정렬.【F:app/(routes)/screens/[screenId]/server/getCleaningReportSnapshot.ts†L70-L109】
+1. **체크리스트 로드**: 업무의 `checklist_set_id`로 `work_checklist_set_detail`을 조회 후 type=1(청소)만 사용, detail.ordering asc → list.ordering asc 순으로 정렬하며 점수는 `detail.score ?? list.score`로 보유.【F:app/(routes)/screens/[screenId]/server/getCleaningReportSnapshot.ts†L70-L109】
 2. **소모품 목록 로드**: `work_checklist_list`에서 type=3을 ordering asc로 조회 후 description이 있는 항목을 앞에 배치.【F:app/(routes)/screens/[screenId]/server/getCleaningReportSnapshot.ts†L102-L110】
 3. **사진 슬롯 로드**: 업무의 `images_set_id`가 있을 때, `work_images_set_detail`을 role=1(클리너) 기준으로 detail→list fallback을 적용해 제목/필수 여부/코멘트 결정.【F:app/(routes)/screens/[screenId]/server/getCleaningReportSnapshot.ts†L112-L136】
 4. **기존 입력 불러오기**: `work_reports`에서 최신 type별 레코드를 읽어 청소 체크(1), 소모품 체크/메모(2), 청소 사진(3) 값을 역직렬화한다.【F:app/(routes)/screens/[screenId]/server/getCleaningReportSnapshot.ts†L138-L216】
 
 ### 출력 단계
-- 청소 체크리스트: detail.title/description이 없을 때 list 값을 화면에 표시하며 점수는 set.detail.score를 사용.【F:app/(routes)/screens/[screenId]/server/getCleaningReportSnapshot.ts†L90-L109】
+- 청소 체크리스트: detail.title/description이 없을 때 list 값을 화면에 표시하며 점수는 detail.score가 없을 경우 list.score로 대체한다.【F:app/(routes)/screens/[screenId]/server/getCleaningReportSnapshot.ts†L90-L109】
 - 소모품 체크리스트: type=3 기본 리스트를 그대로 표시, 점수는 항상 0으로 노출.【F:app/(routes)/screens/[screenId]/server/getCleaningReportSnapshot.ts†L102-L110】
 - 사진 슬롯: 필수 여부(required)와 코멘트(comment)까지 노출, savedImages는 slotId→url 매핑으로 채워진다.【F:app/(routes)/screens/[screenId]/server/getCleaningReportSnapshot.ts†L112-L216】
 
