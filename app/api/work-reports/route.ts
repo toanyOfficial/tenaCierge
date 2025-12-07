@@ -17,6 +17,7 @@ import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { fetchWorkRowById } from '@/src/server/workQueries';
 import { processImageUploads, UploadError } from '@/src/server/imageUpload';
 import { getKstNow } from '@/src/utils/workWindow';
+import { nowKst } from '@/src/lib/time';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -245,7 +246,7 @@ async function upsertCleaningWorkReport(
   workId: number,
   options: { field: 'contents1' | 'contents2'; key: 'start_dttm' | 'end_dttm' }
 ) {
-  const now = getKstNow().toISOString();
+  const now = nowKst().toISO();
 
   const existing = await db
     .select({ id: workReports.id, contents1: workReports.contents1, contents2: workReports.contents2 })
