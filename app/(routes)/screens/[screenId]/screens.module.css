@@ -593,6 +593,10 @@
   min-height: 44px;
 }
 
+.requirementsEmphasis {
+  color: #2563eb;
+}
+
 .workList {
   display: flex;
   flex-direction: column;
@@ -1922,6 +1926,17 @@
   justify-content: space-between;
   align-items: baseline;
   gap: 8px;
+}
+
+.applySectorMeta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.applySectorDivider {
+  color: var(--text-soft);
 }
 
 .applySlotCount {
