@@ -61,7 +61,7 @@ export async function POST(req: Request) {
       .from(workChecklistSetDetail)
       .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
       .where(and(eq(workChecklistSetDetail.checklistHeaderId, targetWork.checklistSetId), eq(workChecklistList.type, 1)))
-      .orderBy(asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
+      .orderBy(asc(workChecklistSetDetail.ordering), asc(workChecklistSetDetail.id)),
     db
       .select({ id: workChecklistList.id, type: workChecklistList.type })
       .from(workChecklistList)
