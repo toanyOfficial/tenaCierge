@@ -1,6 +1,6 @@
 import path from 'path';
 
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
 import { db } from '@/src/db/client';
@@ -61,12 +61,15 @@ export async function POST(req: Request) {
       .from(workChecklistSetDetail)
       .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
       .where(and(eq(workChecklistSetDetail.checklistHeaderId, targetWork.checklistSetId), eq(workChecklistList.type, 1)))
-      .orderBy(asc(workChecklistSetDetail.ordering), asc(workChecklistSetDetail.id)),
+      .orderBy(
+        asc(sql`COALESCE(${workChecklistSetDetail.ordering}, ${workChecklistList.ordering}, ${workChecklistSetDetail.id})`),
+        asc(workChecklistSetDetail.id)
+      ),
     db
       .select({ id: workChecklistList.id, type: workChecklistList.type })
       .from(workChecklistList)
       .where(eq(workChecklistList.type, 3))
-      .orderBy(asc(workChecklistList.id)),
+      .orderBy(asc(sql`COALESCE(${workChecklistList.ordering}, ${workChecklistList.id})`)),
     targetWork.imagesSetId
       ? db
           .select({
@@ -77,7 +80,10 @@ export async function POST(req: Request) {
           .from(workImagesSetDetail)
           .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
           .where(and(eq(workImagesSetDetail.imagesSetId, targetWork.imagesSetId), eq(workImagesList.role, 1)))
-          .orderBy(asc(workImagesSetDetail.id))
+          .orderBy(
+            asc(sql`COALESCE(${workImagesSetDetail.ordering}, ${workImagesList.ordering}, ${workImagesSetDetail.id})`),
+            asc(workImagesSetDetail.id)
+          )
       : Promise.resolve([])
   ]);
 
