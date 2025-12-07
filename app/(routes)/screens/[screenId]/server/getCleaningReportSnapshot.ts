@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import {
@@ -9,7 +9,7 @@ import {
   workReports
 } from '@/src/db/schema';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
-import { fetchWorkRowById, serializeWorkRow } from '@/src/server/workQueries';
+import { fetchWorkRowById, fetchWorkSetBindings, serializeWorkRow } from '@/src/server/workQueries';
 import type { CleaningWork } from '@/src/server/workTypes';
 import { logServerError } from '@/src/server/errorLogger';
 
@@ -63,7 +63,9 @@ export async function getCleaningReportSnapshot(
       throw new Error('해당 업무를 찾을 수 없습니다.');
     }
 
-    if (!workRow.checklistSetId) {
+    const workSets = await fetchWorkSetBindings(workId);
+
+    if (!workSets?.checklistSetId) {
       throw new Error('체크리스트 세트가 지정되지 않았습니다.');
     }
 
@@ -80,13 +82,27 @@ export async function getCleaningReportSnapshot(
         })
         .from(workChecklistSetDetail)
         .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
-        .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), eq(workChecklistList.type, 1)))
-        .orderBy(asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
+        .where(and(eq(workChecklistSetDetail.checklistHeaderId, workSets.checklistSetId), eq(workChecklistList.type, 1)))
+        .orderBy(
+          asc(sql`COALESCE(${workChecklistSetDetail.ordering}, ${workChecklistList.ordering})`),
+          asc(workChecklistSetDetail.id)
+        ),
       db
-        .select({ id: workChecklistList.id, title: workChecklistList.title, description: workChecklistList.description })
-        .from(workChecklistList)
-        .where(eq(workChecklistList.type, 3))
-        .orderBy(asc(workChecklistList.id))
+        .select({
+          id: workChecklistSetDetail.id,
+          title: workChecklistSetDetail.title,
+          fallbackTitle: workChecklistList.title,
+          description: workChecklistSetDetail.description,
+          fallbackDescription: workChecklistList.description,
+          type: workChecklistList.type
+        })
+        .from(workChecklistSetDetail)
+        .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
+        .where(and(eq(workChecklistSetDetail.checklistHeaderId, workSets.checklistSetId), eq(workChecklistList.type, 3)))
+        .orderBy(
+          asc(sql`COALESCE(${workChecklistSetDetail.ordering}, ${workChecklistList.ordering})`),
+          asc(workChecklistSetDetail.id)
+        )
     ]);
 
     const cleaningChecklist = checklistRows
@@ -100,17 +116,17 @@ export async function getCleaningReportSnapshot(
       }));
 
     const suppliesChecklist = sortSuppliesWithDescriptionLast(
-      supplyRows.map(({ id, title, description }) => ({
+      supplyRows.map(({ id, title, fallbackTitle, description, fallbackDescription }) => ({
         id,
-        title: title ?? '',
+        title: title ?? fallbackTitle ?? '',
         type: 3,
         score: 0,
-        description: description ?? null
+        description: description ?? fallbackDescription ?? null
       }))
     );
 
     const imageSlots = await (async () => {
-      if (!workRow.imagesSetId) return [] as ImageSlot[];
+      if (!workSets.imagesSetId) return [] as ImageSlot[];
 
       const rows = await db
         .select({
@@ -124,8 +140,8 @@ export async function getCleaningReportSnapshot(
         })
         .from(workImagesSetDetail)
         .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
-        .where(and(eq(workImagesSetDetail.imagesSetId, workRow.imagesSetId), eq(workImagesList.role, 1)))
-        .orderBy(asc(workImagesSetDetail.id));
+        .where(and(eq(workImagesSetDetail.imagesSetId, workSets.imagesSetId), eq(workImagesList.role, 1)))
+        .orderBy(asc(sql`COALESCE(${workImagesSetDetail.ordering}, ${workImagesList.ordering}, ${workImagesSetDetail.id})`));
 
       return rows.map(({ id, title, fallbackTitle, required, listRequired, comment, fallbackComment }) => ({
         id,
