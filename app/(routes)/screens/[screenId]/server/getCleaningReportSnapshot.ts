@@ -82,13 +82,25 @@ export async function getCleaningReportSnapshot(
         .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
         .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), eq(workChecklistList.type, 1)))
         .orderBy(
-          asc(sql`COALESCE(${workChecklistSetDetail.order}, ${workChecklistList.order}, ${workChecklistSetDetail.seq}, ${workChecklistSetDetail.id})`)
+          asc(sql`COALESCE(${workChecklistSetDetail.order}, ${workChecklistList.order})`),
+          asc(workChecklistSetDetail.id)
         ),
       db
-        .select({ id: workChecklistList.id, title: workChecklistList.title, description: workChecklistList.description })
-        .from(workChecklistList)
-        .where(eq(workChecklistList.type, 3))
-        .orderBy(asc(sql`COALESCE(${workChecklistList.order}, ${workChecklistList.id})`))
+        .select({
+          id: workChecklistSetDetail.id,
+          title: workChecklistSetDetail.title,
+          fallbackTitle: workChecklistList.title,
+          description: workChecklistSetDetail.description,
+          fallbackDescription: workChecklistList.description,
+          type: workChecklistList.type
+        })
+        .from(workChecklistSetDetail)
+        .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
+        .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), eq(workChecklistList.type, 3)))
+        .orderBy(
+          asc(sql`COALESCE(${workChecklistSetDetail.order}, ${workChecklistList.order})`),
+          asc(workChecklistSetDetail.id)
+        )
     ]);
 
     const cleaningChecklist = checklistRows
@@ -102,12 +114,12 @@ export async function getCleaningReportSnapshot(
       }));
 
     const suppliesChecklist = sortSuppliesWithDescriptionLast(
-      supplyRows.map(({ id, title, description }) => ({
+      supplyRows.map(({ id, title, fallbackTitle, description, fallbackDescription }) => ({
         id,
-        title: title ?? '',
+        title: title ?? fallbackTitle ?? '',
         type: 3,
         score: 0,
-        description: description ?? null
+        description: description ?? fallbackDescription ?? null
       }))
     );
 
