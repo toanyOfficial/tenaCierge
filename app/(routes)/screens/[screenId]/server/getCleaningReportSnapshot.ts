@@ -82,7 +82,7 @@ export async function getCleaningReportSnapshot(
         .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
         .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), eq(workChecklistList.type, 1)))
         .orderBy(
-          asc(sql`COALESCE(${workChecklistSetDetail.order}, ${workChecklistList.order})`),
+          asc(sql`COALESCE(${workChecklistSetDetail.ordering}, ${workChecklistList.ordering})`),
           asc(workChecklistSetDetail.id)
         ),
       db
@@ -98,7 +98,7 @@ export async function getCleaningReportSnapshot(
         .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
         .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), eq(workChecklistList.type, 3)))
         .orderBy(
-          asc(sql`COALESCE(${workChecklistSetDetail.order}, ${workChecklistList.order})`),
+          asc(sql`COALESCE(${workChecklistSetDetail.ordering}, ${workChecklistList.ordering})`),
           asc(workChecklistSetDetail.id)
         )
     ]);
@@ -139,7 +139,7 @@ export async function getCleaningReportSnapshot(
         .from(workImagesSetDetail)
         .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
         .where(and(eq(workImagesSetDetail.imagesSetId, workRow.imagesSetId), eq(workImagesList.role, 1)))
-        .orderBy(asc(sql`COALESCE(${workImagesSetDetail.order}, ${workImagesList.order}, ${workImagesSetDetail.id})`));
+        .orderBy(asc(sql`COALESCE(${workImagesSetDetail.ordering}, ${workImagesList.ordering}, ${workImagesSetDetail.id})`));
 
       return rows.map(({ id, title, fallbackTitle, required, listRequired, comment, fallbackComment }) => ({
         id,
