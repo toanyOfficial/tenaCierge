@@ -96,13 +96,13 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     return mapping;
   }, [imageSlotKeys, savedImages]);
 
-  const scoredChecklistIds = useMemo(
-    () => cleaningChecklist.filter((item) => Number(item.score) > 0).map(({ id }) => id),
+  const autoCheckedChecklistIds = useMemo(
+    () => cleaningChecklist.filter((item) => Number(item.score) > 0 || Number(item.listScore) > 0).map(({ id }) => id),
     [cleaningChecklist]
   );
 
   const visibleCleaningChecklist = useMemo(
-    () => cleaningChecklist.filter((item) => Number(item.score) <= 0),
+    () => cleaningChecklist.filter((item) => Number(item.score) <= 0 && Number(item.listScore) <= 0),
     [cleaningChecklist]
   );
 
@@ -110,18 +110,18 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     () => ({
       ...Object.fromEntries(cleaningChecklist.map(({ id }) => [id, false] as const)),
       ...existingSupervisingFindingChecks,
-      ...Object.fromEntries(scoredChecklistIds.map((id) => [id, true] as const))
+      ...Object.fromEntries(autoCheckedChecklistIds.map((id) => [id, true] as const))
     }),
-    [cleaningChecklist, existingSupervisingFindingChecks, scoredChecklistIds]
+    [autoCheckedChecklistIds, cleaningChecklist, existingSupervisingFindingChecks]
   );
 
   const completionDefaults = useMemo(
     () => ({
       ...Object.fromEntries(cleaningChecklist.map(({ id }) => [id, false] as const)),
       ...existingSupervisingCompletionChecks,
-      ...Object.fromEntries(scoredChecklistIds.map((id) => [id, true] as const))
+      ...Object.fromEntries(autoCheckedChecklistIds.map((id) => [id, true] as const))
     }),
-    [cleaningChecklist, existingSupervisingCompletionChecks, scoredChecklistIds]
+    [autoCheckedChecklistIds, cleaningChecklist, existingSupervisingCompletionChecks]
   );
 
   const baseChecklistFlags = useMemo(
@@ -130,8 +130,8 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
   );
 
   const autoCheckedFlags = useMemo(
-    () => Object.fromEntries(scoredChecklistIds.map((id) => [id, true] as const)),
-    [scoredChecklistIds]
+    () => Object.fromEntries(autoCheckedChecklistIds.map((id) => [id, true] as const)),
+    [autoCheckedChecklistIds]
   );
 
   const [supervisingFindingChecks, setSupervisingFindingChecks] = useState<Record<number, boolean>>(findingDefaults);
@@ -241,6 +241,11 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     if (!isReadyToSubmit) {
       setError(readinessMessages.join(' / '));
       return;
+    }
+
+    const trimmedRequirements = work.requirements?.trim();
+    if (trimmedRequirements) {
+      window.alert(`요구사항 : ${trimmedRequirements} 을 확인 하셨나요?`);
     }
 
     setSubmitting(true);

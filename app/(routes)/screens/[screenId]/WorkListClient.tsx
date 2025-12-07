@@ -914,6 +914,11 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                     const disabledLine = !work.cleaningYn;
                                     const canViewRealtime = !isHost || work.realtimeOverviewYn;
                                     const canViewPhotos = !isHost || work.imagesYn;
+                                    const requirementsText = work.requirements?.trim() ?? '';
+                                    const hasRequirements = requirementsText.length > 0;
+                                    const requirementsClassName = `${styles.requirementsText}${
+                                      hasRequirements ? ` ${styles.requirementsEmphasis}` : ''
+                                    }`;
 
                                     if (disabledLine) {
                                       return (
@@ -937,7 +942,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                               </button>
                                             ) : null}
                                           </div>
-                                          <span className={styles.requirementsText}>{work.requirements || '요청사항 없음'}</span>
+                                          <span className={requirementsClassName}>{requirementsText}</span>
                                         </div>
                                       );
                                     }
@@ -996,7 +1001,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                           <p className={styles.checkoutGuardNotice}>아직 퇴실시간이 도래하지 않았습니다.</p>
                                         ) : null}
 
-                                        <p className={styles.requirementsText}>{work.requirements || '요청사항 없음'}</p>
+                                        <p className={requirementsClassName}>{requirementsText}</p>
 
                                         {canViewRealtime ? (
                                           <div className={styles.workRowCompact}>
