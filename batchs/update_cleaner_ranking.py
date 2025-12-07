@@ -1271,7 +1271,12 @@ class CleanerRankingBatch:
         worker_map: Dict[int, Dict[str, object]] = {}
         with self.conn.cursor(dictionary=True) as cur:
             cur.execute(
-                f"SELECT id, tier FROM worker_header WHERE id IN ({placeholders})",
+                f"""
+                    SELECT wh.id, wh.tier, wtr.hourly_wage
+                    FROM worker_header AS wh
+                    LEFT JOIN worker_tier_rules AS wtr ON wtr.tier = wh.tier
+                    WHERE wh.id IN ({placeholders})
+                """,
                 tuple(worker_ids),
             )
             for row in cur:
@@ -1279,18 +1284,6 @@ class CleanerRankingBatch:
 
         if not worker_map:
             return
-
-        tier_wage: Dict[int, Decimal] = {}
-        with self.conn.cursor(dictionary=True) as cur:
-            cur.execute("SELECT tier, hourly_wage FROM worker_tier_rules WHERE hourly_wage IS NOT NULL")
-            for row in cur:
-                tier = row.get("tier")
-                hourly_wage = row.get("hourly_wage")
-                if tier is None or hourly_wage is None:
-                    continue
-                tier_int = int(tier)
-                if tier_int not in tier_wage:
-                    tier_wage[tier_int] = Decimal(str(hourly_wage))
 
         salary_columns = self._get_table_columns("worker_salary_history")
         if not {"worker_id", "work_date"}.issubset(salary_columns):
@@ -1304,6 +1297,7 @@ class CleanerRankingBatch:
             "worker_id",
             "work_date",
             "work_id",
+            "tier",
             "start_dttm",
             "start_time",
             "end_dttm",
@@ -1371,7 +1365,8 @@ class CleanerRankingBatch:
             except (TypeError, ValueError):
                 tier_int = None
 
-            hourly_wage = tier_wage.get(tier_int)
+            hourly_wage_raw = worker_map[worker_id].get("hourly_wage")
+            hourly_wage = Decimal(str(hourly_wage_raw)) if hourly_wage_raw is not None else None
             if hourly_wage is None:
                 self._log_error(
                     message="해당 tier의 시급 정보를 찾을 수 없습니다.",
@@ -1387,6 +1382,7 @@ class CleanerRankingBatch:
                 "worker_id": worker_id,
                 "work_date": self.target_date,
                 "work_id": None,
+                "tier": tier_int,
                 "start_dttm": self._to_naive_utc(start_dt),
                 "start_time": self._to_naive_utc(start_dt),
                 "end_dttm": self._to_naive_utc(end_dt),
