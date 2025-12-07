@@ -41,7 +41,7 @@ work_checklist, work_images 조회 기준과 work_reports, worker_evaluate 적�
 1. **체크리스트 로드**: 업무의 `checklist_set_id` 기준으로 type=2(수퍼바이징) detail을 detail.ordering asc → list.ordering asc 순으로 조회, set.score와 list.score를 모두 담는다.【F:app/(routes)/screens/[screenId]/server/getSupervisingReportSnapshot.ts†L72-L109】
 2. **소모품 목록 로드**: type=3 리스트를 ordering asc로 조회, 점수(listScore)를 포함해 description이 있는 항목 우선 정렬.【F:app/(routes)/screens/[screenId]/server/getSupervisingReportSnapshot.ts†L111-L120】
 3. **사진 슬롯 로드**: role=2(버틀러) detail을 사용해 제목/필수 여부/코멘트 결정.【F:app/(routes)/screens/[screenId]/server/getSupervisingReportSnapshot.ts†L122-L146】
-4. **기존 입력 불러오기**: work_reports에서 수퍼바이징 체크(type=4 contents1=발견, contents2=완료), 소모품(type=2), 사진(type=5) 정보를 최신순으로 취득 후 파싱한다. (contents1=발견은 발견된 이슈/미비점 체크, contents2=완료는 해결 완료 여부 체크를 뜻한다.)【F:app/(routes)/screens/[screenId]/server/getSupervisingReportSnapshot.ts†L148-L236】
+4. **기존 입력 불러오기**: work_reports에서 수퍼바이징 체크(type=4 contents1=발견, contents2=코멘트), 소모품(type=2), 사진(type=5) 정보를 최신순으로 취득 후 파싱한다. (contents1=발견은 발견된 이슈/미비점 체크, contents2=코멘트는 추가 메모를 최대 15자로 저장한다.)【F:app/(routes)/screens/[screenId]/server/getSupervisingReportSnapshot.ts†L148-L236】
 
 ### 출력 단계
 - 체크리스트: detail/list fallback으로 제목·설명·점수 노출, set.score(listScore)로 평가 점수를 병행 보유.【F:app/(routes)/screens/[screenId]/server/getSupervisingReportSnapshot.ts†L100-L120】
@@ -53,7 +53,7 @@ work_checklist, work_images 조회 기준과 work_reports, worker_evaluate 적�
    - 수퍼바이징 체크리스트: 조회된 id 목록을 기준으로 supervisingFindings/supervisingCompletion을 boolean map으로 받으며 필수 id 없음(매핑만 검증).【F:app/api/supervising-reports/route.ts†L57-L154】
    - 사진: role=2 슬롯 중 required??listRequired 가 true인 항목이 모두 채워져야 한다.【F:app/api/supervising-reports/route.ts†L89-L171】
 2. **저장 대상**
-   - work_reports.type=4 → contents1=발견 체크 map, contents2=완료 체크 map.【F:app/api/supervising-reports/route.ts†L140-L155】
+   - work_reports.type=4 → contents1=발견 체크 map, contents2=코멘트(최대 15자).【F:app/api/supervising-reports/route.ts†L140-L155】
    - work_reports.type=2 → 소모품 체크 id 배열(contents1) + 메모(contents2).【F:app/api/supervising-reports/route.ts†L156-L163】
    - work_reports.type=5 → 수퍼바이징 사진 slotId→url 목록을 contents1/contents2에 동일 저장.【F:app/api/supervising-reports/route.ts†L165-L171】
 3. **평가 적재**: supervisingFindings 중 true인 checklist id 집합을 unique 집계 후 set.score 합산→worker_evaluate_history.checklist_point_sum/array에 기록(클리너가 있을 때만).【F:app/api/supervising-reports/route.ts†L173-L203】

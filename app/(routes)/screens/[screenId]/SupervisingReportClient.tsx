@@ -70,7 +70,7 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     suppliesChecklist,
     imageSlots,
     existingSupervisingFindingChecks,
-    existingSupervisingCompletionChecks,
+    existingSupervisingComment,
     existingSupplyChecks,
     existingSupplyNotes,
     savedImages
@@ -117,11 +117,10 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
 
   const completionDefaults = useMemo(
     () => ({
-      ...Object.fromEntries(cleaningChecklist.map(({ id }) => [id, false] as const)),
-      ...existingSupervisingCompletionChecks,
+      ...Object.fromEntries(cleaningChecklist.map(({ id }) => [id, true] as const)),
       ...Object.fromEntries(autoCheckedChecklistIds.map((id) => [id, true] as const))
     }),
-    [autoCheckedChecklistIds, cleaningChecklist, existingSupervisingCompletionChecks]
+    [autoCheckedChecklistIds, cleaningChecklist]
   );
 
   const baseChecklistFlags = useMemo(
@@ -136,6 +135,7 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
 
   const [supervisingFindingChecks, setSupervisingFindingChecks] = useState<Record<number, boolean>>(findingDefaults);
   const [supervisingCompletionChecks, setSupervisingCompletionChecks] = useState<Record<number, boolean>>(completionDefaults);
+  const [supervisingComment, setSupervisingComment] = useState(existingSupervisingComment ?? '');
   const [supplyChecks, setSupplyChecks] = useState<Set<number>>(new Set(existingSupplyChecks ?? []));
   const [supplyNotes, setSupplyNotes] = useState<Record<number, string>>(existingSupplyNotes ?? {});
   const [imageSelections, setImageSelections] = useState<Record<string, File | null>>(initialImageSelections);
@@ -255,6 +255,7 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     formData.append('workId', String(work.id));
     formData.append('supervisingFindings', JSON.stringify(persistableFindingChecks));
     formData.append('supervisingCompletion', JSON.stringify(persistableCompletionChecks));
+    formData.append('supervisingComment', supervisingComment.trim().slice(0, 15));
     formData.append('supplyChecks', JSON.stringify(Array.from(supplyChecks)));
 
     const normalizedNotes = Object.entries(supplyNotes).reduce((acc, [key, val]) => {
@@ -423,6 +424,18 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
                 </div>
               </div>
             )}
+          </article>
+
+          <article className={styles.reportCardWide}>
+            <header className={styles.reportCardHeader}>추가 코멘트 (최대 15자)</header>
+            <input
+              type="text"
+              maxLength={15}
+              value={supervisingComment}
+              onChange={(e) => setSupervisingComment(e.target.value.slice(0, 15))}
+              className={styles.textInput}
+              placeholder="코멘트를 입력하세요"
+            />
           </article>
 
           <article className={styles.reportCardWide}>

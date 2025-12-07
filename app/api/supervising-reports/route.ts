@@ -37,6 +37,7 @@ export async function POST(req: Request) {
     const isDraft = mode === 'draft';
     const supervisingFindings = safeParseChecklistFlags(form.get('supervisingFindings'));
     const supervisingCompletion = safeParseChecklistFlags(form.get('supervisingCompletion'));
+    const supervisingComment = safeParseComment(form.get('supervisingComment'));
     const supplyChecks = safeParseIds(form.get('supplyChecks'));
     const supplyNotes = safeParseSupplyNotes(form.get('supplyNotes'));
     const imageFiles = form.getAll('images').filter((f): f is File => f instanceof File);
@@ -158,7 +159,7 @@ export async function POST(req: Request) {
       workId,
       type: 4,
       contents1: supervisingFindings,
-      contents2: supervisingCompletion
+      contents2: supervisingComment ?? null
     });
 
     if (validSupplyChecks.length || hasSupplyNotes(supplyNotes)) {
@@ -262,6 +263,15 @@ function safeParseChecklistFlags(value: FormDataEntryValue | null): Record<numbe
   } catch {
     return {};
   }
+}
+
+function safeParseComment(value: FormDataEntryValue | null): string | null {
+  if (typeof value !== 'string') return null;
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  return trimmed.slice(0, 15);
 }
 
 function safeParseImageMappings(value: FormDataEntryValue | null): { slotId: number; url: string }[] {

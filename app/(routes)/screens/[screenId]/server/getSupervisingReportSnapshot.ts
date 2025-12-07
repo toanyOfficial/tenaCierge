@@ -19,7 +19,7 @@ export type SupervisingReportSnapshot = {
   suppliesChecklist: ChecklistItem[];
   imageSlots: ImageSlot[];
   existingSupervisingFindingChecks: Record<number, boolean>;
-  existingSupervisingCompletionChecks: Record<number, boolean>;
+  existingSupervisingComment: string;
   existingSupplyChecks: number[];
   existingSupplyNotes: Record<number, string>;
   savedImages: SavedImage[];
@@ -195,9 +195,13 @@ export async function getSupervisingReportSnapshot(
     };
 
     const rawSupervisingFindings = latestReports.get(4)?.contents1;
-    const rawSupervisingCompletion = latestReports.get(4)?.contents2;
     const rawSupplyChecks = latestReports.get(2)?.contents1 ?? [];
     const rawSupplyNotes = latestReports.get(2)?.contents2 ?? {};
+    const supervisingComment = (() => {
+      const rawComment = latestReports.get(4)?.contents2;
+      if (typeof rawComment === 'string') return rawComment.trim().slice(0, 15);
+      return '';
+    })();
 
     const parseChecklistFlags = (value: unknown, targetChecklist: ChecklistItem[]) => {
       const defaults = Object.fromEntries(targetChecklist.map(({ id }) => [id, false])) as Record<number, boolean>;
@@ -272,7 +276,7 @@ export async function getSupervisingReportSnapshot(
       suppliesChecklist,
       imageSlots,
       existingSupervisingFindingChecks: parseChecklistFlags(rawSupervisingFindings, cleaningChecklist),
-      existingSupervisingCompletionChecks: parseChecklistFlags(rawSupervisingCompletion, cleaningChecklist),
+      existingSupervisingComment: supervisingComment,
       existingSupplyChecks: parseIdArray(rawSupplyChecks),
       existingSupplyNotes: parseSupplyNotes(rawSupplyNotes),
       savedImages
