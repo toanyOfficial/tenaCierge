@@ -62,7 +62,7 @@ export async function POST(req: Request) {
       .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
       .where(and(eq(workChecklistSetDetail.checklistHeaderId, targetWork.checklistSetId), eq(workChecklistList.type, 1)))
       .orderBy(
-        asc(sql`COALESCE(${workChecklistSetDetail.ordering}, ${workChecklistList.ordering}, ${workChecklistSetDetail.id})`),
+        asc(sql`COALESCE(${workChecklistSetDetail.ordering}, ${workChecklistList.ordering})`),
         asc(workChecklistSetDetail.id)
       ),
     db
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
           .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
           .where(and(eq(workImagesSetDetail.imagesSetId, targetWork.imagesSetId), eq(workImagesList.role, 1)))
           .orderBy(
-            asc(sql`COALESCE(${workImagesSetDetail.ordering}, ${workImagesList.ordering}, ${workImagesSetDetail.id})`),
+            asc(sql`COALESCE(${workImagesSetDetail.ordering}, ${workImagesList.ordering})`),
             asc(workImagesSetDetail.id)
           )
       : Promise.resolve([])
