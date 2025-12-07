@@ -305,6 +305,7 @@ class CleanerRankingBatch:
         self.disable_ai_comment = disable_ai_comment
         self.openai_calls = 0
         self.admin_worker_ids: set[int] = set()
+        self.schema_columns = self._load_schema_columns()
 
     def run(self) -> None:
         self.admin_worker_ids = self._load_admin_workers()
@@ -1270,7 +1271,12 @@ class CleanerRankingBatch:
         worker_map: Dict[int, Dict[str, object]] = {}
         with self.conn.cursor(dictionary=True) as cur:
             cur.execute(
-                f"SELECT id, tier FROM worker_header WHERE id IN ({placeholders})",
+                f"""
+                    SELECT wh.id, wh.tier, wtr.hourly_wage
+                    FROM worker_header AS wh
+                    LEFT JOIN worker_tier_rules AS wtr ON wtr.tier = wh.tier
+                    WHERE wh.id IN ({placeholders})
+                """,
                 tuple(worker_ids),
             )
             for row in cur:
@@ -1278,18 +1284,6 @@ class CleanerRankingBatch:
 
         if not worker_map:
             return
-
-        tier_wage: Dict[int, Decimal] = {}
-        with self.conn.cursor(dictionary=True) as cur:
-            cur.execute("SELECT tier, hourly_wage FROM worker_tier_rules WHERE hourly_wage IS NOT NULL")
-            for row in cur:
-                tier = row.get("tier")
-                hourly_wage = row.get("hourly_wage")
-                if tier is None or hourly_wage is None:
-                    continue
-                tier_int = int(tier)
-                if tier_int not in tier_wage:
-                    tier_wage[tier_int] = Decimal(str(hourly_wage))
 
         salary_columns = self._get_table_columns("worker_salary_history")
         if not {"worker_id", "work_date"}.issubset(salary_columns):
@@ -1302,20 +1296,10 @@ class CleanerRankingBatch:
         candidate_column_order = [
             "worker_id",
             "work_date",
-            "work_id",
-            "start_dttm",
+            "tier_target_date",
             "start_time",
-            "end_dttm",
             "end_time",
-            "work_minutes",
-            "work_time_minutes",
-            "work_hours",
-            "work_time_hours",
-            "hourly_wage",
-            "wage_per_hour",
-            "daily_wage",
-            "total_wage",
-            "amount",
+            "hourly_wage_target_date",
         ]
 
         targets: Dict[int, List[Dict[str, object]]] = {}
@@ -1370,7 +1354,8 @@ class CleanerRankingBatch:
             except (TypeError, ValueError):
                 tier_int = None
 
-            hourly_wage = tier_wage.get(tier_int)
+            hourly_wage_raw = worker_map[worker_id].get("hourly_wage")
+            hourly_wage = Decimal(str(hourly_wage_raw)) if hourly_wage_raw is not None else None
             if hourly_wage is None:
                 self._log_error(
                     message="해당 tier의 시급 정보를 찾을 수 없습니다.",
@@ -1378,27 +1363,13 @@ class CleanerRankingBatch:
                 )
                 continue
 
-            work_minutes = Decimal(str(duration_seconds)) / Decimal(60)
-            work_hours = work_minutes / Decimal(60)
-            total_wage = (hourly_wage * work_hours).quantize(Decimal("0.01"))
-
             value_map = {
                 "worker_id": worker_id,
                 "work_date": self.target_date,
-                "work_id": None,
-                "start_dttm": self._to_naive_utc(start_dt),
-                "start_time": self._to_naive_utc(start_dt),
-                "end_dttm": self._to_naive_utc(end_dt),
-                "end_time": self._to_naive_utc(end_dt),
-                "work_minutes": float(work_minutes),
-                "work_time_minutes": float(work_minutes),
-                "work_hours": float(work_hours),
-                "work_time_hours": float(work_hours),
-                "hourly_wage": float(hourly_wage),
-                "wage_per_hour": float(hourly_wage),
-                "daily_wage": float(total_wage),
-                "total_wage": float(total_wage),
-                "amount": float(total_wage),
+                "tier_target_date": tier_int,
+                "start_time": self._to_kst_time(start_dt),
+                "end_time": self._to_kst_time(end_dt),
+                "hourly_wage_target_date": int(hourly_wage),
             }
 
             insert_columns = [
@@ -1422,25 +1393,38 @@ class CleanerRankingBatch:
 
         logging.info("시급 적재 대상 %s명 완료", len(targets))
 
-    def _get_table_columns(self, table: str) -> Set[str]:
-        with self.conn.cursor(dictionary=True) as cur:
-            cur.execute(
-                """
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_schema = DATABASE()
-                  AND table_name = %s
-                """,
-                (table,),
-            )
-            return {str(row.get("column_name")).lower() for row in cur if row.get("column_name")}
-
     def _resolve_amount_column(self, columns: Set[str], candidates: Sequence[str]) -> Optional[str]:
         lowered = {c.lower() for c in columns}
         for candidate in candidates:
             if candidate.lower() in lowered:
                 return candidate.lower()
         return None
+
+    def _load_schema_columns(self) -> Dict[str, Set[str]]:
+        mapping: Dict[str, Set[str]] = {}
+        target_schema = os.environ.get("DB_NAME", "tenaCierge")
+        try:
+            with open(SCHEMA_CSV_PATH, newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row.get("table_schema") != target_schema:
+                        continue
+                    table_name = str(row.get("table_name") or "").lower()
+                    column_name = str(row.get("column_name") or "").lower()
+                    if not table_name or not column_name:
+                        continue
+                    mapping.setdefault(table_name, set()).add(column_name)
+        except FileNotFoundError:
+            logging.error("schema.csv 파일을 찾을 수 없어 컬럼 정보를 불러오지 못했습니다: %s", SCHEMA_CSV_PATH)
+        except Exception:
+            logging.error("schema.csv를 읽는 중 오류가 발생했습니다", exc_info=True)
+        return mapping
+
+    def _get_table_columns(self, table: str) -> Set[str]:
+        if self.schema_columns:
+            return set(self.schema_columns.get(table.lower(), set()))
+        logging.warning("schema.csv에서 %s 컬럼 정보를 찾지 못해 빈 집합을 반환합니다", table)
+        return set()
 
     def _to_time(self, value: object) -> Optional[dt.time]:
         if isinstance(value, dt.time):
@@ -1455,6 +1439,11 @@ class CleanerRankingBatch:
                 except ValueError:
                     continue
         return None
+
+    def _to_kst_time(self, value: dt.datetime) -> Optional[dt.time]:
+        if value.tzinfo is None:
+            return value.time()
+        return value.astimezone(KST).time()
 
     def _select_timestamp(
         self,
