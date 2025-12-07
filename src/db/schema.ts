@@ -233,6 +233,7 @@ export const workChecklistList = mysqlTable('work_checklist_list', {
   id: tinyint('id', { unsigned: true }).autoincrement().notNull(),
   type: tinyint('type').notNull(),
   title: varchar('title', { length: 20 }).notNull(),
+  score: tinyint('score').notNull(),
   description: varchar('dscpt', { length: 50 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()

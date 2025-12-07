@@ -30,6 +30,7 @@ export type ChecklistItem = {
   title: string;
   type: number;
   score: number;
+  listScore: number;
   description: string | null;
 };
 
@@ -77,14 +78,20 @@ export async function getSupervisingReportSnapshot(
           description: workChecklistSetDetail.description,
           fallbackDescription: workChecklistList.description,
           type: workChecklistList.type,
-          score: workChecklistSetDetail.score
+          score: workChecklistSetDetail.score,
+          listScore: workChecklistList.score
         })
         .from(workChecklistSetDetail)
         .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
         .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), eq(workChecklistList.type, 2)))
         .orderBy(asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
       db
-        .select({ id: workChecklistList.id, title: workChecklistList.title, description: workChecklistList.description })
+        .select({
+          id: workChecklistList.id,
+          title: workChecklistList.title,
+          description: workChecklistList.description,
+          score: workChecklistList.score
+        })
         .from(workChecklistList)
         .where(eq(workChecklistList.type, 3))
         .orderBy(asc(workChecklistList.id))
@@ -92,20 +99,22 @@ export async function getSupervisingReportSnapshot(
 
     const cleaningChecklist = checklistRows
       .filter((item) => item.type === 2)
-      .map(({ id, title, fallbackTitle, type, score, description, fallbackDescription }) => ({
+      .map(({ id, title, fallbackTitle, type, score, listScore, description, fallbackDescription }) => ({
         id,
         title: title ?? fallbackTitle ?? '',
         type: Number(type ?? 0),
         score: Number(score) || 0,
+        listScore: Number(listScore) || 0,
         description: description ?? fallbackDescription ?? null
       }));
 
     const suppliesChecklist = sortSuppliesWithDescriptionLast(
-      supplyRows.map(({ id, title, description }) => ({
+      supplyRows.map(({ id, title, score, description }) => ({
         id,
         title: title ?? '',
         type: 3,
-        score: 0,
+        score: Number(score) || 0,
+        listScore: Number(score) || 0,
         description: description ?? null
       }))
     );
@@ -155,7 +164,7 @@ export async function getSupervisingReportSnapshot(
     };
 
     const parseSupplyNotes = (value: unknown) => {
-      if (!value || typeof value !== 'object') return {} as Record<number, string>;
+      if (!value || typeof value !== 'object' || value === null) return {} as Record<number, string>;
 
       if (Array.isArray(value)) {
         return value.reduce((acc, entry, idx) => {
@@ -167,7 +176,9 @@ export async function getSupervisingReportSnapshot(
         }, {} as Record<number, string>);
       }
 
-      return Object.entries(value as Record<string, unknown>).reduce((acc, [key, val]) => {
+      const entries = Object.entries(value as Record<string, unknown>);
+
+      return entries.reduce((acc, [key, val]) => {
         const note = typeof val === 'string' ? val.trim() : '';
         const numericKey = Number.parseInt(key, 10);
         if (note && Number.isFinite(numericKey)) {
@@ -200,7 +211,7 @@ export async function getSupervisingReportSnapshot(
         return Object.fromEntries(targetChecklist.map(({ id }) => [id, set.has(id)])) as Record<number, boolean>;
       }
 
-      if (typeof value === 'object') {
+      if (value && typeof value === 'object') {
         if ('checked' in (value as Record<string, unknown>) && typeof (value as { checked?: unknown }).checked === 'boolean') {
           return Object.fromEntries(
             targetChecklist.map(({ id }) => [id, Boolean((value as { checked?: boolean }).checked)])
