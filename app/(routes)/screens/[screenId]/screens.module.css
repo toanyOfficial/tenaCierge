@@ -388,6 +388,11 @@
   min-width: 0;
 }
 
+.workCardFolded {
+  background: var(--surface-muted);
+  border-style: dashed;
+}
+
 .workCardOwned {
   border-color: var(--text-strong);
   box-shadow: 0 0 0 1px var(--text-strong);
