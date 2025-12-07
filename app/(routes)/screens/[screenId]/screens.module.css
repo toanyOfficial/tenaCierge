@@ -593,6 +593,10 @@
   min-height: 44px;
 }
 
+.requirementsEmphasis {
+  color: #2563eb;
+}
+
 .workList {
   display: flex;
   flex-direction: column;
