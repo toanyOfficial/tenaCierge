@@ -1,3 +1,9 @@
+## 2025-12-07 스키마 변경 요약
+- 추가된 컬럼: work_checklist_list.score
+- 제거된 컬럼: etc_batchLogs.id, etc_batchLogs.app_name, etc_batchLogs.start_dttm, etc_batchLogs.end_dttm, etc_batchLogs.end_flag 외 2건
+- 변경된 컬럼: client_supplements.dscpt: varchar(2083) -> varchar(2083), etc_errorLogs_batch.level: tinyint unsigned -> tinyint unsigned, etc_errorLogs_batch.message: varchar(500) -> varchar(500), work_checklist_set_detail.score: tinyint -> tinyint, work_images_list.role: tinyint -> tinyint 외 1건
+- 테이블 수: 42개, 컬럼 수: 396개
+
 ## 2025-12-03 스키마 변경 요약
 - 추가된 컬럼: kakao_channel_subscribers.id, kakao_channel_subscribers.user_type, kakao_channel_subscribers.user_id, kakao_channel_subscribers.phone, kakao_channel_subscribers.kakao_user_uuid 외 46건
 - 테이블 수: 43개, 컬럼 수: 402개
