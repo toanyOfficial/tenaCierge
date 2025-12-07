@@ -2,6 +2,7 @@
 
 ## 목적
 work_checklist, work_images 조회 기준과 work_reports, worker_evaluate 적재 규칙을 한 곳에 정리해 화면별 경계 조건을 명확히 이해한다.
+- 화면 005/006은 소모품(work_reports.type=2) 입력을 공유하며, 두 화면 중 어느 곳에서든 최신 기록이 반영된다.【F:app/(routes)/screens/[screenId]/server/getCleaningReportSnapshot.ts†L138-L216】【F:app/(routes)/screens/[screenId]/server/getSupervisingReportSnapshot.ts†L148-L236】
 
 ## 용어/분류 요약
 - **work_checklist_list.type**: `1` 청소, `2` 수퍼바이징, `3` 소모품.【F:docsForCodex/schema.csv†L221-L229】
@@ -10,11 +11,12 @@ work_checklist, work_images 조회 기준과 work_reports, worker_evaluate 적�
 - **Override 규칙**
   - 체크리스트: set detail(title/description/score) 값이 있으면 사용, 없으면 list 값 fallback.【F:app/(routes)/screens/[screenId]/server/getCleaningReportSnapshot.ts†L70-L109】【F:app/(routes)/screens/[screenId]/server/getSupervisingReportSnapshot.ts†L72-L120】
   - 이미지: set detail(title/comment/required) 우선, 없으면 list 값 fallback. required는 detail.required ?? list.required 로 계산.【F:app/(routes)/screens/[screenId]/server/getCleaningReportSnapshot.ts†L112-L136】【F:app/(routes)/screens/[screenId]/server/getSupervisingReportSnapshot.ts†L122-L146】
+  - 정렬: checklist/image 모두 detail.ordering asc → list.ordering asc 순으로 정렬하며, ordering은 detail 값이 있으면 이를 사용한다.【F:app/(routes)/screens/[screenId]/server/getCleaningReportSnapshot.ts†L70-L136】【F:app/(routes)/screens/[screenId]/server/getSupervisingReportSnapshot.ts†L72-L146】
 
 ## 005. 청소완료보고 화면
 ### 조회 단계
-1. **체크리스트 로드**: 업무의 `checklist_set_id`로 `work_checklist_set_detail`을 조회 후 type=1(청소)만 사용, ordering→id 순으로 정렬.【F:app/(routes)/screens/[screenId]/server/getCleaningReportSnapshot.ts†L70-L109】
-2. **소모품 목록 로드**: `work_checklist_list`에서 type=3을 id 순으로 조회 후 description이 있는 항목을 앞에 배치.【F:app/(routes)/screens/[screenId]/server/getCleaningReportSnapshot.ts†L102-L110】
+1. **체크리스트 로드**: 업무의 `checklist_set_id`로 `work_checklist_set_detail`을 조회 후 type=1(청소)만 사용, detail.ordering asc → list.ordering asc 순으로 정렬.【F:app/(routes)/screens/[screenId]/server/getCleaningReportSnapshot.ts†L70-L109】
+2. **소모품 목록 로드**: `work_checklist_list`에서 type=3을 ordering asc로 조회 후 description이 있는 항목을 앞에 배치.【F:app/(routes)/screens/[screenId]/server/getCleaningReportSnapshot.ts†L102-L110】
 3. **사진 슬롯 로드**: 업무의 `images_set_id`가 있을 때, `work_images_set_detail`을 role=1(클리너) 기준으로 detail→list fallback을 적용해 제목/필수 여부/코멘트 결정.【F:app/(routes)/screens/[screenId]/server/getCleaningReportSnapshot.ts†L112-L136】
 4. **기존 입력 불러오기**: `work_reports`에서 최신 type별 레코드를 읽어 청소 체크(1), 소모품 체크/메모(2), 청소 사진(3) 값을 역직렬화한다.【F:app/(routes)/screens/[screenId]/server/getCleaningReportSnapshot.ts†L138-L216】
 
@@ -36,10 +38,10 @@ work_checklist, work_images 조회 기준과 work_reports, worker_evaluate 적�
 
 ## 006. 수퍼바이징 완료보고 화면
 ### 조회 단계
-1. **체크리스트 로드**: 업무의 `checklist_set_id` 기준으로 type=2(수퍼바이징) detail을 ordering→id 순으로 조회, set.score와 list.score를 모두 담는다.【F:app/(routes)/screens/[screenId]/server/getSupervisingReportSnapshot.ts†L72-L109】
-2. **소모품 목록 로드**: type=3 리스트를 id 순으로 조회, 점수(listScore)를 포함해 description이 있는 항목 우선 정렬.【F:app/(routes)/screens/[screenId]/server/getSupervisingReportSnapshot.ts†L111-L120】
+1. **체크리스트 로드**: 업무의 `checklist_set_id` 기준으로 type=2(수퍼바이징) detail을 detail.ordering asc → list.ordering asc 순으로 조회, set.score와 list.score를 모두 담는다.【F:app/(routes)/screens/[screenId]/server/getSupervisingReportSnapshot.ts†L72-L109】
+2. **소모품 목록 로드**: type=3 리스트를 ordering asc로 조회, 점수(listScore)를 포함해 description이 있는 항목 우선 정렬.【F:app/(routes)/screens/[screenId]/server/getSupervisingReportSnapshot.ts†L111-L120】
 3. **사진 슬롯 로드**: role=2(버틀러) detail을 사용해 제목/필수 여부/코멘트 결정.【F:app/(routes)/screens/[screenId]/server/getSupervisingReportSnapshot.ts†L122-L146】
-4. **기존 입력 불러오기**: work_reports에서 수퍼바이징 체크(type=4 contents1=발견, contents2=완료), 소모품(type=2), 사진(type=5) 정보를 최신순으로 취득 후 파싱한다.【F:app/(routes)/screens/[screenId]/server/getSupervisingReportSnapshot.ts†L148-L236】
+4. **기존 입력 불러오기**: work_reports에서 수퍼바이징 체크(type=4 contents1=발견, contents2=완료), 소모품(type=2), 사진(type=5) 정보를 최신순으로 취득 후 파싱한다. (contents1=발견은 발견된 이슈/미비점 체크, contents2=완료는 해결 완료 여부 체크를 뜻한다.)【F:app/(routes)/screens/[screenId]/server/getSupervisingReportSnapshot.ts†L148-L236】
 
 ### 출력 단계
 - 체크리스트: detail/list fallback으로 제목·설명·점수 노출, set.score(listScore)로 평가 점수를 병행 보유.【F:app/(routes)/screens/[screenId]/server/getSupervisingReportSnapshot.ts†L100-L120】
