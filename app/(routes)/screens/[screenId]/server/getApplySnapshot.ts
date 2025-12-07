@@ -85,9 +85,7 @@ export async function getApplySnapshot(profile: ProfileSummary): Promise<ApplySn
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const canApplyNow = isAdmin || nowMinutes >= applyStartMinutes;
   const horizonDays = isAdmin ? FETCH_DAYS : ruleForTier?.horizonDays ?? getApplyHorizonDays(workerTier);
-  const applyWindowHint = isAdmin
-    ? '관리자는 시간·날짜 제한 없이 신청/배정이 가능합니다.'
-    : `최대 D+${horizonDays}까지, ${rawApplyLabel}부터 신청 가능합니다.`;
+  const applyWindowHint = isAdmin ? '' : `최대 D+${horizonDays}까지, ${rawApplyLabel}부터 신청 가능합니다.`;
   const guardMessage = hasAccess ? null : '화면 003은 Admin, Butler, Cleaner 역할에게만 제공됩니다. 역할을 전환해 주세요.';
   const penaltyInfo = !isAdmin && workerId ? await getActivePenalty(workerId, now) : { active: false };
   const rows = await listApplyRows(todayKey, endKey);
