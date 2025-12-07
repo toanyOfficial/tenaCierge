@@ -228,7 +228,7 @@ tenaCierge,work_checklist_list,updated_at,timestamp,NO,
 tenaCierge,work_checklist_set_detail,id,int unsigned,NO,PK
 tenaCierge,work_checklist_set_detail,checklist_list_id,tinyint,NO,
 tenaCierge,work_checklist_set_detail,checklist_header_id,int,NO,
-tenaCierge,work_checklist_set_detail,seq,tinyint,YES,
+tenaCierge,work_checklist_set_detail,ordering,tinyint,YES,
 tenaCierge,work_checklist_set_detail,title,varchar(20),YES,
 tenaCierge,work_checklist_set_detail,dscpt,varchar(50),YES,
 tenaCierge,work_checklist_set_detail,score,tinyint,YES,
