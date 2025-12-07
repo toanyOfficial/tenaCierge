@@ -198,18 +198,32 @@ export async function POST(req: Request) {
 
         const findingIds = supervisingChecklistIds.filter((id) => supervisingFindings[id]);
         const scoredIds = [...new Set(findingIds)];
-        const scoreMap = new Map<number, number>(checklistRows.map((row) => [row.id, Number(row.setScore) || 0]));
+        const scoreMap = new Map<number, number>(
+          checklistRows.map((row) => [row.id, Number(row.setScore ?? row.listScore) || 0])
+        );
         const checklistPointSum = scoredIds.reduce((sum, id) => sum + (scoreMap.get(id) ?? 0), 0);
 
         if (targetWork.cleanerId) {
-          await tx.insert(workerEvaluateHistory).values({
+          const evaluationPayload = {
             workerId: targetWork.cleanerId,
             evaluatedAt: new Date(),
             workId,
             checklistTitleArray: scoredIds,
             checklistPointSum,
             comment: '수퍼바이징 결과'
-          });
+          };
+
+          const existingHistory = await tx
+            .select({ id: workerEvaluateHistory.id })
+            .from(workerEvaluateHistory)
+            .where(eq(workerEvaluateHistory.workId, workId))
+            .limit(1);
+
+          if (existingHistory.length) {
+            await tx.update(workerEvaluateHistory).set(evaluationPayload).where(eq(workerEvaluateHistory.workId, workId));
+          } else {
+            await tx.insert(workerEvaluateHistory).values(evaluationPayload);
+          }
         }
       }
     });
