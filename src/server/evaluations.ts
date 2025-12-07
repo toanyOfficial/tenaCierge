@@ -4,6 +4,7 @@ import { db } from '@/src/db/client';
 import {
   clientRooms,
   etcBuildings,
+  etcBaseCode,
   workHeader,
   workerEvaluateHistory,
   workerHeader,
@@ -439,12 +440,21 @@ async function fetchDailyWageRows(targetDate: Date): Promise<DailyWageRow[]> {
       endTime: workerSalaryHistory.endTime,
       hourlyWage: workerSalaryHistory.hourlyWageTargetDate,
       tier: workerHeader.tier,
-      bank: workerHeader.bankValue,
+      bankCodeGroup: workerHeader.bankCode,
+      bankCode: workerHeader.bankValue,
+      bankLabel: etcBaseCode.value,
       accountNo: workerHeader.accountNo,
       phone: workerHeader.phone
     })
     .from(workerSalaryHistory)
     .innerJoin(workerHeader, eq(workerSalaryHistory.workerId, workerHeader.id))
+    .leftJoin(
+      etcBaseCode,
+      and(
+        eq(etcBaseCode.codeGroup, workerHeader.bankCode),
+        eq(etcBaseCode.code, workerHeader.bankValue)
+      )
+    )
     .where(eq(workerSalaryHistory.workDate, startOfKstDay(targetDate)))
     .orderBy(workerHeader.name);
 
@@ -457,7 +467,7 @@ async function fetchDailyWageRows(targetDate: Date): Promise<DailyWageRow[]> {
     tierLabel: getTierLabel(row.tier),
     hourlyWage: toNumber(row.hourlyWage),
     dailyWage: calculateDailyWage(row.hourlyWage, row.startTime, row.endTime),
-    bank: row.bank ?? null,
+    bank: row.bankLabel ?? row.bankCode ?? row.bankCodeGroup ?? null,
     accountNo: row.accountNo ?? null,
     phone: row.phone ?? null
   }));
