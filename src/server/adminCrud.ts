@@ -225,7 +225,7 @@ export async function fetchReferenceOptions(
     throw new Error('레퍼런스 정보가 없습니다.');
   }
 
-  if (table === 'client_additional_price' && column === 'room_id') {
+  if (reference.table === 'client_rooms') {
     const pool = getPool();
     const searchTokens = keyword
       .split(/\s+/)
@@ -233,9 +233,10 @@ export async function fetchReferenceOptions(
       .filter(Boolean);
 
     const labelExpr =
-      "CONCAT_WS(' - ', r.id, b.building_short_name, r.room_no, COALESCE(r.host_name, c.name, c.person, ''), CASE WHEN r.open_yn = 1 THEN 'Y' ELSE 'N' END)";
-    const searchExpr = "CONCAT_WS(' ', b.building_short_name, r.room_no, COALESCE(r.host_name, c.name, c.person, ''), r.id)";
-    const whereClause = searchTokens.length ? `WHERE ${searchTokens.map(() => `${searchExpr} LIKE ?`).join(' AND ')}` : '';
+      "CONCAT_WS(' - ', COALESCE(r.host_name, c.name, c.person, ''), r.id, b.building_short_name, r.room_no, CASE WHEN r.open_yn = 1 THEN 'Y' ELSE 'N' END)";
+    const whereClause = searchTokens.length
+      ? `WHERE ${searchTokens.map(() => `(b.building_short_name LIKE ? OR r.room_no LIKE ?)`).join(' AND ')}`
+      : '';
 
     const sql = `
       SELECT r.id AS value, ${labelExpr} AS label
@@ -243,11 +244,18 @@ export async function fetchReferenceOptions(
       LEFT JOIN etc_buildings b ON r.building_id = b.id
       LEFT JOIN client_header c ON r.client_id = c.id
       ${whereClause}
-      ORDER BY COALESCE(r.host_name, c.name, c.person, ''), b.building_short_name, r.room_no
+      ORDER BY COALESCE(r.host_name, c.name, c.person, ''), b.building_short_name, r.room_no DESC
       LIMIT ?
     `;
 
-    const params: unknown[] = [...searchTokens.map((token) => `%${token}%`), limit];
+    const params: unknown[] = [];
+
+    searchTokens.forEach((token) => {
+      const like = `%${token}%`;
+      params.push(like, like);
+    });
+
+    params.push(limit);
     const [rows] = await pool.query<RowDataPacket[]>(sql, params);
 
     return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value) }));
