@@ -198,6 +198,11 @@ export default function CleaningReportClient({ profile, snapshot }: Props) {
       return;
     }
 
+    const trimmedRequirements = work.requirements?.trim();
+    if (trimmedRequirements) {
+      window.alert(`요구사항 : ${trimmedRequirements} 을 확인 하셨나요?`);
+    }
+
     setSubmitting(true);
 
     try {
