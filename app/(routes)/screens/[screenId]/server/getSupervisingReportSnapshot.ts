@@ -30,6 +30,7 @@ export type ChecklistItem = {
   title: string;
   type: number;
   score: number;
+  listScore: number;
   description: string | null;
 };
 
@@ -77,7 +78,8 @@ export async function getSupervisingReportSnapshot(
           description: workChecklistSetDetail.description,
           fallbackDescription: workChecklistList.description,
           type: workChecklistList.type,
-          score: workChecklistSetDetail.score
+          score: workChecklistSetDetail.score,
+          listScore: workChecklistList.score
         })
         .from(workChecklistSetDetail)
         .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
@@ -92,11 +94,12 @@ export async function getSupervisingReportSnapshot(
 
     const cleaningChecklist = checklistRows
       .filter((item) => item.type === 2)
-      .map(({ id, title, fallbackTitle, type, score, description, fallbackDescription }) => ({
+      .map(({ id, title, fallbackTitle, type, score, listScore, description, fallbackDescription }) => ({
         id,
         title: title ?? fallbackTitle ?? '',
         type: Number(type ?? 0),
         score: Number(score) || 0,
+        listScore: Number(listScore) || 0,
         description: description ?? fallbackDescription ?? null
       }));
 
