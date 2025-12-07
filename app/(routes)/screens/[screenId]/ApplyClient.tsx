@@ -44,7 +44,6 @@ export default function ApplyClient({ profile, snapshot }: Props) {
   const [pendingId, setPendingId] = useState<number | null>(null);
   const [statusMap, setStatusMap] = useState<Record<number, string>>({});
   const [errorMap, setErrorMap] = useState<Record<number, string>>({});
-  const [openDates, setOpenDates] = useState<Set<string>>(new Set());
   const [createDate, setCreateDate] = useState(snapshot.dateOptions[0]?.value ?? snapshot.todayKey);
   const [createSector, setCreateSector] = useState(() => {
     const first = snapshot.sectorOptions[0];
@@ -54,6 +53,7 @@ export default function ApplyClient({ profile, snapshot }: Props) {
   const [createStatus, setCreateStatus] = useState('');
   const [createError, setCreateError] = useState('');
   const [creating, setCreating] = useState(false);
+  const [collapsedDates, setCollapsedDates] = useState<Record<string, boolean>>({});
 
   const slots = useMemo(() => {
     return [...snapshot.slots].sort((a, b) => {
@@ -104,10 +104,6 @@ export default function ApplyClient({ profile, snapshot }: Props) {
         } satisfies DateGroup;
       });
   }, [slots]);
-
-  useEffect(() => {
-    setOpenDates(new Set(dateGroups.map((group) => group.key)));
-  }, [dateGroups]);
 
   useEffect(() => {
     const first = snapshot.sectorOptions[0];
@@ -346,15 +342,10 @@ export default function ApplyClient({ profile, snapshot }: Props) {
   }
 
   function toggleDate(key: string) {
-    setOpenDates((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
+    setCollapsedDates((prev) => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
   }
 
   return (
@@ -429,7 +420,7 @@ export default function ApplyClient({ profile, snapshot }: Props) {
           </div>
         ) : null}
 
-        <p className={styles.applyWindow}>{snapshot.applyWindowHint}</p>
+        {snapshot.applyWindowHint ? <p className={styles.applyWindow}>{snapshot.applyWindowHint}</p> : null}
         {guard ? <p className={styles.guardNotice}>{guard}</p> : null}
         {penaltyNotice && !guard ? <p className={styles.guardNotice}>{penaltyNotice}</p> : null}
         {disabledMessage && !guard ? <p className={styles.guardNotice}>현재 시각에는 신청 버튼이 비활성화됩니다. ({disabledMessage})</p> : null}
@@ -438,24 +429,32 @@ export default function ApplyClient({ profile, snapshot }: Props) {
           dateGroups.length ? (
             <div className={styles.applyCardStack}>
               {dateGroups.map((group) => {
-                const isOpen = openDates.has(group.key);
+                const collapsed = collapsedDates[group.key] ?? false;
                 return (
                   <article key={group.key} className={styles.applyCard}>
                     <header className={styles.applyCardHead}>
-                      <div>
+                      <div className={styles.applyCardMeta}>
                         <p className={styles.applyDate}>{group.label}</p>
                         <span className={styles.applyDay}>{group.dayLabel}</span>
+                        {group.hasMine ? <span className={styles.applyMineBadge}>내 신청 포함</span> : null}
                       </div>
-                      <button type="button" className={styles.collapseButton} onClick={() => toggleDate(group.key)}>
-                        {isOpen ? '접기' : '펼치기'}
+                      <button
+                        type="button"
+                        className={styles.collapseButton}
+                        aria-expanded={!collapsed}
+                        onClick={() => toggleDate(group.key)}
+                      >
+                        {collapsed ? '펼치기' : '접기'}
                       </button>
                     </header>
-                    {isOpen ? (
+                    {!collapsed ? (
                       <div className={styles.applyCardBody}>
                         {group.sectors.map((sector) => (
                           <div key={`${group.key}-${sector.label}`} className={styles.applySectorGroup}>
                             <header className={styles.applySectorHead}>
-                              <p className={styles.applySector}>{sector.label}</p>
+                              <div className={styles.applySectorMeta}>
+                                <span className={styles.applySector}>{sector.label}</span>
+                              </div>
                               <span className={styles.applySlotCount}>{sector.slots.length}건</span>
                             </header>
                             <ul className={styles.applySlotList}>

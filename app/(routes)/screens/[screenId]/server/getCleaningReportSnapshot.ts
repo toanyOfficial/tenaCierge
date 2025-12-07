@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import {
@@ -81,12 +81,26 @@ export async function getCleaningReportSnapshot(
         .from(workChecklistSetDetail)
         .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
         .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), eq(workChecklistList.type, 1)))
-        .orderBy(asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
+        .orderBy(
+          asc(sql`COALESCE(${workChecklistSetDetail.ordering}, ${workChecklistList.ordering})`),
+          asc(workChecklistSetDetail.id)
+        ),
       db
-        .select({ id: workChecklistList.id, title: workChecklistList.title, description: workChecklistList.description })
-        .from(workChecklistList)
-        .where(eq(workChecklistList.type, 3))
-        .orderBy(asc(workChecklistList.id))
+        .select({
+          id: workChecklistSetDetail.id,
+          title: workChecklistSetDetail.title,
+          fallbackTitle: workChecklistList.title,
+          description: workChecklistSetDetail.description,
+          fallbackDescription: workChecklistList.description,
+          type: workChecklistList.type
+        })
+        .from(workChecklistSetDetail)
+        .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
+        .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), eq(workChecklistList.type, 3)))
+        .orderBy(
+          asc(sql`COALESCE(${workChecklistSetDetail.ordering}, ${workChecklistList.ordering})`),
+          asc(workChecklistSetDetail.id)
+        )
     ]);
 
     const cleaningChecklist = checklistRows
@@ -100,12 +114,12 @@ export async function getCleaningReportSnapshot(
       }));
 
     const suppliesChecklist = sortSuppliesWithDescriptionLast(
-      supplyRows.map(({ id, title, description }) => ({
+      supplyRows.map(({ id, title, fallbackTitle, description, fallbackDescription }) => ({
         id,
-        title: title ?? '',
+        title: title ?? fallbackTitle ?? '',
         type: 3,
         score: 0,
-        description: description ?? null
+        description: description ?? fallbackDescription ?? null
       }))
     );
 
@@ -125,7 +139,7 @@ export async function getCleaningReportSnapshot(
         .from(workImagesSetDetail)
         .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
         .where(and(eq(workImagesSetDetail.imagesSetId, workRow.imagesSetId), eq(workImagesList.role, 1)))
-        .orderBy(asc(workImagesSetDetail.id));
+        .orderBy(asc(sql`COALESCE(${workImagesSetDetail.ordering}, ${workImagesList.ordering}, ${workImagesSetDetail.id})`));
 
       return rows.map(({ id, title, fallbackTitle, required, listRequired, comment, fallbackComment }) => ({
         id,

@@ -67,7 +67,7 @@ export async function fetchWorkRowsByDate(targetDate: string) {
       imagesSetId: clientRooms.imagesSetId
     })
     .from(workHeader)
-    .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
+    .innerJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
     .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
     .leftJoin(
       buildingSector,
@@ -129,7 +129,7 @@ export async function fetchWorkRowById(workId: number) {
       imagesSetId: clientRooms.imagesSetId
     })
     .from(workHeader)
-    .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
+    .innerJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
     .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
     .leftJoin(
       buildingSector,
@@ -173,7 +173,7 @@ export async function fetchLatestWorkByDateAndRoom(date: string, roomId: number)
       imagesSetId: clientRooms.imagesSetId
     })
     .from(workHeader)
-    .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
+    .innerJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
     .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
     .leftJoin(
       buildingSector,
