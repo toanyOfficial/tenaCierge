@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import {
@@ -81,12 +81,15 @@ export async function getCleaningReportSnapshot(
         .from(workChecklistSetDetail)
         .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
         .where(and(eq(workChecklistSetDetail.checklistHeaderId, workRow.checklistSetId), eq(workChecklistList.type, 1)))
-        .orderBy(asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
+        .orderBy(
+          asc(sql`COALESCE(${workChecklistSetDetail.ordering}, ${workChecklistList.ordering})`),
+          asc(workChecklistSetDetail.id)
+        ),
       db
         .select({ id: workChecklistList.id, title: workChecklistList.title, description: workChecklistList.description })
         .from(workChecklistList)
         .where(eq(workChecklistList.type, 3))
-        .orderBy(asc(workChecklistList.id))
+        .orderBy(asc(sql`COALESCE(${workChecklistList.ordering}, ${workChecklistList.id})`))
     ]);
 
     const cleaningChecklist = checklistRows
@@ -125,7 +128,10 @@ export async function getCleaningReportSnapshot(
         .from(workImagesSetDetail)
         .leftJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
         .where(and(eq(workImagesSetDetail.imagesSetId, workRow.imagesSetId), eq(workImagesList.role, 1)))
-        .orderBy(asc(workImagesSetDetail.id));
+        .orderBy(
+          asc(sql`COALESCE(${workImagesSetDetail.ordering}, ${workImagesList.ordering})`),
+          asc(workImagesSetDetail.id)
+        );
 
       return rows.map(({ id, title, fallbackTitle, required, listRequired, comment, fallbackComment }) => ({
         id,
