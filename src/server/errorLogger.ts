@@ -8,8 +8,10 @@ function sanitizeContext(context: Record<string, unknown> | null): Record<string
   }
 
   try {
-    JSON.stringify(context);
-    return context;
+    const normalized = JSON.parse(
+      JSON.stringify(context, (_key, value) => (typeof value === 'bigint' ? value.toString() : value))
+    );
+    return normalized;
   } catch (error) {
     console.warn('errorLogs context stringify 실패', error);
     const fallback = { fallback: 'stringify_failed', keys: Object.keys(context) };
@@ -61,11 +63,15 @@ export async function logEtcError({
   } catch (error) {
     console.error('errorLogs 저장 실패', error);
     // Ensure the failure is still recorded in the file logger for visibility.
-    await fileLogError({
-      message: 'errorLogs DB insert 실패',
-      error,
-      context: { appName, message, errorCode, requestId, userId }
-    });
+    try {
+      await fileLogError({
+        message: 'errorLogs DB insert 실패',
+        error,
+        context: { appName, message, errorCode, requestId, userId }
+      });
+    } catch (fileLogError) {
+      console.error('errorLogs 파일 기록 실패', fileLogError);
+    }
   }
 }
 
