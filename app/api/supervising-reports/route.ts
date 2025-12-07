@@ -1,6 +1,6 @@
 import path from 'path';
 
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
 import { db } from '@/src/db/client';
@@ -15,7 +15,7 @@ import {
 } from '@/src/db/schema';
 import { logServerError } from '@/src/server/errorLogger';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
-import { fetchWorkRowById } from '@/src/server/workQueries';
+import { fetchWorkRowById, fetchWorkSetBindings } from '@/src/server/workQueries';
 import { processImageUploads, UploadError } from '@/src/server/imageUpload';
 import { getKstNow } from '@/src/utils/workWindow';
 
@@ -50,7 +50,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: '해당 업무를 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    if (!targetWork.checklistSetId) {
+    const workSets = await fetchWorkSetBindings(workId);
+
+    if (!workSets?.checklistSetId) {
       return NextResponse.json({ message: '체크리스트 세트가 없습니다.' }, { status: 400 });
     }
 
@@ -59,19 +61,21 @@ export async function POST(req: Request) {
         .select({
           id: workChecklistSetDetail.id,
           type: workChecklistList.type,
-          listScore: workChecklistList.score,
           setScore: workChecklistSetDetail.score
         })
         .from(workChecklistSetDetail)
         .leftJoin(workChecklistList, eq(workChecklistSetDetail.checklistListId, workChecklistList.id))
-        .where(and(eq(workChecklistSetDetail.checklistHeaderId, targetWork.checklistSetId), eq(workChecklistList.type, 2)))
-        .orderBy(asc(workChecklistSetDetail.seq), asc(workChecklistSetDetail.id)),
+        .where(and(eq(workChecklistSetDetail.checklistHeaderId, workSets.checklistSetId), eq(workChecklistList.type, 2)))
+        .orderBy(
+          asc(sql`COALESCE(${workChecklistSetDetail.ordering}, ${workChecklistList.ordering}, ${workChecklistSetDetail.id})`),
+          asc(workChecklistSetDetail.id)
+        ),
       db
         .select({ id: workChecklistList.id })
         .from(workChecklistList)
         .where(eq(workChecklistList.type, 3))
         .orderBy(asc(workChecklistList.id)),
-      targetWork.imagesSetId
+      workSets.imagesSetId
         ? db
             .select({
               id: workImagesSetDetail.id,
@@ -80,7 +84,7 @@ export async function POST(req: Request) {
             })
             .from(workImagesSetDetail)
             .innerJoin(workImagesList, eq(workImagesSetDetail.imagesListId, workImagesList.id))
-            .where(and(eq(workImagesSetDetail.imagesSetId, targetWork.imagesSetId), eq(workImagesList.role, 2)))
+            .where(and(eq(workImagesSetDetail.imagesSetId, workSets.imagesSetId), eq(workImagesList.role, 2)))
             .orderBy(asc(workImagesSetDetail.id))
         : Promise.resolve([])
     ]);
@@ -189,9 +193,7 @@ export async function POST(req: Request) {
 
       const findingIds = supervisingChecklistIds.filter((id) => supervisingFindings[id]);
       const scoredIds = [...new Set(findingIds)];
-      const scoreMap = new Map<number, number>(
-        checklistRows.map((row) => [row.id, Number(row.setScore ?? row.listScore) || 0])
-      );
+      const scoreMap = new Map<number, number>(checklistRows.map((row) => [row.id, Number(row.setScore) || 0]));
       const checklistPointSum = scoredIds.reduce((sum, id) => sum + (scoreMap.get(id) ?? 0), 0);
 
       if (targetWork.cleanerId) {
