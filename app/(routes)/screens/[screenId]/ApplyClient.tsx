@@ -44,7 +44,6 @@ export default function ApplyClient({ profile, snapshot }: Props) {
   const [pendingId, setPendingId] = useState<number | null>(null);
   const [statusMap, setStatusMap] = useState<Record<number, string>>({});
   const [errorMap, setErrorMap] = useState<Record<number, string>>({});
-  const [openDates, setOpenDates] = useState<Set<string>>(new Set());
   const [createDate, setCreateDate] = useState(snapshot.dateOptions[0]?.value ?? snapshot.todayKey);
   const [createSector, setCreateSector] = useState(() => {
     const first = snapshot.sectorOptions[0];
@@ -104,10 +103,6 @@ export default function ApplyClient({ profile, snapshot }: Props) {
         } satisfies DateGroup;
       });
   }, [slots]);
-
-  useEffect(() => {
-    setOpenDates(new Set(dateGroups.map((group) => group.key)));
-  }, [dateGroups]);
 
   useEffect(() => {
     const first = snapshot.sectorOptions[0];
@@ -345,18 +340,6 @@ export default function ApplyClient({ profile, snapshot }: Props) {
     return null;
   }
 
-  function toggleDate(key: string) {
-    setOpenDates((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  }
-
   return (
     <div className={styles.screenShell}>
       <CommonHeader
@@ -429,7 +412,7 @@ export default function ApplyClient({ profile, snapshot }: Props) {
           </div>
         ) : null}
 
-        <p className={styles.applyWindow}>{snapshot.applyWindowHint}</p>
+        {snapshot.applyWindowHint ? <p className={styles.applyWindow}>{snapshot.applyWindowHint}</p> : null}
         {guard ? <p className={styles.guardNotice}>{guard}</p> : null}
         {penaltyNotice && !guard ? <p className={styles.guardNotice}>{penaltyNotice}</p> : null}
         {disabledMessage && !guard ? <p className={styles.guardNotice}>현재 시각에는 신청 버튼이 비활성화됩니다. ({disabledMessage})</p> : null}
@@ -437,73 +420,62 @@ export default function ApplyClient({ profile, snapshot }: Props) {
         {snapshot.hasAccess && !guard ? (
           dateGroups.length ? (
             <div className={styles.applyCardStack}>
-              {dateGroups.map((group) => {
-                const isOpen = openDates.has(group.key);
-                return (
-                  <article key={group.key} className={styles.applyCard}>
-                    <header className={styles.applyCardHead}>
-                      <div>
+              {dateGroups.flatMap((group) =>
+                group.sectors.map((sector) => (
+                  <div key={`${group.key}-${sector.label}`} className={styles.applySectorGroup}>
+                    <header className={styles.applySectorHead}>
+                      <div className={styles.applySectorMeta}>
                         <p className={styles.applyDate}>{group.label}</p>
                         <span className={styles.applyDay}>{group.dayLabel}</span>
+                        <span className={styles.applySectorDivider} aria-hidden="true">
+                          ·
+                        </span>
+                        <span className={styles.applySector}>{sector.label}</span>
                       </div>
-                      <button type="button" className={styles.collapseButton} onClick={() => toggleDate(group.key)}>
-                        {isOpen ? '접기' : '펼치기'}
-                      </button>
+                      <span className={styles.applySlotCount}>{sector.slots.length}건</span>
                     </header>
-                    {isOpen ? (
-                      <div className={styles.applyCardBody}>
-                        {group.sectors.map((sector) => (
-                          <div key={`${group.key}-${sector.label}`} className={styles.applySectorGroup}>
-                            <header className={styles.applySectorHead}>
-                              <p className={styles.applySector}>{sector.label}</p>
-                              <span className={styles.applySlotCount}>{sector.slots.length}건</span>
-                            </header>
-                            <ul className={styles.applySlotList}>
-                              {sector.slots.map((slot) => {
-                                const takenByOther = slot.isTaken && !slot.isMine;
-                                const locked = !snapshot.isAdmin && group.hasMine && !slot.isMine;
-                                return (
-                                  <li
-                                    key={slot.id}
-                                    className={`${styles.applySlot} ${takenByOther ? styles.applySlotTaken : ''} ${
-                                      slot.isMine ? styles.applySlotMine : ''
-                                    } ${locked ? styles.applySlotLocked : ''}`}
-                                  >
-                                    <div className={styles.applySlotMeta}>
-                                      <span className={slot.isButlerSlot ? styles.positionButler : styles.positionCleaner}>
-                                        {slot.positionLabel}
-                                      </span>
-                                      {slot.isTaken ? (
-                                        <span className={styles.applyAssignee}>
-                                          {slot.isMine ? '내 신청' : slot.assignedWorkerName || '신청완료'}
-                                        </span>
-                                      ) : null}
-                                    </div>
-                                    <div className={styles.applySlotAction}>
-                                      {renderButton(slot, locked)}
-                                      {snapshot.isAdmin ? (
-                                        <button
-                                          type="button"
-                                          className={styles.applyDeleteButton}
-                                          disabled={pendingId === slot.id || slot.isTaken}
-                                          onClick={() => handleDelete(slot)}
-                                        >
-                                          삭제
-                                        </button>
-                                      ) : null}
-                                    </div>
-                                    <div className={styles.applySlotHelper}>{renderHelper(slot, locked)}</div>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-                  </article>
-                );
-              })}
+                    <ul className={styles.applySlotList}>
+                      {sector.slots.map((slot) => {
+                        const takenByOther = slot.isTaken && !slot.isMine;
+                        const locked = !snapshot.isAdmin && group.hasMine && !slot.isMine;
+                        return (
+                          <li
+                            key={slot.id}
+                            className={`${styles.applySlot} ${takenByOther ? styles.applySlotTaken : ''} ${
+                              slot.isMine ? styles.applySlotMine : ''
+                            } ${locked ? styles.applySlotLocked : ''}`}
+                          >
+                            <div className={styles.applySlotMeta}>
+                              <span className={slot.isButlerSlot ? styles.positionButler : styles.positionCleaner}>
+                                {slot.positionLabel}
+                              </span>
+                              {slot.isTaken ? (
+                                <span className={styles.applyAssignee}>
+                                  {slot.isMine ? '내 신청' : slot.assignedWorkerName || '신청완료'}
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className={styles.applySlotAction}>
+                              {renderButton(slot, locked)}
+                              {snapshot.isAdmin ? (
+                                <button
+                                  type="button"
+                                  className={styles.applyDeleteButton}
+                                  disabled={pendingId === slot.id || slot.isTaken}
+                                  onClick={() => handleDelete(slot)}
+                                >
+                                  삭제
+                                </button>
+                              ) : null}
+                            </div>
+                            <div className={styles.applySlotHelper}>{renderHelper(slot, locked)}</div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))
+              )}
             </div>
           ) : (
             <p className={styles.emptyMessage}>{emptyMessage ?? '표시할 신청 가능 업무가 없습니다.'}</p>

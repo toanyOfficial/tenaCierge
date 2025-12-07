@@ -1928,6 +1928,17 @@
   gap: 8px;
 }
 
+.applySectorMeta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.applySectorDivider {
+  color: var(--text-soft);
+}
+
 .applySlotCount {
   color: var(--text-soft);
   font-size: 0.9rem;
