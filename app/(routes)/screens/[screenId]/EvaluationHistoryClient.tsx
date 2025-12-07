@@ -205,14 +205,14 @@ export default function EvaluationHistoryClient({ profile, snapshot }: Props) {
 
     const rows = adminData.dailyWages.map((row) => [
       safeString(row.bank),
-      safeString(row.accountNo),
+      excelText(row.accountNo),
       formatMoney(row.dailyWage),
       row.name,
       depositLabel,
       depositLabel,
       '',
       '',
-      safeString(row.phone)
+      excelText(row.phone)
     ]);
 
     const csv = [header, ...rows]
@@ -510,6 +510,12 @@ function formatMoney(value: number | null) {
 
 function safeString(value: string | null | undefined) {
   return value?.trim() || '-';
+}
+
+function excelText(value: string | null | undefined) {
+  const str = safeString(value);
+  if (str === '-') return '';
+  return `'${str}`;
 }
 
 function formatDepositLabel(targetDate: string) {
