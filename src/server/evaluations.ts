@@ -402,14 +402,6 @@ function toTimeString(value: Date | string | null): string | null {
   return null;
 }
 
-function toKstDateTime(baseDate: Date, timeValue: Date | string | null): Date | null {
-  const timeString = toTimeString(timeValue);
-  if (!timeString) return null;
-  const key = formatKstDateKey(baseDate);
-  const candidate = new Date(`${key}T${timeString}+09:00`);
-  return Number.isNaN(candidate.getTime()) ? null : candidate;
-}
-
 function calculateDailyWage(
   hourlyWageValue: number | string | null,
   start: Date | string | null,
@@ -431,7 +423,16 @@ function calculateDailyWage(
   return Number(((hourlyWage * minutes) / 60).toFixed(2));
 }
 
+function toKstDateTimeFromTime(targetKey: string, time?: string | null) {
+  if (!time) return null;
+  const iso = `${targetKey}T${time}+09:00`;
+  const parsed = new Date(iso);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 async function fetchDailyWageRows(targetDate: Date): Promise<DailyWageRow[]> {
+  const targetKey = toDateKey(targetDate);
+
   const rows = await db
     .select({
       workerId: workerSalaryHistory.workerId,
@@ -455,14 +456,14 @@ async function fetchDailyWageRows(targetDate: Date): Promise<DailyWageRow[]> {
         eq(etcBaseCode.code, workerHeader.bankValue)
       )
     )
-    .where(eq(workerSalaryHistory.workDate, startOfKstDay(targetDate)))
+    .where(eq(workerSalaryHistory.workDate, targetKey))
     .orderBy(workerHeader.name);
 
   return rows.map((row) => ({
     workerId: Number(row.workerId),
     name: row.name,
-    startTime: toKstDateTime(targetDate, row.startTime),
-    endTime: toKstDateTime(targetDate, row.endTime),
+    startTime: toKstDateTimeFromTime(targetKey, row.startTime),
+    endTime: toKstDateTimeFromTime(targetKey, row.endTime),
     tier: typeof row.tier === 'number' ? row.tier : null,
     tierLabel: getTierLabel(row.tier),
     hourlyWage: toNumber(row.hourlyWage),
