@@ -206,7 +206,7 @@ export default function EvaluationHistoryClient({ profile, snapshot }: Props) {
     const rows = adminData.dailyWages.map((row) => [
       safeString(row.bank),
       excelText(row.accountNo),
-      formatMoney(row.dailyWage),
+      formatMoney(row.dailyWage, false),
       row.name,
       depositLabel,
       depositLabel,
@@ -503,9 +503,10 @@ function formatTime(value: Date | null) {
   return `${hours}:${minutes}`;
 }
 
-function formatMoney(value: number | null) {
+function formatMoney(value: number | null, withUnit = true) {
   if (value == null || Number.isNaN(value)) return '-';
-  return `${value.toLocaleString('ko-KR')}원`;
+  const numeric = value.toLocaleString('ko-KR');
+  return withUnit ? `${numeric}원` : numeric;
 }
 
 function safeString(value: string | null | undefined) {
