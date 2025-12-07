@@ -243,7 +243,7 @@ export const workChecklistSetDetail = mysqlTable('work_checklist_set_detail', {
   id: int('id', { unsigned: true }).autoincrement().notNull(),
   checklistListId: tinyint('checklist_list_id', { unsigned: true }).notNull(),
   checklistHeaderId: int('checklist_header_id', { unsigned: true }).notNull(),
-  seq: tinyint('seq'),
+  ordering: tinyint('ordering'),
   title: varchar('title', { length: 20 }),
   description: varchar('dscpt', { length: 50 }),
   score: tinyint('score').notNull(),
