@@ -17,7 +17,7 @@ export type AdminColumnMeta = {
   references?: AdminReference;
 };
 
-export type AdminReferenceOption = { value: unknown; label: string; codeValue?: string };
+export type AdminReferenceOption = { value: unknown; label: string; codeValue?: string; meta?: Record<string, unknown> };
 
 const referenceMap: Record<string, Record<string, AdminReference>> = {
   client_additional_price: { room_id: { table: 'client_rooms', column: 'id' } },
@@ -299,7 +299,7 @@ export async function fetchReferenceOptions(
       .filter(Boolean);
 
     const labelExpr =
-      "CONCAT_WS(' - ', COALESCE(r.host_name, c.name, c.person, ''), r.id, b.building_short_name, r.room_no, CASE WHEN r.open_yn = 1 THEN 'Y' ELSE 'N' END)";
+      "CONCAT_WS(' - ', COALESCE(c.name, c.person, ''), r.id, b.building_short_name, r.room_no, CASE WHEN r.open_yn = 1 THEN 'Y' ELSE 'N' END)";
     const whereClause = searchTokens.length
       ? `WHERE ${searchTokens.map(() => `(b.building_short_name LIKE ? OR r.room_no LIKE ?)`).join(' AND ')}`
       : '';
@@ -310,7 +310,7 @@ export async function fetchReferenceOptions(
       LEFT JOIN etc_buildings b ON r.building_id = b.id
       LEFT JOIN client_header c ON r.client_id = c.id
       ${whereClause}
-      ORDER BY COALESCE(r.host_name, c.name, c.person, ''), b.building_short_name, r.room_no DESC
+      ORDER BY COALESCE(c.name, c.person, ''), b.building_short_name, r.room_no DESC
       LIMIT ?
     `;
 
@@ -325,6 +325,35 @@ export async function fetchReferenceOptions(
     const [rows] = await pool.query<RowDataPacket[]>(sql, params);
 
     return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value) }));
+  }
+
+  if (table === 'client_additional_price' && column === 'title') {
+    const pool = getPool();
+    const whereClauses = ["selected_by = 3"];
+    const params: unknown[] = [];
+
+    if (keyword) {
+      whereClauses.push('title LIKE ?');
+      params.push(`%${keyword}%`);
+    }
+
+    params.push(limit);
+
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT id AS value, title AS label, title, minus_yn, ratio_yn, amount FROM client_price_list WHERE ${whereClauses.join(' AND ')} ORDER BY title ASC LIMIT ?`,
+      params
+    );
+
+    return rows.map((row) => ({
+      value: row.value,
+      label: row.label ?? String(row.value),
+      meta: {
+        title: row.title,
+        minus_yn: row.minus_yn,
+        ratio_yn: row.ratio_yn,
+        amount: row.amount
+      }
+    }));
   }
 
   const refColumns = await fetchColumnMetadata(reference.table);
@@ -375,6 +404,24 @@ function withManualFlag(table: string, data: Record<string, unknown>) {
 
 export async function insertRow(table: string, data: Record<string, unknown>) {
   const columns = await fetchColumnMetadata(table);
+
+  if (table === 'client_additional_price') {
+    const hasSeq = data.seq !== undefined && data.seq !== null && data.seq !== '';
+    const roomId = Number(data.room_id ?? 0);
+    const date = typeof data.date === 'string' ? data.date : null;
+
+    if (!hasSeq && roomId > 0 && date) {
+      const pool = getPool();
+      const [rows] = await pool.query<RowDataPacket[]>(
+        'SELECT COALESCE(MAX(seq), 0) + 1 AS nextSeq FROM client_additional_price WHERE room_id = ? AND date = ?',
+        [roomId, date]
+      );
+      const nextSeq = Number(rows?.[0]?.nextSeq ?? 1);
+      // eslint-disable-next-line no-param-reassign
+      data.seq = Number.isFinite(nextSeq) ? nextSeq : 1;
+    }
+  }
+
   const normalized = withManualFlag(table, data);
   const { names, values } = buildInsertParts(normalized, columns);
 

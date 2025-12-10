@@ -101,6 +101,10 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   const [referenceOptions, setReferenceOptions] = useState<Record<string, AdminReferenceOption[]>>({});
   const [referenceSearch, setReferenceSearch] = useState<Record<string, string>>({});
   const [referenceLoading, setReferenceLoading] = useState<Record<string, boolean>>({});
+  const [additionalPriceOptions, setAdditionalPriceOptions] = useState<AdminReferenceOption[]>([]);
+  const [additionalPriceSearch, setAdditionalPriceSearch] = useState('');
+  const [additionalPriceLoading, setAdditionalPriceLoading] = useState(false);
+  const [useCustomAdditionalTitle, setUseCustomAdditionalTitle] = useState(false);
   const [helperSnapshot, setHelperSnapshot] = useState<Snapshot | null>(null);
   const [helperLoading, setHelperLoading] = useState(false);
   const [helperFeedback, setHelperFeedback] = useState<string | null>(null);
@@ -141,8 +145,19 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
 
   const columns = snapshot?.columns ?? [];
   const helperRows = helperSnapshot?.rows ?? [];
-  const helperTableName = helperSnapshot?.table ?? (selectedTable === 'client_rooms' ? 'client_rooms' : 'client_header');
-  const helperHiddenColumns = helperTableName === 'client_rooms' ? CLIENT_ROOMS_HIDDEN_COLUMNS : CLIENT_HEADER_HIDDEN_COLUMNS;
+  const helperTableName =
+    helperSnapshot?.table ??
+    (selectedTable === 'client_additional_price'
+      ? 'client_additional_price'
+      : selectedTable === 'client_rooms'
+        ? 'client_rooms'
+        : 'client_header');
+  const helperHiddenColumns =
+    helperTableName === 'client_rooms'
+      ? CLIENT_ROOMS_HIDDEN_COLUMNS
+      : helperTableName === 'client_additional_price'
+        ? CLIENT_ADDITIONAL_PRICE_CONFIG.hiddenColumns
+        : CLIENT_HEADER_HIDDEN_COLUMNS;
   const helperLabelOverrides = TABLE_LABEL_OVERRIDES[helperTableName] ?? {};
   const helperColumns = (helperSnapshot?.columns ?? []).filter((column) => !helperHiddenColumns.has(column.name));
   const helperColumnLabels = helperColumns.map((column) => ({
@@ -159,6 +174,15 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       void loadReferenceOptions('tier', '');
     }
   }, [selectedTable]);
+
+  useEffect(() => {
+    setAdditionalPriceOptions([]);
+    setAdditionalPriceSearch('');
+    setUseCustomAdditionalTitle(false);
+    if (isClientAdditionalPrice) {
+      void loadAdditionalPriceOptions('');
+    }
+  }, [selectedTable, isClientAdditionalPrice]);
 
   useEffect(() => {
     columns.forEach((column) => {
@@ -196,7 +220,12 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     setHelperLoading(true);
     setHelperFeedback(null);
     try {
-      const table = selectedTable === 'client_rooms' ? 'client_rooms' : 'client_header';
+      const table =
+        selectedTable === 'client_additional_price'
+          ? 'client_additional_price'
+          : selectedTable === 'client_rooms'
+            ? 'client_rooms'
+            : 'client_header';
       const response = await fetch(`/api/admin/crud?table=${table}&limit=200&offset=0`, { cache: 'no-cache' });
       if (!response.ok) {
         throw new Error('목록을 불러오지 못했습니다.');
@@ -247,6 +276,13 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   }
 
   function handleInputChange(column: AdminColumnMeta, value: string | boolean) {
+    if (isClientAdditionalPrice && mode === 'create' && (column.name === 'room_id' || column.name === 'date')) {
+      const nextValues = { ...formValues, [column.name]: String(value) };
+      setFormValues(nextValues);
+      void refreshAdditionalPriceSeq(nextValues);
+      return;
+    }
+
     if (column.dataType === 'tinyint' && column.columnType === 'tinyint(1)') {
       setFormValues((prev) => ({ ...prev, [column.name]: value ? '1' : '0' }));
       return;
@@ -262,6 +298,33 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       basecode_bank: optionValue,
       basecode_code: selectedOption?.codeValue ?? ''
     }));
+  }
+
+  async function refreshAdditionalPriceSeq(nextValues: Record<string, string>) {
+    if (!isClientAdditionalPrice || mode === 'edit') return;
+
+    const roomId = Number(nextValues.room_id ?? formValues.room_id);
+    const date = nextValues.date ?? formValues.date;
+
+    if (!roomId || !date) return;
+
+    try {
+      const response = await fetch(
+        `/api/admin/crud/additional-price-seq?roomId=${encodeURIComponent(String(roomId))}&date=${encodeURIComponent(date)}`,
+        { cache: 'no-cache' }
+      );
+      if (!response.ok) {
+        throw new Error('순번을 불러오지 못했습니다.');
+      }
+      const payload = (await response.json()) as { nextSeq?: number };
+      const nextSeq = payload?.nextSeq;
+      if (nextSeq !== undefined) {
+        setFormValues((prev) => ({ ...prev, seq: String(nextSeq) }));
+      }
+    } catch (error) {
+      console.error(error);
+      setFeedback(error instanceof Error ? error.message : '순번 조회 중 오류가 발생했습니다.');
+    }
   }
 
   function getKnownRegisterNumbers(tableName: string, additionalRows: Record<string, unknown>[] = []) {
@@ -341,6 +404,9 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
 
     setEditingKey(key);
     setFormValues(defaults);
+    if (isClientAdditionalPrice) {
+      setUseCustomAdditionalTitle(false);
+    }
     focusForm();
   }
 
@@ -349,6 +415,9 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     setEditingKey({});
     setFormValues(REGISTER_TABLES.has(selectedTable) ? { register_no: generateUniqueRegister(selectedTable) } : {});
     setFeedback(null);
+    if (isClientAdditionalPrice) {
+      setUseCustomAdditionalTitle(false);
+    }
     focusForm();
   }
 
@@ -373,6 +442,53 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       setReferenceLoading((prev) => ({ ...prev, [columnName]: false }));
     }
   }
+
+  async function loadAdditionalPriceOptions(keyword: string) {
+    if (!isClientAdditionalPrice) return;
+    setAdditionalPriceLoading(true);
+    try {
+      const response = await fetch(`/api/admin/crud/additional-price-items?q=${encodeURIComponent(keyword)}`, { cache: 'no-cache' });
+      if (!response.ok) {
+        throw new Error('추가비용 항목을 불러오지 못했습니다.');
+      }
+      const payload = (await response.json()) as AdminReferenceOption[];
+      setAdditionalPriceOptions(payload);
+    } catch (error) {
+      console.error(error);
+      setFeedback(error instanceof Error ? error.message : '추가비용 항목 조회 중 오류가 발생했습니다.');
+    } finally {
+      setAdditionalPriceLoading(false);
+    }
+  }
+
+  function applyAdditionalPriceOption(optionValue: string) {
+    if (optionValue === '__custom__') {
+      setUseCustomAdditionalTitle(true);
+      setFormValues((prev) => ({ ...prev, title: '' }));
+      return;
+    }
+
+    const option = additionalPriceOptions.find((candidate) => String(candidate.value) === optionValue);
+    if (!option) return;
+
+    setUseCustomAdditionalTitle(false);
+    setFormValues((prev) => ({
+      ...prev,
+      title: String(option.meta?.title ?? option.label ?? option.value ?? ''),
+      minus_yn: option.meta?.minus_yn !== undefined ? String(option.meta.minus_yn) : prev.minus_yn ?? '',
+      ratio_yn: option.meta?.ratio_yn !== undefined ? String(option.meta.ratio_yn) : prev.ratio_yn ?? '',
+      amount: option.meta?.amount !== undefined ? String(option.meta.amount) : prev.amount ?? ''
+    }));
+  }
+
+  useEffect(() => {
+    if (!isClientAdditionalPrice || !formValues.title || additionalPriceOptions.length === 0) return;
+    const currentTitle = formValues.title;
+    const hasOption = additionalPriceOptions.some(
+      (option) => option.meta?.title === currentTitle || option.label === currentTitle
+    );
+    setUseCustomAdditionalTitle(!hasOption);
+  }, [additionalPriceOptions, formValues.title, isClientAdditionalPrice]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -417,6 +533,45 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     const value = formValues[column.name] ?? '';
     const isCheckbox = type === 'checkbox';
 
+    if (isClientAdditionalPrice && column.name === 'seq') {
+      return <input id={column.name} type="number" value={value} readOnly disabled />;
+    }
+
+    if ((isWorkerTable || isClientHeader) && column.name === 'register_no') {
+      return (
+        <div className={styles.registerField}>
+          <input id={column.name} type="text" value={value} readOnly disabled={loading || mode === 'edit'} />
+          <button type="button" onClick={() => handleRegisterRefresh()} disabled={loading || mode === 'edit'}>
+            리프레시
+          </button>
+        </div>
+      );
+    }
+
+    if (isClientRooms && ['facility_yn', 'realtime_overview_yn', 'images_yn', 'open_yn'].includes(column.name)) {
+      return (
+        <select
+          id={column.name}
+          value={value}
+          onChange={(event) => handleInputChange(column, event.target.value)}
+          disabled={loading}
+        >
+          <option value="">선택하세요</option>
+          {column.name === 'open_yn' ? (
+            <>
+              <option value="1">운영중</option>
+              <option value="0">운영종료</option>
+            </>
+          ) : (
+            <>
+              <option value="1">사용</option>
+              <option value="0">미사용</option>
+            </>
+          )}
+        </select>
+      );
+    }
+
     if ((isWorkerTable || isClientHeader) && column.name === 'register_no') {
       return (
         <div className={styles.registerField}>
@@ -459,6 +614,60 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
           <option value="1">예</option>
           <option value="0">아니오</option>
         </select>
+      );
+    }
+
+    if (isClientAdditionalPrice && column.name === 'title') {
+      const selectValue = useCustomAdditionalTitle ? '__custom__' : value;
+
+      return (
+        <div className={styles.referenceInput}>
+          <div className={styles.referenceSearchRow}>
+            <input
+              type="text"
+              value={additionalPriceSearch}
+              placeholder="항목명 검색"
+              onChange={(event) => setAdditionalPriceSearch(event.target.value)}
+              disabled={loading}
+            />
+            <button type="button" onClick={() => loadAdditionalPriceOptions(additionalPriceSearch)} disabled={loading || additionalPriceLoading}>
+              검색
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAdditionalPriceSearch('');
+                void loadAdditionalPriceOptions('');
+              }}
+              disabled={loading || additionalPriceLoading}
+            >
+              초기화
+            </button>
+          </div>
+          <select
+            id={column.name}
+            value={selectValue}
+            onChange={(event) => applyAdditionalPriceOption(event.target.value)}
+            disabled={loading || additionalPriceLoading}
+          >
+            <option value="">선택하세요</option>
+            {additionalPriceOptions.map((option) => (
+              <option key={`${column.name}-${option.value}`} value={String(option.value)}>
+                {option.label}
+              </option>
+            ))}
+            <option value="__custom__">직접입력</option>
+          </select>
+          {useCustomAdditionalTitle ? (
+            <input
+              id={`${column.name}-custom`}
+              type="text"
+              value={value}
+              onChange={(event) => handleInputChange(column, event.target.value)}
+              disabled={loading}
+            />
+          ) : null}
+        </div>
       );
     }
 
