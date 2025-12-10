@@ -470,6 +470,12 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
                 ))}
               </ul>
             )}
+
+            <div className={styles.suppliesActions}>
+              <button className={styles.secondaryButton} disabled={submitting} onClick={handleDraftSave}>
+                {submitting ? '임시저장 중...' : '소모품 임시저장'}
+              </button>
+            </div>
           </article>
 
           <article className={styles.reportCardWide}>
@@ -525,9 +531,6 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
         </div>
 
         <footer className={styles.reportFooter}>
-          <button className={styles.secondaryButton} disabled={submitting} onClick={handleDraftSave}>
-            {submitting ? '임시저장 중...' : '임시저장'}
-          </button>
           <button className={styles.primaryButton} disabled={submitting || !isReadyToSubmit} onClick={handleSubmit}>
             {submitting ? '저장 중...' : '수퍼바이징 완료보고 저장'}
           </button>

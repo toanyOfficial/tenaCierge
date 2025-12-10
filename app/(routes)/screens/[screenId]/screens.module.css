@@ -3174,6 +3174,12 @@
   gap: 1rem;
 }
 
+.suppliesActions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-start;
+}
+
 .readinessText {
   margin: 0;
   color: #b45309;
