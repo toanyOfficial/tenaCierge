@@ -159,7 +159,7 @@ export async function POST(req: Request) {
     rowsToInsert.push({
       workId,
       type: 4,
-      contents1: supervisingFindings,
+      contents1: { findings: supervisingFindings, completion: supervisingCompletion },
       contents2: supervisingComment ?? null
     });
 
