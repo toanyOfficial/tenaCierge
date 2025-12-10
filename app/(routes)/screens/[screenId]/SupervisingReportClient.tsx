@@ -117,7 +117,7 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
 
   const completionDefaults = useMemo(
     () => ({
-      ...Object.fromEntries(cleaningChecklist.map(({ id }) => [id, true] as const)),
+      ...Object.fromEntries(cleaningChecklist.map(({ id }) => [id, false] as const)),
       ...Object.fromEntries(autoCheckedChecklistIds.map((id) => [id, true] as const))
     }),
     [autoCheckedChecklistIds, cleaningChecklist]
