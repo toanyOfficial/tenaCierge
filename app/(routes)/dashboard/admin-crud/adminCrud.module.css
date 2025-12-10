@@ -76,22 +76,7 @@
   color: #475467;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 1.2fr;
-  gap: 12px;
-  width: 100%;
-}
-
-.verticalGrid {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 100%;
-}
-
-.formSection,
-.tableSection {
+.formSection {
   border: 1px solid #e4e7ec;
   border-radius: 10px;
   padding: 12px;
@@ -103,8 +88,7 @@
   min-width: 0;
 }
 
-.formSection header,
-.tableSection header {
+.formSection header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -165,83 +149,6 @@
   background: #16a34a;
   color: white;
   cursor: pointer;
-}
-
-.tableWrapper {
-  overflow: auto;
-  border: 1px solid #e4e7ec;
-  border-radius: 8px;
-}
-
-.tableWrapper table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 640px;
-  table-layout: fixed;
-}
-
-.tableWrapper th,
-.tableWrapper td {
-  padding: 8px 10px;
-  border-bottom: 1px solid #e4e7ec;
-  text-align: left;
-  font-size: 13px;
-  word-break: break-word;
-}
-
-.tableWrapper th {
-  background: #f2f4f7;
-  font-weight: 700;
-  color: #0f172a;
-  min-width: 120px;
-}
-
-.tableWrapper td {
-  color: #111827;
-}
-
-.cellContent {
-  display: inline-block;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  vertical-align: middle;
-  cursor: help;
-}
-
-.cellContent:hover,
-.cellContent:focus {
-  white-space: normal;
-  word-break: break-word;
-  background: #f8fafc;
-  padding: 2px 4px;
-  border-radius: 6px;
-}
-
-.actionCell {
-  display: flex;
-  gap: 8px;
-}
-
-.actionCell button {
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid #16a34a;
-  background: white;
-  cursor: pointer;
-  color: #16a34a;
-}
-
-.actionCell button:last-child {
-  border-color: #b42318;
-  color: #b42318;
-}
-
-.empty {
-  text-align: center;
-  padding: 16px;
-  color: #98a2b3;
 }
 
 .referenceInput {

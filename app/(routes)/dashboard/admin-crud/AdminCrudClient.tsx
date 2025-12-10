@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
 
@@ -70,6 +70,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   const [workerLoading, setWorkerLoading] = useState(false);
   const [workerFeedback, setWorkerFeedback] = useState<string | null>(null);
   const [pendingWorkerEdit, setPendingWorkerEdit] = useState<Record<string, unknown> | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   const isClientAdditionalPrice = selectedTable === 'client_additional_price';
   const tableLabels: Record<string, string> = isClientAdditionalPrice ? CLIENT_ADDITIONAL_PRICE_CONFIG.koreanLabels : {};
@@ -231,6 +232,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
 
     setEditingKey(key);
     setFormValues(defaults);
+    focusForm();
   }
 
   function startCreate() {
@@ -238,6 +240,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     setEditingKey({});
     setFormValues({});
     setFeedback(null);
+    focusForm();
   }
 
   async function loadReferenceOptions(columnName: string, keyword: string) {
@@ -292,43 +295,6 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       setSnapshot(payload);
       startCreate();
       setFeedback('저장되었습니다.');
-    } catch (error) {
-      console.error(error);
-      setFeedback(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleDelete(row: Record<string, unknown>) {
-    if (!selectedTable || !snapshot) return;
-    const key: Record<string, unknown> = {};
-    snapshot.primaryKey.forEach((pk) => {
-      key[pk] = row[pk];
-    });
-
-    if (Object.values(key).some((value) => value === undefined)) {
-      setFeedback('기본키 값이 없어 삭제할 수 없습니다.');
-      return;
-    }
-
-    setLoading(true);
-    setFeedback(null);
-    try {
-      const response = await fetch('/api/admin/crud', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ table: selectedTable, key })
-      });
-
-      if (!response.ok) {
-        throw new Error('삭제 중 오류가 발생했습니다.');
-      }
-
-      const payload = (await response.json()) as Snapshot;
-      setSnapshot(payload);
-      startCreate();
-      setFeedback('삭제되었습니다.');
     } catch (error) {
       console.error(error);
       setFeedback(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
@@ -470,6 +436,15 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     }
   }
 
+  function focusForm() {
+    const formElement = formRef.current;
+    if (!formElement) return;
+    const firstField = formElement.querySelector<HTMLElement>('input, select, textarea, button');
+    requestAnimationFrame(() => {
+      firstField?.focus();
+    });
+  }
+
   return (
     <main className={styles.container}>
       <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} compact />
@@ -507,94 +482,74 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
           </p>
         </div>
 
-        <div className={isClientAdditionalPrice ? styles.verticalGrid : styles.grid}>
-          <section className={styles.formSection}>
-            <header>
-              <h2>{mode === 'create' ? '신규 추가' : '행 수정'}</h2>
-              {mode === 'edit' ? (
-                <button type="button" onClick={startCreate} disabled={loading}>
-                  새로 만들기
-                </button>
-              ) : null}
-            </header>
+        <section className={styles.formSection}>
+          <header>
+            <h2>{mode === 'create' ? '신규 추가' : '행 수정'}</h2>
+            {mode === 'edit' ? (
+              <button type="button" onClick={startCreate} disabled={loading}>
+                새로 만들기
+              </button>
+            ) : null}
+          </header>
 
-            <form onSubmit={handleSubmit} className={styles.formGrid}>
-              {visibleColumns.map((column) => (
-                <label key={column.name} className={styles.formField}>
-                  <span>
-                    {column.name}
-                    {tableLabels[column.name] ? ` (${tableLabels[column.name]})` : ''}
-                    {column.isPrimaryKey ? ' (PK)' : ''}
-                    {column.references ? ` → ${column.references.table}.${column.references.column}` : ''}
-                  </span>
-                  {renderInput(column)}
-                </label>
-              ))}
+          <form ref={formRef} onSubmit={handleSubmit} className={styles.formGrid}>
+            {visibleColumns.map((column) => (
+              <label key={column.name} className={styles.formField}>
+                <span>
+                  {column.name}
+                  {tableLabels[column.name] ? ` (${tableLabels[column.name]})` : ''}
+                  {column.isPrimaryKey ? ' (PK)' : ''}
+                  {column.references ? ` → ${column.references.table}.${column.references.column}` : ''}
+                </span>
+                {renderInput(column)}
+              </label>
+            ))}
 
-              <div className={styles.formActions}>
-                <button type="submit" disabled={loading || !selectedTable}>
-                  {mode === 'create' ? '추가' : '수정 저장'}
-                </button>
-              </div>
-            </form>
-          </section>
-
-          <section className={styles.tableSection}>
-            <header>
-              <h2>데이터 목록</h2>
-              <span>
-                {snapshot ? `${snapshot.offset + 1} ~ ${snapshot.offset + snapshot.rows.length} (limit ${snapshot.limit})` : '로딩 전'}
-              </span>
-            </header>
-
-            <div className={styles.tableWrapper}>
-              <table>
-                <thead>
-                  <tr>
-                    {visibleColumns.map((column) => (
-                      <th key={column.name}>
-                        {column.name}
-                        {tableLabels[column.name] ? ` (${tableLabels[column.name]})` : ''}
-                      </th>
-                    ))}
-                    <th>액션</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {snapshot?.rows?.length ? (
-                    snapshot.rows.map((row, index) => (
-                      <tr key={index}>
-                        {visibleColumns.map((column) => {
-                          const displayValue = formatCellValue(row[column.name], column, selectedTable);
-                          return (
-                            <td key={column.name}>
-                              <span className={styles.cellContent} title={displayValue}>
-                                {displayValue}
-                              </span>
-                            </td>
-                          );
-                        })}
-                        <td className={styles.actionCell}>
-                          <button type="button" onClick={() => startEdit(row)} disabled={loading}>
-                            수정
-                          </button>
-                          <button type="button" onClick={() => handleDelete(row)} disabled={loading}>
-                            삭제
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={visibleColumns.length + 1} className={styles.empty}>
-                        데이터가 없습니다.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <div className={styles.formActions}>
+              <button type="submit" disabled={loading || !selectedTable}>
+                {mode === 'create' ? '추가' : '수정 저장'}
+              </button>
             </div>
-          </section>
+          </form>
+        </section>
+      </section>
+
+      <section className={styles.workerSection}>
+        <header className={styles.workerHeader}>
+          <div>
+            <p className={styles.workerTitle}>워크용 사용자 목록</p>
+            <p className={styles.workerSubtitle}>필요한 워커를 클릭하면 위 수정 양식으로 불러옵니다.</p>
+          </div>
+          <button type="button" onClick={fetchWorkerSnapshot} disabled={workerLoading}>
+            워커 목록 새로고침
+          </button>
+        </header>
+
+        {workerFeedback ? <p className={styles.feedback}>{workerFeedback}</p> : null}
+
+        <div className={styles.workerTableWrapper}>
+          {workerRows.length ? (
+            <table className={styles.workerTable}>
+              <thead>
+                <tr>
+                  {workerColumns.map((column) => (
+                    <th key={column.key}>{column.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {workerRows.map((row, index) => (
+                  <tr key={index} className={styles.workerRow} onClick={() => handleWorkerRowSelect(row)}>
+                    {workerColumns.map((column) => (
+                      <td key={`${index}-${column.key}`}>{getWorkerField(row, column.key)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className={styles.workerEmpty}>{workerLoading ? '워커 목록을 불러오는 중입니다.' : '등록된 워커가 없습니다.'}</div>
+          )}
         </div>
       </section>
 
@@ -640,20 +595,3 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   );
 }
 
-function formatCellValue(value: unknown, column: AdminColumnMeta, tableName?: string) {
-  if (value === null || value === undefined) return '';
-  if (tableName === 'client_additional_price' && CLIENT_ADDITIONAL_PRICE_CONFIG.booleanColumns.has(column.name)) {
-    return value ? '예' : '아니오';
-  }
-  if (column.dataType === 'json') {
-    try {
-      return JSON.stringify(value);
-    } catch (error) {
-      return String(value);
-    }
-  }
-  if (column.dataType === 'tinyint' && column.columnType === 'tinyint(1)') {
-    return value ? 'Y' : 'N';
-  }
-  return String(value);
-}
