@@ -608,7 +608,14 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     }
 
     if (isClientAdditionalPrice && column.name === 'title') {
-      const selectValue = useCustomAdditionalTitle ? '__custom__' : value;
+      const matchedAdditionalOption = additionalPriceOptions.find(
+        (option) => option.meta?.title === value || option.label === value
+      );
+      const selectValue = useCustomAdditionalTitle
+        ? '__custom__'
+        : matchedAdditionalOption
+          ? String(matchedAdditionalOption.value)
+          : value;
 
       return (
         <div className={styles.referenceInput}>
