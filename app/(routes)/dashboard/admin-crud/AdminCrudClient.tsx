@@ -53,7 +53,8 @@ const TABLE_LABEL_OVERRIDES: Record<string, Record<string, string>> = {
   client_additional_price: CLIENT_ADDITIONAL_PRICE_CONFIG.koreanLabels,
   client_header: {
     person: 'person(대표자)',
-    rcpt_name: 'rcpt_name(상호명)'
+    rcpt_name: 'rcpt_name(상호명)',
+    rcpt_no: 'rcpt_no(영수증식별번호)'
   }
 };
 const TABLE_HIDDEN_COLUMNS: Record<string, Set<string>> = {
@@ -91,10 +92,10 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   const [referenceOptions, setReferenceOptions] = useState<Record<string, AdminReferenceOption[]>>({});
   const [referenceSearch, setReferenceSearch] = useState<Record<string, string>>({});
   const [referenceLoading, setReferenceLoading] = useState<Record<string, boolean>>({});
-  const [workerSnapshot, setWorkerSnapshot] = useState<Snapshot | null>(null);
-  const [workerLoading, setWorkerLoading] = useState(false);
-  const [workerFeedback, setWorkerFeedback] = useState<string | null>(null);
-  const [pendingWorkerEdit, setPendingWorkerEdit] = useState<Record<string, unknown> | null>(null);
+  const [clientSnapshot, setClientSnapshot] = useState<Snapshot | null>(null);
+  const [clientLoading, setClientLoading] = useState(false);
+  const [clientFeedback, setClientFeedback] = useState<string | null>(null);
+  const [pendingClientEdit, setPendingClientEdit] = useState<Record<string, unknown> | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
 
   const isClientAdditionalPrice = selectedTable === 'client_additional_price';
@@ -117,27 +118,23 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   }, [selectedTable]);
 
   useEffect(() => {
-    void fetchWorkerSnapshot();
+    void fetchClientSnapshot();
   }, []);
 
   useEffect(() => {
-    if (pendingWorkerEdit && selectedTable === 'worker_header' && snapshot?.table === 'worker_header') {
-      startEdit(pendingWorkerEdit);
-      setPendingWorkerEdit(null);
+    if (pendingClientEdit && selectedTable === 'client_header' && snapshot?.table === 'client_header') {
+      startEdit(pendingClientEdit);
+      setPendingClientEdit(null);
     }
-  }, [pendingWorkerEdit, selectedTable, snapshot]);
+  }, [pendingClientEdit, selectedTable, snapshot]);
 
   const columns = snapshot?.columns ?? [];
-  const workerRows = workerSnapshot?.rows ?? [];
-  const workerColumns = [
-    { key: 'name', label: '이름' },
-    { key: 'tier', label: '티어' },
-    { key: 'register_no', label: '등록번호' },
-    { key: 'phone', label: '연락처' },
-    { key: 'basecode_bank', label: '은행' },
-    { key: 'basecode_code', label: '계좌번호' },
-    { key: 'comments', label: '메모' }
-  ];
+  const clientRows = clientSnapshot?.rows ?? [];
+  const clientColumns = (clientSnapshot?.columns ?? []).filter((column) => !CLIENT_HEADER_HIDDEN_COLUMNS.has(column.name));
+  const clientColumnLabels = clientColumns.map((column) => ({
+    key: column.name,
+    label: TABLE_LABEL_OVERRIDES.client_header?.[column.name] ?? column.name
+  }));
 
   useEffect(() => {
     setReferenceOptions({});
@@ -181,21 +178,21 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     }
   }
 
-  async function fetchWorkerSnapshot() {
-    setWorkerLoading(true);
-    setWorkerFeedback(null);
+  async function fetchClientSnapshot() {
+    setClientLoading(true);
+    setClientFeedback(null);
     try {
-      const response = await fetch('/api/admin/crud?table=worker_header&limit=200&offset=0', { cache: 'no-cache' });
+      const response = await fetch('/api/admin/crud?table=client_header&limit=200&offset=0', { cache: 'no-cache' });
       if (!response.ok) {
-        throw new Error('워커 목록을 불러오지 못했습니다.');
+        throw new Error('고객 목록을 불러오지 못했습니다.');
       }
       const payload = (await response.json()) as Snapshot;
-      setWorkerSnapshot({ ...payload, table: 'worker_header' });
+      setClientSnapshot({ ...payload, table: 'client_header' });
     } catch (error) {
       console.error(error);
-      setWorkerFeedback(error instanceof Error ? error.message : '워커 목록 조회 중 오류가 발생했습니다.');
+      setClientFeedback(error instanceof Error ? error.message : '고객 목록 조회 중 오류가 발생했습니다.');
     } finally {
-      setWorkerLoading(false);
+      setClientLoading(false);
     }
   }
 
@@ -255,15 +252,17 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   function getKnownRegisterNumbers(tableName: string, additionalRows: Record<string, unknown>[] = []) {
     const candidates: Record<string, unknown>[] = [];
 
-    if (tableName === 'worker_header') {
-      candidates.push(...(workerSnapshot?.rows ?? []));
-      if (snapshot?.table === 'worker_header') {
-        candidates.push(...snapshot.rows);
-      }
+    if (tableName === 'worker_header' && snapshot?.table === 'worker_header') {
+      candidates.push(...snapshot.rows);
     }
 
-    if (tableName === 'client_header' && snapshot?.table === 'client_header') {
-      candidates.push(...snapshot.rows);
+    if (tableName === 'client_header') {
+      if (clientSnapshot?.table === 'client_header') {
+        candidates.push(...clientSnapshot.rows);
+      }
+      if (snapshot?.table === 'client_header') {
+        candidates.push(...snapshot.rows);
+      }
     }
 
     candidates.push(...additionalRows);
@@ -616,22 +615,22 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     );
   }
 
-  function getWorkerField(row: Record<string, unknown>, key: string, fallback = '-') {
+  function getClientField(row: Record<string, unknown>, key: string, fallback = '-') {
     const value = row[key];
     if (value === null || value === undefined) return fallback;
     if (typeof value === 'string' && value.trim() === '') return fallback;
     return String(value);
   }
 
-  function handleWorkerRowSelect(row: Record<string, unknown>) {
-    setPendingWorkerEdit(row);
-    if (selectedTable !== 'worker_header') {
-      setSelectedTable('worker_header');
+  function handleClientRowSelect(row: Record<string, unknown>) {
+    setPendingClientEdit(row);
+    if (selectedTable !== 'client_header') {
+      setSelectedTable('client_header');
       return;
     }
-    if (snapshot?.table === 'worker_header') {
+    if (snapshot?.table === 'client_header') {
       startEdit(row);
-      setPendingWorkerEdit(null);
+      setPendingClientEdit(null);
     }
   }
 
@@ -695,8 +694,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
             {visibleColumns.map((column) => (
               <label key={column.name} className={styles.formField}>
                 <span>
-                  {column.name}
-                  {tableLabels[column.name] ? ` (${tableLabels[column.name]})` : ''}
+                  {tableLabels[column.name] ?? column.name}
                   {column.isPrimaryKey ? ' (PK)' : ''}
                   {column.references ? ` → ${column.references.table}.${column.references.column}` : ''}
                 </span>
@@ -716,38 +714,38 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       <section className={styles.workerSection}>
         <header className={styles.workerHeader}>
           <div>
-            <p className={styles.workerTitle}>워크용 사용자 목록</p>
-            <p className={styles.workerSubtitle}>필요한 워커를 클릭하면 위 수정 양식으로 불러옵니다.</p>
+            <p className={styles.workerTitle}>고객 목록</p>
+            <p className={styles.workerSubtitle}>고객을 클릭하면 위 수정 양식으로 불러옵니다.</p>
           </div>
-          <button type="button" onClick={fetchWorkerSnapshot} disabled={workerLoading}>
-            워커 목록 새로고침
+          <button type="button" onClick={fetchClientSnapshot} disabled={clientLoading}>
+            고객 목록 새로고침
           </button>
         </header>
 
-        {workerFeedback ? <p className={styles.feedback}>{workerFeedback}</p> : null}
+        {clientFeedback ? <p className={styles.feedback}>{clientFeedback}</p> : null}
 
         <div className={styles.workerTableWrapper}>
-          {workerRows.length ? (
+          {clientRows.length ? (
             <table className={styles.workerTable}>
               <thead>
                 <tr>
-                  {workerColumns.map((column) => (
+                  {clientColumnLabels.map((column) => (
                     <th key={column.key}>{column.label}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {workerRows.map((row, index) => (
-                  <tr key={index} className={styles.workerRow} onClick={() => handleWorkerRowSelect(row)}>
-                    {workerColumns.map((column) => (
-                      <td key={`${index}-${column.key}`}>{getWorkerField(row, column.key)}</td>
+                {clientRows.map((row, index) => (
+                  <tr key={index} className={styles.workerRow} onClick={() => handleClientRowSelect(row)}>
+                    {clientColumnLabels.map((column) => (
+                      <td key={`${index}-${column.key}`}>{getClientField(row, column.key)}</td>
                     ))}
                   </tr>
                 ))}
               </tbody>
             </table>
           ) : (
-            <div className={styles.workerEmpty}>{workerLoading ? '워커 목록을 불러오는 중입니다.' : '등록된 워커가 없습니다.'}</div>
+            <div className={styles.workerEmpty}>{clientLoading ? '고객 목록을 불러오는 중입니다.' : '등록된 고객이 없습니다.'}</div>
           )}
         </div>
       </section>
