@@ -9,13 +9,20 @@ export const metadata = {
   title: '관리자 CRUD | TenaCierge Ops'
 };
 
-export default async function AdminCrudPage() {
+type Props = {
+  searchParams?: {
+    table?: string;
+  };
+};
+
+export default async function AdminCrudPage({ searchParams }: Props) {
   const profile = await getProfileWithDynamicRoles();
   if (!profile.roles.includes('admin')) {
     redirect('/dashboard');
   }
 
   const tables = listAdminTables();
+  const requestedTable = searchParams?.table;
 
-  return <AdminCrudClient tables={tables} profile={profile} />;
+  return <AdminCrudClient tables={tables} profile={profile} initialTable={requestedTable} />;
 }
