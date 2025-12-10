@@ -129,6 +129,11 @@
   min-height: 80px;
 }
 
+.commentTextarea {
+  min-height: 140px;
+  resize: vertical;
+}
+
 .formField input:focus,
 .formField textarea:focus,
 .formField select:focus {

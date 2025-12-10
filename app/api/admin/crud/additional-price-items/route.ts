@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { fetchReferenceOptions } from '@/src/server/adminCrud';
+import { getPool } from '@/src/db/client';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 
 export const dynamic = 'force-dynamic';
@@ -20,11 +20,35 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: '관리자만 접근 가능합니다.' }, { status: 403 });
   }
 
-  const url = new URL(request.url);
-  const keyword = url.searchParams.get('q') ?? '';
-
   try {
-    const options = await fetchReferenceOptions('client_additional_price', 'title', keyword, 100);
+    const pool = getPool();
+    const [rows] = await pool.query<
+      { value: number; label: string; minus_yn?: number; ratio_yn?: number; amount?: number; title?: string }[]
+    >(
+      `SELECT
+        id AS value,
+        title AS label,
+        minus_yn,
+        ratio_yn,
+        amount,
+        title
+      FROM client_price_list
+      WHERE selected_by = 3
+      ORDER BY title ASC`,
+      []
+    );
+
+    const options = rows.map((row) => ({
+      value: row.value,
+      label: row.label ?? String(row.value),
+      meta: {
+        title: row.title ?? row.label ?? String(row.value),
+        minus_yn: row.minus_yn,
+        ratio_yn: row.ratio_yn,
+        amount: row.amount
+      }
+    }));
+
     return NextResponse.json(options);
   } catch (error) {
     console.error(error);
