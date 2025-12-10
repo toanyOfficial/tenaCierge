@@ -428,7 +428,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       );
     }
 
-    if (isClientRooms && ['facility_yn', 'realtime_overview_yn', 'images_yn'].includes(column.name)) {
+    if (isClientRooms && ['facility_yn', 'realtime_overview_yn', 'images_yn', 'open_yn'].includes(column.name)) {
       return (
         <select
           id={column.name}
@@ -437,8 +437,17 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
           disabled={loading}
         >
           <option value="">선택하세요</option>
-          <option value="1">사용</option>
-          <option value="0">미사용</option>
+          {column.name === 'open_yn' ? (
+            <>
+              <option value="1">운영중</option>
+              <option value="0">운영종료</option>
+            </>
+          ) : (
+            <>
+              <option value="1">사용</option>
+              <option value="0">미사용</option>
+            </>
+          )}
         </select>
       );
     }
