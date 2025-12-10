@@ -572,6 +572,41 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       );
     }
 
+    if ((isWorkerTable || isClientHeader) && column.name === 'register_no') {
+      return (
+        <div className={styles.registerField}>
+          <input id={column.name} type="text" value={value} readOnly disabled={loading || mode === 'edit'} />
+          <button type="button" onClick={() => handleRegisterRefresh()} disabled={loading || mode === 'edit'}>
+            리프레시
+          </button>
+        </div>
+      );
+    }
+
+    if (isClientRooms && ['facility_yn', 'realtime_overview_yn', 'images_yn', 'open_yn'].includes(column.name)) {
+      return (
+        <select
+          id={column.name}
+          value={value}
+          onChange={(event) => handleInputChange(column, event.target.value)}
+          disabled={loading}
+        >
+          <option value="">선택하세요</option>
+          {column.name === 'open_yn' ? (
+            <>
+              <option value="1">운영중</option>
+              <option value="0">운영종료</option>
+            </>
+          ) : (
+            <>
+              <option value="1">사용</option>
+              <option value="0">미사용</option>
+            </>
+          )}
+        </select>
+      );
+    }
+
     if (isClientAdditionalPrice && CLIENT_ADDITIONAL_PRICE_CONFIG.booleanColumns.has(column.name)) {
       return (
         <select id={column.name} value={value} onChange={(event) => handleInputChange(column, event.target.value)} disabled={loading}>
