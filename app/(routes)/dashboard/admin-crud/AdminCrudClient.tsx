@@ -18,6 +18,7 @@ type TableOption = {
 type Props = {
   tables: TableOption[];
   profile: ProfileSummary;
+  initialTable?: string | null;
 };
 
 type Snapshot = {
@@ -47,9 +48,15 @@ const CLIENT_ADDITIONAL_PRICE_CONFIG = {
   }
 } as const;
 
-export default function AdminCrudClient({ tables, profile }: Props) {
+export default function AdminCrudClient({ tables, profile, initialTable }: Props) {
   const [activeRole, setActiveRole] = useState<string | null>(profile.roles[0] ?? null);
-  const [selectedTable, setSelectedTable] = useState<string>(tables[0]?.name ?? '');
+  const [selectedTable, setSelectedTable] = useState<string>(() => {
+    if (initialTable && tables.some((table) => table.name === initialTable)) {
+      return initialTable;
+    }
+
+    return tables[0]?.name ?? '';
+  });
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [mode, setMode] = useState<'create' | 'edit'>('create');
