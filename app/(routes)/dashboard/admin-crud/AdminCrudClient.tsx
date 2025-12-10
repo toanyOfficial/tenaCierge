@@ -47,7 +47,31 @@ const CLIENT_ADDITIONAL_PRICE_CONFIG = {
     comment: '비고'
   }
 } as const;
+const CLIENT_HEADER_HIDDEN_COLUMNS = new Set(['created_at', 'updated_at']);
 const WORKER_HIDDEN_COLUMNS = new Set(['created_at', 'updated_at']);
+const TABLE_LABEL_OVERRIDES: Record<string, Record<string, string>> = {
+  client_additional_price: CLIENT_ADDITIONAL_PRICE_CONFIG.koreanLabels,
+  client_header: {
+    person: 'person(대표자)',
+    rcpt_name: 'rcpt_name(상호명)'
+  }
+};
+const TABLE_HIDDEN_COLUMNS: Record<string, Set<string>> = {
+  client_additional_price: CLIENT_ADDITIONAL_PRICE_CONFIG.hiddenColumns,
+  client_header: CLIENT_HEADER_HIDDEN_COLUMNS,
+  worker_header: WORKER_HIDDEN_COLUMNS
+};
+const REGISTER_TABLES = new Set(['worker_header', 'client_header']);
+const CLIENT_RECEIPT_OPTIONS = [
+  { value: '1', label: '세금계산서' },
+  { value: '2', label: '현금영수증' }
+];
+const CLIENT_SETTLE_OPTIONS = [
+  { value: '1', label: '건별제' },
+  { value: '2', label: '정액제' },
+  { value: '3', label: '커스텀' },
+  { value: '4', label: '기타' }
+];
 
 export default function AdminCrudClient({ tables, profile, initialTable }: Props) {
   const [activeRole, setActiveRole] = useState<string | null>(profile.roles[0] ?? null);
@@ -74,11 +98,12 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   const formRef = useRef<HTMLFormElement | null>(null);
 
   const isClientAdditionalPrice = selectedTable === 'client_additional_price';
+  const isClientHeader = selectedTable === 'client_header';
   const isWorkerTable = selectedTable === 'worker_header';
-  const tableLabels: Record<string, string> = isClientAdditionalPrice ? CLIENT_ADDITIONAL_PRICE_CONFIG.koreanLabels : {};
+  const tableLabels: Record<string, string> = TABLE_LABEL_OVERRIDES[selectedTable] ?? {};
   const isHiddenColumn = (columnName: string) => {
-    if (isClientAdditionalPrice && CLIENT_ADDITIONAL_PRICE_CONFIG.hiddenColumns.has(columnName)) return true;
-    if (isWorkerTable && WORKER_HIDDEN_COLUMNS.has(columnName)) return true;
+    const hiddenColumns = TABLE_HIDDEN_COLUMNS[selectedTable];
+    if (hiddenColumns?.has(columnName)) return true;
     return false;
   };
   const visibleColumns = (snapshot?.columns ?? []).filter(
@@ -144,7 +169,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       setSnapshot({ ...payload, table });
       setMode('create');
       setEditingKey({});
-      setFormValues(table === 'worker_header' ? { register_no: generateUniqueRegister(payload.rows) } : {});
+      setFormValues(REGISTER_TABLES.has(table) ? { register_no: generateUniqueRegister(table, payload.rows) } : {});
       setReferenceOptions({});
       setReferenceSearch({});
       setReferenceLoading({});
@@ -227,12 +252,21 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     }));
   }
 
-  function getKnownRegisterNumbers(additionalRows: Record<string, unknown>[] = []) {
-    const candidates = [
-      ...(workerSnapshot?.rows ?? []),
-      ...(snapshot?.table === 'worker_header' ? snapshot.rows : []),
-      ...additionalRows
-    ];
+  function getKnownRegisterNumbers(tableName: string, additionalRows: Record<string, unknown>[] = []) {
+    const candidates: Record<string, unknown>[] = [];
+
+    if (tableName === 'worker_header') {
+      candidates.push(...(workerSnapshot?.rows ?? []));
+      if (snapshot?.table === 'worker_header') {
+        candidates.push(...snapshot.rows);
+      }
+    }
+
+    if (tableName === 'client_header' && snapshot?.table === 'client_header') {
+      candidates.push(...snapshot.rows);
+    }
+
+    candidates.push(...additionalRows);
 
     const registerNumbers = new Set<string>();
     candidates.forEach((row) => {
@@ -255,8 +289,8 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     return result;
   }
 
-  function generateUniqueRegister(additionalRows: Record<string, unknown>[] = []) {
-    const existing = getKnownRegisterNumbers(additionalRows);
+  function generateUniqueRegister(tableName: string, additionalRows: Record<string, unknown>[] = []) {
+    const existing = getKnownRegisterNumbers(tableName, additionalRows);
     for (let attempts = 0; attempts < 50; attempts += 1) {
       const candidate = randomRegisterValue();
       if (!existing.has(candidate)) return candidate;
@@ -265,7 +299,8 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   }
 
   function handleRegisterRefresh() {
-    setFormValues((prev) => ({ ...prev, register_no: generateUniqueRegister() }));
+    if (!REGISTER_TABLES.has(selectedTable)) return;
+    setFormValues((prev) => ({ ...prev, register_no: generateUniqueRegister(selectedTable) }));
   }
 
   function startEdit(row: Record<string, unknown>) {
@@ -298,7 +333,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   function startCreate() {
     setMode('create');
     setEditingKey({});
-    setFormValues(isWorkerTable ? { register_no: generateUniqueRegister() } : {});
+    setFormValues(REGISTER_TABLES.has(selectedTable) ? { register_no: generateUniqueRegister(selectedTable) } : {});
     setFeedback(null);
     focusForm();
   }
@@ -368,7 +403,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     const value = formValues[column.name] ?? '';
     const isCheckbox = type === 'checkbox';
 
-    if (isWorkerTable && column.name === 'register_no') {
+    if ((isWorkerTable || isClientHeader) && column.name === 'register_no') {
       return (
         <div className={styles.registerField}>
           <input id={column.name} type="text" value={value} readOnly disabled={loading || mode === 'edit'} />
@@ -385,6 +420,57 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
           <option value="">선택하세요</option>
           <option value="1">예</option>
           <option value="0">아니오</option>
+        </select>
+      );
+    }
+
+    if (isClientHeader && column.name === 'rcpt_flag') {
+      return (
+        <select
+          id={column.name}
+          value={value}
+          onChange={(event) => handleInputChange(column, event.target.value)}
+          disabled={loading}
+        >
+          <option value="">선택하세요</option>
+          {CLIENT_RECEIPT_OPTIONS.map((option) => (
+            <option key={`${column.name}-${option.value}`} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    if (isClientHeader && column.name === 'settle_flag') {
+      return (
+        <select
+          id={column.name}
+          value={value}
+          onChange={(event) => handleInputChange(column, event.target.value)}
+          disabled={loading}
+        >
+          <option value="">선택하세요</option>
+          {CLIENT_SETTLE_OPTIONS.map((option) => (
+            <option key={`${column.name}-${option.value}`} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    if (isClientHeader && column.name === 'desk_yn') {
+      return (
+        <select
+          id={column.name}
+          value={value}
+          onChange={(event) => handleInputChange(column, event.target.value)}
+          disabled={loading}
+        >
+          <option value="">선택하세요</option>
+          <option value="1">사용</option>
+          <option value="0">미사용</option>
         </select>
       );
     }
