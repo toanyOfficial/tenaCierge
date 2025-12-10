@@ -17,7 +17,7 @@ export type AdminColumnMeta = {
   references?: AdminReference;
 };
 
-export type AdminReferenceOption = { value: unknown; label: string };
+export type AdminReferenceOption = { value: unknown; label: string; codeValue?: string };
 
 const referenceMap: Record<string, Record<string, AdminReference>> = {
   client_additional_price: { room_id: { table: 'client_rooms', column: 'id' } },
@@ -26,6 +26,7 @@ const referenceMap: Record<string, Record<string, AdminReference>> = {
   client_rooms: {
     client_id: { table: 'client_header', column: 'id' },
     building_id: { table: 'etc_buildings', column: 'id' },
+    price_set_id: { table: 'client_price_set_header', column: 'id' },
     checklist_set_id: { table: 'work_checklist_set_header', column: 'id' },
     images_set_id: { table: 'work_images_set_header', column: 'id' }
   },
@@ -54,6 +55,11 @@ const referenceMap: Record<string, Record<string, AdminReference>> = {
   worker_evaluateHistory: {
     worker_id: { table: 'worker_header', column: 'id' },
     work_id: { table: 'work_header', column: 'id' }
+  },
+  worker_header: {
+    basecode_bank: { table: 'etc_baseCode', column: 'code' },
+    basecode_code: { table: 'etc_baseCode', column: 'value' },
+    tier: { table: 'worker_tier_rules', column: 'tier' }
   },
   worker_penaltyHistory: { worker_id: { table: 'worker_header', column: 'id' } },
   worker_schedule_exception: { worker_id: { table: 'worker_header', column: 'id' } },
@@ -219,6 +225,66 @@ export async function fetchReferenceOptions(
   limit = 20
 ): Promise<AdminReferenceOption[]> {
   const sourceConfig = getTableConfig(table);
+  if (table === 'worker_header' && (column === 'basecode_bank' || column === 'basecode_code')) {
+    const pool = getPool();
+    const whereClauses = ["code_group = 'bank'"];
+    const params: unknown[] = [];
+
+    if (keyword) {
+      whereClauses.push('(code LIKE ? OR value LIKE ?)');
+      const like = `%${keyword}%`;
+      params.push(like, like);
+    }
+
+    const sql = `SELECT code AS value, value AS codeValue, CONCAT(code, ' - ', value) AS label FROM etc_baseCode WHERE ${whereClauses.join(
+      ' AND '
+    )} ORDER BY value ASC LIMIT ?`;
+    params.push(limit);
+
+    const [rows] = await pool.query<RowDataPacket[]>(sql, params);
+    return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value), codeValue: String(row.codeValue ?? '') }));
+  }
+
+  if (table === 'worker_header' && column === 'tier') {
+    const pool = getPool();
+    const whereClause = keyword ? 'WHERE tier LIKE ? OR comment LIKE ?' : '';
+    const params: unknown[] = [];
+
+    if (keyword) {
+      const like = `%${keyword}%`;
+      params.push(like, like);
+    }
+
+    params.push(limit);
+
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT tier AS value, CONCAT('티어 ', tier, ' - ', COALESCE(comment, '')) AS label FROM worker_tier_rules ${whereClause} ORDER BY id ASC LIMIT ?`,
+      params
+    );
+
+    return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value) }));
+  }
+
+  if (table === 'client_rooms' && column === 'price_set_id') {
+    const pool = getPool();
+    const whereClauses = keyword ? ['(id LIKE ? OR title LIKE ? OR dscpt LIKE ?)'] : [];
+    const params: unknown[] = [];
+
+    if (keyword) {
+      const like = `%${keyword}%`;
+      params.push(like, like, like);
+    }
+
+    params.push(limit);
+
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT id AS value, CONCAT(id, ' - ', COALESCE(title, '')) AS label FROM client_price_set_header ${whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : ''} ORDER BY id ASC LIMIT ?`,
+      params
+    );
+
+    return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value) }));
+  }
+
   const reference = sourceConfig?.references?.[column];
 
   if (!reference) {
