@@ -69,6 +69,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   const [workerSnapshot, setWorkerSnapshot] = useState<Snapshot | null>(null);
   const [workerLoading, setWorkerLoading] = useState(false);
   const [workerFeedback, setWorkerFeedback] = useState<string | null>(null);
+  const [pendingWorkerEdit, setPendingWorkerEdit] = useState<Record<string, unknown> | null>(null);
 
   const isClientAdditionalPrice = selectedTable === 'client_additional_price';
   const tableLabels: Record<string, string> = isClientAdditionalPrice ? CLIENT_ADDITIONAL_PRICE_CONFIG.koreanLabels : {};
@@ -88,7 +89,24 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     void fetchWorkerSnapshot();
   }, []);
 
+  useEffect(() => {
+    if (pendingWorkerEdit && selectedTable === 'worker_header' && snapshot?.table === 'worker_header') {
+      startEdit(pendingWorkerEdit);
+      setPendingWorkerEdit(null);
+    }
+  }, [pendingWorkerEdit, selectedTable, snapshot]);
+
   const columns = snapshot?.columns ?? [];
+  const workerRows = workerSnapshot?.rows ?? [];
+  const workerColumns = [
+    { key: 'name', label: '이름' },
+    { key: 'tier', label: '티어' },
+    { key: 'register_no', label: '등록번호' },
+    { key: 'phone', label: '연락처' },
+    { key: 'basecode_bank', label: '은행' },
+    { key: 'basecode_code', label: '계좌번호' },
+    { key: 'comments', label: '메모' }
+  ];
 
   useEffect(() => {
     setReferenceOptions({});
@@ -113,7 +131,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
         throw new Error('테이블을 불러오지 못했습니다.');
       }
       const payload = (await response.json()) as Snapshot;
-      setSnapshot(payload);
+      setSnapshot({ ...payload, table });
       setMode('create');
       setEditingKey({});
       setFormValues({});
@@ -137,7 +155,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
         throw new Error('워커 목록을 불러오지 못했습니다.');
       }
       const payload = (await response.json()) as Snapshot;
-      setWorkerSnapshot(payload);
+      setWorkerSnapshot({ ...payload, table: 'worker_header' });
     } catch (error) {
       console.error(error);
       setWorkerFeedback(error instanceof Error ? error.message : '워커 목록 조회 중 오류가 발생했습니다.');
@@ -440,6 +458,18 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     return String(value);
   }
 
+  function handleWorkerRowSelect(row: Record<string, unknown>) {
+    setPendingWorkerEdit(row);
+    if (selectedTable !== 'worker_header') {
+      setSelectedTable('worker_header');
+      return;
+    }
+    if (snapshot?.table === 'worker_header') {
+      startEdit(row);
+      setPendingWorkerEdit(null);
+    }
+  }
+
   return (
     <main className={styles.container}>
       <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} compact />
@@ -511,7 +541,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
 
           <section className={styles.tableSection}>
             <header>
-              <h2>최근 데이터</h2>
+              <h2>데이터 목록</h2>
               <span>
                 {snapshot ? `${snapshot.offset + 1} ~ ${snapshot.offset + snapshot.rows.length} (limit ${snapshot.limit})` : '로딩 전'}
               </span>
@@ -572,7 +602,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
         <header className={styles.workerHeader}>
           <div>
             <p className={styles.workerTitle}>워크용 사용자 목록</p>
-            <p className={styles.workerSubtitle}>상단에서 신규 추가/수정 후 전체 워커 현황을 바로 확인하세요.</p>
+            <p className={styles.workerSubtitle}>필요한 워커를 클릭하면 위 수정 양식으로 불러옵니다.</p>
           </div>
           <button type="button" onClick={fetchWorkerSnapshot} disabled={workerLoading}>
             워커 목록 새로고침
@@ -581,37 +611,26 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
 
         {workerFeedback ? <p className={styles.feedback}>{workerFeedback}</p> : null}
 
-        <div className={styles.workerGrid}>
-          {workerSnapshot?.rows?.length ? (
-            workerSnapshot.rows.map((row, index) => (
-              <article key={index} className={styles.workerCard}>
-                <header className={styles.workerCardHeader}>
-                  <span className={styles.workerName}>{getWorkerField(row, 'name')}</span>
-                  <span className={styles.workerTier}>Tier {getWorkerField(row, 'tier', '?')}</span>
-                </header>
-                <dl className={styles.workerMeta}>
-                  <div>
-                    <dt>등록번호</dt>
-                    <dd>{getWorkerField(row, 'register_no')}</dd>
-                  </div>
-                  <div>
-                    <dt>연락처</dt>
-                    <dd>{getWorkerField(row, 'phone')}</dd>
-                  </div>
-                  <div>
-                    <dt>계좌</dt>
-                    <dd>
-                      {getWorkerField(row, 'basecode_bank', '')}
-                      {getWorkerField(row, 'basecode_code', '') ? ` / ${getWorkerField(row, 'basecode_code')}` : ''}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>메모</dt>
-                    <dd>{getWorkerField(row, 'comments')}</dd>
-                  </div>
-                </dl>
-              </article>
-            ))
+        <div className={styles.workerTableWrapper}>
+          {workerRows.length ? (
+            <table className={styles.workerTable}>
+              <thead>
+                <tr>
+                  {workerColumns.map((column) => (
+                    <th key={column.key}>{column.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {workerRows.map((row, index) => (
+                  <tr key={index} className={styles.workerRow} onClick={() => handleWorkerRowSelect(row)}>
+                    {workerColumns.map((column) => (
+                      <td key={`${index}-${column.key}`}>{getWorkerField(row, column.key)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           ) : (
             <div className={styles.workerEmpty}>{workerLoading ? '워커 목록을 불러오는 중입니다.' : '등록된 워커가 없습니다.'}</div>
           )}
