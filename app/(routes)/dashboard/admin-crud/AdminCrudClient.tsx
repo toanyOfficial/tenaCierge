@@ -66,6 +66,9 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   const [referenceOptions, setReferenceOptions] = useState<Record<string, { value: string; label: string }[]>>({});
   const [referenceSearch, setReferenceSearch] = useState<Record<string, string>>({});
   const [referenceLoading, setReferenceLoading] = useState<Record<string, boolean>>({});
+  const [workerSnapshot, setWorkerSnapshot] = useState<Snapshot | null>(null);
+  const [workerLoading, setWorkerLoading] = useState(false);
+  const [workerFeedback, setWorkerFeedback] = useState<string | null>(null);
 
   const isClientAdditionalPrice = selectedTable === 'client_additional_price';
   const tableLabels: Record<string, string> = isClientAdditionalPrice ? CLIENT_ADDITIONAL_PRICE_CONFIG.koreanLabels : {};
@@ -80,6 +83,10 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       fetchSnapshot(selectedTable, 0);
     }
   }, [selectedTable]);
+
+  useEffect(() => {
+    void fetchWorkerSnapshot();
+  }, []);
 
   const columns = snapshot?.columns ?? [];
 
@@ -118,6 +125,24 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       setFeedback(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchWorkerSnapshot() {
+    setWorkerLoading(true);
+    setWorkerFeedback(null);
+    try {
+      const response = await fetch('/api/admin/crud?table=worker_header&limit=200&offset=0', { cache: 'no-cache' });
+      if (!response.ok) {
+        throw new Error('워커 목록을 불러오지 못했습니다.');
+      }
+      const payload = (await response.json()) as Snapshot;
+      setWorkerSnapshot(payload);
+    } catch (error) {
+      console.error(error);
+      setWorkerFeedback(error instanceof Error ? error.message : '워커 목록 조회 중 오류가 발생했습니다.');
+    } finally {
+      setWorkerLoading(false);
     }
   }
 
@@ -408,11 +433,18 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     );
   }
 
+  function getWorkerField(row: Record<string, unknown>, key: string, fallback = '-') {
+    const value = row[key];
+    if (value === null || value === undefined) return fallback;
+    if (typeof value === 'string' && value.trim() === '') return fallback;
+    return String(value);
+  }
+
   return (
     <main className={styles.container}>
       <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} compact />
 
-          <header className={styles.header}>전체 테이블 CRUD</header>
+      <header className={styles.header}>전체 테이블 CRUD</header>
 
       <section className={styles.panel}>
         <div className={styles.toolbar}>
@@ -533,6 +565,56 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
               </table>
             </div>
           </section>
+        </div>
+      </section>
+
+      <section className={styles.workerSection}>
+        <header className={styles.workerHeader}>
+          <div>
+            <p className={styles.workerTitle}>워크용 사용자 목록</p>
+            <p className={styles.workerSubtitle}>상단에서 신규 추가/수정 후 전체 워커 현황을 바로 확인하세요.</p>
+          </div>
+          <button type="button" onClick={fetchWorkerSnapshot} disabled={workerLoading}>
+            워커 목록 새로고침
+          </button>
+        </header>
+
+        {workerFeedback ? <p className={styles.feedback}>{workerFeedback}</p> : null}
+
+        <div className={styles.workerGrid}>
+          {workerSnapshot?.rows?.length ? (
+            workerSnapshot.rows.map((row, index) => (
+              <article key={index} className={styles.workerCard}>
+                <header className={styles.workerCardHeader}>
+                  <span className={styles.workerName}>{getWorkerField(row, 'name')}</span>
+                  <span className={styles.workerTier}>Tier {getWorkerField(row, 'tier', '?')}</span>
+                </header>
+                <dl className={styles.workerMeta}>
+                  <div>
+                    <dt>등록번호</dt>
+                    <dd>{getWorkerField(row, 'register_no')}</dd>
+                  </div>
+                  <div>
+                    <dt>연락처</dt>
+                    <dd>{getWorkerField(row, 'phone')}</dd>
+                  </div>
+                  <div>
+                    <dt>계좌</dt>
+                    <dd>
+                      {getWorkerField(row, 'basecode_bank', '')}
+                      {getWorkerField(row, 'basecode_code', '') ? ` / ${getWorkerField(row, 'basecode_code')}` : ''}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>메모</dt>
+                    <dd>{getWorkerField(row, 'comments')}</dd>
+                  </div>
+                </dl>
+              </article>
+            ))
+          ) : (
+            <div className={styles.workerEmpty}>{workerLoading ? '워커 목록을 불러오는 중입니다.' : '등록된 워커가 없습니다.'}</div>
+          )}
         </div>
       </section>
     </main>
