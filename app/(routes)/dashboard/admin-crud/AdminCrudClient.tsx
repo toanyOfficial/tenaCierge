@@ -552,6 +552,45 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
           )}
         </div>
       </section>
+
+      <section className={styles.workerSection}>
+        <header className={styles.workerHeader}>
+          <div>
+            <p className={styles.workerTitle}>워크용 사용자 목록</p>
+            <p className={styles.workerSubtitle}>필요한 워커를 클릭하면 위 수정 양식으로 불러옵니다.</p>
+          </div>
+          <button type="button" onClick={fetchWorkerSnapshot} disabled={workerLoading}>
+            워커 목록 새로고침
+          </button>
+        </header>
+
+        {workerFeedback ? <p className={styles.feedback}>{workerFeedback}</p> : null}
+
+        <div className={styles.workerTableWrapper}>
+          {workerRows.length ? (
+            <table className={styles.workerTable}>
+              <thead>
+                <tr>
+                  {workerColumns.map((column) => (
+                    <th key={column.key}>{column.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {workerRows.map((row, index) => (
+                  <tr key={index} className={styles.workerRow} onClick={() => handleWorkerRowSelect(row)}>
+                    {workerColumns.map((column) => (
+                      <td key={`${index}-${column.key}`}>{getWorkerField(row, column.key)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className={styles.workerEmpty}>{workerLoading ? '워커 목록을 불러오는 중입니다.' : '등록된 워커가 없습니다.'}</div>
+          )}
+        </div>
+      </section>
     </main>
   );
 }
