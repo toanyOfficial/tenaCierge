@@ -26,6 +26,7 @@ const referenceMap: Record<string, Record<string, AdminReference>> = {
   client_rooms: {
     client_id: { table: 'client_header', column: 'id' },
     building_id: { table: 'etc_buildings', column: 'id' },
+    price_set_id: { table: 'client_price_set_header', column: 'id' },
     checklist_set_id: { table: 'work_checklist_set_header', column: 'id' },
     images_set_id: { table: 'work_images_set_header', column: 'id' }
   },
@@ -258,6 +259,26 @@ export async function fetchReferenceOptions(
 
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT tier AS value, CONCAT('티어 ', tier, ' - ', COALESCE(comment, '')) AS label FROM worker_tier_rules ${whereClause} ORDER BY id ASC LIMIT ?`,
+      params
+    );
+
+    return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value) }));
+  }
+
+  if (table === 'client_rooms' && column === 'price_set_id') {
+    const pool = getPool();
+    const whereClauses = keyword ? ['(id LIKE ? OR title LIKE ? OR dscpt LIKE ?)'] : [];
+    const params: unknown[] = [];
+
+    if (keyword) {
+      const like = `%${keyword}%`;
+      params.push(like, like, like);
+    }
+
+    params.push(limit);
+
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT id AS value, CONCAT(id, ' - ', COALESCE(title, '')) AS label FROM client_price_set_header ${whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : ''} ORDER BY id ASC LIMIT ?`,
       params
     );
 

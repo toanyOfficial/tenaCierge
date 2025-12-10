@@ -49,17 +49,26 @@ const CLIENT_ADDITIONAL_PRICE_CONFIG = {
 } as const;
 const CLIENT_HEADER_HIDDEN_COLUMNS = new Set(['created_at', 'updated_at']);
 const WORKER_HIDDEN_COLUMNS = new Set(['created_at', 'updated_at']);
+const CLIENT_ROOMS_HIDDEN_COLUMNS = new Set(['created_at', 'updated_at']);
 const TABLE_LABEL_OVERRIDES: Record<string, Record<string, string>> = {
   client_additional_price: CLIENT_ADDITIONAL_PRICE_CONFIG.koreanLabels,
   client_header: {
     person: 'person(대표자)',
     rcpt_name: 'rcpt_name(상호명)',
     rcpt_no: 'rcpt_no(영수증식별번호)'
+  },
+  client_rooms: {
+    price_set_id: 'price_set_id',
+    facility_yn: 'facility_yn(시설관리여부)',
+    realtime_overview_yn: 'realtime_overview_yn(실시간현황보기여부)',
+    images_yn: 'images_yn(사진조회여부)',
+    weight: 'weight'
   }
 };
 const TABLE_HIDDEN_COLUMNS: Record<string, Set<string>> = {
   client_additional_price: CLIENT_ADDITIONAL_PRICE_CONFIG.hiddenColumns,
   client_header: CLIENT_HEADER_HIDDEN_COLUMNS,
+  client_rooms: CLIENT_ROOMS_HIDDEN_COLUMNS,
   worker_header: WORKER_HIDDEN_COLUMNS
 };
 const REGISTER_TABLES = new Set(['worker_header', 'client_header']);
@@ -92,14 +101,15 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   const [referenceOptions, setReferenceOptions] = useState<Record<string, AdminReferenceOption[]>>({});
   const [referenceSearch, setReferenceSearch] = useState<Record<string, string>>({});
   const [referenceLoading, setReferenceLoading] = useState<Record<string, boolean>>({});
-  const [clientSnapshot, setClientSnapshot] = useState<Snapshot | null>(null);
-  const [clientLoading, setClientLoading] = useState(false);
-  const [clientFeedback, setClientFeedback] = useState<string | null>(null);
+  const [helperSnapshot, setHelperSnapshot] = useState<Snapshot | null>(null);
+  const [helperLoading, setHelperLoading] = useState(false);
+  const [helperFeedback, setHelperFeedback] = useState<string | null>(null);
   const [pendingClientEdit, setPendingClientEdit] = useState<Record<string, unknown> | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
 
   const isClientAdditionalPrice = selectedTable === 'client_additional_price';
   const isClientHeader = selectedTable === 'client_header';
+  const isClientRooms = selectedTable === 'client_rooms';
   const isWorkerTable = selectedTable === 'worker_header';
   const tableLabels: Record<string, string> = TABLE_LABEL_OVERRIDES[selectedTable] ?? {};
   const isHiddenColumn = (columnName: string) => {
@@ -118,22 +128,26 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   }, [selectedTable]);
 
   useEffect(() => {
-    void fetchClientSnapshot();
-  }, []);
+    void fetchHelperSnapshot();
+  }, [selectedTable]);
 
   useEffect(() => {
-    if (pendingClientEdit && selectedTable === 'client_header' && snapshot?.table === 'client_header') {
+    const pendingTable = (pendingClientEdit as { __table?: string } | null)?.__table;
+    if (pendingClientEdit && pendingTable && selectedTable === pendingTable && snapshot?.table === selectedTable) {
       startEdit(pendingClientEdit);
       setPendingClientEdit(null);
     }
   }, [pendingClientEdit, selectedTable, snapshot]);
 
   const columns = snapshot?.columns ?? [];
-  const clientRows = clientSnapshot?.rows ?? [];
-  const clientColumns = (clientSnapshot?.columns ?? []).filter((column) => !CLIENT_HEADER_HIDDEN_COLUMNS.has(column.name));
-  const clientColumnLabels = clientColumns.map((column) => ({
+  const helperRows = helperSnapshot?.rows ?? [];
+  const helperTableName = helperSnapshot?.table ?? (selectedTable === 'client_rooms' ? 'client_rooms' : 'client_header');
+  const helperHiddenColumns = helperTableName === 'client_rooms' ? CLIENT_ROOMS_HIDDEN_COLUMNS : CLIENT_HEADER_HIDDEN_COLUMNS;
+  const helperLabelOverrides = TABLE_LABEL_OVERRIDES[helperTableName] ?? {};
+  const helperColumns = (helperSnapshot?.columns ?? []).filter((column) => !helperHiddenColumns.has(column.name));
+  const helperColumnLabels = helperColumns.map((column) => ({
     key: column.name,
-    label: TABLE_LABEL_OVERRIDES.client_header?.[column.name] ?? column.name
+    label: helperLabelOverrides[column.name] ?? column.name
   }));
 
   useEffect(() => {
@@ -178,21 +192,22 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     }
   }
 
-  async function fetchClientSnapshot() {
-    setClientLoading(true);
-    setClientFeedback(null);
+  async function fetchHelperSnapshot() {
+    setHelperLoading(true);
+    setHelperFeedback(null);
     try {
-      const response = await fetch('/api/admin/crud?table=client_header&limit=200&offset=0', { cache: 'no-cache' });
+      const table = selectedTable === 'client_rooms' ? 'client_rooms' : 'client_header';
+      const response = await fetch(`/api/admin/crud?table=${table}&limit=200&offset=0`, { cache: 'no-cache' });
       if (!response.ok) {
-        throw new Error('고객 목록을 불러오지 못했습니다.');
+        throw new Error('목록을 불러오지 못했습니다.');
       }
       const payload = (await response.json()) as Snapshot;
-      setClientSnapshot({ ...payload, table: 'client_header' });
+      setHelperSnapshot({ ...payload, table });
     } catch (error) {
       console.error(error);
-      setClientFeedback(error instanceof Error ? error.message : '고객 목록 조회 중 오류가 발생했습니다.');
+      setHelperFeedback(error instanceof Error ? error.message : '목록 조회 중 오류가 발생했습니다.');
     } finally {
-      setClientLoading(false);
+      setHelperLoading(false);
     }
   }
 
@@ -257,8 +272,8 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     }
 
     if (tableName === 'client_header') {
-      if (clientSnapshot?.table === 'client_header') {
-        candidates.push(...clientSnapshot.rows);
+      if (helperSnapshot?.table === 'client_header') {
+        candidates.push(...helperSnapshot.rows);
       }
       if (snapshot?.table === 'client_header') {
         candidates.push(...snapshot.rows);
@@ -413,6 +428,21 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       );
     }
 
+    if (isClientRooms && ['facility_yn', 'realtime_overview_yn', 'images_yn'].includes(column.name)) {
+      return (
+        <select
+          id={column.name}
+          value={value}
+          onChange={(event) => handleInputChange(column, event.target.value)}
+          disabled={loading}
+        >
+          <option value="">선택하세요</option>
+          <option value="1">사용</option>
+          <option value="0">미사용</option>
+        </select>
+      );
+    }
+
     if (isClientAdditionalPrice && CLIENT_ADDITIONAL_PRICE_CONFIG.booleanColumns.has(column.name)) {
       return (
         <select id={column.name} value={value} onChange={(event) => handleInputChange(column, event.target.value)} disabled={loading}>
@@ -470,6 +500,27 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
           <option value="">선택하세요</option>
           <option value="1">사용</option>
           <option value="0">미사용</option>
+        </select>
+      );
+    }
+
+    if (isClientRooms && column.name === 'price_set_id') {
+      const options = referenceOptions[column.name] ?? [];
+      const refLoading = referenceLoading[column.name] ?? false;
+
+      return (
+        <select
+          id={column.name}
+          value={value}
+          onChange={(event) => handleInputChange(column, event.target.value)}
+          disabled={loading || refLoading}
+        >
+          <option value="">선택하세요</option>
+          {options.map((option) => (
+            <option key={`${column.name}-${option.value}`} value={String(option.value)}>
+              {option.label}
+            </option>
+          ))}
         </select>
       );
     }
@@ -599,9 +650,11 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     }
 
     const reference = column.references as AdminReference | undefined;
-    const placeholder = reference
-      ? `${reference.table}.${reference.column}`
-      : column.columnType;
+    const placeholder = isClientRooms && column.name === 'weight'
+      ? '인피닛이9점입니다'
+      : reference
+        ? `${reference.table}.${reference.column}`
+        : column.columnType;
 
     return (
       <input
@@ -623,12 +676,13 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   }
 
   function handleClientRowSelect(row: Record<string, unknown>) {
-    setPendingClientEdit(row);
-    if (selectedTable !== 'client_header') {
-      setSelectedTable('client_header');
+    const table = helperSnapshot?.table ?? 'client_header';
+    setPendingClientEdit({ ...row, __table: table });
+    if (selectedTable !== table) {
+      setSelectedTable(table);
       return;
     }
-    if (snapshot?.table === 'client_header') {
+    if (snapshot?.table === table) {
       startEdit(row);
       setPendingClientEdit(null);
     }
@@ -714,30 +768,34 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       <section className={styles.workerSection}>
         <header className={styles.workerHeader}>
           <div>
-            <p className={styles.workerTitle}>고객 목록</p>
-            <p className={styles.workerSubtitle}>고객을 클릭하면 위 수정 양식으로 불러옵니다.</p>
+            <p className={styles.workerTitle}>{helperTableName === 'client_rooms' ? '객실 목록' : '고객 목록'}</p>
+            <p className={styles.workerSubtitle}>
+              {helperTableName === 'client_rooms'
+                ? '객실을 클릭하면 위 수정 양식으로 불러옵니다.'
+                : '고객을 클릭하면 위 수정 양식으로 불러옵니다.'}
+            </p>
           </div>
-          <button type="button" onClick={fetchClientSnapshot} disabled={clientLoading}>
-            고객 목록 새로고침
+          <button type="button" onClick={fetchHelperSnapshot} disabled={helperLoading}>
+            목록 새로고침
           </button>
         </header>
 
-        {clientFeedback ? <p className={styles.feedback}>{clientFeedback}</p> : null}
+        {helperFeedback ? <p className={styles.feedback}>{helperFeedback}</p> : null}
 
         <div className={styles.workerTableWrapper}>
-          {clientRows.length ? (
+          {helperRows.length ? (
             <table className={styles.workerTable}>
               <thead>
                 <tr>
-                  {clientColumnLabels.map((column) => (
+                  {helperColumnLabels.map((column) => (
                     <th key={column.key}>{column.label}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {clientRows.map((row, index) => (
+                {helperRows.map((row, index) => (
                   <tr key={index} className={styles.workerRow} onClick={() => handleClientRowSelect(row)}>
-                    {clientColumnLabels.map((column) => (
+                    {helperColumnLabels.map((column) => (
                       <td key={`${index}-${column.key}`}>{getClientField(row, column.key)}</td>
                     ))}
                   </tr>
@@ -745,7 +803,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
               </tbody>
             </table>
           ) : (
-            <div className={styles.workerEmpty}>{clientLoading ? '고객 목록을 불러오는 중입니다.' : '등록된 고객이 없습니다.'}</div>
+            <div className={styles.workerEmpty}>{helperLoading ? '목록을 불러오는 중입니다.' : '등록된 데이터가 없습니다.'}</div>
           )}
         </div>
       </section>
