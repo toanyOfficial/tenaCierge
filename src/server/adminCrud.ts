@@ -17,7 +17,7 @@ export type AdminColumnMeta = {
   references?: AdminReference;
 };
 
-export type AdminReferenceOption = { value: unknown; label: string };
+export type AdminReferenceOption = { value: unknown; label: string; codeValue?: string };
 
 const referenceMap: Record<string, Record<string, AdminReference>> = {
   client_additional_price: { room_id: { table: 'client_rooms', column: 'id' } },
@@ -235,13 +235,13 @@ export async function fetchReferenceOptions(
       params.push(like, like);
     }
 
-    const sql = `SELECT code AS value, CONCAT(code, ' - ', value) AS label FROM etc_baseCode WHERE ${whereClauses.join(
+    const sql = `SELECT code AS value, value AS codeValue, CONCAT(code, ' - ', value) AS label FROM etc_baseCode WHERE ${whereClauses.join(
       ' AND '
     )} ORDER BY value ASC LIMIT ?`;
     params.push(limit);
 
     const [rows] = await pool.query<RowDataPacket[]>(sql, params);
-    return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value) }));
+    return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value), codeValue: String(row.codeValue ?? '') }));
   }
 
   if (table === 'worker_header' && column === 'tier') {

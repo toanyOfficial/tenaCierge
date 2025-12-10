@@ -6,7 +6,7 @@ import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
 
 import styles from './adminCrud.module.css';
 
-import type { AdminColumnMeta, AdminReference } from '@/src/server/adminCrud';
+import type { AdminColumnMeta, AdminReference, AdminReferenceOption } from '@/src/server/adminCrud';
 import type { ProfileSummary } from '@/src/utils/profile';
 
 type TableOption = {
@@ -64,7 +64,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   const [editingKey, setEditingKey] = useState<Record<string, unknown>>({});
   const [feedback, setFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [referenceOptions, setReferenceOptions] = useState<Record<string, { value: string; label: string }[]>>({});
+  const [referenceOptions, setReferenceOptions] = useState<Record<string, AdminReferenceOption[]>>({});
   const [referenceSearch, setReferenceSearch] = useState<Record<string, string>>({});
   const [referenceLoading, setReferenceLoading] = useState<Record<string, boolean>>({});
   const [workerSnapshot, setWorkerSnapshot] = useState<Snapshot | null>(null);
@@ -82,7 +82,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     return false;
   };
   const visibleColumns = (snapshot?.columns ?? []).filter(
-    (column) => !isHiddenColumn(column.name)
+    (column) => !isHiddenColumn(column.name) && !(isWorkerTable && column.name === 'basecode_code')
   );
 
   useEffect(() => {
@@ -118,6 +118,10 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     setReferenceOptions({});
     setReferenceSearch({});
     setReferenceLoading({});
+    if (selectedTable === 'worker_header') {
+      void loadReferenceOptions('basecode_bank', '');
+      void loadReferenceOptions('tier', '');
+    }
   }, [selectedTable]);
 
   useEffect(() => {
@@ -213,6 +217,16 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     setFormValues((prev) => ({ ...prev, [column.name]: String(value) }));
   }
 
+  function handleWorkerBankChange(optionValue: string) {
+    const options = referenceOptions.basecode_bank ?? [];
+    const selectedOption = options.find((option) => String(option.value) === optionValue);
+    setFormValues((prev) => ({
+      ...prev,
+      basecode_bank: optionValue,
+      basecode_code: selectedOption?.codeValue ?? ''
+    }));
+  }
+
   function getKnownRegisterNumbers(additionalRows: Record<string, unknown>[] = []) {
     const candidates = [
       ...(workerSnapshot?.rows ?? []),
@@ -301,7 +315,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
         const { message } = (await response.json().catch(() => ({}))) as { message?: string };
         throw new Error(message ?? '연관 데이터를 불러오지 못했습니다.');
       }
-      const payload = (await response.json()) as { options: { value: string; label: string }[] };
+      const payload = (await response.json()) as { options: AdminReferenceOption[] };
       setReferenceOptions((prev) => ({ ...prev, [columnName]: payload.options ?? [] }));
     } catch (error) {
       console.error(error);
@@ -410,6 +424,48 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
           checked={checked}
           onChange={(event) => handleInputChange(column, event.target.checked)}
         />
+      );
+    }
+
+    if (isWorkerTable && column.name === 'basecode_bank') {
+      const options = referenceOptions[column.name] ?? [];
+      const refLoading = referenceLoading[column.name] ?? false;
+
+      return (
+        <select
+          id={column.name}
+          value={value}
+          onChange={(event) => handleWorkerBankChange(event.target.value)}
+          disabled={loading || refLoading}
+        >
+          <option value="">선택하세요</option>
+          {options.map((option) => (
+            <option key={`${column.name}-${option.value}`} value={String(option.value)}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    if (isWorkerTable && column.name === 'tier') {
+      const options = referenceOptions[column.name] ?? [];
+      const refLoading = referenceLoading[column.name] ?? false;
+
+      return (
+        <select
+          id={column.name}
+          value={value}
+          onChange={(event) => handleInputChange(column, event.target.value)}
+          disabled={loading || refLoading}
+        >
+          <option value="">선택하세요</option>
+          {options.map((option) => (
+            <option key={`${column.name}-${option.value}`} value={String(option.value)}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       );
     }
 
