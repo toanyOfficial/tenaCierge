@@ -971,13 +971,16 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                         <div key={work.id} className={`${styles.workCardMuted} ${styles.workCardMutedRow}`}>
                                           <span className={styles.workTitle}>{work.roomName}</span>
                                           <div className={styles.statusCheckRow}>
-                                            <span
+                                            <button
+                                              type="button"
                                               className={`${styles.statusCheckBadge} ${
                                                 conditionDone ? styles.statusCheckDone : ''
-                                              }`}
+                                              } ${styles.statusCheckBadgeClickable}`}
+                                              onClick={() => setInfoTarget(work)}
+                                              aria-label="호실 정보 열기"
                                             >
                                               {conditionDone ? '확인완료' : '상태확인'}
-                                            </span>
+                                            </button>
                                             {conditionAvailable && canSubmitCondition ? (
                                               <button
                                                 type="button"
