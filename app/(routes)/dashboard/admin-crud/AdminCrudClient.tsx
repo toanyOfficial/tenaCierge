@@ -47,6 +47,7 @@ const CLIENT_ADDITIONAL_PRICE_CONFIG = {
     comment: '비고'
   }
 } as const;
+const WORKER_HIDDEN_COLUMNS = new Set(['created_at', 'updated_at']);
 
 export default function AdminCrudClient({ tables, profile, initialTable }: Props) {
   const [activeRole, setActiveRole] = useState<string | null>(profile.roles[0] ?? null);
@@ -73,9 +74,13 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   const formRef = useRef<HTMLFormElement | null>(null);
 
   const isClientAdditionalPrice = selectedTable === 'client_additional_price';
+  const isWorkerTable = selectedTable === 'worker_header';
   const tableLabels: Record<string, string> = isClientAdditionalPrice ? CLIENT_ADDITIONAL_PRICE_CONFIG.koreanLabels : {};
-  const isHiddenColumn = (columnName: string) =>
-    isClientAdditionalPrice && CLIENT_ADDITIONAL_PRICE_CONFIG.hiddenColumns.has(columnName);
+  const isHiddenColumn = (columnName: string) => {
+    if (isClientAdditionalPrice && CLIENT_ADDITIONAL_PRICE_CONFIG.hiddenColumns.has(columnName)) return true;
+    if (isWorkerTable && WORKER_HIDDEN_COLUMNS.has(columnName)) return true;
+    return false;
+  };
   const visibleColumns = (snapshot?.columns ?? []).filter(
     (column) => !isHiddenColumn(column.name)
   );
@@ -135,7 +140,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       setSnapshot({ ...payload, table });
       setMode('create');
       setEditingKey({});
-      setFormValues({});
+      setFormValues(table === 'worker_header' ? { register_no: generateUniqueRegister(payload.rows) } : {});
       setReferenceOptions({});
       setReferenceSearch({});
       setReferenceLoading({});
@@ -208,6 +213,47 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     setFormValues((prev) => ({ ...prev, [column.name]: String(value) }));
   }
 
+  function getKnownRegisterNumbers(additionalRows: Record<string, unknown>[] = []) {
+    const candidates = [
+      ...(workerSnapshot?.rows ?? []),
+      ...(snapshot?.table === 'worker_header' ? snapshot.rows : []),
+      ...additionalRows
+    ];
+
+    const registerNumbers = new Set<string>();
+    candidates.forEach((row) => {
+      const value = (row as Record<string, unknown>)?.register_no;
+      if (typeof value === 'string' && value.trim()) {
+        registerNumbers.add(value.trim());
+      }
+    });
+
+    return registerNumbers;
+  }
+
+  function randomRegisterValue() {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 6; i += 1) {
+      const index = Math.floor(Math.random() * alphabet.length);
+      result += alphabet[index];
+    }
+    return result;
+  }
+
+  function generateUniqueRegister(additionalRows: Record<string, unknown>[] = []) {
+    const existing = getKnownRegisterNumbers(additionalRows);
+    for (let attempts = 0; attempts < 50; attempts += 1) {
+      const candidate = randomRegisterValue();
+      if (!existing.has(candidate)) return candidate;
+    }
+    return randomRegisterValue();
+  }
+
+  function handleRegisterRefresh() {
+    setFormValues((prev) => ({ ...prev, register_no: generateUniqueRegister() }));
+  }
+
   function startEdit(row: Record<string, unknown>) {
     setMode('edit');
     setFeedback(null);
@@ -238,7 +284,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   function startCreate() {
     setMode('create');
     setEditingKey({});
-    setFormValues({});
+    setFormValues(isWorkerTable ? { register_no: generateUniqueRegister() } : {});
     setFeedback(null);
     focusForm();
   }
@@ -307,6 +353,17 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     const type = toInputType(column);
     const value = formValues[column.name] ?? '';
     const isCheckbox = type === 'checkbox';
+
+    if (isWorkerTable && column.name === 'register_no') {
+      return (
+        <div className={styles.registerField}>
+          <input id={column.name} type="text" value={value} readOnly disabled={loading || mode === 'edit'} />
+          <button type="button" onClick={() => handleRegisterRefresh()} disabled={loading || mode === 'edit'}>
+            리프레시
+          </button>
+        </div>
+      );
+    }
 
     if (isClientAdditionalPrice && CLIENT_ADDITIONAL_PRICE_CONFIG.booleanColumns.has(column.name)) {
       return (
@@ -512,45 +569,6 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
             </div>
           </form>
         </section>
-      </section>
-
-      <section className={styles.workerSection}>
-        <header className={styles.workerHeader}>
-          <div>
-            <p className={styles.workerTitle}>워크용 사용자 목록</p>
-            <p className={styles.workerSubtitle}>필요한 워커를 클릭하면 위 수정 양식으로 불러옵니다.</p>
-          </div>
-          <button type="button" onClick={fetchWorkerSnapshot} disabled={workerLoading}>
-            워커 목록 새로고침
-          </button>
-        </header>
-
-        {workerFeedback ? <p className={styles.feedback}>{workerFeedback}</p> : null}
-
-        <div className={styles.workerTableWrapper}>
-          {workerRows.length ? (
-            <table className={styles.workerTable}>
-              <thead>
-                <tr>
-                  {workerColumns.map((column) => (
-                    <th key={column.key}>{column.label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {workerRows.map((row, index) => (
-                  <tr key={index} className={styles.workerRow} onClick={() => handleWorkerRowSelect(row)}>
-                    {workerColumns.map((column) => (
-                      <td key={`${index}-${column.key}`}>{getWorkerField(row, column.key)}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className={styles.workerEmpty}>{workerLoading ? '워커 목록을 불러오는 중입니다.' : '등록된 워커가 없습니다.'}</div>
-          )}
-        </div>
       </section>
 
       <section className={styles.workerSection}>
