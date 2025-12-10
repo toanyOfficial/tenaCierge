@@ -15,6 +15,7 @@ export type AdminColumnMeta = {
   isPrimaryKey: boolean;
   autoIncrement: boolean;
   references?: AdminReference;
+  comment?: string;
 };
 
 export type AdminReferenceOption = { value: unknown; label: string; codeValue?: string; meta?: Record<string, unknown> };
@@ -142,6 +143,7 @@ export function listAdminTables() {
 
 async function fetchColumnMetadata(table: string): Promise<AdminColumnMeta[]> {
   const schemaTable = getSchemaTableOrThrow(table);
+  const commentByColumn = new Map(schemaTable.columns.map((column) => [column.name, column.comment]));
   const pool = getPool();
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT COLUMN_NAME, COLUMN_KEY, EXTRA, COLUMN_DEFAULT
@@ -165,7 +167,8 @@ async function fetchColumnMetadata(table: string): Promise<AdminColumnMeta[]> {
       defaultValue: dbMeta?.defaultValue ?? null,
       isPrimaryKey: dbMeta?.key === 'PRI',
       autoIncrement: typeof dbMeta?.extra === 'string' && dbMeta.extra.includes('auto_increment'),
-      references: referenceMap[table]?.[column.name]
+      references: referenceMap[table]?.[column.name],
+      comment: commentByColumn.get(column.name)
     } satisfies AdminColumnMeta;
   });
 }
@@ -242,6 +245,28 @@ export async function fetchReferenceOptions(
     params.push(limit);
 
     const [rows] = await pool.query<RowDataPacket[]>(sql, params);
+    return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value), codeValue: String(row.codeValue ?? '') }));
+  }
+
+  if (column.startsWith('basecode_')) {
+    const pool = getPool();
+    const whereClauses: string[] = [];
+    const params: unknown[] = [];
+
+    if (keyword) {
+      whereClauses.push('(code LIKE ? OR value LIKE ?)');
+      const like = `%${keyword}%`;
+      params.push(like, like);
+    }
+
+    const whereSql = whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : '';
+    params.push(limit);
+
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT value, code AS codeValue, CONCAT(code, ' - ', value) AS label FROM etc_baseCode ${whereSql} ORDER BY value ASC LIMIT ?`,
+      params
+    );
+
     return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value), codeValue: String(row.codeValue ?? '') }));
   }
 

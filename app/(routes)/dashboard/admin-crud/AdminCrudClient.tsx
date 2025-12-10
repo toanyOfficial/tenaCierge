@@ -50,6 +50,8 @@ const CLIENT_ADDITIONAL_PRICE_CONFIG = {
 const CLIENT_HEADER_HIDDEN_COLUMNS = new Set(['created_at', 'updated_at']);
 const WORKER_HIDDEN_COLUMNS = new Set(['created_at', 'updated_at']);
 const CLIENT_ROOMS_HIDDEN_COLUMNS = new Set(['created_at', 'updated_at']);
+const GLOBAL_HIDDEN_COLUMNS = new Set(['created_at', 'updated_at']);
+const PROTECTED_TABLES = new Set(['worker_header', 'client_header', 'client_rooms', 'client_additional_price']);
 const TABLE_LABEL_OVERRIDES: Record<string, Record<string, string>> = {
   client_additional_price: CLIENT_ADDITIONAL_PRICE_CONFIG.koreanLabels,
   client_header: {
@@ -114,15 +116,24 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   const isClientHeader = selectedTable === 'client_header';
   const isClientRooms = selectedTable === 'client_rooms';
   const isWorkerTable = selectedTable === 'worker_header';
+  const isProtectedTable = PROTECTED_TABLES.has(selectedTable);
+  const usingSharedGrid = !isProtectedTable;
   const tableLabels: Record<string, string> = TABLE_LABEL_OVERRIDES[selectedTable] ?? {};
+  const basecodeColumns = snapshot?.columns?.filter((column) => column.name.startsWith('basecode_')) ?? [];
+  const hasBasecodePair =
+    !isProtectedTable && basecodeColumns.some((column) => column.name === 'basecode_code') && basecodeColumns.length > 1;
+  const basecodePrimaryColumn = hasBasecodePair
+    ? basecodeColumns.find((column) => column.name !== 'basecode_code')?.name ?? null
+    : null;
   const isHiddenColumn = (columnName: string) => {
     const hiddenColumns = TABLE_HIDDEN_COLUMNS[selectedTable];
     if (hiddenColumns?.has(columnName)) return true;
+    if (GLOBAL_HIDDEN_COLUMNS.has(columnName)) return true;
+    if (hasBasecodePair && columnName === 'basecode_code') return true;
+    if (isWorkerTable && columnName === 'basecode_code') return true;
     return false;
   };
-  const visibleColumns = (snapshot?.columns ?? []).filter(
-    (column) => !isHiddenColumn(column.name) && !(isWorkerTable && column.name === 'basecode_code')
-  );
+  const visibleColumns = (snapshot?.columns ?? []).filter((column) => !isHiddenColumn(column.name));
 
   useEffect(() => {
     if (selectedTable) {
@@ -131,8 +142,19 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   }, [selectedTable]);
 
   useEffect(() => {
-    void fetchHelperSnapshot();
-  }, [selectedTable]);
+    if (isProtectedTable) {
+      void fetchHelperSnapshot();
+    } else {
+      setHelperSnapshot(snapshot);
+      setHelperFeedback(null);
+    }
+  }, [isProtectedTable, selectedTable]);
+
+  useEffect(() => {
+    if (!isProtectedTable && snapshot) {
+      setHelperSnapshot(snapshot);
+    }
+  }, [isProtectedTable, snapshot]);
 
   useEffect(() => {
     const pendingTable = (pendingClientEdit as { __table?: string } | null)?.__table;
@@ -143,26 +165,44 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   }, [pendingClientEdit, selectedTable, snapshot]);
 
   const columns = snapshot?.columns ?? [];
-  const helperRows = helperSnapshot?.rows ?? [];
-  const helperTableName =
-    helperSnapshot?.table ??
-    (selectedTable === 'client_additional_price'
-      ? 'client_additional_price'
-      : selectedTable === 'client_rooms'
-        ? 'client_rooms'
-        : 'client_header');
-  const helperHiddenColumns =
-    helperTableName === 'client_rooms'
+  const helperRows = usingSharedGrid ? snapshot?.rows ?? [] : helperSnapshot?.rows ?? [];
+  const helperTableName = usingSharedGrid
+    ? snapshot?.table ?? selectedTable
+    : helperSnapshot?.table ??
+      (selectedTable === 'client_additional_price'
+        ? 'client_additional_price'
+        : selectedTable === 'client_rooms'
+          ? 'client_rooms'
+          : 'client_header');
+  const helperHiddenColumns = usingSharedGrid
+    ? new Set<string>([...GLOBAL_HIDDEN_COLUMNS, ...(hasBasecodePair ? ['basecode_code'] : [])])
+    : helperTableName === 'client_rooms'
       ? CLIENT_ROOMS_HIDDEN_COLUMNS
       : helperTableName === 'client_additional_price'
         ? CLIENT_ADDITIONAL_PRICE_CONFIG.hiddenColumns
         : CLIENT_HEADER_HIDDEN_COLUMNS;
-  const helperLabelOverrides = TABLE_LABEL_OVERRIDES[helperTableName] ?? {};
-  const helperColumns = (helperSnapshot?.columns ?? []).filter((column) => !helperHiddenColumns.has(column.name));
+  const helperLabelOverrides = usingSharedGrid ? tableLabels : TABLE_LABEL_OVERRIDES[helperTableName] ?? {};
+  const helperColumns = usingSharedGrid
+    ? visibleColumns
+    : (helperSnapshot?.columns ?? []).filter((column) => !helperHiddenColumns.has(column.name));
   const helperColumnLabels = helperColumns.map((column) => ({
     key: column.name,
     label: helperLabelOverrides[column.name] ?? column.name
   }));
+  const helperTitle = usingSharedGrid
+    ? `${helperTableName ?? '데이터'} 목록`
+    : helperTableName === 'client_rooms'
+      ? '객실 목록'
+      : helperTableName === 'client_additional_price'
+        ? '추가비용 목록'
+        : '고객 목록';
+  const helperSubtitle = usingSharedGrid
+    ? '행을 클릭하면 위 수정 양식으로 불러옵니다.'
+    : helperTableName === 'client_rooms'
+      ? '객실을 클릭하면 위 수정 양식으로 불러옵니다.'
+      : helperTableName === 'client_additional_price'
+        ? '추가비용을 클릭하면 위 수정 양식으로 불러옵니다.'
+        : '고객을 클릭하면 위 수정 양식으로 불러옵니다.';
 
   useEffect(() => {
     setReferenceOptions({});
@@ -221,6 +261,11 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   }
 
   async function fetchHelperSnapshot() {
+    if (!isProtectedTable) {
+      setHelperSnapshot(snapshot);
+      return;
+    }
+
     setHelperLoading(true);
     setHelperFeedback(null);
     try {
@@ -279,6 +324,17 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     return raw;
   }
 
+  function parseFlagComment(comment?: string) {
+    if (!comment) return [] as { value: string; label: string }[];
+
+    return comment
+      .split(/[,;]/)
+      .map((part) => part.split(/[:=]/))
+      .filter((tokens) => tokens[0])
+      .map((tokens) => ({ value: tokens[0]?.trim() ?? '', label: (tokens[1] ?? tokens[0] ?? '').trim() }))
+      .filter((option) => option.value);
+  }
+
   function handleInputChange(column: AdminColumnMeta, value: string | boolean) {
     if (isClientAdditionalPrice && mode === 'create' && (column.name === 'room_id' || column.name === 'date')) {
       const nextValues = { ...formValues, [column.name]: String(value) };
@@ -301,6 +357,16 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       ...prev,
       basecode_bank: optionValue,
       basecode_code: selectedOption?.codeValue ?? ''
+    }));
+  }
+
+  function handleBasecodeChange(optionValue: string, primaryColumn: string) {
+    const options = referenceOptions.basecode_code ?? referenceOptions[primaryColumn] ?? [];
+    const selectedOption = options.find((option) => String(option.value) === optionValue);
+    setFormValues((prev) => ({
+      ...prev,
+      [primaryColumn]: selectedOption?.codeValue ?? optionValue,
+      basecode_code: selectedOption ? String(selectedOption.value) : optionValue
     }));
   }
 
@@ -546,6 +612,28 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     const value = formValues[column.name] ?? '';
     const isCheckbox = type === 'checkbox';
 
+    if (hasBasecodePair && basecodePrimaryColumn && column.name === basecodePrimaryColumn) {
+      const options = referenceOptions.basecode_code ?? [];
+      const refLoading = referenceLoading.basecode_code ?? false;
+      const selectValue = formValues.basecode_code ?? value;
+
+      return (
+        <select
+          id={column.name}
+          value={selectValue}
+          onChange={(event) => handleBasecodeChange(event.target.value, column.name)}
+          disabled={loading || refLoading}
+        >
+          <option value="">선택하세요</option>
+          {options.map((option) => (
+            <option key={`${column.name}-${option.value}`} value={String(option.value)}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
     if (isClientAdditionalPrice && column.name === 'seq') {
       return <input id={column.name} type="number" value={value} readOnly disabled />;
     }
@@ -581,6 +669,40 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
               <option value="0">미사용</option>
             </>
           )}
+        </select>
+      );
+    }
+
+    if (!isProtectedTable && column.name.endsWith('_yn')) {
+      return (
+        <select
+          id={column.name}
+          value={value}
+          onChange={(event) => handleInputChange(column, event.target.value)}
+          disabled={loading}
+        >
+          <option value="1">예</option>
+          <option value="0">아니오</option>
+        </select>
+      );
+    }
+
+    if (!isProtectedTable && column.name.endsWith('_flag')) {
+      const flagOptions = parseFlagComment(column.comment);
+      const options = flagOptions.length ? flagOptions : [];
+
+      return (
+        <select
+          id={column.name}
+          value={value}
+          onChange={(event) => handleInputChange(column, event.target.value)}
+          disabled={loading}
+        >
+          {(options.length ? options : [{ value: '1', label: '예' }, { value: '0', label: '아니오' }]).map((option) => (
+            <option key={`${column.name}-${option.value}`} value={String(option.value)}>
+              {option.label}
+            </option>
+          ))}
         </select>
       );
     }
@@ -880,6 +1002,14 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     }
   }
 
+  function handleRowSelect(row: Record<string, unknown>) {
+    if (usingSharedGrid) {
+      startEdit(row);
+      return;
+    }
+    handleClientRowSelect(row);
+  }
+
   function focusForm() {
     const formElement = formRef.current;
     if (!formElement) return;
@@ -960,14 +1090,14 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       <section className={styles.workerSection}>
         <header className={styles.workerHeader}>
           <div>
-            <p className={styles.workerTitle}>{helperTableName === 'client_rooms' ? '객실 목록' : '고객 목록'}</p>
-            <p className={styles.workerSubtitle}>
-              {helperTableName === 'client_rooms'
-                ? '객실을 클릭하면 위 수정 양식으로 불러옵니다.'
-                : '고객을 클릭하면 위 수정 양식으로 불러옵니다.'}
-            </p>
+            <p className={styles.workerTitle}>{helperTitle}</p>
+            <p className={styles.workerSubtitle}>{helperSubtitle}</p>
           </div>
-          <button type="button" onClick={fetchHelperSnapshot} disabled={helperLoading}>
+          <button
+            type="button"
+            onClick={() => (usingSharedGrid ? fetchSnapshot(selectedTable, snapshot?.offset ?? 0) : fetchHelperSnapshot())}
+            disabled={helperLoading || loading}
+          >
             목록 새로고침
           </button>
         </header>
@@ -986,7 +1116,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
               </thead>
               <tbody>
                 {helperRows.map((row, index) => (
-                  <tr key={index} className={styles.workerRow} onClick={() => handleClientRowSelect(row)}>
+                  <tr key={index} className={styles.workerRow} onClick={() => handleRowSelect(row)}>
                     {helperColumnLabels.map((column) => (
                       <td key={`${index}-${column.key}`}>{getClientField(row, column.key)}</td>
                     ))}
