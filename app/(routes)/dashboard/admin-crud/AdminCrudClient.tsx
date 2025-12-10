@@ -239,10 +239,10 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
         throw new Error('테이블을 불러오지 못했습니다.');
       }
       const payload = (await response.json()) as Snapshot;
-      const baseDefaults = REGISTER_TABLES.has(table)
+      const baseDefaults: Record<string, string> = REGISTER_TABLES.has(table)
         ? { register_no: generateUniqueRegister(table, payload.rows) }
         : {};
-      const tableDefaults = table === 'client_additional_price'
+      const tableDefaults: Record<string, string> = table === 'client_additional_price'
         ? { ...baseDefaults, minus_yn: '0', ratio_yn: '0' }
         : baseDefaults;
       setSnapshot({ ...payload, table });
@@ -488,10 +488,10 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   function startCreate() {
     setMode('create');
     setEditingKey({});
-    const baseDefaults = REGISTER_TABLES.has(selectedTable)
+    const baseDefaults: Record<string, string> = REGISTER_TABLES.has(selectedTable)
       ? { register_no: generateUniqueRegister(selectedTable) }
       : {};
-    const tableDefaults = isClientAdditionalPrice ? { ...baseDefaults, minus_yn: '0', ratio_yn: '0' } : baseDefaults;
+    const tableDefaults: Record<string, string> = isClientAdditionalPrice ? { ...baseDefaults, minus_yn: '0', ratio_yn: '0' } : baseDefaults;
     setFormValues(tableDefaults);
     setFeedback(null);
     if (isClientAdditionalPrice) {
@@ -953,11 +953,14 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
             disabled={loading || refLoading}
           >
             <option value="">선택하세요</option>
-            {options.map((option) => (
-              <option key={`${column.name}-${option.value}`} value={option.value}>
-                {option.label}
-              </option>
-            ))}
+            {options.map((option) => {
+              const optionValue = option.value == null ? '' : String(option.value);
+              return (
+                <option key={`${column.name}-${optionValue}`} value={optionValue}>
+                  {option.label}
+                </option>
+              );
+            })}
           </select>
         </div>
       );

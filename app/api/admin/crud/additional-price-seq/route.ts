@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import type { RowDataPacket } from 'mysql2';
 
 import { getPool } from '@/src/db/client';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
 
   try {
     const pool = getPool();
-    const [rows] = await pool.query<{ nextSeq?: number }[]>(
+    const [rows] = await pool.query<(RowDataPacket & { nextSeq?: number })[]>(
       'SELECT COALESCE(MAX(seq), 0) + 1 AS nextSeq FROM client_additional_price WHERE room_id = ? AND date = ?',
       [roomId, date]
     );

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import type { RowDataPacket } from 'mysql2';
 
 import { getPool } from '@/src/db/client';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
   try {
     const pool = getPool();
     const [rows] = await pool.query<
-      { value: number; label: string; minus_yn?: number; ratio_yn?: number; amount?: number; title?: string }[]
+      (RowDataPacket & { value: number; label: string; minus_yn?: number; ratio_yn?: number; amount?: number; title?: string })[]
     >(
       `SELECT
         id AS value,
