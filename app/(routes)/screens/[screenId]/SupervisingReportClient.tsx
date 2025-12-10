@@ -70,6 +70,8 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     suppliesChecklist,
     imageSlots,
     existingSupervisingFindingChecks,
+    existingSupervisingCompletionChecks,
+    hasExistingSupervisingReport,
     existingSupervisingComment,
     existingSupplyChecks,
     existingSupplyNotes,
@@ -80,6 +82,9 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
   const requiredImageSlots = useMemo(() => imageSlots.filter((slot) => slot.required), [imageSlots]);
   const optionalImageSlots = useMemo(() => imageSlots.filter((slot) => !slot.required), [imageSlots]);
   const imageSlotKeys = useMemo(() => imageSlots.map((slot) => String(slot.id)), [imageSlots]);
+  const baseChecklistFlags = useMemo(() => Object.fromEntries(cleaningChecklist.map(({ id }) => [id, false] as const)), [
+    cleaningChecklist
+  ]);
   const initialImageSelections = useMemo(
     () => Object.fromEntries(imageSlotKeys.map((key) => [key, null])) as Record<string, File | null>,
     [imageSlotKeys]
@@ -101,6 +106,10 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
     [cleaningChecklist]
   );
 
+  const autoCheckedFlags = useMemo(() => Object.fromEntries(autoCheckedChecklistIds.map((id) => [id, true] as const)), [
+    autoCheckedChecklistIds
+  ]);
+
   const visibleCleaningChecklist = useMemo(
     () => cleaningChecklist.filter((item) => Number(item.score) <= 0 && Number(item.listScore) <= 0),
     [cleaningChecklist]
@@ -108,29 +117,19 @@ export default function SupervisingReportClient({ profile, snapshot }: Props) {
 
   const findingDefaults = useMemo(
     () => ({
-      ...Object.fromEntries(cleaningChecklist.map(({ id }) => [id, false] as const)),
+      ...baseChecklistFlags,
       ...existingSupervisingFindingChecks,
       ...Object.fromEntries(autoCheckedChecklistIds.map((id) => [id, true] as const))
     }),
-    [autoCheckedChecklistIds, cleaningChecklist, existingSupervisingFindingChecks]
+    [autoCheckedChecklistIds, baseChecklistFlags, existingSupervisingFindingChecks]
   );
 
   const completionDefaults = useMemo(
     () => ({
-      ...Object.fromEntries(cleaningChecklist.map(({ id }) => [id, true] as const)),
-      ...Object.fromEntries(autoCheckedChecklistIds.map((id) => [id, true] as const))
+      ...baseChecklistFlags,
+      ...(hasExistingSupervisingReport ? existingSupervisingCompletionChecks : autoCheckedFlags)
     }),
-    [autoCheckedChecklistIds, cleaningChecklist]
-  );
-
-  const baseChecklistFlags = useMemo(
-    () => Object.fromEntries(cleaningChecklist.map(({ id }) => [id, false] as const)),
-    [cleaningChecklist]
-  );
-
-  const autoCheckedFlags = useMemo(
-    () => Object.fromEntries(autoCheckedChecklistIds.map((id) => [id, true] as const)),
-    [autoCheckedChecklistIds]
+    [autoCheckedFlags, baseChecklistFlags, existingSupervisingCompletionChecks, hasExistingSupervisingReport]
   );
 
   const [supervisingFindingChecks, setSupervisingFindingChecks] = useState<Record<number, boolean>>(findingDefaults);
