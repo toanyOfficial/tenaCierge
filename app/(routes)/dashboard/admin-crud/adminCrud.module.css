@@ -259,6 +259,124 @@
   flex: 1;
 }
 
+.workerSection {
+  background: #fff;
+  border: 1px solid #e4e7ec;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+}
+
+.workerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.workerTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.workerSubtitle {
+  font-size: 13px;
+  color: #475467;
+  margin-top: 2px;
+}
+
+.workerHeader button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #16a34a;
+  background: #16a34a;
+  color: #fff;
+  cursor: pointer;
+}
+
+.workerHeader button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.workerGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.workerCard {
+  border: 1px solid #e4e7ec;
+  border-radius: 10px;
+  padding: 12px;
+  background: #f9fafb;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: inset 0 0 0 1px #eef2f6;
+}
+
+.workerCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.workerName {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 15px;
+}
+
+.workerTier {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #ecfdf3;
+  color: #15803d;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.workerMeta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.workerMeta div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.workerMeta dt {
+  font-size: 12px;
+  color: #475467;
+}
+
+.workerMeta dd {
+  margin: 0;
+  color: #111827;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.workerEmpty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: #98a2b3;
+  padding: 24px 12px;
+  border: 1px dashed #e4e7ec;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
 .referenceSearchRow button {
   padding: 8px 12px;
   border-radius: 8px;
