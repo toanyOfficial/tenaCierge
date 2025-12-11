@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
@@ -73,10 +73,12 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
   const [refreshingOrders, setRefreshingOrders] = useState(false);
   const [refreshStatus, setRefreshStatus] = useState('');
   const [refreshError, setRefreshError] = useState('');
+  const [refreshProgress, setRefreshProgress] = useState<number | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(snapshot.targetDate);
   const [collapsedSectors, setCollapsedSectors] = useState<Set<string>>(new Set());
   const [collapsedBuildings, setCollapsedBuildings] = useState<Record<string, Set<string>>>({});
+  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
   const allowedDates = useMemo(() => new Set(snapshot.dateOptions.map((option) => option.value)), [snapshot.dateOptions]);
 
   const viewingAsHost = activeRole === 'host';
@@ -182,6 +184,19 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
     setRefreshingOrders(true);
     setRefreshStatus('');
     setRefreshError('');
+    setRefreshProgress(0);
+
+    if (refreshTimerRef.current) {
+      clearInterval(refreshTimerRef.current);
+    }
+
+    refreshTimerRef.current = setInterval(() => {
+      setRefreshProgress((prev) => {
+        if (prev === null) return 5;
+        if (prev >= 95) return prev;
+        return Math.min(prev + 5, 95);
+      });
+    }, 450);
 
     try {
       const response = await fetch('/api/works/refresh-d1', { method: 'POST' });
@@ -192,14 +207,28 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
         throw new Error(detail ? String(detail) : '갱신 요청에 실패했습니다.');
       }
 
+      setRefreshProgress(100);
       setRefreshStatus('갱신을 실행했습니다. 잠시 후 새로고침을 반영합니다.');
-      router.refresh();
+      setTimeout(() => router.refresh(), 800);
     } catch (error) {
       setRefreshError(error instanceof Error ? error.message : '갱신 중 오류가 발생했습니다.');
+      setRefreshProgress(null);
     } finally {
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
       setRefreshingOrders(false);
     }
   }
+
+  useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!roomOptions.length) {
@@ -795,6 +824,9 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
                 >
                   {refreshingOrders ? '오더갱신 중...' : '오더갱신'}
                 </button>
+                {typeof refreshProgress === 'number' ? (
+                  <span className={styles.statusProgress}>작업 진행률 {refreshProgress}%</span>
+                ) : null}
                 {refreshStatus ? <span className={styles.statusOk}>{refreshStatus}</span> : null}
                 {refreshError ? <span className={styles.statusError}>{refreshError}</span> : null}
               </div>

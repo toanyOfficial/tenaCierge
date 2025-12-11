@@ -199,26 +199,12 @@ def parse_args() -> argparse.Namespace:
         help="ics 폴더 보관 일수 (README 규칙: 3일)",
     )
     parser.add_argument(
-        "--today-only",
-        action="store_true",
-        help="당일(D0) work_header만 생성하고 apply/정확도 계산을 건너뜀",
-    )
-    parser.add_argument(
         "--refresh-dn",
         type=int,
         default=None,
         help="지정한 D+n 일자에 대해 work_header만 갱신하는 경량 모드(예: --refresh-dn 1)",
     )
-    parser.add_argument(
-        "--refresh-d1",
-        action="store_true",
-        help="--refresh-dn 1과 동일한 별칭 (하위 호환용)",
-    )
     args = parser.parse_args()
-
-    # 하위 호환: --refresh-d1 플래그가 들어오면 refresh_dn=1로 처리한다.
-    if getattr(args, "refresh_d1", False):
-        args.refresh_dn = 1
 
     return args
 
@@ -693,7 +679,6 @@ class BatchRunner:
         start_offset: int,
         end_offset: int,
         keep_days: int,
-        today_only: bool,
         refresh_dn: Optional[int],
     ) -> None:
         self.conn = conn
@@ -702,7 +687,6 @@ class BatchRunner:
         self.end_offset = end_offset
         self.keep_days = keep_days
         self.model = load_model_variables(conn)
-        self.today_only = today_only
         self.refresh_dn = refresh_dn
         self.expected_ics = 0
         self.downloaded_ics = 0
@@ -718,8 +702,6 @@ class BatchRunner:
         offsets: List[int]
         if self.refresh_dn is not None:
             offsets = [self.refresh_dn]
-        elif self.today_only:
-            offsets = [0]
         else:
             offsets = list(range(max(1, self.start_offset), self.end_offset + 1))
 
@@ -741,7 +723,7 @@ class BatchRunner:
                 else:
                     label = ""
                 has_checkout = out_time is not None
-                actual_observed = (target_date == self.run_date) and self.today_only
+                actual_observed = target_date == self.run_date
                 prediction = Prediction(
                     room=room,
                     target_date=target_date,
@@ -763,9 +745,6 @@ class BatchRunner:
                 "refresh-d%s 모드: work_header만 갱신하고 accuracy/apply는 건너뜀",
                 self.refresh_dn,
             )
-        elif self.today_only:
-            self._persist_accuracy(predictions)
-            self._adjust_threshold(predictions)
         else:
             for offset in range(self.start_offset, self.end_offset + 1):
                 self._persist_work_apply_slots(
@@ -1271,7 +1250,6 @@ def main() -> None:
             start_offset=args.start_offset,
             end_offset=args.end_offset,
             keep_days=args.ics_keep_days,
-            today_only=args.today_only,
             refresh_dn=args.refresh_dn,
         )
         runner.run()
@@ -1301,7 +1279,7 @@ def main() -> None:
                     "run_date": str(run_date),
                     "start_offset": args.start_offset,
                     "end_offset": args.end_offset,
-                    "today_only": args.today_only,
+                    "refresh_dn": args.refresh_dn,
                 },
             )
         except Exception:

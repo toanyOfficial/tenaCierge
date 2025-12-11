@@ -1252,8 +1252,14 @@
 
 .cardStatus,
 .statusOk,
+.statusProgress,
 .statusError {
   font-size: 0.85rem;
+}
+
+.statusProgress {
+  color: #2563eb;
+  font-weight: 600;
 }
 
 .statusOk {
