@@ -163,7 +163,14 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       if (column.autoIncrement) return;
 
       const normalized = normalizeDefault(column);
-      defaults[column.name] = normalized ?? '';
+
+      if (normalized !== undefined) {
+        defaults[column.name] = normalized;
+      } else if (!column.nullable && column.name.endsWith('_yn')) {
+        defaults[column.name] = '0';
+      } else {
+        defaults[column.name] = '';
+      }
     });
 
     if (isClientAdditionalPrice) {
