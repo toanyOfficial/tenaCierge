@@ -12,8 +12,25 @@ export const revalidate = 0;
 
 const execFileAsync = promisify(execFile);
 
+function kstToday(): string {
+  const formatter = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  return formatter.format(new Date());
+}
+
 async function runForecast(scriptPath: string, pythonBin = 'python3') {
-  return execFileAsync(pythonBin, [scriptPath, '--refresh-dn', '1']);
+  const runDate = kstToday();
+  return execFileAsync(pythonBin, [
+    scriptPath,
+    '--refresh-dn',
+    '1',
+    '--run-date',
+    runDate
+  ]);
 }
 
 async function ensureVenvAndInstall(requirementsPath: string) {
