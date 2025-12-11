@@ -32,14 +32,12 @@ const navLinksByRole: Record<string, { href: string; label: string }[]> = {
     { href: '/screens/011', label: '소모품구매' }
   ],
   admin: [
-    { href: '/dashboard/admin-crud', label: '관리자 페이지' },
+    { href: '/dashboard/admin', label: '관리자 페이지' },
     { href: '/screens/002', label: '오더관리' },
     { href: '/screens/003', label: '업무신청' },
     { href: '/screens/004', label: '과업지시서' },
     { href: '/screens/007', label: '평가이력' },
     { href: '/screens/008', label: '정산관리' },
-    { href: '/screens/009', label: '인원관리' },
-    { href: '/screens/010', label: '고객관리' },
     { href: '/screens/011', label: '소모품구매' }
   ]
 };
