@@ -248,6 +248,16 @@ export async function fetchReferenceOptions(
     return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value), codeValue: String(row.codeValue ?? '') }));
   }
 
+  if (table === 'etc_buildings' && (column === 'basecode_sector' || column === 'basecode_code')) {
+    const pool = getPool();
+    const [rows] = await pool.query<RowDataPacket[]>(
+      "SELECT value, code AS codeValue, CONCAT(value, ' - ', code) AS label FROM etc_baseCode WHERE code_group = 'SECTOR' ORDER BY value ASC LIMIT ?",
+      [limit]
+    );
+
+    return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value), codeValue: String(row.codeValue ?? '') }));
+  }
+
   if (column.startsWith('basecode_')) {
     const pool = getPool();
     const whereClauses: string[] = [];
