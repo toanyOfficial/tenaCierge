@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 
 import { handleAdminError } from '@/src/server/adminCrud';
+import { logServerError } from '@/src/server/errorLogger';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
-import { getPool } from '@/src/utils/db';
+import { getPool } from '@/src/db/client';
 import type { RowDataPacket } from 'mysql2';
 
 export const dynamic = 'force-dynamic';
@@ -45,6 +46,12 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ isWorkingDay, weekday });
   } catch (error) {
+    await logServerError({
+      appName: 'admin-crud',
+      message: '예외 조회 실패',
+      error,
+      context: { workerId, date, route: 'schedule/exception-context' }
+    });
     await handleAdminError(error);
     const message = error instanceof Error ? error.message : '예외 정보를 불러오지 못했습니다.';
     return NextResponse.json({ message }, { status: 500 });

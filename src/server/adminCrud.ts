@@ -596,12 +596,13 @@ export async function deleteRow(table: string, key: Record<string, unknown>) {
   await pool.query(sql, [table, ...primaryKey.flatMap((name, index) => [name, pkValues[index]])]);
 }
 
-export async function handleAdminError(error: unknown) {
+export async function handleAdminError(error: unknown, context?: Record<string, unknown>) {
   await logServerError({
     appName: 'admin-crud',
     errorCode: 'ADMIN_CRUD',
     message: '관리자 CRUD 작업 실패',
-    error
+    error,
+    context
   });
 }
 

@@ -326,7 +326,7 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     const params = new URLSearchParams({ workerId: String(workerId), date: String(excptDate) });
 
     const loadContext = async () => {
-      setExceptionContext((prev) => ({ ...prev, loading: true, message: null }));
+      setExceptionContext((prev) => ({ ...prev, loading: true, message: prev.message }));
       try {
         const response = await fetch(`/api/admin/schedule/exception-context?${params.toString()}`, {
           cache: 'no-cache',
@@ -511,8 +511,8 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     const selectedOption = options.find((option) => String(option.value) === optionValue);
     setFormValues((prev) => ({
       ...prev,
-      basecode_bank: selectedOption?.meta?.codeGroup ?? '',
-      basecode_code: selectedOption?.meta?.code ?? optionValue
+      basecode_bank: String(selectedOption?.meta?.codeGroup ?? ''),
+      basecode_code: String(selectedOption?.meta?.code ?? optionValue)
     }));
   }
 
@@ -521,7 +521,7 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     const selectedOption = options.find((option) => String(option.value) === optionValue);
     setFormValues((prev) => ({
       ...prev,
-      [primaryColumn]: selectedOption?.meta?.codeGroup ?? prev[primaryColumn] ?? '',
+      [primaryColumn]: String(selectedOption?.meta?.codeGroup ?? prev[primaryColumn] ?? ''),
       basecode_code: selectedOption?.meta?.code ? String(selectedOption.meta.code) : optionValue
     }));
   }
