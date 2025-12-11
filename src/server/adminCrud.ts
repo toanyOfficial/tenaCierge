@@ -15,9 +15,10 @@ export type AdminColumnMeta = {
   isPrimaryKey: boolean;
   autoIncrement: boolean;
   references?: AdminReference;
+  comment?: string;
 };
 
-export type AdminReferenceOption = { value: unknown; label: string };
+export type AdminReferenceOption = { value: unknown; label: string; codeValue?: string; meta?: Record<string, unknown> };
 
 const referenceMap: Record<string, Record<string, AdminReference>> = {
   client_additional_price: { room_id: { table: 'client_rooms', column: 'id' } },
@@ -26,6 +27,7 @@ const referenceMap: Record<string, Record<string, AdminReference>> = {
   client_rooms: {
     client_id: { table: 'client_header', column: 'id' },
     building_id: { table: 'etc_buildings', column: 'id' },
+    price_set_id: { table: 'client_price_set_header', column: 'id' },
     checklist_set_id: { table: 'work_checklist_set_header', column: 'id' },
     images_set_id: { table: 'work_images_set_header', column: 'id' }
   },
@@ -54,6 +56,11 @@ const referenceMap: Record<string, Record<string, AdminReference>> = {
   worker_evaluateHistory: {
     worker_id: { table: 'worker_header', column: 'id' },
     work_id: { table: 'work_header', column: 'id' }
+  },
+  worker_header: {
+    basecode_bank: { table: 'etc_baseCode', column: 'code' },
+    basecode_code: { table: 'etc_baseCode', column: 'value' },
+    tier: { table: 'worker_tier_rules', column: 'tier' }
   },
   worker_penaltyHistory: { worker_id: { table: 'worker_header', column: 'id' } },
   worker_schedule_exception: { worker_id: { table: 'worker_header', column: 'id' } },
@@ -136,6 +143,7 @@ export function listAdminTables() {
 
 async function fetchColumnMetadata(table: string): Promise<AdminColumnMeta[]> {
   const schemaTable = getSchemaTableOrThrow(table);
+  const commentByColumn = new Map(schemaTable.columns.map((column) => [column.name, column.comment]));
   const pool = getPool();
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT COLUMN_NAME, COLUMN_KEY, EXTRA, COLUMN_DEFAULT
@@ -159,7 +167,8 @@ async function fetchColumnMetadata(table: string): Promise<AdminColumnMeta[]> {
       defaultValue: dbMeta?.defaultValue ?? null,
       isPrimaryKey: dbMeta?.key === 'PRI',
       autoIncrement: typeof dbMeta?.extra === 'string' && dbMeta.extra.includes('auto_increment'),
-      references: referenceMap[table]?.[column.name]
+      references: referenceMap[table]?.[column.name],
+      comment: commentByColumn.get(column.name)
     } satisfies AdminColumnMeta;
   });
 }
@@ -204,6 +213,32 @@ export async function fetchTableSnapshot(table: string, offset = 0, limit = 20):
   const orderColumn = primaryKey[0] ?? columns[0]?.name;
   const pool = getPool();
 
+  if (table === 'worker_weekly_pattern') {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT wwp.*, wh.name AS worker_name
+       FROM worker_weekly_pattern wwp
+       JOIN worker_header wh ON wwp.worker_id = wh.id
+       WHERE wh.tier = 99
+       ORDER BY ?? DESC LIMIT ? OFFSET ?`,
+      [orderColumn ?? 'id', limit, offset]
+    );
+
+    return { table, columns, primaryKey, rows, limit, offset };
+  }
+
+  if (table === 'worker_schedule_exception') {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT wse.*, wh.name AS worker_name
+       FROM worker_schedule_exception wse
+       JOIN worker_header wh ON wse.worker_id = wh.id
+       WHERE wh.tier = 99
+       ORDER BY ?? DESC LIMIT ? OFFSET ?`,
+      [orderColumn ?? 'id', limit, offset]
+    );
+
+    return { table, columns, primaryKey, rows, limit, offset };
+  }
+
   const [rows] = await pool.query<RowDataPacket[]>(
     'SELECT * FROM ?? ORDER BY ?? DESC LIMIT ? OFFSET ?',
     [table, orderColumn ?? 'id', limit, offset]
@@ -216,13 +251,155 @@ export async function fetchReferenceOptions(
   table: string,
   column: string,
   keyword: string,
-  limit = 20
+  limit = 20,
+  basecodeGroup?: string
 ): Promise<AdminReferenceOption[]> {
   const sourceConfig = getTableConfig(table);
+  if (table === 'worker_header' && (column === 'basecode_bank' || column === 'basecode_code')) {
+    const pool = getPool();
+    const whereClauses = ["code_group = 'bank'"];
+    const params: unknown[] = [];
+
+    if (keyword) {
+      whereClauses.push('(code LIKE ? OR value LIKE ?)');
+      const like = `%${keyword}%`;
+      params.push(like, like);
+    }
+
+    const sql = `SELECT code_group, code, value, CONCAT(code, ' - ', value) AS label FROM etc_baseCode WHERE ${whereClauses.join(
+      ' AND '
+    )} ORDER BY value ASC LIMIT ?`;
+    params.push(limit);
+
+    const [rows] = await pool.query<RowDataPacket[]>(sql, params);
+    return rows.map((row) => ({
+      value: row.code,
+      label: row.label ?? String(row.value ?? row.code ?? ''),
+      codeValue: String(row.code ?? ''),
+      meta: { codeGroup: row.code_group ?? 'bank', code: row.code, displayValue: row.value }
+    }));
+  }
+
+  if (table === 'etc_buildings' && (column === 'basecode_sector' || column === 'basecode_code')) {
+    const pool = getPool();
+    const [rows] = await pool.query<RowDataPacket[]>(
+      "SELECT code_group, code, value, CONCAT(value, ' - ', code) AS label FROM etc_baseCode WHERE code_group = 'SECTOR' ORDER BY value ASC LIMIT ?",
+      [limit]
+    );
+
+    return rows.map((row) => ({
+      value: row.code,
+      label: row.label ?? String(row.value ?? row.code ?? ''),
+      codeValue: String(row.code ?? ''),
+      meta: { codeGroup: row.code_group ?? 'SECTOR', code: row.code, displayValue: row.value }
+    }));
+  }
+
+  if (column.startsWith('basecode_')) {
+    const pool = getPool();
+    const whereClauses: string[] = [];
+    const params: unknown[] = [];
+
+    if (basecodeGroup) {
+      whereClauses.push('code_group = ?');
+      params.push(basecodeGroup);
+    }
+
+    if (keyword) {
+      whereClauses.push('(code LIKE ? OR value LIKE ?)');
+      const like = `%${keyword}%`;
+      params.push(like, like);
+    }
+
+    if (whereClauses.length === 0) {
+      return [];
+    }
+
+    const whereSql = `WHERE ${whereClauses.join(' AND ')}`;
+    params.push(limit);
+
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT code_group, code, value, CONCAT(code, ' - ', value) AS label FROM etc_baseCode ${whereSql} ORDER BY value ASC LIMIT ?`,
+      params
+    );
+
+    return rows.map((row) => ({
+      value: row.code,
+      label: row.label ?? String(row.value ?? row.code ?? ''),
+      codeValue: String(row.code ?? ''),
+      meta: { codeGroup: row.code_group ?? '', code: row.code, displayValue: row.value }
+    }));
+  }
+
+  if (table === 'worker_header' && column === 'tier') {
+    const pool = getPool();
+    const whereClause = keyword ? 'WHERE tier LIKE ? OR comment LIKE ?' : '';
+    const params: unknown[] = [];
+
+    if (keyword) {
+      const like = `%${keyword}%`;
+      params.push(like, like);
+    }
+
+    params.push(limit);
+
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT tier AS value, CONCAT('티어 ', tier, ' - ', COALESCE(comment, '')) AS label FROM worker_tier_rules ${whereClause} ORDER BY id ASC LIMIT ?`,
+      params
+    );
+
+    return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value) }));
+  }
+
+  if ((table === 'worker_weekly_pattern' || table === 'worker_schedule_exception') && column === 'worker_id') {
+    const pool = getPool();
+    const whereClauses = ['tier = 99'];
+    const params: unknown[] = [];
+
+    if (keyword) {
+      whereClauses.push('(name LIKE ? OR register_no LIKE ? OR phone LIKE ?)');
+      const like = `%${keyword}%`;
+      params.push(like, like, like);
+    }
+
+    params.push(limit);
+
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT id AS value, CONCAT('(', id, ')', COALESCE(name, '')) AS label
+       FROM worker_header
+       WHERE ${whereClauses.join(' AND ')}
+       ORDER BY id DESC
+       LIMIT ?`,
+      params
+    );
+
+    return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value) }));
+  }
+
+  if (table === 'client_rooms' && column === 'price_set_id') {
+    const pool = getPool();
+    const whereClauses = keyword ? ['(id LIKE ? OR title LIKE ? OR dscpt LIKE ?)'] : [];
+    const params: unknown[] = [];
+
+    if (keyword) {
+      const like = `%${keyword}%`;
+      params.push(like, like, like);
+    }
+
+    params.push(limit);
+
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT id AS value, CONCAT(id, ' - ', COALESCE(title, '')) AS label FROM client_price_set_header ${whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : ''} ORDER BY id ASC LIMIT ?`,
+      params
+    );
+
+    return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value) }));
+  }
+
   const reference = sourceConfig?.references?.[column];
 
   if (!reference) {
-    throw new Error('레퍼런스 정보가 없습니다.');
+    return [];
   }
 
   if (reference.table === 'client_rooms') {
@@ -233,7 +410,7 @@ export async function fetchReferenceOptions(
       .filter(Boolean);
 
     const labelExpr =
-      "CONCAT_WS(' - ', COALESCE(r.host_name, c.name, c.person, ''), r.id, b.building_short_name, r.room_no, CASE WHEN r.open_yn = 1 THEN 'Y' ELSE 'N' END)";
+      "CONCAT_WS(' - ', COALESCE(c.name, c.person, ''), r.id, b.building_short_name, r.room_no, CASE WHEN r.open_yn = 1 THEN 'Y' ELSE 'N' END)";
     const whereClause = searchTokens.length
       ? `WHERE ${searchTokens.map(() => `(b.building_short_name LIKE ? OR r.room_no LIKE ?)`).join(' AND ')}`
       : '';
@@ -244,7 +421,7 @@ export async function fetchReferenceOptions(
       LEFT JOIN etc_buildings b ON r.building_id = b.id
       LEFT JOIN client_header c ON r.client_id = c.id
       ${whereClause}
-      ORDER BY COALESCE(r.host_name, c.name, c.person, ''), b.building_short_name, r.room_no DESC
+      ORDER BY COALESCE(c.name, c.person, ''), b.building_short_name, r.room_no DESC
       LIMIT ?
     `;
 
@@ -259,6 +436,35 @@ export async function fetchReferenceOptions(
     const [rows] = await pool.query<RowDataPacket[]>(sql, params);
 
     return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value) }));
+  }
+
+  if (table === 'client_additional_price' && column === 'title') {
+    const pool = getPool();
+    const whereClauses = ["selected_by = 3"];
+    const params: unknown[] = [];
+
+    if (keyword) {
+      whereClauses.push('title LIKE ?');
+      params.push(`%${keyword}%`);
+    }
+
+    params.push(limit);
+
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT id AS value, title AS label, title, minus_yn, ratio_yn, amount FROM client_price_list WHERE ${whereClauses.join(' AND ')} ORDER BY title ASC LIMIT ?`,
+      params
+    );
+
+    return rows.map((row) => ({
+      value: row.value,
+      label: row.label ?? String(row.value),
+      meta: {
+        title: row.title,
+        minus_yn: row.minus_yn,
+        ratio_yn: row.ratio_yn,
+        amount: row.amount
+      }
+    }));
   }
 
   const refColumns = await fetchColumnMetadata(reference.table);
@@ -309,6 +515,24 @@ function withManualFlag(table: string, data: Record<string, unknown>) {
 
 export async function insertRow(table: string, data: Record<string, unknown>) {
   const columns = await fetchColumnMetadata(table);
+
+  if (table === 'client_additional_price') {
+    const hasSeq = data.seq !== undefined && data.seq !== null && data.seq !== '';
+    const roomId = Number(data.room_id ?? 0);
+    const date = typeof data.date === 'string' ? data.date : null;
+
+    if (!hasSeq && roomId > 0 && date) {
+      const pool = getPool();
+      const [rows] = await pool.query<RowDataPacket[]>(
+        'SELECT COALESCE(MAX(seq), 0) + 1 AS nextSeq FROM client_additional_price WHERE room_id = ? AND date = ?',
+        [roomId, date]
+      );
+      const nextSeq = Number(rows?.[0]?.nextSeq ?? 1);
+      // eslint-disable-next-line no-param-reassign
+      data.seq = Number.isFinite(nextSeq) ? nextSeq : 1;
+    }
+  }
+
   const normalized = withManualFlag(table, data);
   const { names, values } = buildInsertParts(normalized, columns);
 

@@ -171,6 +171,8 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const [sortMode, setSortMode] = useState<'checkout' | 'roomDesc'>('checkout');
   const isHost = activeRole === 'host';
   const hostLocked = isHost && !hasAdminRole && Boolean(snapshot.hostReadOnly);
+  const showNotice = !isHost;
+  const showStatus = !isHost;
 
   useEffect(() => {
     setWorks(snapshot.works);
@@ -779,13 +781,15 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                 </select>
               </label>
             )}
-            <button type="button" className={styles.infoButton} onClick={() => setDetailOpen(true)}>
-              현황 보기
-            </button>
+            {showStatus ? (
+              <button type="button" className={styles.infoButton} onClick={() => setDetailOpen(true)}>
+                현황 보기
+              </button>
+            ) : null}
           </div>
         </div>
 
-        <p className={styles.notice}>{snapshot.notice}</p>
+        {showNotice ? <p className={styles.notice}>{snapshot.notice}</p> : null}
 
         {!canSee ? (
           <p className={styles.helper}>화면 004는 관리자, 버틀러, 호스트, 클리너만 접근 가능합니다.</p>
@@ -971,13 +975,16 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                         <div key={work.id} className={`${styles.workCardMuted} ${styles.workCardMutedRow}`}>
                                           <span className={styles.workTitle}>{work.roomName}</span>
                                           <div className={styles.statusCheckRow}>
-                                            <span
+                                            <button
+                                              type="button"
                                               className={`${styles.statusCheckBadge} ${
                                                 conditionDone ? styles.statusCheckDone : ''
-                                              }`}
+                                              } ${styles.statusCheckBadgeClickable}`}
+                                              onClick={() => setInfoTarget(work)}
+                                              aria-label="호실 정보 열기"
                                             >
                                               {conditionDone ? '확인완료' : '상태확인'}
-                                            </span>
+                                            </button>
                                             {conditionAvailable && canSubmitCondition ? (
                                               <button
                                                 type="button"
@@ -1186,7 +1193,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
         </div>
       ) : null}
 
-      {detailOpen ? (
+      {showStatus && detailOpen ? (
         <div className={styles.modalOverlay} onClick={() => setDetailOpen(false)}>
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
             <header className={styles.modalHeader}>
