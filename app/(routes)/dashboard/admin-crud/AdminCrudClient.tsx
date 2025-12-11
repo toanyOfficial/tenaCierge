@@ -126,6 +126,7 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   const [referenceOptions, setReferenceOptions] = useState<Record<string, AdminReferenceOption[]>>({});
   const [referenceSearch, setReferenceSearch] = useState<Record<string, string>>({});
   const [referenceLoading, setReferenceLoading] = useState<Record<string, boolean>>({});
+  const [referenceLabels, setReferenceLabels] = useState<Record<string, Record<string, Record<string, string>>>>({});
   const [additionalPriceOptions, setAdditionalPriceOptions] = useState<AdminReferenceOption[]>([]);
   const [additionalPriceLoading, setAdditionalPriceLoading] = useState(false);
   const [useCustomAdditionalTitle, setUseCustomAdditionalTitle] = useState(false);
@@ -282,6 +283,66 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       void loadReferenceOptions('tier', '');
     }
   }, [selectedTable]);
+
+  useEffect(() => {
+    const tableName = helperTableName;
+    if (!tableName) return undefined;
+
+    const targetRows = helperRows;
+    if (!targetRows.length) return undefined;
+
+    const tableReferences = tables.find((table) => table.name === tableName)?.references ?? {};
+    const targetColumns = helperColumns.filter(
+      (column) => column.name.endsWith('_id') && tableReferences[column.name]
+    );
+
+    if (!targetColumns.length) return undefined;
+
+    const controller = new AbortController();
+
+    (async () => {
+      const entries: Array<[string, Record<string, string>]> = [];
+
+      for (const column of targetColumns) {
+        const uniqueValues = Array.from(
+          new Set(
+            targetRows
+              .map((row) => row[column.name])
+              .filter((value) => value !== null && value !== undefined && value !== '')
+              .map((value) => String(value))
+          )
+        );
+
+        if (!uniqueValues.length) continue;
+
+        const url = `/api/admin/crud/reference?table=${encodeURIComponent(tableName)}&column=${encodeURIComponent(column.name)}&values=${uniqueValues
+          .map((value) => encodeURIComponent(value))
+          .join(',')}`;
+
+        try {
+          const response = await fetch(url, { cache: 'no-cache', signal: controller.signal });
+          if (!response.ok) continue;
+          const payload = (await response.json()) as { labels?: Record<string, string> };
+          entries.push([column.name, payload.labels ?? {}]);
+        } catch (error) {
+          if (controller.signal.aborted) return;
+          console.error(error);
+        }
+      }
+
+      if (entries.length) {
+        setReferenceLabels((prev) => ({
+          ...prev,
+          [tableName]: {
+            ...(prev[tableName] ?? {}),
+            ...Object.fromEntries(entries)
+          }
+        }));
+      }
+    })();
+
+    return () => controller.abort();
+  }, [helperColumns, helperRows, helperTableName, tables]);
 
   useEffect(() => {
     setAdditionalPriceOptions([]);
@@ -1277,6 +1338,11 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       if (helperTableName === 'worker_schedule_exception' && (key === 'add_work_yn' || key === 'cancel_work_yn')) {
         rawValue = rawValue === '1' ? '예' : '아니오';
       }
+    }
+
+    const labelMatch = referenceLabels[helperTableName ?? '']?.[key]?.[String(rawValue)];
+    if (labelMatch) {
+      rawValue = labelMatch;
     }
     if (!rawValue) {
       return <span className={styles.cellText}>-</span>;

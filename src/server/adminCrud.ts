@@ -492,6 +492,64 @@ export async function fetchReferenceOptions(
   return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value) }));
 }
 
+export async function fetchReferenceLabels(
+  table: string,
+  column: string,
+  values: (string | number)[],
+  basecodeGroup?: string
+): Promise<Record<string, string>> {
+  if (!values.length) return {};
+
+  const sourceConfig = getTableConfig(table);
+  const reference = sourceConfig.references[column];
+
+  if (column.startsWith('basecode_')) {
+    const pool = getPool();
+    const whereClauses: string[] = [];
+    const params: unknown[] = [];
+
+    if (basecodeGroup) {
+      whereClauses.push('code_group = ?');
+      params.push(basecodeGroup);
+    }
+
+    if (values.length) {
+      whereClauses.push(`code IN (${values.map(() => '?').join(', ')})`);
+      params.push(...values);
+    }
+
+    if (!whereClauses.length) return {};
+
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT code AS value, CONCAT(code, ' - ', value) AS label FROM etc_baseCode WHERE ${whereClauses.join(' AND ')}`,
+      params
+    );
+
+    return rows.reduce<Record<string, string>>((acc, row) => {
+      acc[String(row.value)] = String(row.label ?? row.value ?? '');
+      return acc;
+    }, {});
+  }
+
+  if (!reference) return {};
+
+  const refColumns = await fetchColumnMetadata(reference.table);
+  const labelColumns = pickLabelColumns(refColumns);
+  const displayColumns = [reference.column, ...labelColumns.filter((columnName) => columnName !== reference.column)].slice(0, 4);
+  const concatExpr = `CONCAT_WS(' | ', ${displayColumns.map(() => '??').join(', ')})`;
+  const placeholders = values.map(() => '?').join(', ');
+  const sql = `SELECT ?? AS value, ${concatExpr} AS label FROM ?? WHERE ?? IN (${placeholders})`;
+
+  const params: unknown[] = [reference.column, ...displayColumns, reference.table, reference.column, ...values];
+  const pool = getPool();
+  const [rows] = await pool.query<RowDataPacket[]>(sql, params);
+
+  return rows.reduce<Record<string, string>>((acc, row) => {
+    acc[String(row.value)] = String(row.label ?? row.value ?? '');
+    return acc;
+  }, {});
+}
+
 function buildInsertParts(data: Record<string, unknown>, columns: AdminColumnMeta[]) {
   const candidates = Object.entries(data).filter(([key]) => !columns.find((column) => column.name === key)?.autoIncrement);
   const names: string[] = [];
