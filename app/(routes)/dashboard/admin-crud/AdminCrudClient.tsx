@@ -166,22 +166,17 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
 
   const columns = snapshot?.columns ?? [];
   const helperRows = usingSharedGrid ? snapshot?.rows ?? [] : helperSnapshot?.rows ?? [];
-  const helperTableName = usingSharedGrid
-    ? snapshot?.table ?? selectedTable
-    : helperSnapshot?.table ??
-      (selectedTable === 'client_additional_price'
-        ? 'client_additional_price'
-        : selectedTable === 'client_rooms'
-          ? 'client_rooms'
-          : 'client_header');
+  const helperTableName = usingSharedGrid ? snapshot?.table ?? selectedTable : helperSnapshot?.table ?? selectedTable;
+  const helperBasecodeColumns = (helperSnapshot?.columns ?? []).filter((column) =>
+    column.name.startsWith('basecode_')
+  );
+  const helperHasBasecodePair = helperBasecodeColumns.some((column) => column.name === 'basecode_code');
   const helperHiddenColumns = usingSharedGrid
     ? new Set<string>([...GLOBAL_HIDDEN_COLUMNS, ...(hasBasecodePair ? ['basecode_code'] : [])])
-    : helperTableName === 'client_rooms'
-      ? CLIENT_ROOMS_HIDDEN_COLUMNS
-      : helperTableName === 'client_additional_price'
-        ? CLIENT_ADDITIONAL_PRICE_CONFIG.hiddenColumns
-        : CLIENT_HEADER_HIDDEN_COLUMNS;
-  const helperLabelOverrides = usingSharedGrid ? tableLabels : TABLE_LABEL_OVERRIDES[helperTableName] ?? {};
+    : TABLE_HIDDEN_COLUMNS[helperTableName ?? '']
+        ? new Set([...TABLE_HIDDEN_COLUMNS[helperTableName ?? '']])
+        : new Set<string>([...GLOBAL_HIDDEN_COLUMNS, ...(helperHasBasecodePair ? ['basecode_code'] : [])]);
+  const helperLabelOverrides = usingSharedGrid ? tableLabels : TABLE_LABEL_OVERRIDES[helperTableName ?? ''] ?? {};
   const helperColumns = usingSharedGrid
     ? visibleColumns
     : (helperSnapshot?.columns ?? []).filter((column) => !helperHiddenColumns.has(column.name));
@@ -189,13 +184,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     key: column.name,
     label: helperLabelOverrides[column.name] ?? column.name
   }));
-  const helperTitle = usingSharedGrid
-    ? `${helperTableName ?? '데이터'} 목록`
-    : helperTableName === 'client_rooms'
-      ? '객실 목록'
-      : helperTableName === 'client_additional_price'
-        ? '추가비용 목록'
-        : '고객 목록';
+  const helperTitle = `${helperTableName ?? '데이터'} 목록`;
   const helperSubtitle = usingSharedGrid
     ? '행을 클릭하면 위 수정 양식으로 불러옵니다.'
     : helperTableName === 'client_rooms'
@@ -269,12 +258,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     setHelperLoading(true);
     setHelperFeedback(null);
     try {
-      const table =
-        selectedTable === 'client_additional_price'
-          ? 'client_additional_price'
-          : selectedTable === 'client_rooms'
-            ? 'client_rooms'
-            : 'client_header';
+      const table = selectedTable;
       const response = await fetch(`/api/admin/crud?table=${table}&limit=200&offset=0`, { cache: 'no-cache' });
       if (!response.ok) {
         throw new Error('목록을 불러오지 못했습니다.');
