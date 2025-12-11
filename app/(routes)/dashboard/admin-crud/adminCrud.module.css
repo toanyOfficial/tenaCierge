@@ -246,6 +246,14 @@
   font-weight: 600;
 }
 
+.cellText {
+  display: inline-block;
+  max-width: 20ch;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .workerRow {
   cursor: pointer;
   transition: background-color 0.15s ease;
@@ -278,6 +286,30 @@
   cursor: not-allowed;
   color: #98a2b3;
   border-color: #e4e7ec;
+}
+
+.registerField {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.registerField input {
+  flex: 1;
+}
+
+.registerField button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #16a34a;
+  background: #16a34a;
+  color: #fff;
+  cursor: pointer;
+}
+
+.registerField button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .registerField {

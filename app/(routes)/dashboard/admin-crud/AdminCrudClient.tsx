@@ -998,6 +998,21 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     return String(value);
   }
 
+  function renderCellValue(row: Record<string, unknown>, key: string) {
+    const rawValue = getClientField(row, key, '');
+    if (!rawValue) {
+      return <span className={styles.cellText}>-</span>;
+    }
+
+    const display = rawValue.length > 20 ? `${rawValue.slice(0, 20)}...` : rawValue;
+
+    return (
+      <span className={styles.cellText} title={rawValue}>
+        {display}
+      </span>
+    );
+  }
+
   function handleClientRowSelect(row: Record<string, unknown>) {
     const table = helperSnapshot?.table ?? 'client_header';
     setPendingClientEdit({ ...row, __table: table });
@@ -1127,7 +1142,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
                 {helperRows.map((row, index) => (
                   <tr key={index} className={styles.workerRow} onClick={() => handleRowSelect(row)}>
                     {helperColumnLabels.map((column) => (
-                      <td key={`${index}-${column.key}`}>{getClientField(row, column.key)}</td>
+                      <td key={`${index}-${column.key}`}>{renderCellValue(row, column.key)}</td>
                     ))}
                   </tr>
                 ))}
