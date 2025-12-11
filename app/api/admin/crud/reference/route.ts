@@ -25,13 +25,14 @@ export async function GET(request: Request) {
   const column = url.searchParams.get('column');
   const keyword = url.searchParams.get('q') ?? '';
   const limit = Math.min(Number(url.searchParams.get('limit') ?? '20') || 20, 50);
+  const basecodeGroup = url.searchParams.get('basecodeGroup') ?? undefined;
 
   if (!table || !column) {
     return NextResponse.json({ message: 'table, column 파라미터가 필요합니다.', tables: listAdminTables() }, { status: 400 });
   }
 
   try {
-    const options = await fetchReferenceOptions(table, column, keyword, limit);
+    const options = await fetchReferenceOptions(table, column, keyword, limit, basecodeGroup);
     return NextResponse.json({ options });
   } catch (error) {
     await handleAdminError(error);
