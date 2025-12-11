@@ -627,15 +627,30 @@ async function fetchLatestPhotoReports(workIds: number[]) {
   if (!workIds.length) return map;
 
   const rows = await db
-    .select({ workId: workReports.workId, contents1: workReports.contents1, createdAt: workReports.createdAt })
+    .select({
+      workId: workReports.workId,
+      contents1: workReports.contents1,
+      type: workReports.type,
+      createdAt: workReports.createdAt
+    })
     .from(workReports)
-    .where(and(inArray(workReports.workId, workIds), eq(workReports.type, 3)))
+    .where(and(inArray(workReports.workId, workIds), inArray(workReports.type, [3, 5])))
     .orderBy(desc(workReports.createdAt));
+
+  const merged = new Map<number, { images: WorkImage[]; seenTypes: Set<number> }>();
 
   rows.forEach((row) => {
     const workId = Number(row.workId);
-    if (map.has(workId)) return;
-    map.set(workId, { images: parseWorkImages(row.contents1) });
+    const type = Number(row.type);
+    const entry = merged.get(workId) ?? { images: [], seenTypes: new Set<number>() };
+    if (entry.seenTypes.has(type)) return;
+    entry.images.push(...parseWorkImages(row.contents1));
+    entry.seenTypes.add(type);
+    merged.set(workId, entry);
+  });
+
+  merged.forEach((value, workId) => {
+    map.set(workId, { images: value.images });
   });
 
   return map;
