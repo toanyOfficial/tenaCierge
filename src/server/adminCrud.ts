@@ -323,7 +323,7 @@ export async function fetchReferenceOptions(
   const reference = sourceConfig?.references?.[column];
 
   if (!reference) {
-    throw new Error('레퍼런스 정보가 없습니다.');
+    return [];
   }
 
   if (reference.table === 'client_rooms') {

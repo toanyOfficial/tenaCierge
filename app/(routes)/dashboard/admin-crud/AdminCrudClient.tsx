@@ -265,25 +265,6 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   }, [selectedTable, isClientAdditionalPrice]);
 
   useEffect(() => {
-    if (!hasBasecodePair || !basecodePrimaryColumn) return;
-    if (mode !== 'create') return;
-
-    const options = referenceOptions.basecode_code ?? referenceOptions[basecodePrimaryColumn] ?? [];
-    if (!options.length) return;
-
-    const currentPrimary = formValues[basecodePrimaryColumn];
-    const currentCode = formValues.basecode_code;
-    if (currentPrimary && currentCode) return;
-
-    const first = options[0];
-    setFormValues((prev) => ({
-      ...prev,
-      [basecodePrimaryColumn]: first.codeValue ?? String(first.value),
-      basecode_code: String(first.value)
-    }));
-  }, [basecodePrimaryColumn, formValues, hasBasecodePair, mode, referenceOptions]);
-
-  useEffect(() => {
     columns.forEach((column) => {
       if (!column.references) return;
       if (referenceOptions[column.name]) return;
@@ -650,7 +631,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
 
     const payloadData: Record<string, unknown> = {};
     columns.forEach((column) => {
-      if (isHiddenColumn(column.name)) return;
+      if (isHiddenColumn(column.name) && !(hasBasecodePair && column.name === 'basecode_code')) return;
       if (column.autoIncrement && mode === 'create') return;
       if (!(column.name in formValues)) return;
       payloadData[column.name] = parseValue(column, formValues[column.name]);
