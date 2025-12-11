@@ -1,0 +1,236 @@
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 16px;
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.cardSubtitle {
+  margin: 4px 0 0;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field span {
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+
+.guide {
+  margin-left: 6px;
+  font-style: normal;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.field input,
+.field select,
+.field textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  background: #fff;
+}
+
+.checkboxField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 22px;
+}
+
+.cancelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+
+.cancelText {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 8px;
+}
+
+.cancelNotice {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.footerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.primaryButton,
+.secondaryButton,
+.dangerButton,
+.restoreButton {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.primaryButton {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.2);
+}
+
+.secondaryButton {
+  background: var(--surface-muted);
+  color: var(--text-strong);
+  border: 1px solid var(--border);
+}
+
+.dangerButton {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(239, 68, 68, 0.2);
+}
+
+.restoreButton {
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(14, 165, 233, 0.2);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled,
+.dangerButton:disabled,
+.restoreButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tableWrapper {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.table th,
+.table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.table thead {
+  background: var(--surface-muted);
+}
+
+.table tbody tr:hover {
+  background: rgba(37, 99, 235, 0.06);
+  cursor: pointer;
+}
+
+.activeRow {
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.empty {
+  text-align: center;
+  color: var(--text-soft);
+}
+
+.feedbackZone {
+  min-height: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.feedback {
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.error {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.subtle {
+  color: var(--text-soft);
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 720px) {
+  .table {
+    min-width: 640px;
+  }
+}
