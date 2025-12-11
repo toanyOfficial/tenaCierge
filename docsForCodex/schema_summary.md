@@ -1,3 +1,7 @@
+## 2025-12-12 스키마 변경 요약
+- 추가된 컬럼: work_checklist_list.ordering, work_global_detail.id, work_global_detail.work_global_id, work_global_detail.room_id, work_global_detail.created_at 외 25건
+- 테이블 수: 45개, 컬럼 수: 426개
+
 ## 2025-12-07 스키마 변경 요약
 - 추가된 컬럼: work_checklist_list.score
 - 제거된 컬럼: etc_batchLogs.id, etc_batchLogs.app_name, etc_batchLogs.start_dttm, etc_batchLogs.end_dttm, etc_batchLogs.end_flag 외 2건
