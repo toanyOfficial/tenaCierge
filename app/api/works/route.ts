@@ -159,7 +159,7 @@ function buildInsertPayload(date: string, roomId: number, values: WorkMutationVa
     cleaningYn,
     conditionCheckYn,
     supplyYn: false,
-    manualUptYn: false
+    manualUptYn: true
   };
 }
 
