@@ -723,6 +723,9 @@ class BatchRunner:
         else:
             offsets = list(range(max(1, self.start_offset), self.end_offset + 1))
 
+        # refresh 모드에서도 동일 offsets를 후속 단계에 그대로 사용하도록 보관한다.
+        self.offsets = offsets
+
         for room in rooms:
             events = self._collect_events(room, ics_dir)
             for offset in offsets:
@@ -753,7 +756,7 @@ class BatchRunner:
                 predictions.append(prediction)
         if self.refresh_dn is None:
             self._persist_predictions(predictions)
-        self._persist_work_header(predictions)
+        self._persist_work_header(predictions, offsets)
 
         if self.refresh_dn is not None:
             logging.info(
@@ -994,11 +997,9 @@ class BatchRunner:
                 assigned,
             )
 
-    def _persist_work_header(self, predictions: Sequence[Prediction]) -> None:
-        if self.today_only:
-            offsets = [0]
-        else:
-            offsets = list(range(self.start_offset, self.end_offset + 1))
+    def _persist_work_header(
+        self, predictions: Sequence[Prediction], offsets: Sequence[int]
+    ) -> None:
 
         desired: Dict[dt.date, Dict[int, Tuple[Prediction, int, int]]] = {}
         for pred in predictions:
