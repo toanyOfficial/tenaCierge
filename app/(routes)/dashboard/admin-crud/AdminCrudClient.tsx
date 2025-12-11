@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
 
@@ -248,19 +248,33 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   const columns = snapshot?.columns ?? [];
   const helperRows = usingSharedGrid ? snapshot?.rows ?? [] : helperSnapshot?.rows ?? [];
   const helperTableName = usingSharedGrid ? snapshot?.table ?? selectedTable : helperSnapshot?.table ?? selectedTable;
-  const helperBasecodeColumns = (helperSnapshot?.columns ?? []).filter((column) =>
-    column.name.startsWith('basecode_')
+  const helperColumnsRaw = useMemo(
+    () => (usingSharedGrid ? snapshot?.columns ?? [] : helperSnapshot?.columns ?? []),
+    [helperSnapshot?.columns, snapshot?.columns, usingSharedGrid]
+  );
+  const helperBasecodeColumns = useMemo(
+    () => helperColumnsRaw.filter((column) => column.name.startsWith('basecode_')),
+    [helperColumnsRaw]
   );
   const helperHasBasecodePair = helperBasecodeColumns.some((column) => column.name === 'basecode_code');
-  const helperHiddenColumns = usingSharedGrid
-    ? new Set<string>([...GLOBAL_HIDDEN_COLUMNS, ...(hasBasecodePair ? ['basecode_code'] : [])])
-    : TABLE_HIDDEN_COLUMNS[helperTableName ?? '']
-        ? new Set([...TABLE_HIDDEN_COLUMNS[helperTableName ?? '']])
-        : new Set<string>([...GLOBAL_HIDDEN_COLUMNS, ...(helperHasBasecodePair ? ['basecode_code'] : [])]);
+  const helperHiddenColumns = useMemo(() => {
+    if (usingSharedGrid) {
+      return new Set<string>([...GLOBAL_HIDDEN_COLUMNS, ...(hasBasecodePair ? ['basecode_code'] : [])]);
+    }
+
+    const tableHidden = TABLE_HIDDEN_COLUMNS[helperTableName ?? ''];
+    if (tableHidden) return new Set([...tableHidden]);
+
+    return new Set<string>([...GLOBAL_HIDDEN_COLUMNS, ...(helperHasBasecodePair ? ['basecode_code'] : [])]);
+  }, [hasBasecodePair, helperHasBasecodePair, helperTableName, usingSharedGrid]);
   const helperLabelOverrides = usingSharedGrid ? tableLabels : TABLE_LABEL_OVERRIDES[helperTableName ?? ''] ?? {};
-  const helperColumns = usingSharedGrid
-    ? visibleColumns
-    : (helperSnapshot?.columns ?? []).filter((column) => !helperHiddenColumns.has(column.name));
+  const helperColumns = useMemo(
+    () =>
+      usingSharedGrid
+        ? visibleColumns
+        : (helperSnapshot?.columns ?? []).filter((column) => !helperHiddenColumns.has(column.name)),
+    [helperHiddenColumns, helperSnapshot?.columns, usingSharedGrid, visibleColumns]
+  );
   const helperColumnLabels = helperColumns.map((column) => ({
     key: column.name,
     label: helperLabelOverrides[column.name] ?? column.name
