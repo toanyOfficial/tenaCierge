@@ -349,6 +349,43 @@ export const workForeVariable = mysqlTable('work_fore_variable', {
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });
 
+export const workGlobalHeader = mysqlTable('work_global_header', {
+  id: tinyint('id', { unsigned: true }).autoincrement().notNull(),
+  emoji: varchar('emoji', { length: 10 }),
+  title: varchar('title', { length: 20 }).notNull(),
+  dscpt: varchar('dscpt', { length: 50 }).notNull(),
+  startDate: date('start_date').notNull(),
+  endDate: date('end_date'),
+  remainQty: tinyint('remain_qty').notNull(),
+  closedYn: boolean('closed_yn').default(false).notNull(),
+  comment: varchar('comment', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const workGlobalDetail = mysqlTable('work_global_detail', {
+  id: bigintNumber('id', { unsigned: true }).autoincrement().notNull(),
+  workGlobalId: tinyint('work_global_id', { unsigned: true }).notNull(),
+  roomId: int('room_id').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
+export const workReservation = mysqlTable('work_reservation', {
+  id: bigintNumber('id', { unsigned: true }).autoincrement().notNull(),
+  workId: bigintNumber('work_id'),
+  roomId: int('room_id').notNull(),
+  amenitiesQty: tinyint('amenities_qty').notNull(),
+  blanketQty: tinyint('blanket_qty').notNull(),
+  checkinTime: time('checkin_time').notNull(),
+  checkoutTime: time('checkout_time').notNull(),
+  requirements: varchar('requirements', { length: 30 }),
+  cancelYn: boolean('cancel_yn').default(false).notNull(),
+  reflectYn: boolean('reflect_yn').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+});
+
 export const workHeader = mysqlTable('work_header', {
   id: bigintNumber('id', { unsigned: true }).autoincrement().notNull(),
   date: date('date').notNull(),

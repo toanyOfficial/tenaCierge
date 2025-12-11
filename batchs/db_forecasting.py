@@ -755,6 +755,9 @@ class BatchRunner:
             "ICS 다운로드 결과: 기대 %s건 중 %s건", self.expected_ics, self.downloaded_ics
         )
 
+        if self.refresh_dn is not None:
+            self._apply_work_reservation_overrides()
+
     def _collect_events(self, room: Room, ics_dir: Path) -> List[Event]:
         all_events: List[Event] = []
         for idx, url in enumerate(room.ical_urls, start=1):
@@ -1144,6 +1147,126 @@ class BatchRunner:
                         ),
                     )
                 self.conn.commit()
+
+    def _apply_work_reservation_overrides(self) -> None:
+        """Reflect open work_reservation rows into work_header on refresh runs."""
+
+        if self.refresh_dn is None:
+            return
+
+        target_date = self.run_date + dt.timedelta(days=self.refresh_dn)
+        logging.info(
+            "work_reservation 반영 시도: target_date=%s, refresh-d%s",
+            target_date,
+            self.refresh_dn,
+        )
+
+        def _normalize(value: Optional[str]) -> Optional[str]:
+            if value is None:
+                return None
+            text = str(value).strip()
+            return text or None
+
+        def _merge_requirements(
+            base: Optional[str], incoming: Optional[str]
+        ) -> Optional[str]:
+            base_req = _normalize(base)
+            incoming_req = _normalize(incoming)
+            if base_req and incoming_req:
+                merged = f"{base_req}+{incoming_req}"
+            else:
+                merged = incoming_req or base_req
+
+            if merged and len(merged) > 30:
+                merged = merged[:30]
+            return merged
+
+        with self.conn.cursor(dictionary=True) as cur:
+            cur.execute(
+                """
+                SELECT id, room_id, amenities_qty, blanket_qty,
+                       checkin_time, checkout_time, requirements
+                  FROM work_reservation
+                 WHERE reflect_yn = 0 AND cancel_yn = 0
+                """
+            )
+            reservations = cur.fetchall()
+            if not reservations:
+                logging.info("반영 대기 work_reservation 없음")
+                return
+
+            cur.execute(
+                """
+                SELECT id, room_id, requirements, manual_upt_yn
+                  FROM work_header
+                 WHERE date = %s AND cancel_yn = 0
+                """,
+                (target_date,),
+            )
+            headers = cur.fetchall()
+            header_map = {int(row["room_id"]): row for row in headers}
+
+            updates: List[
+                Tuple[int, int, dt.time, dt.time, Optional[str], int]
+            ] = []
+            reservations_to_mark: List[Tuple[int, int]] = []
+            skipped_manual = 0
+
+            for res in reservations:
+                room_id = int(res["room_id"])
+                header = header_map.get(room_id)
+                if not header:
+                    continue
+                if int(header.get("manual_upt_yn") or 0):
+                    skipped_manual += 1
+                    continue
+
+                merged_req = _merge_requirements(
+                    header.get("requirements"), res.get("requirements")
+                )
+                updates.append(
+                    (
+                        int(res["amenities_qty"]),
+                        int(res["blanket_qty"]),
+                        res["checkin_time"],
+                        res["checkout_time"],
+                        merged_req,
+                        int(header["id"]),
+                    )
+                )
+                reservations_to_mark.append((int(header["id"]), int(res["id"])))
+
+            if not updates:
+                logging.info(
+                    "work_reservation 반영 대상 없음 (헤더 없음/수동 수정 건 %s건)",
+                    skipped_manual,
+                )
+                return
+
+            cur.executemany(
+                """
+                UPDATE work_header
+                   SET amenities_qty = %s,
+                       blanket_qty = %s,
+                       checkin_time = %s,
+                       checkout_time = %s,
+                       requirements = %s
+                 WHERE id = %s
+                """,
+                updates,
+            )
+            cur.executemany(
+                "UPDATE work_reservation SET work_id=%s, reflect_yn=1 WHERE id=%s",
+                reservations_to_mark,
+            )
+            self.conn.commit()
+
+            logging.info(
+                "work_reservation 반영 완료: 업데이트 %s건, reflect 완료 %s건, 수동 수정 스킵 %s건",
+                len(updates),
+                len(reservations_to_mark),
+                skipped_manual,
+            )
 
     def _persist_accuracy(self, predictions: Sequence[Prediction]) -> None:
         buckets: Dict[str, List[Prediction]] = {"D-1": [], "D-7": []}
