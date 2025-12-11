@@ -8,7 +8,6 @@ import styles from './workReservation.module.css';
 
 import type { BuildingRoomOption, WorkReservationRecord } from '@/src/server/workReservation';
 import type { ProfileSummary } from '@/src/utils/profile';
-import { formatKstDateKey } from '@/src/lib/time';
 
 type FormState = {
   workId: string;
@@ -51,7 +50,13 @@ export default function WorkReservationClient({ profile, initialReservations, bu
   const defaultRole = useMemo(() => (profile.roles.includes('admin') ? 'admin' : profile.roles[0] ?? null), [profile.roles]);
   const [activeRole, setActiveRole] = useState<string | null>(defaultRole);
   const [reservations, setReservations] = useState<WorkReservationRecord[]>(initialReservations);
-  const defaultWorkId = useMemo(() => formatKstDateKey(new Date()), []);
+  const defaultWorkId = useMemo(() => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }, []);
   const [form, setForm] = useState<FormState>(() => createEmptyForm(defaultWorkId));
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -97,7 +102,7 @@ export default function WorkReservationClient({ profile, initialReservations, bu
     setError(null);
 
     const payload = {
-      workId: form.workId,
+      workId: Number(form.workId.replace(/[^0-9]/g, '')),
       roomId: Number(form.roomId || 0),
       amenitiesQty: Number(form.amenitiesQty || 0),
       blanketQty: Number(form.blanketQty || 0),
@@ -171,7 +176,7 @@ export default function WorkReservationClient({ profile, initialReservations, bu
   function handleRowClick(reservation: WorkReservationRecord) {
     setSelectedId(reservation.id);
     setForm({
-      workId: reservation.workId,
+      workId: reservation.workDateLabel,
       buildingId: reservation.buildingId ? String(reservation.buildingId) : '',
       roomId: String(reservation.roomId),
       amenitiesQty: String(reservation.amenitiesQty ?? 0),
@@ -362,7 +367,7 @@ export default function WorkReservationClient({ profile, initialReservations, bu
                       className={isActive ? styles.activeRow : undefined}
                       onClick={() => handleRowClick(reservation)}
                     >
-                      <td>{reservation.workId}</td>
+                      <td>{reservation.workDateLabel}</td>
                       <td>
                         {reservation.buildingShortName ?? '-'} {reservation.roomNo ?? ''}
                       </td>

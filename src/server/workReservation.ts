@@ -2,11 +2,11 @@ import { asc, desc, eq } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import { clientRooms, etcBuildings, workReservation } from '@/src/db/schema';
-import { formatKstDateKey } from '@/src/lib/time';
 
 export type WorkReservationRecord = {
   id: number;
-  workId: string;
+  workId: number;
+  workDateLabel: string;
   roomId: number;
   buildingId: number | null;
   buildingShortName: string | null;
@@ -26,7 +26,7 @@ export type BuildingRoomOption = {
 };
 
 type ReservationPayload = {
-  workId: string;
+  workId: number;
   roomId: number;
   amenitiesQty: number;
   blanketQty: number;
@@ -36,11 +36,13 @@ type ReservationPayload = {
   cancelYn?: boolean;
 };
 
-function parseDateKey(value: string | null | undefined) {
-  if (!value) return null;
-  const parsed = new Date(`${value}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    throw new Error('잘못된 날짜 형식입니다.');
+function parseWorkId(value: number | string | null | undefined) {
+  if (value === null || value === undefined) return null;
+  const digits = String(value).replace(/[^0-9]/g, '');
+  if (!digits) return null;
+  const parsed = Number(digits);
+  if (!Number.isFinite(parsed)) {
+    throw new Error('잘못된 작업 식별자입니다.');
   }
   return parsed;
 }
@@ -57,9 +59,16 @@ function normalizeTime(value: string | null | undefined) {
   throw new Error('시간은 HH:mm 형식으로 입력해 주세요.');
 }
 
+function formatWorkIdLabel(value: number | string | null | undefined) {
+  if (value === null || value === undefined) return '';
+  const digits = String(value).replace(/[^0-9]/g, '').padStart(8, '0');
+  if (digits.length < 8) return String(value);
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+}
+
 function mapReservationRow(row: {
   id: number;
-  workId: Date;
+  workId: number | string;
   roomId: number;
   buildingId: number | null;
   buildingShortName: string | null;
@@ -74,7 +83,8 @@ function mapReservationRow(row: {
   const formatTime = (time: string) => (time ? time.substring(0, 5) : '');
   return {
     id: Number(row.id),
-    workId: formatKstDateKey(row.workId),
+    workId: Number(row.workId),
+    workDateLabel: formatWorkIdLabel(row.workId),
     roomId: Number(row.roomId),
     buildingId: row.buildingId ? Number(row.buildingId) : null,
     buildingShortName: row.buildingShortName,
@@ -188,9 +198,9 @@ export async function listOpenRoomsByBuilding(): Promise<BuildingRoomOption[]> {
 }
 
 export async function createWorkReservation(payload: ReservationPayload) {
-  const workId = parseDateKey(payload.workId);
+  const workId = parseWorkId(payload.workId);
   if (!workId) {
-    throw new Error('작업일을 입력해 주세요.');
+    throw new Error('작업 식별자를 확인해 주세요.');
   }
 
   const checkinTime = normalizeTime(payload.checkinTime);
@@ -220,9 +230,9 @@ export async function updateWorkReservation(id: number, payload: ReservationPayl
     throw new Error('대상을 찾을 수 없습니다.');
   }
 
-  const workId = parseDateKey(payload.workId);
+  const workId = parseWorkId(payload.workId);
   if (!workId) {
-    throw new Error('작업일을 입력해 주세요.');
+    throw new Error('작업 식별자를 확인해 주세요.');
   }
 
   const checkinTime = normalizeTime(payload.checkinTime);

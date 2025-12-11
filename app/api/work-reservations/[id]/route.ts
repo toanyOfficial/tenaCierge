@@ -16,7 +16,7 @@ export async function PUT(_req: Request, { params }: { params: { id: string } })
   try {
     const body = await _req.json();
     const payload = {
-      workId: String(body.workId ?? ''),
+      workId: Number(body.workId ?? 0),
       roomId: Number(body.roomId ?? 0),
       amenitiesQty: Number(body.amenitiesQty ?? 0),
       blanketQty: Number(body.blanketQty ?? 0),

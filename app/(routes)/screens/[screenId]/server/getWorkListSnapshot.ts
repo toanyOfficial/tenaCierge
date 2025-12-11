@@ -412,7 +412,7 @@ export async function getWorkListSnapshot(
     const conditionPhotoMap = await fetchLatestConditionReports(normalized.map((row) => row.id));
     const activeWorkGlobals = await fetchActiveWorkGlobals(targetDate);
     const workGlobalCompletedRooms = await fetchWorkGlobalCompletions(
-      activeWorkGlobals.map((item) => item.startDate)
+      activeWorkGlobals.map((item) => item.id)
     );
     const assignableWorkers = isAdmin || isButler ? await fetchAssignableWorkers(targetDate) : [];
     const buildingCounts = normalized.reduce<Record<number, number>>((acc, row) => {
@@ -439,7 +439,7 @@ export async function getWorkListSnapshot(
                 emoji: header.emoji,
                 title: header.title,
                 dscpt: header.dscpt,
-                completed: workGlobalCompletedRooms.get(header.startDate)?.has(work.roomId) ?? false
+                completed: workGlobalCompletedRooms.get(header.id)?.has(work.roomId) ?? false
               }))
             : []
       }))
@@ -790,20 +790,18 @@ async function fetchActiveWorkGlobals(targetDate: string) {
   }));
 }
 
-async function fetchWorkGlobalCompletions(startDates: string[]) {
-  const map = new Map<string, Set<number>>();
+async function fetchWorkGlobalCompletions(headerIds: number[]) {
+  const map = new Map<number, Set<number>>();
 
-  if (!startDates.length) return map;
-
-  const parsedStartDates = startDates.map((date) => new Date(`${date}T00:00:00Z`));
+  if (!headerIds.length) return map;
 
   const rows = await db
     .select({ workGlobalId: workGlobalDetail.workGlobalId, roomId: workGlobalDetail.roomId })
     .from(workGlobalDetail)
-    .where(inArray(workGlobalDetail.workGlobalId, parsedStartDates));
+    .where(inArray(workGlobalDetail.workGlobalId, headerIds));
 
   rows.forEach((row) => {
-    const key = formatKstDateKey(row.workGlobalId);
+    const key = Number(row.workGlobalId);
     const set = map.get(key) ?? new Set<number>();
     set.add(Number(row.roomId));
     map.set(key, set);

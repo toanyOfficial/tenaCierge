@@ -176,11 +176,6 @@ export async function fetchWorkGlobalReport(workGlobalId: number): Promise<WorkG
     throw new Error('대상 업무를 찾을 수 없습니다.');
   }
 
-  const workGlobalDate = parseDate(header.startDate);
-  if (!workGlobalDate) {
-    throw new Error('업무 시작일이 올바르지 않습니다.');
-  }
-
   const buildingSector = alias(etcBaseCode, 'buildingSector');
 
   const rows = await db
@@ -199,7 +194,7 @@ export async function fetchWorkGlobalReport(workGlobalId: number): Promise<WorkG
     )
     .leftJoin(
       workGlobalDetail,
-      and(eq(workGlobalDetail.workGlobalId, workGlobalDate), eq(workGlobalDetail.roomId, clientRooms.id))
+      and(eq(workGlobalDetail.workGlobalId, workGlobalId), eq(workGlobalDetail.roomId, clientRooms.id))
     )
     .where(eq(clientRooms.openYn, true))
     .groupBy(clientRooms.id, buildingSector.value, etcBuildings.shortName, clientRooms.roomNo)
@@ -274,15 +269,10 @@ export async function markWorkGlobalDetailComplete(workGlobalId: number, roomId:
     throw new Error('대상 업무를 찾을 수 없습니다.');
   }
 
-  const workGlobalDate = parseDate(header.startDate);
-  if (!workGlobalDate) {
-    throw new Error('업무 시작일이 올바르지 않습니다.');
-  }
-
   const [existing] = await db
     .select({ id: workGlobalDetail.id, createdAt: workGlobalDetail.createdAt })
     .from(workGlobalDetail)
-    .where(and(eq(workGlobalDetail.workGlobalId, workGlobalDate), eq(workGlobalDetail.roomId, roomId)))
+    .where(and(eq(workGlobalDetail.workGlobalId, workGlobalId), eq(workGlobalDetail.roomId, roomId)))
     .limit(1);
 
   if (existing) {
@@ -292,7 +282,7 @@ export async function markWorkGlobalDetailComplete(workGlobalId: number, roomId:
   const now = nowKst().toJSDate();
   await db
     .insert(workGlobalDetail)
-    .values({ workGlobalId: workGlobalDate, roomId, createdAt: now, updatedAt: now });
+    .values({ workGlobalId, roomId, createdAt: now, updatedAt: now });
 
   return formatKstDateKey(now);
 }
@@ -303,12 +293,7 @@ export async function revertWorkGlobalDetail(workGlobalId: number, roomId: numbe
     throw new Error('대상 업무를 찾을 수 없습니다.');
   }
 
-  const workGlobalDate = parseDate(header.startDate);
-  if (!workGlobalDate) {
-    throw new Error('업무 시작일이 올바르지 않습니다.');
-  }
-
   await db
     .delete(workGlobalDetail)
-    .where(and(eq(workGlobalDetail.workGlobalId, workGlobalDate), eq(workGlobalDetail.roomId, roomId)));
+    .where(and(eq(workGlobalDetail.workGlobalId, workGlobalId), eq(workGlobalDetail.roomId, roomId)));
 }

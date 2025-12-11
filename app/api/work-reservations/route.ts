@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const payload = {
-      workId: String(body.workId ?? ''),
+      workId: Number(body.workId ?? 0),
       roomId: Number(body.roomId ?? 0),
       amenitiesQty: Number(body.amenitiesQty ?? 0),
       blanketQty: Number(body.blanketQty ?? 0),

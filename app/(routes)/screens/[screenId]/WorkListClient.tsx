@@ -759,7 +759,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
           return {
             ...work,
             workGlobals: work.workGlobals.map((badge) =>
-              badge.startDate === workGlobalTarget.badge.startDate ? { ...badge, completed: true } : badge
+              badge.headerId === workGlobalTarget.badge.headerId ? { ...badge, completed: true } : badge
             )
           };
         })
