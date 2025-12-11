@@ -70,6 +70,9 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
   const [isAdding, setIsAdding] = useState(false);
   const [addStatus, setAddStatus] = useState('');
   const [addError, setAddError] = useState('');
+  const [refreshingOrders, setRefreshingOrders] = useState(false);
+  const [refreshStatus, setRefreshStatus] = useState('');
+  const [refreshError, setRefreshError] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(snapshot.targetDate);
   const [collapsedSectors, setCollapsedSectors] = useState<Set<string>>(new Set());
@@ -127,6 +130,14 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
     return list;
   }, [roomOptions]);
 
+  const refreshTargetLabel = useMemo(() => {
+    const target = new Date();
+    target.setDate(target.getDate() + 1);
+    const month = String(target.getMonth() + 1).padStart(2, '0');
+    const day = String(target.getDate()).padStart(2, '0');
+    return `${month}-${day}`;
+  }, []);
+
   const [addForm, setAddForm] = useState<AddFormState>(() => createAddFormState(roomOptions[0] ?? null));
 
   useEffect(() => {
@@ -164,6 +175,30 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
     const query = params.toString();
     const next = query ? `${basePath}?${query}` : basePath;
     router.replace(next, { scroll: false });
+  }
+
+  async function handleRefreshOrders() {
+    alert(`D+1일(${refreshTargetLabel}) 오더항목을 갱신합니다.`);
+    setRefreshingOrders(true);
+    setRefreshStatus('');
+    setRefreshError('');
+
+    try {
+      const response = await fetch('/api/works/refresh-d1', { method: 'POST' });
+      const body = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const detail = body?.message || body?.error;
+        throw new Error(detail ? String(detail) : '갱신 요청에 실패했습니다.');
+      }
+
+      setRefreshStatus('갱신을 실행했습니다. 잠시 후 새로고침을 반영합니다.');
+      router.refresh();
+    } catch (error) {
+      setRefreshError(error instanceof Error ? error.message : '갱신 중 오류가 발생했습니다.');
+    } finally {
+      setRefreshingOrders(false);
+    }
   }
 
   useEffect(() => {
@@ -750,6 +785,20 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
                 ))}
               </select>
             </label>
+            {viewingAsAdmin ? (
+              <div className={styles.refreshRow}>
+                <button
+                  type="button"
+                  className={styles.infoButton}
+                  onClick={handleRefreshOrders}
+                  disabled={refreshingOrders}
+                >
+                  {refreshingOrders ? '오더갱신 중...' : '오더갱신'}
+                </button>
+                {refreshStatus ? <span className={styles.statusOk}>{refreshStatus}</span> : null}
+                {refreshError ? <span className={styles.statusError}>{refreshError}</span> : null}
+              </div>
+            ) : null}
           </div>
         </header>
 
