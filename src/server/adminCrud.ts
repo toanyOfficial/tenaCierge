@@ -213,6 +213,19 @@ export async function fetchTableSnapshot(table: string, offset = 0, limit = 20):
   const orderColumn = primaryKey[0] ?? columns[0]?.name;
   const pool = getPool();
 
+  if (table === 'worker_weekly_pattern') {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT wwp.*, wh.name AS worker_name
+       FROM worker_weekly_pattern wwp
+       JOIN worker_header wh ON wwp.worker_id = wh.id
+       WHERE wh.tier = 99
+       ORDER BY ?? DESC LIMIT ? OFFSET ?`,
+      [orderColumn ?? 'id', limit, offset]
+    );
+
+    return { table, columns, primaryKey, rows, limit, offset };
+  }
+
   const [rows] = await pool.query<RowDataPacket[]>(
     'SELECT * FROM ?? ORDER BY ?? DESC LIMIT ? OFFSET ?',
     [table, orderColumn ?? 'id', limit, offset]
@@ -319,6 +332,31 @@ export async function fetchReferenceOptions(
 
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT tier AS value, CONCAT('티어 ', tier, ' - ', COALESCE(comment, '')) AS label FROM worker_tier_rules ${whereClause} ORDER BY id ASC LIMIT ?`,
+      params
+    );
+
+    return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value) }));
+  }
+
+  if (table === 'worker_weekly_pattern' && column === 'worker_id') {
+    const pool = getPool();
+    const whereClauses = ['tier = 99'];
+    const params: unknown[] = [];
+
+    if (keyword) {
+      whereClauses.push('(name LIKE ? OR register_no LIKE ? OR phone LIKE ?)');
+      const like = `%${keyword}%`;
+      params.push(like, like, like);
+    }
+
+    params.push(limit);
+
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT id AS value, CONCAT('(', id, ')', COALESCE(name, '')) AS label
+       FROM worker_header
+       WHERE ${whereClauses.join(' AND ')}
+       ORDER BY id DESC
+       LIMIT ?`,
       params
     );
 

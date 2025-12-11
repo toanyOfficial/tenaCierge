@@ -66,6 +66,9 @@ const TABLE_LABEL_OVERRIDES: Record<string, Record<string, string>> = {
     realtime_overview_yn: 'realtime_overview_yn(실시간현황보기여부)',
     images_yn: 'images_yn(사진조회여부)',
     weight: 'weight'
+  },
+  worker_weekly_pattern: {
+    worker_id: '(worker_id)name'
   }
 };
 const TABLE_HIDDEN_COLUMNS: Record<string, Set<string>> = {
@@ -84,6 +87,15 @@ const CLIENT_SETTLE_OPTIONS = [
   { value: '2', label: '정액제' },
   { value: '3', label: '커스텀' },
   { value: '4', label: '기타' }
+];
+const WEEKDAY_OPTIONS = [
+  { value: '0', label: '0:일요일' },
+  { value: '1', label: '1:월요일' },
+  { value: '2', label: '2:화요일' },
+  { value: '3', label: '3:수요일' },
+  { value: '4', label: '4:목요일' },
+  { value: '5', label: '5:금요일' },
+  { value: '6', label: '6:토요일' }
 ];
 
 export default function AdminCrudClient({ tables, profile, initialTable, title }: Props) {
@@ -715,6 +727,24 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       );
     }
 
+    if (selectedTable === 'worker_weekly_pattern' && column.name === 'weekday') {
+      return (
+        <select
+          id={column.name}
+          value={value}
+          onChange={(event) => handleInputChange(column, event.target.value)}
+          disabled={loading}
+        >
+          <option value="">선택하세요</option>
+          {WEEKDAY_OPTIONS.map((option) => (
+            <option key={`${column.name}-${option.value}`} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
     if (isClientRooms && ['facility_yn', 'realtime_overview_yn', 'images_yn', 'open_yn'].includes(column.name)) {
       return (
         <select
@@ -1083,7 +1113,24 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   }
 
   function renderCellValue(row: Record<string, unknown>, key: string) {
-    const rawValue = getClientField(row, key, '');
+    let rawValue = getClientField(row, key, '');
+
+    if (helperTableName === 'worker_weekly_pattern') {
+      if (key === 'worker_id') {
+        const workerId = row.worker_id;
+        const workerName = typeof row.worker_name === 'string' ? row.worker_name : '';
+        const formattedId = workerId === null || workerId === undefined ? '' : `(${workerId})`;
+        const combined = `${formattedId}${workerName}`.trim();
+        rawValue = combined || rawValue;
+      }
+
+      if (key === 'weekday') {
+        const matched = WEEKDAY_OPTIONS.find((option) => option.value === String(row.weekday ?? rawValue));
+        if (matched) {
+          rawValue = matched.label;
+        }
+      }
+    }
     if (!rawValue) {
       return <span className={styles.cellText}>-</span>;
     }

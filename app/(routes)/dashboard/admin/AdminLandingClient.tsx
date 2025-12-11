@@ -40,7 +40,7 @@ const shortcuts: Shortcut[] = [
   },
   {
     id: 'schedule-attendance',
-    label: '스케쥴관리-출근표',
+    label: '스케쥴관리(출근표)',
     href: '/dashboard/schedule/attendance',
     description: '출근 패턴과 요일별 근무 여부를 관리합니다.'
   },
