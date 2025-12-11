@@ -483,6 +483,27 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       if (!('ratio_yn' in defaults)) defaults.ratio_yn = '0';
     }
 
+    (snapshot?.columns ?? []).forEach((column) => {
+      if (!column.references) return;
+      const rawValue = row[column.name];
+      if (rawValue === null || rawValue === undefined || rawValue === '') return;
+
+      setReferenceOptions((prev) => {
+        const options = prev[column.name] ?? [];
+        const exists = options.some((option) => String(option.value) === String(rawValue));
+        if (exists) return prev;
+
+        const fallbackLabel = typeof row[column.references?.column ?? ''] === 'string'
+          ? String(row[column.references?.column ?? ''])
+          : String(rawValue);
+
+        return {
+          ...prev,
+          [column.name]: [...options, { value: rawValue, label: fallbackLabel }]
+        };
+      });
+    });
+
     setEditingKey(key);
     setFormValues(defaults);
     if (isClientAdditionalPrice) {
