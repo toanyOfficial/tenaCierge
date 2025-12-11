@@ -23,7 +23,8 @@ export async function PUT(_req: Request, { params }: { params: { id: string } })
       checkinTime: String(body.checkinTime ?? ''),
       checkoutTime: String(body.checkoutTime ?? ''),
       requirements: body.requirements ? String(body.requirements) : null,
-      cancelYn: Boolean(body.cancelYn ?? false)
+      cancelYn: Boolean(body.cancelYn ?? false),
+      reflectYn: Boolean(body.reflectYn ?? false)
     };
 
     if (!payload.roomId || !payload.checkinTime || !payload.checkoutTime) {

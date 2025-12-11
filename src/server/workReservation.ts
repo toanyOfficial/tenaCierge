@@ -35,6 +35,7 @@ type ReservationPayload = {
   checkoutTime: string;
   requirements?: string | null;
   cancelYn?: boolean;
+  reflectYn?: boolean;
 };
 
 function parseWorkId(value: number | string | null | undefined) {
@@ -228,7 +229,8 @@ export async function createWorkReservation(payload: ReservationPayload) {
     checkinTime,
     checkoutTime,
     requirements: payload.requirements ?? null,
-    cancelYn: Boolean(payload.cancelYn)
+    cancelYn: Boolean(payload.cancelYn),
+    reflectYn: Boolean(payload.reflectYn)
   });
 
   return listWorkReservations();
@@ -259,7 +261,8 @@ export async function updateWorkReservation(id: number, payload: ReservationPayl
       checkinTime,
       checkoutTime,
       requirements: payload.requirements ?? null,
-      cancelYn: Boolean(payload.cancelYn)
+      cancelYn: Boolean(payload.cancelYn),
+      reflectYn: Boolean(payload.reflectYn)
     })
     .where(eq(workReservation.id, id));
 

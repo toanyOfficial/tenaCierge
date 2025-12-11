@@ -85,6 +85,20 @@ export default function WorkReservationClient({ profile, initialReservations, bu
     setForm((prev) => ({ ...prev, buildingId: nextBuilding, roomId: '' }));
   }
 
+  function handleRoomChange(event: ChangeEvent<HTMLSelectElement>) {
+    const nextRoomId = event.target.value;
+    const nextRoom = roomOptions.find((room) => String(room.roomId) === nextRoomId);
+
+    setForm((prev) => ({
+      ...prev,
+      roomId: nextRoomId,
+      amenitiesQty: nextRoom ? String(nextRoom.bedCount ?? 0) : prev.amenitiesQty,
+      blanketQty: nextRoom ? String(nextRoom.bedCount ?? 0) : prev.blanketQty,
+      checkinTime: nextRoom?.checkinTime ?? prev.checkinTime,
+      checkoutTime: nextRoom?.checkoutTime ?? prev.checkoutTime
+    }));
+  }
+
   function resetForm() {
     setForm(createEmptyForm('미반영'));
     setSelectedId(null);
@@ -106,7 +120,8 @@ export default function WorkReservationClient({ profile, initialReservations, bu
       checkinTime: form.checkinTime,
       checkoutTime: form.checkoutTime,
       requirements: form.requirements.trim() || null,
-      cancelYn: form.cancelYn
+      cancelYn: form.cancelYn,
+      reflectYn: form.reflectYn
     };
 
     if (!payload.roomId || !payload.checkinTime || !payload.checkoutTime) {
@@ -143,33 +158,6 @@ export default function WorkReservationClient({ profile, initialReservations, bu
     }
   }
 
-  async function handleDelete() {
-    if (!selectedId) return;
-    if (!window.confirm('선택한 요청사항을 삭제하시겠습니까?')) {
-      return;
-    }
-    setSaving(true);
-    setFeedback(null);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/work-reservations/${selectedId}`, { method: 'DELETE' });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.message ?? '삭제에 실패했습니다.');
-      }
-      const data = await response.json();
-      setReservations(data.reservations ?? []);
-      resetForm();
-      setFeedback('삭제되었습니다.');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '삭제 중 오류가 발생했습니다.';
-      setError(message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
   function handleRowClick(reservation: WorkReservationRecord) {
     setSelectedId(reservation.id);
     setForm({
@@ -191,9 +179,9 @@ export default function WorkReservationClient({ profile, initialReservations, bu
 
   function handleCancelToggle() {
     if (form.cancelYn) {
-    setForm((prev) => ({ ...prev, cancelYn: false }));
-    return;
-  }
+      setForm((prev) => ({ ...prev, cancelYn: false }));
+      return;
+    }
 
     const confirmed = window.confirm('이 요청사항을 폐기하시겠습니까?');
     if (!confirmed) return;
@@ -208,7 +196,7 @@ export default function WorkReservationClient({ profile, initialReservations, bu
         <header className={styles.cardHeader}>
           <div>
             <p className={styles.cardTitle}>요청사항관리</p>
-            <p className={styles.cardSubtitle}>work_reservation 데이터를 생성·수정·삭제합니다.</p>
+            <p className={styles.cardSubtitle}>work_reservation 데이터를 생성·수정합니다.</p>
           </div>
         </header>
 
@@ -236,7 +224,7 @@ export default function WorkReservationClient({ profile, initialReservations, bu
 
             <label className={styles.field}>
               <span>객실 *</span>
-              <select name="roomId" value={form.roomId} onChange={handleInputChange} required>
+              <select name="roomId" value={form.roomId} onChange={handleRoomChange} required>
                 <option value="">객실 선택</option>
                 {roomOptions.map((room) => (
                   <option key={room.roomId} value={room.roomId}>
@@ -244,6 +232,15 @@ export default function WorkReservationClient({ profile, initialReservations, bu
                   </option>
                 ))}
               </select>
+            </label>
+
+            <label className={styles.field}>
+              <span>반영 여부</span>
+              <label className={styles.switch}>
+                <input type="checkbox" name="reflectYn" checked={form.reflectYn} onChange={handleInputChange} />
+                <span className={styles.slider} />
+                <span className={styles.switchLabel}>{form.reflectYn ? '반영됨' : '미반영'}</span>
+              </label>
             </label>
 
             <label className={styles.field}>
@@ -317,11 +314,6 @@ export default function WorkReservationClient({ profile, initialReservations, bu
               <button type="button" className={styles.secondaryButton} onClick={resetForm} disabled={saving}>
                 초기화
               </button>
-              {selectedId ? (
-                <button type="button" className={styles.dangerButton} onClick={handleDelete} disabled={saving}>
-                  삭제하기
-                </button>
-              ) : null}
             </div>
             <div className={styles.feedbackZone}>
               {feedback ? <span className={styles.feedback}>{feedback}</span> : null}
