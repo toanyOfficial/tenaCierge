@@ -225,7 +225,8 @@ export async function fetchReferenceOptions(
   table: string,
   column: string,
   keyword: string,
-  limit = 20
+  limit = 20,
+  basecodeGroup?: string
 ): Promise<AdminReferenceOption[]> {
   const sourceConfig = getTableConfig(table);
   if (table === 'worker_header' && (column === 'basecode_bank' || column === 'basecode_code')) {
@@ -239,23 +240,33 @@ export async function fetchReferenceOptions(
       params.push(like, like);
     }
 
-    const sql = `SELECT code AS value, value AS codeValue, CONCAT(code, ' - ', value) AS label FROM etc_baseCode WHERE ${whereClauses.join(
+    const sql = `SELECT code_group, code, value, CONCAT(code, ' - ', value) AS label FROM etc_baseCode WHERE ${whereClauses.join(
       ' AND '
     )} ORDER BY value ASC LIMIT ?`;
     params.push(limit);
 
     const [rows] = await pool.query<RowDataPacket[]>(sql, params);
-    return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value), codeValue: String(row.codeValue ?? '') }));
+    return rows.map((row) => ({
+      value: row.code,
+      label: row.label ?? String(row.value ?? row.code ?? ''),
+      codeValue: String(row.code ?? ''),
+      meta: { codeGroup: row.code_group ?? 'bank', code: row.code, displayValue: row.value }
+    }));
   }
 
   if (table === 'etc_buildings' && (column === 'basecode_sector' || column === 'basecode_code')) {
     const pool = getPool();
     const [rows] = await pool.query<RowDataPacket[]>(
-      "SELECT value, code AS codeValue, CONCAT(value, ' - ', code) AS label FROM etc_baseCode WHERE code_group = 'SECTOR' ORDER BY value ASC LIMIT ?",
+      "SELECT code_group, code, value, CONCAT(value, ' - ', code) AS label FROM etc_baseCode WHERE code_group = 'SECTOR' ORDER BY value ASC LIMIT ?",
       [limit]
     );
 
-    return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value), codeValue: String(row.codeValue ?? '') }));
+    return rows.map((row) => ({
+      value: row.code,
+      label: row.label ?? String(row.value ?? row.code ?? ''),
+      codeValue: String(row.code ?? ''),
+      meta: { codeGroup: row.code_group ?? 'SECTOR', code: row.code, displayValue: row.value }
+    }));
   }
 
   if (column.startsWith('basecode_')) {
@@ -263,21 +274,35 @@ export async function fetchReferenceOptions(
     const whereClauses: string[] = [];
     const params: unknown[] = [];
 
+    if (basecodeGroup) {
+      whereClauses.push('code_group = ?');
+      params.push(basecodeGroup);
+    }
+
     if (keyword) {
       whereClauses.push('(code LIKE ? OR value LIKE ?)');
       const like = `%${keyword}%`;
       params.push(like, like);
     }
 
-    const whereSql = whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : '';
+    if (whereClauses.length === 0) {
+      return [];
+    }
+
+    const whereSql = `WHERE ${whereClauses.join(' AND ')}`;
     params.push(limit);
 
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT value, code AS codeValue, CONCAT(code, ' - ', value) AS label FROM etc_baseCode ${whereSql} ORDER BY value ASC LIMIT ?`,
+      `SELECT code_group, code, value, CONCAT(code, ' - ', value) AS label FROM etc_baseCode ${whereSql} ORDER BY value ASC LIMIT ?`,
       params
     );
 
-    return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value), codeValue: String(row.codeValue ?? '') }));
+    return rows.map((row) => ({
+      value: row.code,
+      label: row.label ?? String(row.value ?? row.code ?? ''),
+      codeValue: String(row.code ?? ''),
+      meta: { codeGroup: row.code_group ?? '', code: row.code, displayValue: row.value }
+    }));
   }
 
   if (table === 'worker_header' && column === 'tier') {

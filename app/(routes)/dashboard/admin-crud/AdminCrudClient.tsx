@@ -387,8 +387,8 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     const selectedOption = options.find((option) => String(option.value) === optionValue);
     setFormValues((prev) => ({
       ...prev,
-      basecode_bank: optionValue,
-      basecode_code: selectedOption?.codeValue ?? ''
+      basecode_bank: selectedOption?.meta?.codeGroup ?? '',
+      basecode_code: selectedOption?.meta?.code ?? optionValue
     }));
   }
 
@@ -397,8 +397,8 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     const selectedOption = options.find((option) => String(option.value) === optionValue);
     setFormValues((prev) => ({
       ...prev,
-      [primaryColumn]: selectedOption?.codeValue ?? optionValue,
-      basecode_code: selectedOption ? String(selectedOption.value) : optionValue
+      [primaryColumn]: selectedOption?.meta?.codeGroup ?? prev[primaryColumn] ?? '',
+      basecode_code: selectedOption?.meta?.code ? String(selectedOption.meta.code) : optionValue
     }));
   }
 
@@ -560,8 +560,17 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     if (!selectedTable) return;
     setReferenceLoading((prev) => ({ ...prev, [columnName]: true }));
     try {
+      const basecodeGroupParam = columnName.startsWith('basecode_')
+        ? columnName === 'basecode_code'
+          ? basecodePrimaryColumn
+            ? formValues[basecodePrimaryColumn] ?? ''
+            : ''
+          : formValues[columnName] ?? ''
+        : '';
       const response = await fetch(
-        `/api/admin/crud/reference?table=${encodeURIComponent(selectedTable)}&column=${encodeURIComponent(columnName)}&q=${encodeURIComponent(keyword)}`,
+        `/api/admin/crud/reference?table=${encodeURIComponent(selectedTable)}&column=${encodeURIComponent(columnName)}&q=${encodeURIComponent(keyword)}${
+          basecodeGroupParam ? `&basecodeGroup=${encodeURIComponent(String(basecodeGroupParam))}` : ''
+        }`,
         { cache: 'no-cache' }
       );
       if (!response.ok) {
