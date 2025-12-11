@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import { DateTime } from 'luxon';
 import { unstable_noStore as noStore } from 'next/cache';
@@ -17,7 +17,9 @@ import {
   workImagesList,
   workImagesSetDetail,
   workReports,
-  workerHeader
+  workerHeader,
+  workGlobalHeader,
+  workGlobalDetail
 } from '@/src/db/schema';
 import type { ProfileSummary } from '@/src/utils/profile';
 import { findClientByProfile } from '@/src/server/clients';
@@ -36,6 +38,7 @@ export type WorkImageSlot = {
 
 export type WorkListEntry = {
   id: number;
+  roomId: number;
   roomName: string;
   buildingShortName: string;
   roomNo: string;
@@ -73,6 +76,14 @@ export type WorkListEntry = {
   realtimeOverviewYn: boolean;
   imagesYn: boolean;
   imagesSetId?: number | null;
+  workGlobal?: {
+    headerId: number;
+    startDate: string;
+    emoji: string | null;
+    title: string;
+    dscpt: string;
+    completed: boolean;
+  };
 };
 
 export type SupplyRecommendation = { title: string; description: string; href?: string };
@@ -384,9 +395,9 @@ export async function getWorkListSnapshot(
           rows = [];
           emptyMessage = hasApplication ? '아직 할당된 업무가 없습니다.' : '오늘,내일자 업무 신청 내역이 없습니다.';
         } else {
-        rows = await baseQueryBuilder
-          .where(and(baseWhere, inArray(workHeader.id, assignedWorkIds)))
-          .limit(1000);
+          rows = await baseQueryBuilder
+            .where(and(baseWhere, inArray(workHeader.id, assignedWorkIds)))
+            .limit(1000);
         }
       }
     }
@@ -396,6 +407,10 @@ export async function getWorkListSnapshot(
     const photoMap = await fetchLatestPhotoReports(normalized.map((row) => row.id));
     const conditionSlotMap = await fetchConditionImageSlots(normalized);
     const conditionPhotoMap = await fetchLatestConditionReports(normalized.map((row) => row.id));
+    const activeWorkGlobal = await fetchActiveWorkGlobal(targetDate);
+    const workGlobalCompletedRooms = activeWorkGlobal
+      ? await fetchWorkGlobalCompletions(activeWorkGlobal.startDate)
+      : new Set<number>();
     const assignableWorkers = isAdmin || isButler ? await fetchAssignableWorkers(targetDate) : [];
     const buildingCounts = normalized.reduce<Record<number, number>>((acc, row) => {
       acc[row.buildingId] = (acc[row.buildingId] ?? 0) + 1;
@@ -412,7 +427,18 @@ export async function getWorkListSnapshot(
         conditionImageSlots: conditionSlotMap.get(work.imagesSetId ?? -1) ?? [],
         conditionPhotos: conditionPhotoMap.get(work.id)?.images ?? [],
         conditionChecked:
-          work.conditionCheckYn && (conditionPhotoMap.has(work.id) || Boolean(work.supervisingYn))
+          work.conditionCheckYn && (conditionPhotoMap.has(work.id) || Boolean(work.supervisingYn)),
+        workGlobal:
+          activeWorkGlobal && work.roomId
+            ? {
+                headerId: activeWorkGlobal.id,
+                startDate: activeWorkGlobal.startDate,
+                emoji: activeWorkGlobal.emoji,
+                title: activeWorkGlobal.title,
+                dscpt: activeWorkGlobal.dscpt,
+                completed: workGlobalCompletedRooms.has(work.roomId)
+              }
+            : undefined
       }))
       .sort((a, b) => sortRows(a, b, buildingCounts));
 
@@ -519,6 +545,7 @@ async function fetchAssignedWorkIds(workerId: number, targetDate: string) {
 function normalizeRow(row: any): WorkListEntry {
   return {
     id: Number(row.id),
+    roomId: Number(row.roomId ?? 0),
     roomName: `${row.buildingShortName ?? ''}${row.roomNo ?? ''}`.trim() || '미지정 객실',
     buildingShortName: row.buildingShortName ?? '',
     roomNo: row.roomNo ?? '',
@@ -725,6 +752,50 @@ async function fetchLatestConditionReports(workIds: number[]) {
   });
 
   return map;
+}
+
+async function fetchActiveWorkGlobal(targetDate: string) {
+  const targetDateSql = sql`CAST(${buildDateParam(targetDate)} AS DATE)`;
+
+  const [row] = await db
+    .select({
+      id: workGlobalHeader.id,
+      emoji: workGlobalHeader.emoji,
+      title: workGlobalHeader.title,
+      dscpt: workGlobalHeader.dscpt,
+      startDate: workGlobalHeader.startDate,
+      endDate: workGlobalHeader.endDate
+    })
+    .from(workGlobalHeader)
+    .where(
+      and(
+        lte(workGlobalHeader.startDate, targetDateSql),
+        or(isNull(workGlobalHeader.endDate), gte(workGlobalHeader.endDate, targetDateSql)),
+        eq(workGlobalHeader.closedYn, false)
+      )
+    )
+    .orderBy(desc(workGlobalHeader.startDate), desc(workGlobalHeader.id))
+    .limit(1);
+
+  if (!row) return null;
+
+  return {
+    id: Number(row.id),
+    emoji: row.emoji ?? null,
+    title: row.title,
+    dscpt: row.dscpt,
+    startDate: row.startDate ? formatKstDateKey(row.startDate) : targetDate
+  };
+}
+
+async function fetchWorkGlobalCompletions(startDate: string) {
+  const parsedStartDate = new Date(`${startDate}T00:00:00Z`);
+  const rows = await db
+    .select({ roomId: workGlobalDetail.roomId })
+    .from(workGlobalDetail)
+    .where(eq(workGlobalDetail.workGlobalId, parsedStartDate));
+
+  return new Set(rows.map((row) => Number(row.roomId)));
 }
 
 async function fetchChecklistLookup(ids: number[]) {
