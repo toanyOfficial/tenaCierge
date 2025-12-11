@@ -13,7 +13,7 @@ export const revalidate = 0;
 const execFileAsync = promisify(execFile);
 
 async function runForecast(scriptPath: string, pythonBin = 'python3') {
-  return execFileAsync(pythonBin, [scriptPath, '--refresh-d1']);
+  return execFileAsync(pythonBin, [scriptPath, '--refresh-dn', '1']);
 }
 
 async function ensureVenvAndInstall(requirementsPath: string) {
@@ -56,7 +56,7 @@ export async function POST() {
       } catch (installError) {
         await logServerError({
           appName: 'order-refresh',
-          message: 'db_forecasting refresh-d1 의존성 설치 실패',
+          message: 'db_forecasting refresh-dn(1) 의존성 설치 실패',
           error: installError,
           context: { scriptPath, requirementsPath, pep668Blocked }
         });
@@ -74,7 +74,7 @@ export async function POST() {
 
     await logServerError({
       appName: 'order-refresh',
-      message: 'db_forecasting refresh-d1 실행 실패',
+      message: 'db_forecasting refresh-dn(1) 실행 실패',
       error,
       context: { scriptPath, errorMessage, errorStderr }
     });

@@ -209,7 +209,18 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="지정한 D+n 일자에 대해 work_header만 갱신하는 경량 모드(예: --refresh-dn 1)",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--refresh-d1",
+        action="store_true",
+        help="--refresh-dn 1과 동일한 별칭 (하위 호환용)",
+    )
+    args = parser.parse_args()
+
+    # 하위 호환: --refresh-d1 플래그가 들어오면 refresh_dn=1로 처리한다.
+    if getattr(args, "refresh_d1", False):
+        args.refresh_dn = 1
+
+    return args
 
 
 def get_db_connection(*, autocommit: bool = False) -> mysql.connector.MySQLConnection:
