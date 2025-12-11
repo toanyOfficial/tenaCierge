@@ -284,11 +284,11 @@ tenaCierge,work_fore_variable,value,"decimal(5,4)",NO,
 tenaCierge,work_fore_variable,created_at,timestamp,NO,
 tenaCierge,work_fore_variable,updated_at,timestamp,NO,
 tenaCierge,work_global_detail,id,bigint unsigned,NO,PK
-tenaCierge,work_global_detail,work_global_id,date,NO,
+tenaCierge,work_global_detail,work_global_id,tinyint,NO,
 tenaCierge,work_global_detail,room_id,int,NO,
 tenaCierge,work_global_detail,created_at,timestamp,NO,
 tenaCierge,work_global_detail,updated_at,timestamp,NO,
-tenaCierge,work_global_header,id,bigint unsigned,NO,PK
+tenaCierge,work_global_header,id,tinyint unsigned,NO,PK
 tenaCierge,work_global_header,emoji,varchar(10),YES,
 tenaCierge,work_global_header,title,varchar(20),NO,
 tenaCierge,work_global_header,dscpt,varchar(50),NO,
@@ -351,7 +351,7 @@ tenaCierge,work_reports,contents2,json,YES,
 tenaCierge,work_reports,created_at,timestamp,NO,
 tenaCierge,work_reports,updated_at,timestamp,NO,
 tenaCierge,work_reservation,id,bigint unsigned,NO,PK
-tenaCierge,work_reservation,work_id,date,NO,
+tenaCierge,work_reservation,work_id,bigint,NO,
 tenaCierge,work_reservation,room_id,int,NO,
 tenaCierge,work_reservation,amenities_qty,tinyint,NO,
 tenaCierge,work_reservation,blanket_qty,tinyint,NO,
@@ -359,6 +359,7 @@ tenaCierge,work_reservation,checkin_time,time,NO,
 tenaCierge,work_reservation,checkout_time,time,NO,
 tenaCierge,work_reservation,requirements,varchar(30),YES,
 tenaCierge,work_reservation,cancel_yn,tinyint(1),NO,0:정상/1:취소
+tenaCierge,work_reservation,reflect_yn,tinyint(1),NO,
 tenaCierge,work_reservation,created_at,timestamp,NO,
 tenaCierge,work_reservation,updated_at,timestamp,NO,
 tenaCierge,worker_detail,id,int unsigned,NO,PK
