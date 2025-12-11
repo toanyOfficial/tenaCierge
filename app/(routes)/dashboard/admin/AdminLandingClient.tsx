@@ -39,6 +39,18 @@ const shortcuts: Shortcut[] = [
     description: '객실 및 현장 세부 정보를 확인합니다.'
   },
   {
+    id: 'schedule-attendance',
+    label: '스케쥴관리-출근표',
+    href: '/dashboard/schedule/attendance',
+    description: '출근 패턴과 요일별 근무 여부를 관리합니다.'
+  },
+  {
+    id: 'schedule-vacation',
+    label: '스케쥴관리-휴가관리',
+    href: '/dashboard/schedule/vacation',
+    description: '휴가·예외 근무 일정을 관리합니다.'
+  },
+  {
     id: 'additional-fees',
     label: '추가비용관리',
     href: '/dashboard/admin-crud?table=client_additional_price',

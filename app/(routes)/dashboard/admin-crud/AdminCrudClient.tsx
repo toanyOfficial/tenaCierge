@@ -19,6 +19,7 @@ type Props = {
   tables: TableOption[];
   profile: ProfileSummary;
   initialTable?: string | null;
+  title?: string;
 };
 
 type Snapshot = {
@@ -85,7 +86,7 @@ const CLIENT_SETTLE_OPTIONS = [
   { value: '4', label: '기타' }
 ];
 
-export default function AdminCrudClient({ tables, profile, initialTable }: Props) {
+export default function AdminCrudClient({ tables, profile, initialTable, title }: Props) {
   const [activeRole, setActiveRole] = useState<string | null>(profile.roles[0] ?? null);
   const [selectedTable, setSelectedTable] = useState<string>(() => {
     if (initialTable && tables.some((table) => table.name === initialTable)) {
@@ -1130,7 +1131,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     <main className={styles.container}>
       <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} compact />
 
-      <header className={styles.header}>전체 테이블 CRUD</header>
+      <header className={styles.header}>{title ?? '전체 테이블 CRUD'}</header>
 
       <section className={styles.panel}>
         <div className={styles.toolbar}>
