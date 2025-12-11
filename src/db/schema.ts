@@ -365,7 +365,7 @@ export const workGlobalHeader = mysqlTable('work_global_header', {
 
 export const workGlobalDetail = mysqlTable('work_global_detail', {
   id: bigintNumber('id', { unsigned: true }).autoincrement().notNull(),
-  workGlobalId: bigintNumber('work_global_id', { unsigned: true }).notNull(),
+  workGlobalId: date('work_global_id').notNull(),
   roomId: int('room_id').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
