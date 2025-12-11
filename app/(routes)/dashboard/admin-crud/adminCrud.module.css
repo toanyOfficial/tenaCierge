@@ -64,11 +64,22 @@
 }
 
 .feedback {
-  color: #0f5132;
-  background: #d1e7dd;
-  border: 1px solid #badbcc;
   padding: 8px 12px;
   border-radius: 8px;
+  border: 1px solid transparent;
+  font-weight: 600;
+}
+
+.feedbackSuccess {
+  color: #0f5132;
+  background: #d1e7dd;
+  border-color: #badbcc;
+}
+
+.feedbackError {
+  color: #842029;
+  background: #f8d7da;
+  border-color: #f5c2c7;
 }
 
 .columnsHint {

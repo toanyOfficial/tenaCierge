@@ -122,7 +122,13 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [mode, setMode] = useState<'create' | 'edit'>('create');
   const [editingKey, setEditingKey] = useState<Record<string, unknown>>({});
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<
+    | {
+        message: string;
+        variant: 'success' | 'error';
+      }
+    | null
+  >(null);
   const [loading, setLoading] = useState(false);
   const [referenceOptions, setReferenceOptions] = useState<Record<string, AdminReferenceOption[]>>({});
   const [referenceSearch, setReferenceSearch] = useState<Record<string, string>>({});
@@ -482,7 +488,10 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       setReferenceLoading({});
     } catch (error) {
       console.error(error);
-      setFeedback(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+      setFeedback({
+        message: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
+        variant: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -640,7 +649,10 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       }
     } catch (error) {
       console.error(error);
-      setFeedback(error instanceof Error ? error.message : '순번 조회 중 오류가 발생했습니다.');
+      setFeedback({
+        message: error instanceof Error ? error.message : '순번 조회 중 오류가 발생했습니다.',
+        variant: 'error'
+      });
     }
   }
 
@@ -697,20 +709,57 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     setFormValues((prev) => ({ ...prev, register_no: generateUniqueRegister(selectedTable) }));
   }
 
+  function toDateString(value: unknown) {
+    const raw = String(value);
+    const match = raw.match(/\d{4}-\d{2}-\d{2}/);
+    return match ? match[0] : raw;
+  }
+
+  function toDateTimeLocal(value: unknown) {
+    const raw = String(value).replace(' ', 'T');
+    const match = raw.match(/(\d{4}-\d{2}-\d{2})[T\s](\d{2}:\d{2})/);
+    if (match) return `${match[1]}T${match[2]}`;
+
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? raw : parsed.toISOString().slice(0, 16);
+  }
+
+  function toTimeString(value: unknown) {
+    const raw = String(value);
+    const match = raw.match(/\d{2}:\d{2}/);
+    return match ? match[0] : raw;
+  }
+
+  function formatValueForForm(column: AdminColumnMeta, value: unknown) {
+    if (value === null || value === undefined) return undefined;
+    if (column.dataType === 'date') return toDateString(value);
+    if (column.dataType === 'datetime' || column.dataType === 'timestamp') return toDateTimeLocal(value);
+    if (column.dataType === 'time') return toTimeString(value);
+    if (column.dataType === 'tinyint' && column.columnType === 'tinyint(1)') {
+      const asString = String(value).toLowerCase();
+      const truthy = ['1', 'true', 'y', 'yes'].includes(asString);
+      return truthy ? '1' : '0';
+    }
+    if (column.dataType === 'json') return JSON.stringify(value, null, 2);
+    return String(value);
+  }
+
   function startEdit(row: Record<string, unknown>) {
     setMode('edit');
     setFeedback(null);
     const defaults: Record<string, string> = {};
     formColumns.forEach((column) => {
       const value = row[column.name];
+      const formatted = formatValueForForm(column, value);
+      if (formatted === undefined) return;
+      defaults[column.name] = formatted;
+    });
+
+    Object.entries(row).forEach(([key, value]) => {
+      if (key in defaults) return;
+      if (isHiddenColumn(key) && !(hasBasecodePair && key === 'basecode_code')) return;
       if (value === null || value === undefined) return;
-      if (column.dataType === 'json') {
-        defaults[column.name] = JSON.stringify(value, null, 2);
-      } else if (column.dataType === 'tinyint' && column.columnType === 'tinyint(1)') {
-        defaults[column.name] = value ? '1' : '0';
-      } else {
-        defaults[column.name] = String(value);
-      }
+      defaults[key] = String(value);
     });
 
     Object.entries(row).forEach(([key, value]) => {
@@ -796,7 +845,10 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       setReferenceOptions((prev) => ({ ...prev, [columnName]: payload.options ?? [] }));
     } catch (error) {
       console.error(error);
-      setFeedback(error instanceof Error ? error.message : '연관 데이터 조회 중 오류가 발생했습니다.');
+      setFeedback({
+        message: error instanceof Error ? error.message : '연관 데이터 조회 중 오류가 발생했습니다.',
+        variant: 'error'
+      });
     } finally {
       setReferenceLoading((prev) => ({ ...prev, [columnName]: false }));
     }
@@ -814,7 +866,10 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       setAdditionalPriceOptions(payload);
     } catch (error) {
       console.error(error);
-      setFeedback(error instanceof Error ? error.message : '추가비용 항목 조회 중 오류가 발생했습니다.');
+      setFeedback({
+        message: error instanceof Error ? error.message : '추가비용 항목 조회 중 오류가 발생했습니다.',
+        variant: 'error'
+      });
     } finally {
       setAdditionalPriceLoading(false);
     }
@@ -871,17 +926,25 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
         body: JSON.stringify({ table: selectedTable, data: payloadData, key: editingKey })
       });
 
+      let errorMessage: string | null = null;
       if (!response.ok) {
-        throw new Error('저장 중 오류가 발생했습니다.');
+        try {
+          const payload = (await response.json()) as { error?: string; message?: string };
+          errorMessage = payload.error ?? payload.message ?? null;
+        } catch (parseError) {
+          console.error(parseError);
+        }
+        throw new Error(errorMessage ?? '저장 시 오류가 발생했습니다.');
       }
 
       const payload = (await response.json()) as Snapshot;
       setSnapshot(payload);
       startCreate();
-      setFeedback('저장되었습니다.');
+      setFeedback({ message: '저장되었습니다.', variant: 'success' });
     } catch (error) {
       console.error(error);
-      setFeedback(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+      const message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+      setFeedback({ message, variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -1449,7 +1512,15 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
           </button>
         </div>
 
-        {feedback ? <p className={styles.feedback}>{feedback}</p> : null}
+        {feedback ? (
+          <p
+            className={`${styles.feedback} ${
+              feedback.variant === 'error' ? styles.feedbackError : styles.feedbackSuccess
+            }`}
+          >
+            {feedback.message}
+          </p>
+        ) : null}
 
         <div className={styles.columnsHint}>
           <p>
@@ -1503,7 +1574,9 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
           </button>
         </header>
 
-        {helperFeedback ? <p className={styles.feedback}>{helperFeedback}</p> : null}
+        {helperFeedback ? (
+          <p className={`${styles.feedback} ${styles.feedbackError}`}>{helperFeedback}</p>
+        ) : null}
 
         <div className={styles.workerTableWrapper}>
           {helperRows.length ? (
