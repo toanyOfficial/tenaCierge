@@ -445,6 +445,10 @@
   box-shadow: 0 2px 6px rgba(4, 108, 78, 0.08);
 }
 
+.statusCheckBadgeClickable {
+  cursor: pointer;
+}
+
 .statusCheckRow {
   display: flex;
   align-items: center;
@@ -3168,6 +3172,12 @@
   display: flex;
   align-items: center;
   gap: 1rem;
+}
+
+.suppliesActions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-start;
 }
 
 .readinessText {
