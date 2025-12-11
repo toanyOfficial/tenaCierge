@@ -1,0 +1,84 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import Link from 'next/link';
+
+import CommonHeader from '../CommonHeader';
+
+import styles from '../dashboard.module.css';
+import type { ProfileSummary } from '@/src/utils/profile';
+
+type Props = {
+  profile: ProfileSummary;
+};
+
+type Shortcut = {
+  id: string;
+  label: string;
+  href: string;
+  description: string;
+};
+
+const shortcuts: Shortcut[] = [
+  {
+    id: 'people',
+    label: '인원관리',
+    href: '/dashboard/admin-crud?table=worker_header',
+    description: '근무자 정보를 확인하고 수정합니다.'
+  },
+  {
+    id: 'clients',
+    label: '고객관리',
+    href: '/dashboard/admin-crud?table=client_header',
+    description: '고객사 기본 정보를 관리합니다.'
+  },
+  {
+    id: 'rooms',
+    label: '객실관리',
+    href: '/dashboard/admin-crud?table=client_rooms',
+    description: '객실 및 현장 세부 정보를 확인합니다.'
+  },
+  {
+    id: 'additional-fees',
+    label: '추가비용관리',
+    href: '/dashboard/admin-crud?table=client_additional_price',
+    description: '추가 금액 및 공제 항목을 관리합니다.'
+  },
+  {
+    id: 'admin-crud',
+    label: 'admin CRUD',
+    href: '/dashboard/admin-crud',
+    description: '전체 테이블을 조회·수정하는 관리 도구입니다.'
+  }
+];
+
+export default function AdminLandingClient({ profile }: Props) {
+  const defaultRole = useMemo(() => (profile.roles.includes('admin') ? 'admin' : profile.roles[0] ?? null), [profile.roles]);
+  const [activeRole, setActiveRole] = useState<string | null>(defaultRole);
+
+  return (
+    <div className={styles.dashboardStack}>
+      <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} />
+
+      <div className={styles.rolePanels}>
+        <section className={styles.adminPanel}>
+          <header className={styles.panelHeader}>
+            <div>
+              <p className={styles.panelTitle}>관리자 진입</p>
+              <p className={styles.panelSubtitle}>자주 사용하는 관리 기능을 선택해 주세요.</p>
+            </div>
+          </header>
+
+          <div className={styles.adminLandingGrid}>
+            {shortcuts.map((item) => (
+              <Link key={item.id} href={item.href} className={styles.adminLandingCard} prefetch={false}>
+                <span className={styles.adminLandingLabel}>{item.label}</span>
+                <span className={styles.adminLandingHint}>{item.description}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}

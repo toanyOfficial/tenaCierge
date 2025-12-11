@@ -19,6 +19,8 @@ export type SupervisingReportSnapshot = {
   suppliesChecklist: ChecklistItem[];
   imageSlots: ImageSlot[];
   existingSupervisingFindingChecks: Record<number, boolean>;
+  existingSupervisingCompletionChecks: Record<number, boolean>;
+  hasExistingSupervisingReport: boolean;
   existingSupervisingComment: string;
   existingSupplyChecks: number[];
   existingSupplyNotes: Record<number, string>;
@@ -194,7 +196,8 @@ export async function getSupervisingReportSnapshot(
       }, {} as Record<number, string>);
     };
 
-    const rawSupervisingFindings = latestReports.get(4)?.contents1;
+    const rawSupervisingReport = latestReports.get(4);
+    const rawSupervisingFindings = rawSupervisingReport?.contents1;
     const rawSupplyChecks = latestReports.get(2)?.contents1 ?? [];
     const rawSupplyNotes = latestReports.get(2)?.contents2 ?? {};
     const supervisingComment = (() => {
@@ -245,6 +248,26 @@ export async function getSupervisingReportSnapshot(
       return defaults;
     };
 
+    const parseSupervisingPayload = (value: unknown) => {
+      const defaults = Object.fromEntries(cleaningChecklist.map(({ id }) => [id, false])) as Record<number, boolean>;
+
+      if (value && typeof value === 'object') {
+        if ('findings' in (value as Record<string, unknown>) || 'completion' in (value as Record<string, unknown>)) {
+          const findings = parseChecklistFlags((value as { findings?: unknown }).findings, cleaningChecklist);
+          const completion = parseChecklistFlags((value as { completion?: unknown }).completion, cleaningChecklist);
+          const hasCompletion = Boolean('completion' in (value as Record<string, unknown>));
+
+          return {
+            findings,
+            completion: hasCompletion ? completion : defaults,
+            hasCompletion
+          };
+        }
+      }
+
+      return { findings: parseChecklistFlags(value, cleaningChecklist), completion: defaults, hasCompletion: false };
+    };
+
     const savedImages = (() => {
       const rawImages = latestReports.get(5)?.contents1;
 
@@ -270,12 +293,16 @@ export async function getSupervisingReportSnapshot(
       return [] as SavedImage[];
     })();
 
+    const supervisingPayload = parseSupervisingPayload(rawSupervisingFindings);
+
     return {
       work: serializeWorkRow(workRow),
       cleaningChecklist,
       suppliesChecklist,
       imageSlots,
-      existingSupervisingFindingChecks: parseChecklistFlags(rawSupervisingFindings, cleaningChecklist),
+      existingSupervisingFindingChecks: supervisingPayload.findings,
+      existingSupervisingCompletionChecks: supervisingPayload.completion,
+      hasExistingSupervisingReport: Boolean(rawSupervisingReport && supervisingPayload.hasCompletion),
       existingSupervisingComment: supervisingComment,
       existingSupplyChecks: parseIdArray(rawSupplyChecks),
       existingSupplyNotes: parseSupplyNotes(rawSupplyNotes),
