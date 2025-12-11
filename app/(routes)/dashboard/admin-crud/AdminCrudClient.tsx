@@ -454,8 +454,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     setMode('edit');
     setFeedback(null);
     const defaults: Record<string, string> = {};
-    columns.forEach((column) => {
-      if (isHiddenColumn(column.name)) return;
+    visibleColumns.forEach((column) => {
       const value = row[column.name];
       if (value === null || value === undefined) return;
       if (column.dataType === 'json') {
@@ -465,6 +464,13 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       } else {
         defaults[column.name] = String(value);
       }
+    });
+
+    Object.entries(row).forEach(([key, value]) => {
+      if (key in defaults) return;
+      if (isHiddenColumn(key)) return;
+      if (value === null || value === undefined) return;
+      defaults[key] = String(value);
     });
 
     const key: Record<string, unknown> = {};
