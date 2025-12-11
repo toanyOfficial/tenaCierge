@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const payload = {
-      workId: Number(body.workId ?? 0),
+      workId: body.workId === null || body.workId === undefined ? null : Number(body.workId),
       roomId: Number(body.roomId ?? 0),
       amenitiesQty: Number(body.amenitiesQty ?? 0),
       blanketQty: Number(body.blanketQty ?? 0),
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
       cancelYn: Boolean(body.cancelYn ?? false)
     };
 
-    if (!payload.workId || !payload.roomId || !payload.checkinTime || !payload.checkoutTime) {
+    if (!payload.roomId || !payload.checkinTime || !payload.checkoutTime) {
       return NextResponse.json({ message: '필수 입력값을 확인해 주세요.' }, { status: 400 });
     }
 

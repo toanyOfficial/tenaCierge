@@ -1,11 +1,11 @@
 import { asc, desc, eq } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
-import { clientRooms, etcBuildings, workReservation } from '@/src/db/schema';
+import { clientRooms, etcBuildings, workHeader, workReservation } from '@/src/db/schema';
 
 export type WorkReservationRecord = {
   id: number;
-  workId: number;
+  workId: number | null;
   workDateLabel: string;
   roomId: number;
   buildingId: number | null;
@@ -17,6 +17,7 @@ export type WorkReservationRecord = {
   checkoutTime: string;
   requirements: string | null;
   cancelYn: boolean;
+  reflectYn: boolean;
 };
 
 export type BuildingRoomOption = {
@@ -26,7 +27,7 @@ export type BuildingRoomOption = {
 };
 
 type ReservationPayload = {
-  workId: number;
+  workId: number | null;
   roomId: number;
   amenitiesQty: number;
   blanketQty: number;
@@ -37,7 +38,7 @@ type ReservationPayload = {
 };
 
 function parseWorkId(value: number | string | null | undefined) {
-  if (value === null || value === undefined) return null;
+  if (value === null || value === undefined || value === '') return null;
   const digits = String(value).replace(/[^0-9]/g, '');
   if (!digits) return null;
   const parsed = Number(digits);
@@ -59,16 +60,20 @@ function normalizeTime(value: string | null | undefined) {
   throw new Error('시간은 HH:mm 형식으로 입력해 주세요.');
 }
 
-function formatWorkIdLabel(value: number | string | null | undefined) {
-  if (value === null || value === undefined) return '';
-  const digits = String(value).replace(/[^0-9]/g, '').padStart(8, '0');
-  if (digits.length < 8) return String(value);
-  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+function formatWorkDateLabel(value: string | Date | null | undefined) {
+  if (!value) return '미반영';
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '미반영';
+  const yyyy = parsed.getFullYear();
+  const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+  const dd = String(parsed.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 function mapReservationRow(row: {
   id: number;
-  workId: number | string;
+  workId: number | string | null;
+  workDate: string | Date | null;
   roomId: number;
   buildingId: number | null;
   buildingShortName: string | null;
@@ -79,12 +84,13 @@ function mapReservationRow(row: {
   checkoutTime: string;
   requirements: string | null;
   cancelYn: number | boolean;
+  reflectYn: number | boolean;
 }): WorkReservationRecord {
   const formatTime = (time: string) => (time ? time.substring(0, 5) : '');
   return {
     id: Number(row.id),
-    workId: Number(row.workId),
-    workDateLabel: formatWorkIdLabel(row.workId),
+    workId: row.workId === null ? null : Number(row.workId),
+    workDateLabel: formatWorkDateLabel(row.workDate),
     roomId: Number(row.roomId),
     buildingId: row.buildingId ? Number(row.buildingId) : null,
     buildingShortName: row.buildingShortName,
@@ -94,7 +100,8 @@ function mapReservationRow(row: {
     checkinTime: formatTime(row.checkinTime),
     checkoutTime: formatTime(row.checkoutTime),
     requirements: row.requirements,
-    cancelYn: Boolean(row.cancelYn)
+    cancelYn: Boolean(row.cancelYn),
+    reflectYn: Boolean(row.reflectYn)
   };
 }
 
@@ -103,6 +110,7 @@ export async function listWorkReservations(): Promise<WorkReservationRecord[]> {
     .select({
       id: workReservation.id,
       workId: workReservation.workId,
+      workDate: workHeader.date,
       roomId: workReservation.roomId,
       buildingId: etcBuildings.id,
       buildingShortName: etcBuildings.shortName,
@@ -112,11 +120,13 @@ export async function listWorkReservations(): Promise<WorkReservationRecord[]> {
       checkinTime: workReservation.checkinTime,
       checkoutTime: workReservation.checkoutTime,
       requirements: workReservation.requirements,
-      cancelYn: workReservation.cancelYn
+      cancelYn: workReservation.cancelYn,
+      reflectYn: workReservation.reflectYn
     })
     .from(workReservation)
     .leftJoin(clientRooms, eq(clientRooms.id, workReservation.roomId))
     .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
+    .leftJoin(workHeader, eq(workHeader.id, workReservation.workId))
     .orderBy(desc(workReservation.workId), desc(workReservation.id));
 
   return rows.map(mapReservationRow);
@@ -127,6 +137,7 @@ export async function getWorkReservation(id: number): Promise<WorkReservationRec
     .select({
       id: workReservation.id,
       workId: workReservation.workId,
+      workDate: workHeader.date,
       roomId: workReservation.roomId,
       buildingId: etcBuildings.id,
       buildingShortName: etcBuildings.shortName,
@@ -136,11 +147,13 @@ export async function getWorkReservation(id: number): Promise<WorkReservationRec
       checkinTime: workReservation.checkinTime,
       checkoutTime: workReservation.checkoutTime,
       requirements: workReservation.requirements,
-      cancelYn: workReservation.cancelYn
+      cancelYn: workReservation.cancelYn,
+      reflectYn: workReservation.reflectYn
     })
     .from(workReservation)
     .leftJoin(clientRooms, eq(clientRooms.id, workReservation.roomId))
     .leftJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
+    .leftJoin(workHeader, eq(workHeader.id, workReservation.workId))
     .where(eq(workReservation.id, id))
     .limit(1);
 
@@ -199,9 +212,6 @@ export async function listOpenRoomsByBuilding(): Promise<BuildingRoomOption[]> {
 
 export async function createWorkReservation(payload: ReservationPayload) {
   const workId = parseWorkId(payload.workId);
-  if (!workId) {
-    throw new Error('작업 식별자를 확인해 주세요.');
-  }
 
   const checkinTime = normalizeTime(payload.checkinTime);
   const checkoutTime = normalizeTime(payload.checkoutTime);
@@ -231,9 +241,6 @@ export async function updateWorkReservation(id: number, payload: ReservationPayl
   }
 
   const workId = parseWorkId(payload.workId);
-  if (!workId) {
-    throw new Error('작업 식별자를 확인해 주세요.');
-  }
 
   const checkinTime = normalizeTime(payload.checkinTime);
   const checkoutTime = normalizeTime(payload.checkoutTime);

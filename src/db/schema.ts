@@ -373,7 +373,7 @@ export const workGlobalDetail = mysqlTable('work_global_detail', {
 
 export const workReservation = mysqlTable('work_reservation', {
   id: bigintNumber('id', { unsigned: true }).autoincrement().notNull(),
-  workId: bigintNumber('work_id').notNull(),
+  workId: bigintNumber('work_id'),
   roomId: int('room_id').notNull(),
   amenitiesQty: tinyint('amenities_qty').notNull(),
   blanketQty: tinyint('blanket_qty').notNull(),
@@ -381,6 +381,7 @@ export const workReservation = mysqlTable('work_reservation', {
   checkoutTime: time('checkout_time').notNull(),
   requirements: varchar('requirements', { length: 30 }),
   cancelYn: boolean('cancel_yn').default(false).notNull(),
+  reflectYn: boolean('reflect_yn').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
 });

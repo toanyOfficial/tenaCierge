@@ -78,6 +78,12 @@
   background: #fff;
 }
 
+.inlineNote {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
 .checkboxField {
   display: flex;
   align-items: center;
@@ -197,6 +203,27 @@
 
 .activeRow {
   background: rgba(37, 99, 235, 0.12);
+}
+
+.badgeMuted,
+.badgeSuccess {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.badgeMuted {
+  background: #f3f4f6;
+  color: var(--text-soft);
+}
+
+.badgeSuccess {
+  background: #ecfdf3;
+  color: #16a34a;
 }
 
 .empty {

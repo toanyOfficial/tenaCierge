@@ -10,7 +10,8 @@ import type { BuildingRoomOption, WorkReservationRecord } from '@/src/server/wor
 import type { ProfileSummary } from '@/src/utils/profile';
 
 type FormState = {
-  workId: string;
+  workId: number | null;
+  workDateLabel: string;
   buildingId: string;
   roomId: string;
   amenitiesQty: string;
@@ -19,6 +20,7 @@ type FormState = {
   checkoutTime: string;
   requirements: string;
   cancelYn: boolean;
+  reflectYn: boolean;
 };
 
 type Props = {
@@ -28,7 +30,8 @@ type Props = {
 };
 
 const EMPTY_FORM: FormState = {
-  workId: '',
+  workId: null,
+  workDateLabel: '미반영',
   buildingId: '',
   roomId: '',
   amenitiesQty: '0',
@@ -36,13 +39,14 @@ const EMPTY_FORM: FormState = {
   checkinTime: '',
   checkoutTime: '',
   requirements: '',
-  cancelYn: false
+  cancelYn: false,
+  reflectYn: false
 };
 
 function createEmptyForm(defaultWorkId: string): FormState {
   return {
     ...EMPTY_FORM,
-    workId: defaultWorkId
+    workDateLabel: defaultWorkId
   };
 }
 
@@ -50,14 +54,7 @@ export default function WorkReservationClient({ profile, initialReservations, bu
   const defaultRole = useMemo(() => (profile.roles.includes('admin') ? 'admin' : profile.roles[0] ?? null), [profile.roles]);
   const [activeRole, setActiveRole] = useState<string | null>(defaultRole);
   const [reservations, setReservations] = useState<WorkReservationRecord[]>(initialReservations);
-  const defaultWorkId = useMemo(() => {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  }, []);
-  const [form, setForm] = useState<FormState>(() => createEmptyForm(defaultWorkId));
+  const [form, setForm] = useState<FormState>(() => createEmptyForm('미반영'));
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -89,7 +86,7 @@ export default function WorkReservationClient({ profile, initialReservations, bu
   }
 
   function resetForm() {
-    setForm(createEmptyForm(defaultWorkId));
+    setForm(createEmptyForm('미반영'));
     setSelectedId(null);
     setFeedback(null);
     setError(null);
@@ -102,7 +99,7 @@ export default function WorkReservationClient({ profile, initialReservations, bu
     setError(null);
 
     const payload = {
-      workId: Number(form.workId.replace(/[^0-9]/g, '')),
+      workId: form.workId,
       roomId: Number(form.roomId || 0),
       amenitiesQty: Number(form.amenitiesQty || 0),
       blanketQty: Number(form.blanketQty || 0),
@@ -112,7 +109,7 @@ export default function WorkReservationClient({ profile, initialReservations, bu
       cancelYn: form.cancelYn
     };
 
-    if (!payload.workId || !payload.roomId || !payload.checkinTime || !payload.checkoutTime) {
+    if (!payload.roomId || !payload.checkinTime || !payload.checkoutTime) {
       setError('필수 입력값을 확인해 주세요.');
       setSaving(false);
       return;
@@ -176,7 +173,8 @@ export default function WorkReservationClient({ profile, initialReservations, bu
   function handleRowClick(reservation: WorkReservationRecord) {
     setSelectedId(reservation.id);
     setForm({
-      workId: reservation.workDateLabel,
+      workId: reservation.workId,
+      workDateLabel: reservation.workDateLabel,
       buildingId: reservation.buildingId ? String(reservation.buildingId) : '',
       roomId: String(reservation.roomId),
       amenitiesQty: String(reservation.amenitiesQty ?? 0),
@@ -184,7 +182,8 @@ export default function WorkReservationClient({ profile, initialReservations, bu
       checkinTime: reservation.checkinTime,
       checkoutTime: reservation.checkoutTime,
       requirements: reservation.requirements ?? '',
-      cancelYn: reservation.cancelYn
+      cancelYn: reservation.cancelYn,
+      reflectYn: reservation.reflectYn
     });
     setFeedback(null);
     setError(null);
@@ -192,9 +191,9 @@ export default function WorkReservationClient({ profile, initialReservations, bu
 
   function handleCancelToggle() {
     if (form.cancelYn) {
-      setForm((prev) => ({ ...prev, cancelYn: false }));
-      return;
-    }
+    setForm((prev) => ({ ...prev, cancelYn: false }));
+    return;
+  }
 
     const confirmed = window.confirm('이 요청사항을 폐기하시겠습니까?');
     if (!confirmed) return;
@@ -216,8 +215,11 @@ export default function WorkReservationClient({ profile, initialReservations, bu
         <form className={styles.form} onSubmit={handleSubmit}>
           <div className={styles.formGrid}>
             <label className={styles.field}>
-              <span>작업일 *</span>
-              <input type="date" name="workId" value={form.workId} readOnly />
+              <span>작업일 (반영 시 표시)</span>
+              <input type="text" name="workId" value={form.workDateLabel || '미반영'} readOnly />
+              <p className={styles.inlineNote}>
+                배치 반영 전에는 미반영 상태로 표시되며, 반영되면 작업일이 자동 입력됩니다.
+              </p>
             </label>
 
             <label className={styles.field}>
@@ -342,6 +344,7 @@ export default function WorkReservationClient({ profile, initialReservations, bu
             <thead>
               <tr>
                 <th>작업일</th>
+                <th>반영</th>
                 <th>객실</th>
                 <th>어메니티</th>
                 <th>이불</th>
@@ -354,7 +357,7 @@ export default function WorkReservationClient({ profile, initialReservations, bu
             <tbody>
               {reservations.length === 0 ? (
                 <tr>
-                  <td className={styles.empty} colSpan={8}>
+                  <td className={styles.empty} colSpan={9}>
                     등록된 요청사항이 없습니다.
                   </td>
                 </tr>
@@ -368,6 +371,11 @@ export default function WorkReservationClient({ profile, initialReservations, bu
                       onClick={() => handleRowClick(reservation)}
                     >
                       <td>{reservation.workDateLabel}</td>
+                      <td>
+                        <span className={reservation.reflectYn ? styles.badgeSuccess : styles.badgeMuted}>
+                          {reservation.reflectYn ? '반영됨' : '미반영'}
+                        </span>
+                      </td>
                       <td>
                         {reservation.buildingShortName ?? '-'} {reservation.roomNo ?? ''}
                       </td>
