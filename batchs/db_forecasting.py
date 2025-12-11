@@ -203,6 +203,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="당일(D0) work_header만 생성하고 apply/정확도 계산을 건너뜀",
     )
+    parser.add_argument(
+        "--refresh-dn",
+        type=int,
+        default=None,
+        help="지정한 D+n 일자에 대해 work_header만 갱신하는 경량 모드(예: --refresh-dn 1)",
+    )
     return parser.parse_args()
 
 
@@ -677,6 +683,7 @@ class BatchRunner:
         end_offset: int,
         keep_days: int,
         today_only: bool,
+        refresh_dn: Optional[int],
     ) -> None:
         self.conn = conn
         self.run_date = run_date
@@ -685,6 +692,7 @@ class BatchRunner:
         self.keep_days = keep_days
         self.model = load_model_variables(conn)
         self.today_only = today_only
+        self.refresh_dn = refresh_dn
         self.expected_ics = 0
         self.downloaded_ics = 0
         self._ics_names: set[str] = set()
@@ -697,7 +705,9 @@ class BatchRunner:
         logging.info("ICS 기대 다운로드 수: %s", self.expected_ics)
         predictions: List[Prediction] = []
         offsets: List[int]
-        if self.today_only:
+        if self.refresh_dn is not None:
+            offsets = [self.refresh_dn]
+        elif self.today_only:
             offsets = [0]
         else:
             offsets = list(range(max(1, self.start_offset), self.end_offset + 1))
@@ -730,10 +740,16 @@ class BatchRunner:
                     actual_observed=actual_observed,
                 )
                 predictions.append(prediction)
-        self._persist_predictions(predictions)
+        if self.refresh_dn is None:
+            self._persist_predictions(predictions)
         self._persist_work_header(predictions)
 
-        if self.today_only:
+        if self.refresh_dn is not None:
+            logging.info(
+                "refresh-d%s 모드: work_header만 갱신하고 accuracy/apply는 건너뜀",
+                self.refresh_dn,
+            )
+        elif self.today_only:
             self._persist_accuracy(predictions)
             self._adjust_threshold(predictions)
         else:
@@ -1244,6 +1260,7 @@ def main() -> None:
             end_offset=args.end_offset,
             keep_days=args.ics_keep_days,
             today_only=args.today_only,
+            refresh_dn=args.refresh_dn,
         )
         runner.run()
         logging.info("배치 정상 종료")

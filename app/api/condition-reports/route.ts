@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 
 import { db } from '@/src/db/client';
 import { workHeader, workImagesList, workImagesSetDetail, workReports } from '@/src/db/schema';
+import { KST } from '@/src/lib/time';
 import { logServerError } from '@/src/server/errorLogger';
 import { processImageUploads, UploadError } from '@/src/server/imageUpload';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
@@ -21,12 +22,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: '접근 권한이 없습니다.' }, { status: 403 });
   }
 
+  let logContext: Record<string, unknown> = {};
   try {
     const form = await req.formData();
     const workId = Number(form.get('workId'));
     const imageFiles = form.getAll('images').filter((file): file is File => file instanceof File);
     const imageFileSlots = safeParseIds(form.get('imageFileSlots'));
     const existingImages = safeParseImageMappings(form.get('existingImages'));
+
+    logContext = {
+      workId,
+      imageFileCount: imageFiles.length,
+      imageFileSlotCount: imageFileSlots.length,
+      existingImageCount: existingImages.length
+    };
 
     if (!workId || Number.isNaN(workId)) {
       return NextResponse.json({ message: 'work_id가 필요합니다.' }, { status: 400 });
@@ -113,7 +122,13 @@ export async function POST(req: Request) {
     }
 
     const nowKst = getKstNow();
-    const nowTime = nowKst.toFormat('HH:mm:ss');
+    const nowTime = nowKst.toLocaleTimeString('ko-KR', {
+      timeZone: KST,
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
 
     await db
       .update(workHeader)
@@ -122,7 +137,12 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, images, supervisingEndTime: nowTime });
   } catch (error) {
-    await logServerError({ appName: 'condition-reports', error, message: '상태확인 사진 저장 실패' });
+    await logServerError({
+      appName: 'condition-reports',
+      error,
+      message: '상태확인 사진 저장 실패',
+      context: logContext
+    });
     return NextResponse.json({ message: '저장 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }
