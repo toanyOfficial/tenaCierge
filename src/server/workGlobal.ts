@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/mysql-core';
 
 import { db } from '@/src/db/client';
 import { clientRooms, etcBaseCode, etcBuildings, workGlobalDetail, workGlobalHeader } from '@/src/db/schema';
@@ -175,7 +176,7 @@ export async function fetchWorkGlobalReport(workGlobalId: number): Promise<WorkG
     throw new Error('대상 업무를 찾을 수 없습니다.');
   }
 
-  const buildingSector = etcBaseCode.as('buildingSector');
+  const buildingSector = alias(etcBaseCode, 'buildingSector');
 
   const rows = await db
     .select({
