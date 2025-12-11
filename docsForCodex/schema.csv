@@ -359,6 +359,7 @@ tenaCierge,work_reservation,checkin_time,time,NO,
 tenaCierge,work_reservation,checkout_time,time,NO,
 tenaCierge,work_reservation,requirements,varchar(30),YES,
 tenaCierge,work_reservation,cancel_yn,tinyint(1),NO,0:정상/1:취소
+tenaCierge,work_reservation,reflect_yn,tinyint(1),NO,
 tenaCierge,work_reservation,created_at,timestamp,NO,
 tenaCierge,work_reservation,updated_at,timestamp,NO,
 tenaCierge,worker_detail,id,int unsigned,NO,PK
