@@ -55,6 +55,8 @@ export default function WorkGlobalClient({ profile, initialHeaders }: Props) {
 
   const selectedHeader = selectedId ? headers.find((h) => h.id === selectedId) ?? null : null;
 
+  const palette = ['#7c3aed', '#2563eb', '#059669', '#ef4444', '#f97316', '#0ea5e9'];
+
   useEffect(() => {
     if (mode === 'edit' && emojiRef.current) {
       emojiRef.current.focus();
@@ -266,6 +268,23 @@ export default function WorkGlobalClient({ profile, initialHeaders }: Props) {
     return `${report.reportDate} 현재 '${report.header.title}'업무는 총 ${report.totalRooms}개의 객실에 대하여 ${report.completedRooms}개가 진행되어 ${report.completionRate}% 완료된 것으로 집계됩니다. ${sectorSummary}`;
   }
 
+  const sectorStats = useMemo(() => {
+    if (!report) return [] as { sector: string; total: number; completed: number }[];
+
+    const map = report.rooms.reduce<Map<string, { sector: string; total: number; completed: number }>>((acc, room) => {
+      const sector = room.sector ?? '미정';
+      const existing = acc.get(sector) ?? { sector, total: 0, completed: 0 };
+      existing.total += 1;
+      if (room.completedAt) {
+        existing.completed += 1;
+      }
+      acc.set(sector, existing);
+      return acc;
+    }, new Map());
+
+    return Array.from(map.values()).sort((a, b) => a.sector.localeCompare(b.sector));
+  }, [report]);
+
   return (
     <div className={styles.page}>
       <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} />
@@ -415,7 +434,36 @@ export default function WorkGlobalClient({ profile, initialHeaders }: Props) {
 
             {reportLoading ? <p className={styles.subtle}>불러오는 중...</p> : null}
             {reportError ? <p className={styles.error}>{reportError}</p> : null}
-            {!reportLoading && report ? <p className={styles.summary}>{renderSummary()}</p> : null}
+            {!reportLoading && report ? (
+              <>
+                <div className={styles.progressWrapper}>
+                  <div className={styles.progressHeader}>
+                    <span>섹터별 진행률</span>
+                    <span className={styles.progressTotal}>{report.completionRate}% ({report.completedRooms}/{report.totalRooms})</span>
+                  </div>
+                  <div className={styles.progressBar}>
+                    {sectorStats.map((sector, idx) => {
+                      const width = report.totalRooms ? `${(sector.total / report.totalRooms) * 100}%` : '0%';
+                      const completionPct = sector.total ? Math.round((sector.completed / sector.total) * 100) : 0;
+                      const color = palette[idx % palette.length];
+
+                      return (
+                        <div key={sector.sector} className={styles.progressSegment} style={{ width, borderColor: color }}>
+                          <div className={styles.progressFill} style={{ width: `${completionPct}%`, background: color }} />
+                          <div className={styles.progressLabel}>
+                            <span className={styles.progressSector}>{sector.sector}</span>
+                            <span className={styles.progressMeta}>
+                              {completionPct}% ({sector.completed}/{sector.total})
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <p className={styles.summary}>{renderSummary()}</p>
+              </>
+            ) : null}
 
             {!reportLoading && report ? (
               <div className={styles.tableWrapper}>
