@@ -1,4 +1,8 @@
 ## 2025-12-12 스키마 변경 요약
+- 변경된 컬럼: work_global_detail.work_global_id: date -> tinyint, work_global_header.id: bigint unsigned -> tinyint unsigned, work_reservation.work_id: date -> bigint
+- 테이블 수: 45개, 컬럼 수: 426개
+
+## 2025-12-12 스키마 변경 요약
 - 추가된 컬럼: work_checklist_list.ordering, work_global_detail.id, work_global_detail.work_global_id, work_global_detail.room_id, work_global_detail.created_at 외 25건
 - 테이블 수: 45개, 컬럼 수: 426개
 
