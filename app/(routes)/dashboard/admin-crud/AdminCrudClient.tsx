@@ -762,13 +762,6 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       defaults[key] = String(value);
     });
 
-    Object.entries(row).forEach(([key, value]) => {
-      if (key in defaults) return;
-      if (isHiddenColumn(key) && !(hasBasecodePair && key === 'basecode_code')) return;
-      if (value === null || value === undefined) return;
-      defaults[key] = String(value);
-    });
-
     const key: Record<string, unknown> = {};
     (snapshot?.primaryKey ?? []).forEach((pk) => {
       key[pk] = row[pk];
