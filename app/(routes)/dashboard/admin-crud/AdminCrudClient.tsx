@@ -53,6 +53,7 @@ const WORKER_HIDDEN_COLUMNS = new Set(['created_at', 'updated_at']);
 const CLIENT_ROOMS_HIDDEN_COLUMNS = new Set(['created_at', 'updated_at']);
 const GLOBAL_HIDDEN_COLUMNS = new Set(['created_at', 'updated_at']);
 const PROTECTED_TABLES = new Set(['worker_header', 'client_header', 'client_rooms', 'client_additional_price']);
+const NO_SEARCH_REFERENCE_COLUMNS = new Set(['images_set_id', 'checklist_set_id']);
 const TABLE_LABEL_OVERRIDES: Record<string, Record<string, string>> = {
   client_additional_price: CLIENT_ADDITIONAL_PRICE_CONFIG.koreanLabels,
   client_header: {
@@ -386,81 +387,6 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       void loadReferenceOptions(column.name, keyword);
     });
   }, [columns, referenceOptions, referenceSearch, selectedTable]);
-
-  useEffect(() => {
-    if (!isScheduleException) {
-      setExceptionContext(DEFAULT_EXCEPTION_STATE);
-      return;
-    }
-
-    const workerId = formValues.worker_id;
-    const excptDate = formValues.excpt_date;
-
-    if (!workerId || !excptDate) {
-      setExceptionContext(DEFAULT_EXCEPTION_STATE);
-      setFormValues((prev) => {
-        const next = { ...prev };
-        next.add_work_yn = next.add_work_yn ?? '0';
-        next.cancel_work_yn = next.cancel_work_yn ?? '0';
-        if (next.add_work_yn === prev.add_work_yn && next.cancel_work_yn === prev.cancel_work_yn) {
-          return prev;
-        }
-        return next;
-      });
-      return;
-    }
-
-    const controller = new AbortController();
-    const params = new URLSearchParams({ workerId: String(workerId), date: String(excptDate) });
-
-    const loadContext = async () => {
-      setExceptionContext((prev) => ({ ...prev, loading: true, message: prev.message }));
-      try {
-        const response = await fetch(`/api/admin/schedule/exception-context?${params.toString()}`, {
-          cache: 'no-cache',
-          signal: controller.signal
-        });
-
-        if (!response.ok) {
-          throw new Error('예외 일정을 불러오지 못했습니다.');
-        }
-
-        const payload = (await response.json()) as { isWorkingDay: boolean };
-        const isWorkingDay = Boolean(payload.isWorkingDay);
-        const nextChecked = isWorkingDay ? formValues.cancel_work_yn === '1' : formValues.add_work_yn === '1';
-        setExceptionContext({
-          loading: false,
-          isWorkingDay,
-          checked: nextChecked,
-          message: isWorkingDay
-            ? '원래 출근하는 날짜입니다. 휴가로 설정하시겠습니까?'
-            : '원래 휴가 날짜입니다. 출근날짜로 설정하시겠습니까?'
-        });
-
-        setFormValues((prev) => {
-          const next = { ...prev };
-          const addValue = isWorkingDay ? '0' : nextChecked ? '1' : '0';
-          const cancelValue = isWorkingDay ? (nextChecked ? '1' : '0') : '0';
-
-          next.add_work_yn = addValue;
-          next.cancel_work_yn = cancelValue;
-
-          if (next.add_work_yn === prev.add_work_yn && next.cancel_work_yn === prev.cancel_work_yn) {
-            return prev;
-          }
-
-          return next;
-        });
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        setExceptionContext({ ...DEFAULT_EXCEPTION_STATE, message: '일정을 불러오지 못했습니다.' });
-      }
-    };
-
-    void loadContext();
-
-    return () => controller.abort();
-  }, [isScheduleException, formValues.worker_id, formValues.excpt_date, mode]);
 
   useEffect(() => {
     if (!isScheduleException) {
@@ -1351,28 +1277,31 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       const options = referenceOptions[column.name] ?? [];
       const searchTerm = referenceSearch[column.name] ?? '';
       const refLoading = referenceLoading[column.name] ?? false;
+      const showSearch = !NO_SEARCH_REFERENCE_COLUMNS.has(column.name);
 
       return (
         <div className={styles.referenceInput}>
-          <div className={styles.referenceSearchRow}>
-            <input
-              type="text"
-              value={searchTerm}
-              placeholder="검색어 입력"
-              onChange={(event) => setReferenceSearch((prev) => ({ ...prev, [column.name]: event.target.value }))}
-              disabled={loading}
-            />
-            <button
-              type="button"
-              onClick={() => loadReferenceOptions(column.name, searchTerm)}
-              disabled={loading || refLoading}
-            >
-              검색
-            </button>
-            <button type="button" onClick={() => loadReferenceOptions(column.name, '')} disabled={loading || refLoading}>
-              초기화
-            </button>
-          </div>
+          {showSearch ? (
+            <div className={styles.referenceSearchRow}>
+              <input
+                type="text"
+                value={searchTerm}
+                placeholder="검색어 입력"
+                onChange={(event) => setReferenceSearch((prev) => ({ ...prev, [column.name]: event.target.value }))}
+                disabled={loading}
+              />
+              <button
+                type="button"
+                onClick={() => loadReferenceOptions(column.name, searchTerm)}
+                disabled={loading || refLoading}
+              >
+                검색
+              </button>
+              <button type="button" onClick={() => loadReferenceOptions(column.name, '')} disabled={loading || refLoading}>
+                초기화
+              </button>
+            </div>
+          ) : null}
 
           <select
             id={column.name}
