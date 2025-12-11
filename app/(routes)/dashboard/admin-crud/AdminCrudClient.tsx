@@ -126,6 +126,8 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   const [referenceOptions, setReferenceOptions] = useState<Record<string, AdminReferenceOption[]>>({});
   const [referenceSearch, setReferenceSearch] = useState<Record<string, string>>({});
   const [referenceLoading, setReferenceLoading] = useState<Record<string, boolean>>({});
+  const lastReferenceQueries = useRef<Record<string, string>>({});
+  const lastReferenceLabels = useRef<Record<string, string>>({});
   const [referenceLabels, setReferenceLabels] = useState<Record<string, Record<string, Record<string, string>>>>({});
   const [additionalPriceOptions, setAdditionalPriceOptions] = useState<AdminReferenceOption[]>([]);
   const [additionalPriceLoading, setAdditionalPriceLoading] = useState(false);
@@ -292,6 +294,8 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     setReferenceOptions({});
     setReferenceSearch({});
     setReferenceLoading({});
+    lastReferenceQueries.current = {};
+    lastReferenceLabels.current = {};
     if (selectedTable === 'worker_header') {
       void loadReferenceOptions('basecode_bank', '');
       void loadReferenceOptions('tier', '');
@@ -329,6 +333,10 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
         if (!uniqueValues.length) continue;
 
+        const cacheKey = `${tableName}:${column.name}`;
+        const signature = `${cacheKey}:${uniqueValues.sort().join(',')}`;
+        if (lastReferenceLabels.current[cacheKey] === signature) continue;
+
         const url = `/api/admin/crud/reference?table=${encodeURIComponent(tableName)}&column=${encodeURIComponent(column.name)}&values=${uniqueValues
           .map((value) => encodeURIComponent(value))
           .join(',')}`;
@@ -338,6 +346,7 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
           if (!response.ok) continue;
           const payload = (await response.json()) as { labels?: Record<string, string> };
           entries.push([column.name, payload.labels ?? {}]);
+          lastReferenceLabels.current[cacheKey] = signature;
         } catch (error) {
           if (controller.signal.aborted) return;
           console.error(error);
@@ -370,9 +379,88 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     columns.forEach((column) => {
       if (!column.references) return;
       if (referenceOptions[column.name]) return;
-      void loadReferenceOptions(column.name, referenceSearch[column.name] ?? '');
+      const keyword = referenceSearch[column.name] ?? '';
+      const queryKey = `${selectedTable}:${column.name}:${keyword}`;
+      if (lastReferenceQueries.current[column.name] === queryKey && referenceOptions[column.name]?.length) return;
+      lastReferenceQueries.current[column.name] = queryKey;
+      void loadReferenceOptions(column.name, keyword);
     });
-  }, [columns, referenceOptions, referenceSearch]);
+  }, [columns, referenceOptions, referenceSearch, selectedTable]);
+
+  useEffect(() => {
+    if (!isScheduleException) {
+      setExceptionContext(DEFAULT_EXCEPTION_STATE);
+      return;
+    }
+
+    const workerId = formValues.worker_id;
+    const excptDate = formValues.excpt_date;
+
+    if (!workerId || !excptDate) {
+      setExceptionContext(DEFAULT_EXCEPTION_STATE);
+      setFormValues((prev) => {
+        const next = { ...prev };
+        next.add_work_yn = next.add_work_yn ?? '0';
+        next.cancel_work_yn = next.cancel_work_yn ?? '0';
+        if (next.add_work_yn === prev.add_work_yn && next.cancel_work_yn === prev.cancel_work_yn) {
+          return prev;
+        }
+        return next;
+      });
+      return;
+    }
+
+    const controller = new AbortController();
+    const params = new URLSearchParams({ workerId: String(workerId), date: String(excptDate) });
+
+    const loadContext = async () => {
+      setExceptionContext((prev) => ({ ...prev, loading: true, message: prev.message }));
+      try {
+        const response = await fetch(`/api/admin/schedule/exception-context?${params.toString()}`, {
+          cache: 'no-cache',
+          signal: controller.signal
+        });
+
+        if (!response.ok) {
+          throw new Error('예외 일정을 불러오지 못했습니다.');
+        }
+
+        const payload = (await response.json()) as { isWorkingDay: boolean };
+        const isWorkingDay = Boolean(payload.isWorkingDay);
+        const nextChecked = isWorkingDay ? formValues.cancel_work_yn === '1' : formValues.add_work_yn === '1';
+        setExceptionContext({
+          loading: false,
+          isWorkingDay,
+          checked: nextChecked,
+          message: isWorkingDay
+            ? '원래 출근하는 날짜입니다. 휴가로 설정하시겠습니까?'
+            : '원래 휴가 날짜입니다. 출근날짜로 설정하시겠습니까?'
+        });
+
+        setFormValues((prev) => {
+          const next = { ...prev };
+          const addValue = isWorkingDay ? '0' : nextChecked ? '1' : '0';
+          const cancelValue = isWorkingDay ? (nextChecked ? '1' : '0') : '0';
+
+          next.add_work_yn = addValue;
+          next.cancel_work_yn = cancelValue;
+
+          if (next.add_work_yn === prev.add_work_yn && next.cancel_work_yn === prev.cancel_work_yn) {
+            return prev;
+          }
+
+          return next;
+        });
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setExceptionContext({ ...DEFAULT_EXCEPTION_STATE, message: '일정을 불러오지 못했습니다.' });
+      }
+    };
+
+    void loadContext();
+
+    return () => controller.abort();
+  }, [isScheduleException, formValues.worker_id, formValues.excpt_date, mode]);
 
   useEffect(() => {
     if (!isScheduleException) {
