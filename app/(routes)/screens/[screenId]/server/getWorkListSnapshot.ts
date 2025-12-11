@@ -210,6 +210,17 @@ function toTime(value: string | Date | null | undefined) {
   return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
 }
 
+function isCancelledFlag(value: unknown) {
+  if (value === null || typeof value === 'undefined') return false;
+  if (typeof value === 'boolean') return value;
+
+  const numeric = Number(value);
+  if (!Number.isNaN(numeric)) return numeric !== 0;
+
+  const text = String(value).trim().toLowerCase();
+  return text === 'y' || text === 'yes' || text === 'true';
+}
+
 function resolveWindow(
   now: Date,
   minutes: number,
@@ -328,7 +339,8 @@ export async function getWorkListSnapshot(
         recycleTrashInfo: etcBuildings.buildingRecycle,
         cleanerName: workerHeader.name,
         realtimeOverviewYn: clientRooms.realtimeOverviewYn,
-        imagesYn: clientRooms.imagesYn
+        imagesYn: clientRooms.imagesYn,
+        cancelYn: workHeader.cancelYn
       })
       .from(workHeader)
       .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
@@ -379,7 +391,7 @@ export async function getWorkListSnapshot(
       }
     }
 
-    const normalized = (rows ?? []).map((row) => normalizeRow(row));
+    const normalized = (rows ?? []).filter((row) => !isCancelledFlag(row.cancelYn)).map((row) => normalizeRow(row));
     const supplyMap = await fetchLatestSupplyReports(normalized.map((row) => row.id));
     const photoMap = await fetchLatestPhotoReports(normalized.map((row) => row.id));
     const conditionSlotMap = await fetchConditionImageSlots(normalized);
