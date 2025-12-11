@@ -210,6 +210,17 @@ function toTime(value: string | Date | null | undefined) {
   return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
 }
 
+function isCancelledFlag(value: unknown) {
+  if (value === null || typeof value === 'undefined') return false;
+  if (typeof value === 'boolean') return value;
+
+  const numeric = Number(value);
+  if (!Number.isNaN(numeric)) return numeric !== 0;
+
+  const text = String(value).trim().toLowerCase();
+  return text === 'y' || text === 'yes' || text === 'true';
+}
+
 function resolveWindow(
   now: Date,
   minutes: number,
@@ -328,7 +339,8 @@ export async function getWorkListSnapshot(
         recycleTrashInfo: etcBuildings.buildingRecycle,
         cleanerName: workerHeader.name,
         realtimeOverviewYn: clientRooms.realtimeOverviewYn,
-        imagesYn: clientRooms.imagesYn
+        imagesYn: clientRooms.imagesYn,
+        cancelYn: workHeader.cancelYn
       })
       .from(workHeader)
       .leftJoin(clientRooms, eq(workHeader.roomId, clientRooms.id))
@@ -379,7 +391,7 @@ export async function getWorkListSnapshot(
       }
     }
 
-    const normalized = (rows ?? []).map((row) => normalizeRow(row));
+    const normalized = (rows ?? []).filter((row) => !isCancelledFlag(row.cancelYn)).map((row) => normalizeRow(row));
     const supplyMap = await fetchLatestSupplyReports(normalized.map((row) => row.id));
     const photoMap = await fetchLatestPhotoReports(normalized.map((row) => row.id));
     const conditionSlotMap = await fetchConditionImageSlots(normalized);
@@ -627,15 +639,30 @@ async function fetchLatestPhotoReports(workIds: number[]) {
   if (!workIds.length) return map;
 
   const rows = await db
-    .select({ workId: workReports.workId, contents1: workReports.contents1, createdAt: workReports.createdAt })
+    .select({
+      workId: workReports.workId,
+      contents1: workReports.contents1,
+      type: workReports.type,
+      createdAt: workReports.createdAt
+    })
     .from(workReports)
-    .where(and(inArray(workReports.workId, workIds), eq(workReports.type, 3)))
+    .where(and(inArray(workReports.workId, workIds), inArray(workReports.type, [3, 5])))
     .orderBy(desc(workReports.createdAt));
+
+  const merged = new Map<number, { images: WorkImage[]; seenTypes: Set<number> }>();
 
   rows.forEach((row) => {
     const workId = Number(row.workId);
-    if (map.has(workId)) return;
-    map.set(workId, { images: parseWorkImages(row.contents1) });
+    const type = Number(row.type);
+    const entry = merged.get(workId) ?? { images: [], seenTypes: new Set<number>() };
+    if (entry.seenTypes.has(type)) return;
+    entry.images.push(...parseWorkImages(row.contents1));
+    entry.seenTypes.add(type);
+    merged.set(workId, entry);
+  });
+
+  merged.forEach((value, workId) => {
+    map.set(workId, { images: value.images });
   });
 
   return map;
