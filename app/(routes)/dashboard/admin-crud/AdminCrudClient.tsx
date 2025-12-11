@@ -553,7 +553,9 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     }
 
     if (column.dataType === 'tinyint' && column.columnType === 'tinyint(1)') {
-      setFormValues((prev) => ({ ...prev, [column.name]: value ? '1' : '0' }));
+      const asString = typeof value === 'string' ? value : value ? '1' : '0';
+      const truthy = ['1', 'true', 'Y', 'y'].includes(asString);
+      setFormValues((prev) => ({ ...prev, [column.name]: truthy ? '1' : '0' }));
       return;
     }
     setFormValues((prev) => ({ ...prev, [column.name]: String(value) }));
