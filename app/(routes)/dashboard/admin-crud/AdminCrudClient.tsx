@@ -134,6 +134,9 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     return false;
   };
   const visibleColumns = (snapshot?.columns ?? []).filter((column) => !isHiddenColumn(column.name));
+  const formColumns = (snapshot?.columns ?? []).filter(
+    (column) => !isHiddenColumn(column.name) || (hasBasecodePair && column.name === 'basecode_code')
+  );
 
   function normalizeDefault(column: AdminColumnMeta) {
     const raw = column.defaultValue;
@@ -159,7 +162,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     const defaults: Record<string, string> = {};
 
     columns.forEach((column) => {
-      if (isHiddenColumn(column.name)) return;
+      if (isHiddenColumn(column.name) && !(hasBasecodePair && column.name === 'basecode_code')) return;
       if (column.autoIncrement) return;
 
       const normalized = normalizeDefault(column);
@@ -260,6 +263,25 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       void loadAdditionalPriceOptions();
     }
   }, [selectedTable, isClientAdditionalPrice]);
+
+  useEffect(() => {
+    if (!hasBasecodePair || !basecodePrimaryColumn) return;
+    if (mode !== 'create') return;
+
+    const options = referenceOptions.basecode_code ?? referenceOptions[basecodePrimaryColumn] ?? [];
+    if (!options.length) return;
+
+    const currentPrimary = formValues[basecodePrimaryColumn];
+    const currentCode = formValues.basecode_code;
+    if (currentPrimary && currentCode) return;
+
+    const first = options[0];
+    setFormValues((prev) => ({
+      ...prev,
+      [basecodePrimaryColumn]: first.codeValue ?? String(first.value),
+      basecode_code: String(first.value)
+    }));
+  }, [basecodePrimaryColumn, formValues, hasBasecodePair, mode, referenceOptions]);
 
   useEffect(() => {
     columns.forEach((column) => {
@@ -483,7 +505,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
     setMode('edit');
     setFeedback(null);
     const defaults: Record<string, string> = {};
-    visibleColumns.forEach((column) => {
+    formColumns.forEach((column) => {
       const value = row[column.name];
       if (value === null || value === undefined) return;
       if (column.dataType === 'json') {
@@ -497,7 +519,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
 
     Object.entries(row).forEach(([key, value]) => {
       if (key in defaults) return;
-      if (isHiddenColumn(key)) return;
+      if (isHiddenColumn(key) && !(hasBasecodePair && key === 'basecode_code')) return;
       if (value === null || value === undefined) return;
       defaults[key] = String(value);
     });
