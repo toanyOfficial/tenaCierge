@@ -69,6 +69,9 @@ const TABLE_LABEL_OVERRIDES: Record<string, Record<string, string>> = {
   },
   worker_weekly_pattern: {
     worker_id: '(worker_id)name'
+  },
+  worker_schedule_exception: {
+    worker_id: '(worker_id)name'
   }
 };
 const TABLE_HIDDEN_COLUMNS: Record<string, Set<string>> = {
@@ -98,6 +101,13 @@ const WEEKDAY_OPTIONS = [
   { value: '6', label: '6:토요일' }
 ];
 
+const DEFAULT_EXCEPTION_STATE = {
+  loading: false,
+  isWorkingDay: null as boolean | null,
+  message: '근무자와 날짜를 선택하면 안내가 표시됩니다.',
+  checked: false
+};
+
 export default function AdminCrudClient({ tables, profile, initialTable, title }: Props) {
   const [activeRole, setActiveRole] = useState<string | null>(profile.roles[0] ?? null);
   const [selectedTable, setSelectedTable] = useState<string>(() => {
@@ -123,12 +133,14 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   const [helperLoading, setHelperLoading] = useState(false);
   const [helperFeedback, setHelperFeedback] = useState<string | null>(null);
   const [pendingClientEdit, setPendingClientEdit] = useState<Record<string, unknown> | null>(null);
+  const [exceptionContext, setExceptionContext] = useState(DEFAULT_EXCEPTION_STATE);
   const formRef = useRef<HTMLFormElement | null>(null);
 
   const isClientAdditionalPrice = selectedTable === 'client_additional_price';
   const isClientHeader = selectedTable === 'client_header';
   const isClientRooms = selectedTable === 'client_rooms';
   const isWorkerTable = selectedTable === 'worker_header';
+  const isScheduleException = selectedTable === 'worker_schedule_exception';
   const isProtectedTable = PROTECTED_TABLES.has(selectedTable);
   const usingSharedGrid = !isProtectedTable;
   const tableLabels: Record<string, string> = TABLE_LABEL_OVERRIDES[selectedTable] ?? {};
@@ -148,7 +160,9 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   };
   const visibleColumns = (snapshot?.columns ?? []).filter((column) => !isHiddenColumn(column.name));
   const formColumns = (snapshot?.columns ?? []).filter(
-    (column) => !isHiddenColumn(column.name) || (hasBasecodePair && column.name === 'basecode_code')
+    (column) =>
+      (!isHiddenColumn(column.name) || (hasBasecodePair && column.name === 'basecode_code')) &&
+      !(isScheduleException && column.name === 'cancel_work_yn')
   );
 
   function normalizeDefault(column: AdminColumnMeta) {
@@ -285,6 +299,81 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     });
   }, [columns, referenceOptions, referenceSearch]);
 
+  useEffect(() => {
+    if (!isScheduleException) {
+      setExceptionContext(DEFAULT_EXCEPTION_STATE);
+      return;
+    }
+
+    const workerId = formValues.worker_id;
+    const excptDate = formValues.excpt_date;
+
+    if (!workerId || !excptDate) {
+      setExceptionContext(DEFAULT_EXCEPTION_STATE);
+      setFormValues((prev) => {
+        const next = { ...prev };
+        next.add_work_yn = next.add_work_yn ?? '0';
+        next.cancel_work_yn = next.cancel_work_yn ?? '0';
+        if (next.add_work_yn === prev.add_work_yn && next.cancel_work_yn === prev.cancel_work_yn) {
+          return prev;
+        }
+        return next;
+      });
+      return;
+    }
+
+    const controller = new AbortController();
+    const params = new URLSearchParams({ workerId: String(workerId), date: String(excptDate) });
+
+    const loadContext = async () => {
+      setExceptionContext((prev) => ({ ...prev, loading: true, message: null }));
+      try {
+        const response = await fetch(`/api/admin/schedule/exception-context?${params.toString()}`, {
+          cache: 'no-cache',
+          signal: controller.signal
+        });
+
+        if (!response.ok) {
+          throw new Error('예외 일정을 불러오지 못했습니다.');
+        }
+
+        const payload = (await response.json()) as { isWorkingDay: boolean };
+        const isWorkingDay = Boolean(payload.isWorkingDay);
+        const nextChecked = isWorkingDay ? formValues.cancel_work_yn === '1' : formValues.add_work_yn === '1';
+        setExceptionContext({
+          loading: false,
+          isWorkingDay,
+          checked: nextChecked,
+          message: isWorkingDay
+            ? '원래 출근하는 날짜입니다. 휴가로 설정하시겠습니까?'
+            : '원래 휴가 날짜입니다. 출근날짜로 설정하시겠습니까?'
+        });
+
+        setFormValues((prev) => {
+          const next = { ...prev };
+          const addValue = isWorkingDay ? '0' : nextChecked ? '1' : '0';
+          const cancelValue = isWorkingDay ? (nextChecked ? '1' : '0') : '0';
+
+          next.add_work_yn = addValue;
+          next.cancel_work_yn = cancelValue;
+
+          if (next.add_work_yn === prev.add_work_yn && next.cancel_work_yn === prev.cancel_work_yn) {
+            return prev;
+          }
+
+          return next;
+        });
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setExceptionContext({ ...DEFAULT_EXCEPTION_STATE, message: '일정을 불러오지 못했습니다.' });
+      }
+    };
+
+    void loadContext();
+
+    return () => controller.abort();
+  }, [isScheduleException, formValues.worker_id, formValues.excpt_date, mode]);
+
   async function fetchSnapshot(table: string, offset: number) {
     setLoading(true);
     setFeedback(null);
@@ -393,6 +482,28 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       return;
     }
     setFormValues((prev) => ({ ...prev, [column.name]: String(value) }));
+  }
+
+  function handleScheduleExceptionToggle(checked: boolean) {
+    const isWorkingDay = exceptionContext.isWorkingDay;
+    setExceptionContext((prev) => ({ ...prev, checked }));
+
+    if (isWorkingDay === null) return;
+
+    setFormValues((prev) => {
+      const next = { ...prev };
+      const addValue = isWorkingDay ? '0' : checked ? '1' : '0';
+      const cancelValue = isWorkingDay ? (checked ? '1' : '0') : '0';
+
+      next.add_work_yn = addValue;
+      next.cancel_work_yn = cancelValue;
+
+      if (next.add_work_yn === prev.add_work_yn && next.cancel_work_yn === prev.cancel_work_yn) {
+        return prev;
+      }
+
+      return next;
+    });
   }
 
   function handleWorkerBankChange(optionValue: string) {
@@ -769,6 +880,38 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       );
     }
 
+    if (isScheduleException && (column.name === 'add_work_yn' || column.name === 'cancel_work_yn')) {
+      if (column.name === 'cancel_work_yn') {
+        return null;
+      }
+
+      const checkboxLabel =
+        exceptionContext.isWorkingDay === true
+          ? '휴가로 설정합니다.'
+          : exceptionContext.isWorkingDay === false
+            ? '출근날짜로 설정합니다.'
+            : '근무자와 날짜를 먼저 선택해 주세요.';
+
+      return (
+        <div className={styles.scheduleExceptionField}>
+          <p className={styles.scheduleExceptionMessage}>
+            {exceptionContext.message ?? DEFAULT_EXCEPTION_STATE.message}
+          </p>
+          <label className={styles.scheduleExceptionCheckbox}>
+            <input
+              type="checkbox"
+              checked={exceptionContext.checked}
+              onChange={(event) => handleScheduleExceptionToggle(event.target.checked)}
+              disabled={loading || exceptionContext.loading || exceptionContext.isWorkingDay === null}
+            />
+            <span>{checkboxLabel}</span>
+          </label>
+          <input type="hidden" id="add_work_yn" value={formValues.add_work_yn ?? ''} readOnly />
+          <input type="hidden" id="cancel_work_yn" value={formValues.cancel_work_yn ?? ''} readOnly />
+        </div>
+      );
+    }
+
     if (!isProtectedTable && column.name.endsWith('_yn')) {
       return (
         <select
@@ -1115,7 +1258,7 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   function renderCellValue(row: Record<string, unknown>, key: string) {
     let rawValue = getClientField(row, key, '');
 
-    if (helperTableName === 'worker_weekly_pattern') {
+    if (helperTableName === 'worker_weekly_pattern' || helperTableName === 'worker_schedule_exception') {
       if (key === 'worker_id') {
         const workerId = row.worker_id;
         const workerName = typeof row.worker_name === 'string' ? row.worker_name : '';
@@ -1124,11 +1267,15 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
         rawValue = combined || rawValue;
       }
 
-      if (key === 'weekday') {
+      if (helperTableName === 'worker_weekly_pattern' && key === 'weekday') {
         const matched = WEEKDAY_OPTIONS.find((option) => option.value === String(row.weekday ?? rawValue));
         if (matched) {
           rawValue = matched.label;
         }
+      }
+
+      if (helperTableName === 'worker_schedule_exception' && (key === 'add_work_yn' || key === 'cancel_work_yn')) {
+        rawValue = rawValue === '1' ? '예' : '아니오';
       }
     }
     if (!rawValue) {

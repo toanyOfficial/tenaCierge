@@ -312,6 +312,31 @@
   cursor: not-allowed;
 }
 
+.scheduleExceptionField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scheduleExceptionMessage {
+  font-size: 13px;
+  color: #475467;
+  margin: 0;
+}
+
+.scheduleExceptionCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.scheduleExceptionCheckbox input {
+  width: 16px;
+  height: 16px;
+}
+
 @media (max-width: 1080px) {
   .grid {
     grid-template-columns: 1fr;

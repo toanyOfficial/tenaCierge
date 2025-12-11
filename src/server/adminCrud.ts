@@ -226,6 +226,19 @@ export async function fetchTableSnapshot(table: string, offset = 0, limit = 20):
     return { table, columns, primaryKey, rows, limit, offset };
   }
 
+  if (table === 'worker_schedule_exception') {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT wse.*, wh.name AS worker_name
+       FROM worker_schedule_exception wse
+       JOIN worker_header wh ON wse.worker_id = wh.id
+       WHERE wh.tier = 99
+       ORDER BY ?? DESC LIMIT ? OFFSET ?`,
+      [orderColumn ?? 'id', limit, offset]
+    );
+
+    return { table, columns, primaryKey, rows, limit, offset };
+  }
+
   const [rows] = await pool.query<RowDataPacket[]>(
     'SELECT * FROM ?? ORDER BY ?? DESC LIMIT ? OFFSET ?',
     [table, orderColumn ?? 'id', limit, offset]
@@ -338,7 +351,7 @@ export async function fetchReferenceOptions(
     return rows.map((row) => ({ value: row.value, label: row.label ?? String(row.value) }));
   }
 
-  if (table === 'worker_weekly_pattern' && column === 'worker_id') {
+  if ((table === 'worker_weekly_pattern' || table === 'worker_schedule_exception') && column === 'worker_id') {
     const pool = getPool();
     const whereClauses = ['tier = 99'];
     const params: unknown[] = [];

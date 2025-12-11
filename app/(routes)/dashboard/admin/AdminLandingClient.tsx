@@ -46,7 +46,7 @@ const shortcuts: Shortcut[] = [
   },
   {
     id: 'schedule-vacation',
-    label: '스케쥴관리-휴가관리',
+    label: '스케쥴관리(휴가관리)',
     href: '/dashboard/schedule/vacation',
     description: '휴가·예외 근무 일정을 관리합니다.'
   },
