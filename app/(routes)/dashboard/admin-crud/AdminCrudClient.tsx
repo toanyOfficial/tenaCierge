@@ -135,6 +135,49 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   };
   const visibleColumns = (snapshot?.columns ?? []).filter((column) => !isHiddenColumn(column.name));
 
+  function normalizeDefault(column: AdminColumnMeta) {
+    const raw = column.defaultValue;
+
+    if (raw === null || raw === undefined) return undefined;
+    if (typeof raw === 'number') return String(raw);
+    if (typeof raw === 'boolean') return raw ? '1' : '0';
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (!trimmed) return '';
+      if (column.name.endsWith('_yn')) {
+        const lowered = trimmed.toLowerCase();
+        if (['y', 'yes', 'true', '1'].includes(lowered)) return '1';
+        if (['n', 'no', 'false', '0'].includes(lowered)) return '0';
+      }
+      return trimmed;
+    }
+
+    return String(raw);
+  }
+
+  function buildDefaultValues(columns: AdminColumnMeta[], rows: Record<string, unknown>[] = snapshot?.rows ?? []) {
+    const defaults: Record<string, string> = {};
+
+    columns.forEach((column) => {
+      if (isHiddenColumn(column.name)) return;
+      if (column.autoIncrement) return;
+
+      const normalized = normalizeDefault(column);
+      defaults[column.name] = normalized ?? '';
+    });
+
+    if (isClientAdditionalPrice) {
+      defaults.minus_yn = defaults.minus_yn ?? '0';
+      defaults.ratio_yn = defaults.ratio_yn ?? '0';
+    }
+
+    if (REGISTER_TABLES.has(selectedTable)) {
+      defaults.register_no = generateUniqueRegister(selectedTable, rows);
+    }
+
+    return defaults;
+  }
+
   useEffect(() => {
     if (selectedTable) {
       fetchSnapshot(selectedTable, 0);
@@ -228,12 +271,7 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
         throw new Error('테이블을 불러오지 못했습니다.');
       }
       const payload = (await response.json()) as Snapshot;
-      const baseDefaults: Record<string, string> = REGISTER_TABLES.has(table)
-        ? { register_no: generateUniqueRegister(table, payload.rows) }
-        : {};
-      const tableDefaults: Record<string, string> = table === 'client_additional_price'
-        ? { ...baseDefaults, minus_yn: '0', ratio_yn: '0' }
-        : baseDefaults;
+      const tableDefaults = buildDefaultValues(payload.columns, payload.rows);
       setSnapshot({ ...payload, table });
       setMode('create');
       setEditingKey({});
@@ -499,11 +537,8 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
   function startCreate() {
     setMode('create');
     setEditingKey({});
-    const baseDefaults: Record<string, string> = REGISTER_TABLES.has(selectedTable)
-      ? { register_no: generateUniqueRegister(selectedTable) }
-      : {};
-    const tableDefaults: Record<string, string> = isClientAdditionalPrice ? { ...baseDefaults, minus_yn: '0', ratio_yn: '0' } : baseDefaults;
-    setFormValues(tableDefaults);
+    const defaults = snapshot ? buildDefaultValues(snapshot.columns) : {};
+    setFormValues(defaults);
     setFeedback(null);
     if (isClientAdditionalPrice) {
       setUseCustomAdditionalTitle(false);
