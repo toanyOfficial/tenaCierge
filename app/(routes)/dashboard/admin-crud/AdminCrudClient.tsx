@@ -713,6 +713,30 @@ export default function AdminCrudClient({ tables, profile, initialTable }: Props
       );
     }
 
+    const isRoleOrTypeColumn = !isProtectedTable && (column.name.includes('role') || column.name.includes('type'));
+
+    if (isRoleOrTypeColumn) {
+      const options = parseFlagComment(column.comment);
+
+      if (options.length) {
+        return (
+          <select
+            id={column.name}
+            value={value}
+            onChange={(event) => handleInputChange(column, event.target.value)}
+            disabled={loading}
+          >
+            <option value="">선택하세요</option>
+            {options.map((option) => (
+              <option key={`${column.name}-${option.value}`} value={String(option.value)}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        );
+      }
+    }
+
     if (isClientAdditionalPrice && CLIENT_ADDITIONAL_PRICE_CONFIG.booleanColumns.has(column.name)) {
       return (
         <select id={column.name} value={value} onChange={(event) => handleInputChange(column, event.target.value)} disabled={loading}>

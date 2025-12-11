@@ -312,30 +312,6 @@
   cursor: not-allowed;
 }
 
-.registerField {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.registerField input {
-  flex: 1;
-}
-
-.registerField button {
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid #16a34a;
-  background: #16a34a;
-  color: #fff;
-  cursor: pointer;
-}
-
-.registerField button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 @media (max-width: 1080px) {
   .grid {
     grid-template-columns: 1fr;
