@@ -158,8 +158,8 @@ function buildInsertPayload(date: string, roomId: number, values: WorkMutationVa
     requirements: typeof values.requirements === 'string' ? values.requirements : null,
     cleaningYn,
     conditionCheckYn,
-    supplyYn: true,
-    manualUptYn: false
+    supplyYn: false,
+    manualUptYn: true
   };
 }
 
