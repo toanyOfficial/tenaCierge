@@ -85,10 +85,16 @@ export default function WorkGlobalClient({ profile, initialHeaders }: Props) {
   }
 
   function handleInputChange(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
-    const { name, value, type, checked } = event.target;
+    const target = event.target;
+    const { name, value } = target;
+    const nextValue =
+      target instanceof HTMLInputElement && target.type === 'checkbox'
+        ? target.checked
+        : value;
+
     setForm((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: nextValue
     }));
   }
 
