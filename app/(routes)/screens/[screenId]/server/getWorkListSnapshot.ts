@@ -76,14 +76,16 @@ export type WorkListEntry = {
   realtimeOverviewYn: boolean;
   imagesYn: boolean;
   imagesSetId?: number | null;
-  workGlobal?: {
-    headerId: number;
-    startDate: string;
-    emoji: string | null;
-    title: string;
-    dscpt: string;
-    completed: boolean;
-  };
+  workGlobals?: WorkGlobalBadge[];
+};
+
+export type WorkGlobalBadge = {
+  headerId: number;
+  startDate: string;
+  emoji: string | null;
+  title: string;
+  dscpt: string;
+  completed: boolean;
 };
 
 export type SupplyRecommendation = { title: string; description: string; href?: string };
@@ -407,10 +409,10 @@ export async function getWorkListSnapshot(
     const photoMap = await fetchLatestPhotoReports(normalized.map((row) => row.id));
     const conditionSlotMap = await fetchConditionImageSlots(normalized);
     const conditionPhotoMap = await fetchLatestConditionReports(normalized.map((row) => row.id));
-    const activeWorkGlobal = await fetchActiveWorkGlobal(targetDate);
-    const workGlobalCompletedRooms = activeWorkGlobal
-      ? await fetchWorkGlobalCompletions(activeWorkGlobal.startDate)
-      : new Set<number>();
+    const activeWorkGlobals = await fetchActiveWorkGlobals(targetDate);
+    const workGlobalCompletedRooms = await fetchWorkGlobalCompletions(
+      activeWorkGlobals.map((item) => item.startDate)
+    );
     const assignableWorkers = isAdmin || isButler ? await fetchAssignableWorkers(targetDate) : [];
     const buildingCounts = normalized.reduce<Record<number, number>>((acc, row) => {
       acc[row.buildingId] = (acc[row.buildingId] ?? 0) + 1;
@@ -428,17 +430,17 @@ export async function getWorkListSnapshot(
         conditionPhotos: conditionPhotoMap.get(work.id)?.images ?? [],
         conditionChecked:
           work.conditionCheckYn && (conditionPhotoMap.has(work.id) || Boolean(work.supervisingYn)),
-        workGlobal:
-          activeWorkGlobal && work.roomId
-            ? {
-                headerId: activeWorkGlobal.id,
-                startDate: activeWorkGlobal.startDate,
-                emoji: activeWorkGlobal.emoji,
-                title: activeWorkGlobal.title,
-                dscpt: activeWorkGlobal.dscpt,
-                completed: workGlobalCompletedRooms.has(work.roomId)
-              }
-            : undefined
+        workGlobals:
+          activeWorkGlobals.length && work.roomId
+            ? activeWorkGlobals.map((header) => ({
+                headerId: header.id,
+                startDate: header.startDate,
+                emoji: header.emoji,
+                title: header.title,
+                dscpt: header.dscpt,
+                completed: workGlobalCompletedRooms.get(header.startDate)?.has(work.roomId) ?? false
+              }))
+            : []
       }))
       .sort((a, b) => sortRows(a, b, buildingCounts));
 
@@ -754,10 +756,10 @@ async function fetchLatestConditionReports(workIds: number[]) {
   return map;
 }
 
-async function fetchActiveWorkGlobal(targetDate: string) {
+async function fetchActiveWorkGlobals(targetDate: string) {
   const targetDateSql = sql`CAST(${buildDateParam(targetDate)} AS DATE)`;
 
-  const [row] = await db
+  const rows = await db
     .select({
       id: workGlobalHeader.id,
       emoji: workGlobalHeader.emoji,
@@ -774,28 +776,39 @@ async function fetchActiveWorkGlobal(targetDate: string) {
         eq(workGlobalHeader.closedYn, false)
       )
     )
-    .orderBy(desc(workGlobalHeader.startDate), desc(workGlobalHeader.id))
-    .limit(1);
+    .orderBy(desc(workGlobalHeader.startDate), desc(workGlobalHeader.id));
 
-  if (!row) return null;
+  if (!rows.length) return [];
 
-  return {
+  return rows.map((row) => ({
     id: Number(row.id),
     emoji: row.emoji ?? null,
     title: row.title,
     dscpt: row.dscpt,
     startDate: row.startDate ? formatKstDateKey(row.startDate) : targetDate
-  };
+  }));
 }
 
-async function fetchWorkGlobalCompletions(startDate: string) {
-  const parsedStartDate = new Date(`${startDate}T00:00:00Z`);
-  const rows = await db
-    .select({ roomId: workGlobalDetail.roomId })
-    .from(workGlobalDetail)
-    .where(eq(workGlobalDetail.workGlobalId, parsedStartDate));
+async function fetchWorkGlobalCompletions(startDates: string[]) {
+  const map = new Map<string, Set<number>>();
 
-  return new Set(rows.map((row) => Number(row.roomId)));
+  if (!startDates.length) return map;
+
+  const parsedStartDates = startDates.map((date) => new Date(`${date}T00:00:00Z`));
+
+  const rows = await db
+    .select({ workGlobalId: workGlobalDetail.workGlobalId, roomId: workGlobalDetail.roomId })
+    .from(workGlobalDetail)
+    .where(inArray(workGlobalDetail.workGlobalId, parsedStartDates));
+
+  rows.forEach((row) => {
+    const key = formatKstDateKey(row.workGlobalId);
+    const set = map.get(key) ?? new Set<number>();
+    set.add(Number(row.roomId));
+    map.set(key, set);
+  });
+
+  return map;
 }
 
 async function fetchChecklistLookup(ids: number[]) {

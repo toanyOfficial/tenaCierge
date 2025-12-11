@@ -174,7 +174,10 @@ export default function WorkListClient({ profile, snapshot }: Props) {
   const [searchResults, setSearchResults] = useState<AssignableWorker[]>([]);
   const [assignOptions, setAssignOptions] = useState<AssignableWorker[]>(snapshot.assignableWorkers);
   const [sortMode, setSortMode] = useState<'checkout' | 'roomDesc'>('checkout');
-  const [workGlobalTarget, setWorkGlobalTarget] = useState<WorkListEntry | null>(null);
+  const [workGlobalTarget, setWorkGlobalTarget] = useState<
+    | { work: WorkListEntry; badge: NonNullable<WorkListEntry['workGlobals']>[number] }
+    | null
+  >(null);
   const [workGlobalSaving, setWorkGlobalSaving] = useState(false);
   const [workGlobalError, setWorkGlobalError] = useState('');
   const isHost = activeRole === 'host';
@@ -723,14 +726,17 @@ export default function WorkListClient({ profile, snapshot }: Props) {
     }
   }
 
-  function openWorkGlobalConfirmModal(work: WorkListEntry) {
-    if (!work.workGlobal || work.workGlobal.completed) return;
-    setWorkGlobalTarget(work);
+  function openWorkGlobalConfirmModal(
+    work: WorkListEntry,
+    badge: NonNullable<WorkListEntry['workGlobals']>[number]
+  ) {
+    if (!badge || badge.completed) return;
+    setWorkGlobalTarget({ work, badge });
     setWorkGlobalError('');
   }
 
   async function handleWorkGlobalConfirm() {
-    if (!workGlobalTarget?.workGlobal) return;
+    if (!workGlobalTarget?.badge) return;
     setWorkGlobalSaving(true);
     setWorkGlobalError('');
 
@@ -738,7 +744,7 @@ export default function WorkListClient({ profile, snapshot }: Props) {
       const res = await fetch('/api/work-global/details', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ headerId: workGlobalTarget.workGlobal.headerId, roomId: workGlobalTarget.roomId })
+        body: JSON.stringify({ headerId: workGlobalTarget.badge.headerId, roomId: workGlobalTarget.work.roomId })
       });
 
       if (!res.ok) {
@@ -748,11 +754,15 @@ export default function WorkListClient({ profile, snapshot }: Props) {
       }
 
       setWorks((prev) =>
-        prev.map((work) =>
-          work.id === workGlobalTarget.id && work.workGlobal
-            ? { ...work, workGlobal: { ...work.workGlobal, completed: true } }
-            : work
-        )
+        prev.map((work) => {
+          if (work.id !== workGlobalTarget.work.id || !work.workGlobals?.length) return work;
+          return {
+            ...work,
+            workGlobals: work.workGlobals.map((badge) =>
+              badge.startDate === workGlobalTarget.badge.startDate ? { ...badge, completed: true } : badge
+            )
+          };
+        })
       );
       setStatus('전수작업 완료로 기록했습니다.');
       setWorkGlobalTarget(null);
@@ -993,11 +1003,10 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                     const requirementsClassName = `${styles.requirementsText}${
                                       hasRequirements ? ` ${styles.requirementsEmphasis}` : ''
                                     }`;
-                                    const workGlobalBadge = work.workGlobal;
-                                    const showWorkGlobalBadge = Boolean(
-                                      workGlobalBadge && !workGlobalBadge.completed && workGlobalBadge.emoji
+                                    const workGlobalBadges = (work.workGlobals ?? []).filter(
+                                      (badge) => !badge.completed && badge.emoji
                                     );
-                                    const workGlobalBadgeIsText = isHangulText(workGlobalBadge?.emoji ?? '');
+                                    const showWorkGlobalBadge = workGlobalBadges.length > 0;
 
                                     if (folded) {
                                       return (
@@ -1005,16 +1014,22 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                           <div className={styles.workCardHeader}>
                                             <div className={styles.workTitleRow}>
                                               <div className={styles.workTitleLead}>
-                                                {showWorkGlobalBadge ? (
-                                                  <button
-                                                    type="button"
-                                                    className={`${styles.workGlobalBadge} ${workGlobalBadgeIsText ? styles.workGlobalBadgeText : ''}`}
-                                                    aria-label={`${workGlobalBadge?.title ?? '전수작업'} 완료 보고`}
-                                                    onClick={() => openWorkGlobalConfirmModal(work)}
-                                                  >
-                                                    {workGlobalBadge?.emoji}
-                                                  </button>
-                                                ) : null}
+                                                {showWorkGlobalBadge
+                                                  ? workGlobalBadges.map((badge) => {
+                                                      const workGlobalBadgeIsText = isHangulText(badge.emoji ?? '');
+                                                      return (
+                                                        <button
+                                                          key={`${badge.headerId}-${badge.startDate}`}
+                                                          type="button"
+                                                          className={`${styles.workGlobalBadge} ${workGlobalBadgeIsText ? styles.workGlobalBadgeText : ''}`}
+                                                          aria-label={`${badge?.title ?? '전수작업'} 완료 보고`}
+                                                          onClick={() => openWorkGlobalConfirmModal(work, badge)}
+                                                        >
+                                                          {badge?.emoji}
+                                                        </button>
+                                                      );
+                                                    })
+                                                  : null}
                                                 <p className={styles.workTitle}>{roomTitle}</p>
                                               </div>
                                               <div className={styles.workTitleActions}>
@@ -1040,16 +1055,22 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                       return (
                                         <div key={work.id} className={`${styles.workCardMuted} ${styles.workCardMutedRow}`}>
                                           <div className={styles.workTitleLead}>
-                                            {showWorkGlobalBadge ? (
-                                              <button
-                                                type="button"
-                                                className={`${styles.workGlobalBadge} ${workGlobalBadgeIsText ? styles.workGlobalBadgeText : ''}`}
-                                                aria-label={`${workGlobalBadge?.title ?? '전수작업'} 완료 보고`}
-                                                onClick={() => openWorkGlobalConfirmModal(work)}
-                                              >
-                                                {workGlobalBadge?.emoji}
-                                              </button>
-                                            ) : null}
+                                            {showWorkGlobalBadge
+                                              ? workGlobalBadges.map((badge) => {
+                                                  const workGlobalBadgeIsText = isHangulText(badge.emoji ?? '');
+                                                  return (
+                                                    <button
+                                                      key={`${badge.headerId}-${badge.startDate}`}
+                                                      type="button"
+                                                      className={`${styles.workGlobalBadge} ${workGlobalBadgeIsText ? styles.workGlobalBadgeText : ''}`}
+                                                      aria-label={`${badge?.title ?? '전수작업'} 완료 보고`}
+                                                      onClick={() => openWorkGlobalConfirmModal(work, badge)}
+                                                    >
+                                                      {badge?.emoji}
+                                                    </button>
+                                                  );
+                                                })
+                                              : null}
                                             <span className={styles.workTitle}>{work.roomName}</span>
                                           </div>
                                           <div className={styles.statusCheckRow}>
@@ -1083,16 +1104,22 @@ export default function WorkListClient({ profile, snapshot }: Props) {
                                         <div className={styles.workCardHeader}>
                                           <div className={styles.workTitleRow}>
                                             <div className={styles.workTitleLead}>
-                                              {showWorkGlobalBadge ? (
-                                                <button
-                                                  type="button"
-                                                  className={`${styles.workGlobalBadge} ${workGlobalBadgeIsText ? styles.workGlobalBadgeText : ''}`}
-                                                  aria-label={`${workGlobalBadge?.title ?? '전수작업'} 완료 보고`}
-                                                  onClick={() => openWorkGlobalConfirmModal(work)}
-                                                >
-                                                  {workGlobalBadge?.emoji}
-                                                </button>
-                                              ) : null}
+                                              {showWorkGlobalBadge
+                                                ? workGlobalBadges.map((badge) => {
+                                                    const workGlobalBadgeIsText = isHangulText(badge.emoji ?? '');
+                                                    return (
+                                                      <button
+                                                        key={`${badge.headerId}-${badge.startDate}`}
+                                                        type="button"
+                                                        className={`${styles.workGlobalBadge} ${workGlobalBadgeIsText ? styles.workGlobalBadgeText : ''}`}
+                                                        aria-label={`${badge?.title ?? '전수작업'} 완료 보고`}
+                                                        onClick={() => openWorkGlobalConfirmModal(work, badge)}
+                                                      >
+                                                        {badge?.emoji}
+                                                      </button>
+                                                    );
+                                                  })
+                                                : null}
                                               <p className={styles.workTitle}>{roomTitle}</p>
                                             </div>
                                             <div className={styles.workTitleActions}>
@@ -1263,9 +1290,9 @@ export default function WorkListClient({ profile, snapshot }: Props) {
               </button>
             </div>
             <p className={styles.modalBody}>
-              {`${workGlobalTarget.roomName}에 대하여 '${workGlobalTarget.workGlobal?.title ?? ''}'작업을 완료하셨나요?`}
+              {`${workGlobalTarget.work.roomName}에 대하여 '${workGlobalTarget.badge?.title ?? ''}'작업을 완료하셨나요?`}
             </p>
-            <p className={styles.modalBody}>{workGlobalTarget.workGlobal?.dscpt}</p>
+            <p className={styles.modalBody}>{workGlobalTarget.badge?.dscpt}</p>
             {workGlobalError ? <p className={styles.errorText}>{workGlobalError}</p> : null}
             <div className={styles.modalFoot}>
               <button
