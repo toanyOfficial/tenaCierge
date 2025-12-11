@@ -61,6 +61,13 @@
   color: var(--text-soft);
 }
 
+.guide {
+  margin-left: 6px;
+  font-style: normal;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
 .field input,
 .field select,
 .field textarea {
@@ -76,6 +83,29 @@
   align-items: center;
   gap: 8px;
   padding-top: 22px;
+}
+
+.cancelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+
+.cancelText {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 8px;
+}
+
+.cancelNotice {
+  color: #dc2626;
+  font-weight: 700;
 }
 
 .footerRow {
@@ -94,7 +124,8 @@
 
 .primaryButton,
 .secondaryButton,
-.dangerButton {
+.dangerButton,
+.restoreButton {
   border: none;
   border-radius: 10px;
   padding: 10px 14px;
@@ -121,9 +152,16 @@
   box-shadow: 0 6px 18px rgba(239, 68, 68, 0.2);
 }
 
+.restoreButton {
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(14, 165, 233, 0.2);
+}
+
 .primaryButton:disabled,
 .secondaryButton:disabled,
-.dangerButton:disabled {
+.dangerButton:disabled,
+.restoreButton:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

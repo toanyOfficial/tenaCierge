@@ -22,7 +22,7 @@ export type WorkReservationRecord = {
 export type BuildingRoomOption = {
   buildingId: number;
   buildingShortName: string;
-  rooms: { roomId: number; roomNo: string }[];
+  rooms: { roomId: number; roomNo: string; bedCount: number; checkinTime: string; checkoutTime: string }[];
 };
 
 type ReservationPayload = {
@@ -143,7 +143,10 @@ export async function listOpenRoomsByBuilding(): Promise<BuildingRoomOption[]> {
       buildingId: etcBuildings.id,
       buildingShortName: etcBuildings.shortName,
       roomId: clientRooms.id,
-      roomNo: clientRooms.roomNo
+      roomNo: clientRooms.roomNo,
+      bedCount: clientRooms.bedCount,
+      checkinTime: clientRooms.checkinTime,
+      checkoutTime: clientRooms.checkoutTime
     })
     .from(clientRooms)
     .innerJoin(etcBuildings, eq(clientRooms.buildingId, etcBuildings.id))
@@ -152,16 +155,32 @@ export async function listOpenRoomsByBuilding(): Promise<BuildingRoomOption[]> {
 
   const grouped = new Map<number, BuildingRoomOption>();
 
+  const formatTime = (time: string | null) => (time ? time.substring(0, 5) : '');
+
   rows.forEach((row) => {
     const existing = grouped.get(Number(row.buildingId));
     if (existing) {
-      existing.rooms.push({ roomId: Number(row.roomId), roomNo: row.roomNo ?? '' });
+      existing.rooms.push({
+        roomId: Number(row.roomId),
+        roomNo: row.roomNo ?? '',
+        bedCount: Number(row.bedCount ?? 0),
+        checkinTime: formatTime(row.checkinTime),
+        checkoutTime: formatTime(row.checkoutTime)
+      });
       return;
     }
     grouped.set(Number(row.buildingId), {
       buildingId: Number(row.buildingId),
       buildingShortName: row.buildingShortName ?? '',
-      rooms: [{ roomId: Number(row.roomId), roomNo: row.roomNo ?? '' }]
+      rooms: [
+        {
+          roomId: Number(row.roomId),
+          roomNo: row.roomNo ?? '',
+          bedCount: Number(row.bedCount ?? 0),
+          checkinTime: formatTime(row.checkinTime),
+          checkoutTime: formatTime(row.checkoutTime)
+        }
+      ]
     });
   });
 

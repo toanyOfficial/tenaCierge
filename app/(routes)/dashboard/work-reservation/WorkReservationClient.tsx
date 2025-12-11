@@ -8,6 +8,7 @@ import styles from './workReservation.module.css';
 
 import type { BuildingRoomOption, WorkReservationRecord } from '@/src/server/workReservation';
 import type { ProfileSummary } from '@/src/utils/profile';
+import { formatKstDateKey } from '@/src/lib/time';
 
 type FormState = {
   workId: string;
@@ -39,11 +40,19 @@ const EMPTY_FORM: FormState = {
   cancelYn: false
 };
 
+function createEmptyForm(defaultWorkId: string): FormState {
+  return {
+    ...EMPTY_FORM,
+    workId: defaultWorkId
+  };
+}
+
 export default function WorkReservationClient({ profile, initialReservations, buildingOptions }: Props) {
   const defaultRole = useMemo(() => (profile.roles.includes('admin') ? 'admin' : profile.roles[0] ?? null), [profile.roles]);
   const [activeRole, setActiveRole] = useState<string | null>(defaultRole);
   const [reservations, setReservations] = useState<WorkReservationRecord[]>(initialReservations);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const defaultWorkId = useMemo(() => formatKstDateKey(new Date()), []);
+  const [form, setForm] = useState<FormState>(() => createEmptyForm(defaultWorkId));
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -54,6 +63,12 @@ export default function WorkReservationClient({ profile, initialReservations, bu
     if (!buildingId) return [];
     return buildingOptions.find((b) => b.buildingId === buildingId)?.rooms ?? [];
   }, [buildingOptions, form.buildingId]);
+
+  const selectedRoom = useMemo(() => {
+    const roomId = Number(form.roomId);
+    if (!roomId) return null;
+    return roomOptions.find((room) => room.roomId === roomId) ?? null;
+  }, [roomOptions, form.roomId]);
 
   function handleInputChange(event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     const { name, value, type, checked } = event.target as HTMLInputElement;
@@ -69,7 +84,7 @@ export default function WorkReservationClient({ profile, initialReservations, bu
   }
 
   function resetForm() {
-    setForm(EMPTY_FORM);
+    setForm(createEmptyForm(defaultWorkId));
     setSelectedId(null);
     setFeedback(null);
     setError(null);
@@ -170,6 +185,17 @@ export default function WorkReservationClient({ profile, initialReservations, bu
     setError(null);
   }
 
+  function handleCancelToggle() {
+    if (form.cancelYn) {
+      setForm((prev) => ({ ...prev, cancelYn: false }));
+      return;
+    }
+
+    const confirmed = window.confirm('이 요청사항을 폐기하시겠습니까?');
+    if (!confirmed) return;
+    setForm((prev) => ({ ...prev, cancelYn: true }));
+  }
+
   return (
     <div className={styles.page}>
       <CommonHeader profile={profile} activeRole={activeRole} onRoleChange={setActiveRole} />
@@ -186,7 +212,7 @@ export default function WorkReservationClient({ profile, initialReservations, bu
           <div className={styles.formGrid}>
             <label className={styles.field}>
               <span>작업일 *</span>
-              <input type="date" name="workId" value={form.workId} onChange={handleInputChange} required />
+              <input type="date" name="workId" value={form.workId} readOnly />
             </label>
 
             <label className={styles.field}>
@@ -214,22 +240,34 @@ export default function WorkReservationClient({ profile, initialReservations, bu
             </label>
 
             <label className={styles.field}>
-              <span>어메니티 수량</span>
+              <span>
+                어메니티 수량
+                {selectedRoom ? <em className={styles.guide}>(기본 {selectedRoom.bedCount})</em> : null}
+              </span>
               <input type="number" name="amenitiesQty" min={0} value={form.amenitiesQty} onChange={handleInputChange} />
             </label>
 
             <label className={styles.field}>
-              <span>이불 수량</span>
+              <span>
+                이불 수량
+                {selectedRoom ? <em className={styles.guide}>(기본 {selectedRoom.bedCount})</em> : null}
+              </span>
               <input type="number" name="blanketQty" min={0} value={form.blanketQty} onChange={handleInputChange} />
             </label>
 
             <label className={styles.field}>
-              <span>체크인 시간 *</span>
+              <span>
+                체크인 시간 *
+                {selectedRoom?.checkinTime ? <em className={styles.guide}>(기본 {selectedRoom.checkinTime})</em> : null}
+              </span>
               <input type="time" name="checkinTime" value={form.checkinTime} onChange={handleInputChange} required />
             </label>
 
             <label className={styles.field}>
-              <span>체크아웃 시간 *</span>
+              <span>
+                체크아웃 시간 *
+                {selectedRoom?.checkoutTime ? <em className={styles.guide}>(기본 {selectedRoom.checkoutTime})</em> : null}
+              </span>
               <input type="time" name="checkoutTime" value={form.checkoutTime} onChange={handleInputChange} required />
             </label>
 
@@ -244,11 +282,24 @@ export default function WorkReservationClient({ profile, initialReservations, bu
                 placeholder="최대 30자"
               />
             </label>
+          </div>
 
-            <label className={styles.checkboxField}>
-              <input type="checkbox" name="cancelYn" checked={form.cancelYn} onChange={handleInputChange} />
-              <span>취소 여부</span>
-            </label>
+          <div className={styles.cancelRow}>
+            <div className={styles.cancelText}>
+              {form.cancelYn ? (
+                <span className={styles.cancelNotice}>이 요청사항은 폐기되었습니다.</span>
+              ) : (
+                <span className={styles.subtle}>요청사항이 불필요해지면 폐기할 수 있습니다.</span>
+              )}
+            </div>
+            <button
+              type="button"
+              className={form.cancelYn ? styles.restoreButton : styles.dangerButton}
+              onClick={handleCancelToggle}
+              disabled={saving}
+            >
+              {form.cancelYn ? '되살리기' : '요청사항 폐기'}
+            </button>
           </div>
 
           <div className={styles.footerRow}>
