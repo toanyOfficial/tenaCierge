@@ -34,7 +34,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const profile = await getProfileWithDynamicRoles();
-  if (!profile.roles.includes('admin')) {
+  const canComplete = profile.roles.some((role) => ['admin', 'butler', 'host', 'cleaner'].includes(role));
+  if (!canComplete) {
     return NextResponse.json({ message: '접근 권한이 없습니다.' }, { status: 403 });
   }
 
