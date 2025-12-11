@@ -223,7 +223,16 @@ export async function fetchWorkGlobalReport(workGlobalId: number): Promise<WorkG
     const buildingNameComp = (a.buildingShortName ?? '').localeCompare(b.buildingShortName ?? '');
     if (buildingNameComp !== 0) return buildingNameComp;
 
-    return (b.roomNo ?? '').localeCompare(a.roomNo ?? '');
+    const roomNoA = a.roomNo ?? '';
+    const roomNoB = b.roomNo ?? '';
+    const numericA = Number(roomNoA);
+    const numericB = Number(roomNoB);
+
+    if (!Number.isNaN(numericA) && !Number.isNaN(numericB)) {
+      return numericB - numericA;
+    }
+
+    return roomNoB.localeCompare(roomNoA);
   });
 
   const rooms: WorkGlobalReportRoom[] = sortedRooms.map((row) => ({
