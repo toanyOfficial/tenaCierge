@@ -22,6 +22,7 @@ import {
   workGlobalDetail
 } from '@/src/db/schema';
 import type { ProfileSummary } from '@/src/utils/profile';
+import { formatKstDateKey } from '@/src/lib/time';
 import { findClientByProfile } from '@/src/server/clients';
 import { findWorkerByProfile } from '@/src/server/workers';
 import { getKstNow, formatDateKey, formatWorkDateLabel, type WorkWindowTag } from '@/src/utils/workWindow';
