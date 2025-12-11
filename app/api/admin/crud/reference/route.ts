@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { fetchReferenceOptions, handleAdminError, listAdminTables } from '@/src/server/adminCrud';
+import { fetchReferenceLabels, fetchReferenceOptions, handleAdminError, listAdminTables } from '@/src/server/adminCrud';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 
 export const dynamic = 'force-dynamic';
@@ -25,13 +25,26 @@ export async function GET(request: Request) {
   const column = url.searchParams.get('column');
   const keyword = url.searchParams.get('q') ?? '';
   const limit = Math.min(Number(url.searchParams.get('limit') ?? '20') || 20, 50);
+  const basecodeGroup = url.searchParams.get('basecodeGroup') ?? undefined;
+  const valuesParam = url.searchParams.get('values');
+  const values = valuesParam
+    ? valuesParam
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean)
+    : [];
 
   if (!table || !column) {
     return NextResponse.json({ message: 'table, column 파라미터가 필요합니다.', tables: listAdminTables() }, { status: 400 });
   }
 
   try {
-    const options = await fetchReferenceOptions(table, column, keyword, limit);
+    if (values.length) {
+      const labels = await fetchReferenceLabels(table, column, values, basecodeGroup);
+      return NextResponse.json({ labels });
+    }
+
+    const options = await fetchReferenceOptions(table, column, keyword, limit, basecodeGroup);
     return NextResponse.json({ options });
   } catch (error) {
     await handleAdminError(error);
