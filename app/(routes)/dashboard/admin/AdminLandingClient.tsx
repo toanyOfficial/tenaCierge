@@ -61,6 +61,18 @@ const shortcuts: Shortcut[] = [
     label: 'admin CRUD',
     href: '/dashboard/admin-crud',
     description: '전체 테이블을 조회·수정하는 관리 도구입니다.'
+  },
+  {
+    id: 'global-work',
+    label: '전수작업관리',
+    href: '/dashboard/work-global',
+    description: '전수 대상 업무를 만들고 객실 완료 현황을 확인합니다.'
+  },
+  {
+    id: 'work-reservation',
+    label: '요청사항관리',
+    href: '/dashboard/work-reservation',
+    description: 'work_reservation 요청을 조회하고 수정합니다.'
   }
 ];
 
