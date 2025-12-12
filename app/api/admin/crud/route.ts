@@ -85,7 +85,7 @@ export async function PUT(request: Request) {
   }
 
   try {
-    await updateRow(table, key, data);
+    await updateRow(table, key, data, profile.registerNo);
     const snapshot = await fetchTableSnapshot(table);
     return NextResponse.json(snapshot);
   } catch (error) {
