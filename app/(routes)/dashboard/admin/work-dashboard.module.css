@@ -159,6 +159,11 @@
   overflow: hidden;
 }
 
+.todayCard {
+  grid-template-rows: auto auto 1fr;
+  row-gap: 6px;
+}
+
 .cardHeader {
   display: flex;
   align-items: center;
@@ -174,14 +179,15 @@
 }
 
 .stackedWrapper + .roomGrid {
-  margin-top: -8px;
+  margin-top: 10px;
 }
 
 .stackedBarShell {
   position: relative;
   width: 100%;
-  padding-top: 26px;
-  padding-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin-bottom: 0;
   height: auto;
   min-height: auto;
@@ -238,40 +244,28 @@
   padding: 0 6px;
 }
 
-.segmentOverlay {
-  position: absolute;
-  top: 0;
-  bottom: 0;
+.overlayRowTop,
+.overlayRowBottom {
+  position: relative;
+  width: 100%;
+  height: 26px;
   pointer-events: none;
 }
 
-.overlayTop,
-.overlayBottom {
+.overlayRowBottom {
+  height: 24px;
+}
+
+.overlayBlock {
   position: absolute;
-  left: 0;
-  width: 100%;
+  top: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  justify-content: flex-start;
-  padding-left: 6px;
-}
-
-
-.overlayTop {
-  top: 2px;
-}
-
-.overlayBottom {
-  bottom: 2px;
-  flex-wrap: wrap;
-}
-
-.overlayLine {
-  width: 1px;
-  height: 14px;
-  background: rgba(226, 232, 240, 0.7);
-  box-shadow: 0 0 0 2px rgba(226, 232, 240, 0.18);
+  height: 100%;
+  padding: 0 4px;
+  box-sizing: border-box;
 }
 
 .overlayStat,
@@ -294,11 +288,6 @@
 .overlaySector {
   font-size: 0.76rem;
   color: #cbd5f5;
-}
-
-.overlayBottom .overlaySector {
-  align-self: flex-end;
-  margin-top: 6px;
 }
 
 .segmentLegend {
@@ -405,7 +394,9 @@
 
 .roomGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
   gap: 8px;
   min-height: 0;
   overflow: hidden;
@@ -420,6 +411,15 @@
   flex-direction: column;
   gap: 6px;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+  height: 100%;
+  justify-content: center;
+}
+
+.roomPlaceholder {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow: none;
 }
 
 .roomName {
@@ -440,20 +440,29 @@
   justify-content: space-between;
 }
 
-.statusAssign {
-  background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+
+.statusSupplyOff,
+.statusAssignOff,
+.statusCleaningIdle,
+.statusInspectOff {
+  background: var(--border);
+  color: #334155;
+  border-color: var(--border);
 }
 
-.statusCharge {
-  background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+.statusSupplyOn,
+.statusAssignOn,
+.statusCleaningDone,
+.statusInspectOn {
+  background: #2563eb;
+  border-color: #1d4ed8;
+  color: #f8fafc;
 }
 
-.statusClean {
-  background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
-}
-
-.statusInspect {
-  background: linear-gradient(135deg, #f7b733 0%, #fc4a1a 100%);
+.statusAssignNoShow {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fff;
 }
 
 .statusButtonRow {
