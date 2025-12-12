@@ -267,7 +267,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
           <section
             className={`${styles.workCard} ${
               isTodayDominant ? styles.dominantCard : styles.compactCard
-            }`}
+            } ${styles.todayCard}`}
           >
             <div className={styles.cardHeader}>
               <div>
@@ -285,43 +285,49 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
               ) : (
                 <>
                   <div className={styles.stackedBarShell}>
+                    <div className={styles.overlayRowTop}>
+                      {todayStacked.map((segment) => (
+                        <div
+                          key={`${segment.key}-top`}
+                          className={styles.overlayBlock}
+                          style={{ left: `${segment.offset}%`, width: `${segment.width}%` }}
+                        >
+                          <span className={styles.overlayStat}>
+                            {segment.completed}/{segment.total} · {segment.completedWidth.toFixed(0)}%
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                     <div className={styles.stackedBar}>
                       {todayStacked.map((segment) => (
                         <div
                           key={segment.key}
                           className={styles.stackedSegment}
-                        style={{
-                          width: `${segment.width}%`,
-                          background: `linear-gradient(120deg, ${segment.color} 0%, ${segment.color.replace(/e6$/i, 'ff')} 85%)`
-                        }}
-                        title={`${segment.label} ${segment.width.toFixed(1)}%`}
-                      >
-                        <div className={styles.segmentProgress} style={{ width: `${segment.completedWidth}%` }} />
-                        <span className={styles.segmentLabel}>{segment.buildingName}</span>
-                      </div>
-                    ))}
-                      {todayStacked.map((segment) => (
-                        <div
-                          key={`${segment.key}-overlay`}
-                          className={styles.segmentOverlay}
-                          style={{ left: `${segment.offset}%`, width: `${segment.width}%` }}
+                          style={{
+                            width: `${segment.width}%`,
+                            background: `linear-gradient(120deg, ${segment.color} 0%, ${segment.color.replace(/e6$/i, 'ff')} 85%)`
+                          }}
+                          title={`${segment.label} ${segment.width.toFixed(1)}%`}
                         >
-                          <div className={styles.overlayTop}>
-                            <span className={styles.overlayLine} />
-                            <span className={styles.overlayStat}>
-                              {segment.completed}/{segment.total} · {segment.completedWidth.toFixed(0)}%
-                            </span>
-                          </div>
-                          {segment.isSectorHead ? (
-                            <div className={styles.overlayBottom}>
-                              <span className={styles.overlayLine} />
-                              <span className={styles.overlaySector}>
-                                {segment.sector} {segment.sectorTotal}건
-                              </span>
-                            </div>
-                          ) : null}
+                          <div className={styles.segmentProgress} style={{ width: `${segment.completedWidth}%` }} />
+                          <span className={styles.segmentLabel}>{segment.buildingName}</span>
                         </div>
                       ))}
+                    </div>
+                    <div className={styles.overlayRowBottom}>
+                      {todayStacked.map((segment) =>
+                        segment.isSectorHead ? (
+                          <div
+                            key={`${segment.key}-sector`}
+                            className={styles.overlayBlock}
+                            style={{ left: `${segment.offset}%`, width: `${segment.width}%` }}
+                          >
+                            <span className={styles.overlaySector}>
+                              {segment.sector} {segment.sectorTotal}건
+                            </span>
+                          </div>
+                        ) : null
+                      )}
                     </div>
                   </div>
                 </>
