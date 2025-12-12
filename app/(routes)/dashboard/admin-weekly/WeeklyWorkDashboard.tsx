@@ -185,111 +185,127 @@ export default function WeeklyWorkDashboard({ profile }: ProfileProps) {
   const isTodayDominant = layoutMode === 'todayDominant';
 
   return (
-    <div className={styles.dashboardShell}>
-      <div className={styles.summaryStrip}>
-        {summary.map((item) => {
-          const total = Object.values(item.sectors).reduce((acc, val) => acc + val, 0);
-          return (
-            <div key={item.day} className={styles.summaryCard}>
-              <span className={styles.summaryLabel}>{item.day}</span>
-              <span className={styles.summaryValue}>{total}건</span>
-              <span className={styles.summaryMeta}>
-                {Object.entries(item.sectors)
-                  .map(([sector, count]) => `${sector} ${count}`)
-                  .join(' / ')}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className={styles.layoutToolbar}>
-        <div className={styles.toolbarLeft}>
-          <button
-            type="button"
-            className={styles.toggleButton}
-            onClick={() => setLayoutMode(isTodayDominant ? 'tomorrowDominant' : 'todayDominant')}
-          >
-            {isTodayDominant ? '16:00 이후 레이아웃(8:2) 보기' : '16:00 이전 레이아웃(2:8) 보기'}
-          </button>
-          <span className={styles.refreshNote}>버튼으로 2:8 / 8:2 레이아웃을 즉시 토글합니다.</span>
+    <div className={styles.weeklyShell}>
+      <div className={styles.weeklyCanvas}>
+        <div className={styles.summaryStrip}>
+          {summary.map((item) => {
+            const total = Object.values(item.sectors).reduce((acc, val) => acc + val, 0);
+            return (
+              <div key={item.day} className={styles.summaryCard}>
+                <span className={styles.summaryLabel}>{item.day}</span>
+                <span className={styles.summaryValue}>{total}건</span>
+                <span className={styles.summaryMeta}>
+                  {Object.entries(item.sectors)
+                    .map(([sector, count]) => `${sector} ${count}`)
+                    .join(' / ')}
+                </span>
+              </div>
+            );
+          })}
         </div>
-        <div className={styles.toolbarRight}>
-          <span className={styles.refreshBadge}>주간 합계 {formatTimeLabel(summaryUpdatedAt)} 업데이트</span>
-        </div>
-      </div>
 
-      <div
-        className={`${styles.cardGrid} ${
-          isTodayDominant ? styles.cardGridTodayDominant : styles.cardGridTomorrowDominant
-        }`}
-      >
-        <section className={`${styles.workCard} ${isTodayDominant ? styles.dominantCard : styles.compactCard}`}>
-          <div className={styles.cardHeader}>
-            <h2 className={styles.cardTitle}>D0 업무 진행</h2>
-            <span className={styles.cardMeta}>10분마다 새로고침 · {formatTimeLabel(todayUpdatedAt)}</span>
+        <div className={styles.layoutToolbar}>
+          <div className={styles.toolbarLeft}>
+            <button
+              type="button"
+              className={styles.toggleButton}
+              onClick={() => setLayoutMode(isTodayDominant ? 'tomorrowDominant' : 'todayDominant')}
+            >
+              {isTodayDominant ? 'D+1가 넓게 보기 (8:2)' : 'D0가 넓게 보기 (2:8)'}
+            </button>
+            <span className={styles.refreshNote}>시점과 무관하게 균형/우선 카드 레이아웃을 전환합니다.</span>
           </div>
-          <div className={styles.progressList}>{todayProgress.map(renderProgressRow)}</div>
-          <div className={styles.roomGrid}>
-            {roomStatuses.map((room) => {
-              const statusInfo = roomStatusMap[room.status];
-              return (
-                <div key={room.room} className={styles.roomChip}>
-                  <span className={styles.roomName}>{room.room}</span>
-                  <div className={styles.roomStatusRow}>
-                    <span className={`${styles.roomPill} ${statusInfo.className}`}>
-                      ⚡ {statusInfo.label}
-                    </span>
-                    <span className={styles.roomValue}>{room.owner}</span>
+          <div className={styles.toolbarRight}>
+            <span className={styles.refreshBadge}>업데이트 {formatTimeLabel(summaryUpdatedAt)}</span>
+          </div>
+        </div>
+
+        <div
+          className={`${styles.cardGrid} ${
+            isTodayDominant ? styles.cardGridTodayDominant : styles.cardGridTomorrowDominant
+          }`}
+        >
+          <section
+            className={`${styles.workCard} ${
+              isTodayDominant ? styles.dominantCard : styles.compactCard
+            }`}
+          >
+            <div className={styles.cardHeader}>
+              <div>
+                <p className={styles.cardTitle}>D0 업무 진행</p>
+                <p className={styles.cardMeta}>10분마다 새로고침 · {formatTimeLabel(todayUpdatedAt)}</p>
+              </div>
+              <span className={styles.badgeSoft}>실시간</span>
+            </div>
+            <div className={styles.progressList}>{todayProgress.map(renderProgressRow)}</div>
+            <div className={styles.roomGrid}>
+              {roomStatuses.map((room) => {
+                const statusInfo = roomStatusMap[room.status];
+                return (
+                  <div key={room.room} className={styles.roomChip}>
+                    <span className={styles.roomName}>{room.room}</span>
+                    <div className={styles.roomStatusRow}>
+                      <span className={`${styles.roomPill} ${statusInfo.className}`}>
+                        ⚡ {statusInfo.label}
+                      </span>
+                      <span className={styles.roomValue}>{room.owner}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section
+            className={`${styles.workCard} ${
+              !isTodayDominant ? styles.dominantCard : styles.compactCard
+            }`}
+          >
+            <div className={styles.cardHeader}>
+              <div>
+                <p className={styles.cardTitle}>D+1 준비 현황</p>
+                <p className={styles.cardMeta}>30분마다 새로고침 · {formatTimeLabel(tomorrowUpdatedAt)}</p>
+              </div>
+              <span className={styles.badgeSoft}>배치 모니터링</span>
+            </div>
+            <div className={styles.progressList}>
+              {todayProgress.map((row, index) => (
+                <div key={row.sector} className={styles.progressRow}>
+                  <div className={styles.rowTop}>
+                    <span className={styles.rowLabel}>{row.sector}</span>
+                    <span className={styles.rowValue}>빌딩 {row.buildings.length}개 · 총 {row.total}건</span>
+                  </div>
+                  <div className={styles.progressBar}>
+                    {row.buildings.map((building, idx) => {
+                      const width = (building.total / row.total) * 100;
+                      return (
+                        <div
+                          key={`${building.name}-${idx}`}
+                          className={styles.progressSegment}
+                          style={{ width: `${width}%`, backgroundColor: barPalette[(index + idx) % barPalette.length] }}
+                          title={`${building.name} ${building.total}건`}
+                        >
+                          {width > 14 ? `${building.name} ${building.total}` : ''}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className={`${styles.workCard} ${!isTodayDominant ? styles.dominantCard : styles.compactCard}`}>
-          <div className={styles.cardHeader}>
-            <h2 className={styles.cardTitle}>D+1 준비 현황</h2>
-            <span className={styles.cardMeta}>30분마다 새로고침 · {formatTimeLabel(tomorrowUpdatedAt)}</span>
-          </div>
-          <div className={styles.progressList}>
-            {todayProgress.map((row, index) => (
-              <div key={row.sector} className={styles.progressRow}>
-                <div className={styles.rowTop}>
-                  <span className={styles.rowLabel}>{row.sector}</span>
-                  <span className={styles.rowValue}>빌딩 {row.buildings.length}개 · 총 {row.total}건</span>
+              ))}
+            </div>
+            <div className={styles.applyList}>
+              {tomorrowApply.map((row) => (
+                <div key={row.title} className={styles.applyRow}>
+                  <div className={styles.applyMeta}>
+                    <span className={styles.applyTitle}>{row.title}</span>
+                    <span className={styles.applySubtitle}>{row.subtitle}</span>
+                  </div>
+                  <span className={styles.applyBadge}>{row.status}</span>
                 </div>
-                <div className={styles.progressBar}>
-                  {row.buildings.map((building, idx) => {
-                    const width = (building.total / row.total) * 100;
-                    return (
-                      <div
-                        key={`${building.name}-${idx}`}
-                        className={styles.progressSegment}
-                        style={{ width: `${width}%`, backgroundColor: barPalette[(index + idx) % barPalette.length] }}
-                        title={`${building.name} ${building.total}건`}
-                      >
-                        {width > 14 ? `${building.name} ${building.total}` : ''}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className={styles.applyList}>
-            {tomorrowApply.map((row) => (
-              <div key={row.title} className={styles.applyRow}>
-                <div className={styles.applyMeta}>
-                  <span className={styles.applyTitle}>{row.title}</span>
-                  <span className={styles.applySubtitle}>{row.subtitle}</span>
-                </div>
-                <span className={styles.applyBadge}>{row.status}</span>
-              </div>
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );
