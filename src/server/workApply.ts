@@ -3,6 +3,7 @@ import { alias } from 'drizzle-orm/mysql-core';
 
 import { db } from '@/src/db/client';
 import { etcBaseCode, etcBuildings, workApply, workerHeader } from '@/src/db/schema';
+import { resolveWebActor, withInsertAuditFields } from '@/src/server/audit';
 
 const applicantWorker = alias(workerHeader, 'applyWorker');
 
@@ -58,7 +59,7 @@ export async function createApplySlot({
   sectorCode: string;
   sectorValue: string;
   position: 1 | 2;
-}) {
+}, actor = resolveWebActor()) {
   const date = new Date(`${workDate}T00:00:00Z`);
   if (Number.isNaN(date.getTime())) {
     throw new Error('잘못된 날짜 형식입니다.');
@@ -77,14 +78,21 @@ export async function createApplySlot({
     throw new Error('슬롯 번호가 최대치를 초과했습니다. 다른 섹터를 선택해 주세요.');
   }
 
-  const result = await db.insert(workApply).values({
-    workDate: date,
-    sectorCode,
-    sectorValue,
-    position,
-    seq: nextSeq,
-    workerId: null
-  });
+  const result = await db
+    .insert(workApply)
+    .values(
+      withInsertAuditFields(
+        {
+          workDate: date,
+          sectorCode,
+          sectorValue,
+          position,
+          seq: nextSeq,
+          workerId: null
+        },
+        actor
+      )
+    );
 
   const insertedId = (result as { insertId?: number }).insertId ?? null;
   return { id: insertedId, seq: nextSeq, storedDate: date.toISOString().slice(0, 10) };
