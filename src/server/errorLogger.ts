@@ -1,5 +1,6 @@
 import { db } from '@/src/db/client';
 import { etcErrorLogs } from '@/src/db/schema';
+import { resolveWebActor, withInsertAuditFields } from '@/src/server/audit';
 import { logError as fileLogError } from '@/src/server/logger';
 
 function sanitizeContext(context: Record<string, unknown> | null): Record<string, unknown> | null {
@@ -46,20 +47,25 @@ export async function logEtcError({
   userId = null,
   requestId = null,
   appName = 'web'
-}: LogPayload): Promise<void> {
+}: LogPayload, actor = resolveWebActor()): Promise<void> {
   const contextJson = sanitizeContext(context);
 
   try {
-    await db.insert(etcErrorLogs).values({
-      level,
-      appName,
-      errorCode: errorCode ?? null,
-      message: message.slice(0, 500),
-      stacktrace: stacktrace ?? null,
-      requestId: requestId ?? null,
-      userId: userId ?? null,
-      contextJson
-    });
+    await db.insert(etcErrorLogs).values(
+      withInsertAuditFields(
+        {
+          level,
+          appName,
+          errorCode: errorCode ?? null,
+          message: message.slice(0, 500),
+          stacktrace: stacktrace ?? null,
+          requestId: requestId ?? null,
+          userId: userId ?? null,
+          contextJson
+        },
+        actor
+      )
+    );
   } catch (error) {
     console.error('errorLogs 저장 실패', error);
     // Ensure the failure is still recorded in the file logger for visibility.
