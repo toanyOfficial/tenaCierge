@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, or } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import { workHeader, workReports, workerHeader } from '@/src/db/schema';
+import { withInsertAuditFields, withUpdateAuditFields } from '@/src/server/audit';
 import { logServerError } from '@/src/server/errorLogger';
 import { findWorkerByProfile } from '@/src/server/workers';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
@@ -25,6 +26,7 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
     const isAdmin = profile.roles.includes('admin');
     const isButler = profile.roles.includes('butler');
     const isCleaner = profile.roles.includes('cleaner');
+    const auditActor = profile.registerNo;
 
     const workRows = await db
       .select({
@@ -87,12 +89,14 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
         [3, 5].forEach((type) => {
           const payload = latestByType.get(type);
           if (payload) {
-            rowsToInsert.push({
-              workId,
-              type,
-              contents1: payload.contents1,
-              contents2: payload.contents2
-            });
+            rowsToInsert.push(
+              withInsertAuditFields({
+                workId,
+                type,
+                contents1: payload.contents1,
+                contents2: payload.contents2
+              }, auditActor)
+            );
           }
         });
 
@@ -102,7 +106,7 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
 
         await tx
           .update(workHeader)
-          .set({
+          .set(withUpdateAuditFields({
             cleanerId: null,
             butlerId: null,
             manualUptYn: true,
@@ -111,7 +115,7 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
             cleaningEndTime: nowTime,
             supervisingYn: true,
             supervisingEndTime: nowTime
-          })
+          }, auditActor))
           .where(eq(workHeader.id, workId));
       });
 
@@ -230,10 +234,12 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
 
   updates.manualUptYn = true;
 
-  await db.update(workHeader).set(updates).where(eq(workHeader.id, workId));
+  const auditedUpdates = withUpdateAuditFields(updates, auditActor);
+
+  await db.update(workHeader).set(auditedUpdates).where(eq(workHeader.id, workId));
 
   if (shouldRecordCleaningStart) {
-    await upsertCleaningWorkReport(workId, { field: 'contents1', key: 'start_dttm' });
+    await upsertCleaningWorkReport(workId, { field: 'contents1', key: 'start_dttm' }, auditActor);
   }
 
   const refreshed = await db
@@ -275,7 +281,8 @@ function clamp(value: number, min: number, max: number) {
 
 async function upsertCleaningWorkReport(
   workId: number,
-  options: { field: 'contents1' | 'contents2'; key: 'start_dttm' | 'end_dttm' }
+  options: { field: 'contents1' | 'contents2'; key: 'start_dttm' | 'end_dttm' },
+  auditActor: string
 ) {
   const now = nowKst().toISO();
 
@@ -299,7 +306,7 @@ async function upsertCleaningWorkReport(
       contents2: options.field === 'contents2' ? { [options.key]: now } : null
     };
 
-    await db.insert(workReports).values(payload);
+    await db.insert(workReports).values(withInsertAuditFields(payload, auditActor));
     return;
   }
 
@@ -317,7 +324,10 @@ async function upsertCleaningWorkReport(
   }
 
   if (Object.keys(updates).length) {
-    await db.update(workReports).set(updates).where(eq(workReports.id, target.id));
+    await db
+      .update(workReports)
+      .set(withUpdateAuditFields(updates, auditActor))
+      .where(eq(workReports.id, target.id));
   }
 }
 
