@@ -326,7 +326,9 @@ async function buildButlerSnapshot(
       etcBaseCode,
       and(eq(etcBaseCode.codeGroup, etcBuildings.sectorCode), eq(etcBaseCode.code, etcBuildings.sectorValue))
     )
-    .where(and(eq(workHeader.date, targetDateValue), eq(workHeader.cleaningYn, true)));
+    .where(
+      and(eq(workHeader.date, targetDateValue), eq(workHeader.cleaningYn, true), eq(workHeader.cancelYn, false))
+    );
 
   const normalizedWorks = works.map((work) => {
     const sectorLabel = work.sectorLabel ?? work.sectorValue ?? work.sectorCode ?? '미지정 섹터';
