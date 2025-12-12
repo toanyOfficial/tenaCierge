@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 
 import { db } from '@/src/db/client';
 import { workHeader, workImagesList, workImagesSetDetail, workReports } from '@/src/db/schema';
+import { withInsertAuditFields, withUpdateAuditFields } from '@/src/server/audit';
 import { KST } from '@/src/lib/time';
 import { logServerError } from '@/src/server/errorLogger';
 import { processImageUploads, UploadError } from '@/src/server/imageUpload';
@@ -118,7 +119,9 @@ export async function POST(req: Request) {
 
     await db.delete(workReports).where(and(eq(workReports.workId, workId), eq(workReports.type, 7)));
     if (images.length) {
-      await db.insert(workReports).values({ workId, type: 7, contents1: images });
+      await db
+        .insert(workReports)
+        .values(withInsertAuditFields({ workId, type: 7, contents1: images }, profile.registerNo));
     }
 
     const nowKst = getKstNow();
@@ -132,7 +135,7 @@ export async function POST(req: Request) {
 
     await db
       .update(workHeader)
-      .set({ supervisingYn: true, supervisingEndTime: nowTime })
+      .set(withUpdateAuditFields({ supervisingYn: true, supervisingEndTime: nowTime }, profile.registerNo))
       .where(eq(workHeader.id, workId));
 
     return NextResponse.json({ ok: true, images, supervisingEndTime: nowTime });
