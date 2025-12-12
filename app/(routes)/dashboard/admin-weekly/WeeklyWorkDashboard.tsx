@@ -267,7 +267,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
           <section
             className={`${styles.workCard} ${
               isTodayDominant ? styles.dominantCard : styles.compactCard
-            }`}
+            } ${styles.todayCard}`}
           >
             <div className={styles.cardHeader}>
               <div>

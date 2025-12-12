@@ -159,6 +159,11 @@
   overflow: hidden;
 }
 
+.todayCard {
+  grid-template-rows: auto auto 1fr;
+  row-gap: 6px;
+}
+
 .cardHeader {
   display: flex;
   align-items: center;
