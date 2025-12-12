@@ -444,6 +444,8 @@
 .statusSupplyOff,
 .statusAssignOff,
 .statusCleaningIdle,
+.statusCleaningProgress,
+.statusCleaningNearDone,
 .statusInspectOff {
   background: var(--border);
   color: #334155;
@@ -457,6 +459,16 @@
   background: #2563eb;
   border-color: #1d4ed8;
   color: #f8fafc;
+}
+
+.statusCleaningProgress {
+  background: #bfdbfe;
+  color: var(--text-strong);
+}
+
+.statusCleaningNearDone {
+  background: #60a5fa;
+  color: #0f172a;
 }
 
 .statusAssignNoShow {

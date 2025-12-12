@@ -24,28 +24,34 @@ const roomSteps = [
     key: 'assign' as const,
     label: '배',
     resolveClassName: (room: RoomStatus) =>
-      room.supplyComplete ? styles.statusSupplyOn : styles.statusSupplyOff
+      room.supplyYn ? styles.statusSupplyOn : styles.statusSupplyOff
   },
   {
     key: 'charge' as const,
     label: '담',
     resolveClassName: (room: RoomStatus) => {
-      const isNoShow = !room.assigned && room.supplyComplete && room.cleaningComplete && room.inspected;
+      const cleaningDone = (room.cleaningFlag ?? 1) >= 4;
+      const isNoShow = !room.cleanerId && room.supplyYn && cleaningDone && room.supervisingYn;
       if (isNoShow) return styles.statusAssignNoShow;
-      return room.assigned ? styles.statusAssignOn : styles.statusAssignOff;
+      return room.cleanerId ? styles.statusAssignOn : styles.statusAssignOff;
     }
   },
   {
     key: 'clean' as const,
     label: '청',
-    resolveClassName: (room: RoomStatus) =>
-      room.cleaningComplete ? styles.statusCleaningDone : styles.statusCleaningIdle
+    resolveClassName: (room: RoomStatus) => {
+      const flag = room.cleaningFlag ?? 1;
+      if (flag >= 4) return styles.statusCleaningDone;
+      if (flag === 3) return styles.statusCleaningNearDone;
+      if (flag === 2) return styles.statusCleaningProgress;
+      return styles.statusCleaningIdle;
+    }
   },
   {
     key: 'inspect' as const,
     label: '검',
     resolveClassName: (room: RoomStatus) =>
-      room.inspected ? styles.statusInspectOn : styles.statusInspectOff
+      room.supervisingYn ? styles.statusInspectOn : styles.statusInspectOff
   }
 ];
 
@@ -81,10 +87,10 @@ type RoomStatus = {
   room: string;
   sector: string;
   building: string;
-  supplyComplete: boolean;
-  assigned: boolean;
-  cleaningComplete: boolean;
-  inspected: boolean;
+  supplyYn: boolean;
+  cleanerId: number | null;
+  cleaningFlag: number | null;
+  supervisingYn: boolean;
   owner: string;
 };
 
