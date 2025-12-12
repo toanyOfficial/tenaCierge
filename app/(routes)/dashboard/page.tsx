@@ -357,6 +357,33 @@ async function buildButlerSnapshot(
     buildingTotals.set(buildingKey, (buildingTotals.get(buildingKey) ?? 0) + 1);
   });
 
+  const buildingOrder = new Map<string, Map<string, number>>();
+  const sectorKeys = new Set<string>();
+  normalizedWorks.forEach((work) => {
+    sectorKeys.add(`${work.sectorCode ?? work.sectorLabel}`);
+  });
+
+  sectorKeys.forEach((sectorKey) => {
+    const buildingsInSector = Array.from(buildingTotals.entries())
+      .filter(([key]) => key.startsWith(`${sectorKey}::`))
+      .map(([key, count]) => ({
+        buildingName: key.split('::')[1] ?? '',
+        total: count
+      }))
+      .sort((a, b) => {
+        if (a.total === b.total) {
+          return a.buildingName.localeCompare(b.buildingName, 'ko');
+        }
+        return b.total - a.total;
+      });
+
+    const rankMap = new Map<string, number>();
+    buildingsInSector.forEach((building, index) => {
+      rankMap.set(building.buildingName, index);
+    });
+    buildingOrder.set(sectorKey, rankMap);
+  });
+
   const cleaningWorks = normalizedWorks;
 
   const sectorGroups = new Map<
@@ -444,17 +471,12 @@ async function buildButlerSnapshot(
       return sectorDiff;
     }
 
-    const buildingKeyA = `${a.sectorCode ?? a.sectorLabel}::${a.buildingName}`;
-    const buildingKeyB = `${b.sectorCode ?? b.sectorLabel}::${b.buildingName}`;
-    const buildingTotalA = buildingTotals.get(buildingKeyA) ?? 0;
-    const buildingTotalB = buildingTotals.get(buildingKeyB) ?? 0;
-    if (buildingTotalA !== buildingTotalB) {
-      return buildingTotalB - buildingTotalA;
-    }
-
-    const buildingNameDiff = a.buildingName.localeCompare(b.buildingName, 'ko');
-    if (buildingNameDiff !== 0) {
-      return buildingNameDiff;
+    const sectorKey = `${a.sectorCode ?? a.sectorLabel}`;
+    const buildingRank = buildingOrder.get(sectorKey);
+    const buildingRankA = buildingRank?.get(a.buildingName) ?? Number.MAX_SAFE_INTEGER;
+    const buildingRankB = buildingRank?.get(b.buildingName) ?? Number.MAX_SAFE_INTEGER;
+    if (buildingRankA !== buildingRankB) {
+      return buildingRankA - buildingRankB;
     }
 
     return b.roomNo.localeCompare(a.roomNo, 'ko', { numeric: true, sensitivity: 'base' });
