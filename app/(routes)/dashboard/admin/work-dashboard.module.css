@@ -180,8 +180,8 @@
 .stackedBarShell {
   position: relative;
   width: 100%;
-  padding-top: 18px;
-  padding-bottom: 12px;
+  padding-top: 26px;
+  padding-bottom: 20px;
   margin-bottom: 0;
   height: auto;
   min-height: auto;
@@ -259,11 +259,11 @@
 
 
 .overlayTop {
-  top: 0;
+  top: 2px;
 }
 
 .overlayBottom {
-  bottom: 0;
+  bottom: 2px;
   flex-wrap: wrap;
 }
 
