@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { db } from '@/src/db/client';
 import { workHeader } from '@/src/db/schema';
+import { withInsertAuditFields } from '@/src/server/audit';
 import { findClientByProfile } from '@/src/server/clients';
 import { logServerError } from '@/src/server/errorLogger';
 import { fetchLatestWorkByDateAndRoom, fetchRoomMeta, fetchWorkRowById, serializeWorkRow } from '@/src/server/workQueries';
@@ -117,7 +118,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const insertPayload = buildInsertPayload(insertDate, roomMeta.roomId, validation.values);
+    const insertPayload = withInsertAuditFields(
+      buildInsertPayload(insertDate, roomMeta.roomId, validation.values),
+      profile.registerNo
+    );
 
     const result = await db.insert(workHeader).values(insertPayload);
     const insertIdValue = extractInsertId(result);
