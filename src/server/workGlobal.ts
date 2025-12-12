@@ -3,7 +3,7 @@ import { alias } from 'drizzle-orm/mysql-core';
 
 import { db } from '@/src/db/client';
 import { clientRooms, etcBaseCode, etcBuildings, workGlobalDetail, workGlobalHeader } from '@/src/db/schema';
-import { resolveWebActor, withUpdateAuditFields } from '@/src/server/audit';
+import { resolveWebActor, withInsertAuditFields, withUpdateAuditFields } from '@/src/server/audit';
 import { formatKstDateKey, nowKst } from '@/src/lib/time';
 
 export type WorkGlobalHeaderRecord = {
@@ -119,7 +119,7 @@ export async function getWorkGlobalHeader(id: number) {
   return row ? mapHeaderRow(row) : null;
 }
 
-export async function createWorkGlobalHeader(payload: HeaderPayload) {
+export async function createWorkGlobalHeader(payload: HeaderPayload, actor = resolveWebActor()) {
   const startDate = parseDate(payload.startDate);
   if (!startDate) {
     throw new Error('시작일을 입력해 주세요.');
@@ -127,16 +127,21 @@ export async function createWorkGlobalHeader(payload: HeaderPayload) {
 
   const endDate = parseDate(payload.endDate);
 
-  const result = await db.insert(workGlobalHeader).values({
-    emoji: payload.emoji ?? null,
-    title: payload.title,
-    dscpt: payload.dscpt,
-    startDate,
-    endDate,
-    remainQty: payload.remainQty,
-    closedYn: payload.closedYn,
-    comment: payload.comment ?? null
-  });
+  const result = await db.insert(workGlobalHeader).values(
+    withInsertAuditFields(
+      {
+        emoji: payload.emoji ?? null,
+        title: payload.title,
+        dscpt: payload.dscpt,
+        startDate,
+        endDate,
+        remainQty: payload.remainQty,
+        closedYn: payload.closedYn,
+        comment: payload.comment ?? null
+      },
+      actor
+    )
+  );
 
   const insertedId = (result as { insertId?: number }).insertId ?? null;
   if (!insertedId) {
@@ -269,7 +274,7 @@ export async function fetchWorkGlobalReport(workGlobalId: number): Promise<WorkG
   };
 }
 
-export async function markWorkGlobalDetailComplete(workGlobalId: number, roomId: number) {
+export async function markWorkGlobalDetailComplete(workGlobalId: number, roomId: number, actor = resolveWebActor()) {
   const header = await getWorkGlobalHeader(workGlobalId);
   if (!header) {
     throw new Error('대상 업무를 찾을 수 없습니다.');
@@ -288,7 +293,7 @@ export async function markWorkGlobalDetailComplete(workGlobalId: number, roomId:
   const now = nowKst().toJSDate();
   await db
     .insert(workGlobalDetail)
-    .values({ workGlobalId, roomId, createdAt: now, updatedAt: now });
+    .values(withInsertAuditFields({ workGlobalId, roomId, createdAt: now, updatedAt: now }, actor));
 
   return formatKstDateKey(now);
 }

@@ -18,7 +18,7 @@ import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { fetchWorkRowById } from '@/src/server/workQueries';
 import { processImageUploads, UploadError } from '@/src/server/imageUpload';
 import { getKstNow } from '@/src/utils/workWindow';
-import { withUpdateAuditFields } from '@/src/server/audit';
+import { withInsertAuditFields, withUpdateAuditFields } from '@/src/server/audit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -158,20 +158,30 @@ export async function POST(req: Request) {
 
     const validSupplyChecks = supplyChecks.filter((id) => supplyChecklistRows.some((row) => row.id === id));
 
-    rowsToInsert.push({
-      workId,
-      type: 4,
-      contents1: { findings: supervisingFindings, completion: supervisingCompletion },
-      contents2: supervisingComment ?? null
-    });
+    rowsToInsert.push(
+      withInsertAuditFields(
+        {
+          workId,
+          type: 4,
+          contents1: { findings: supervisingFindings, completion: supervisingCompletion },
+          contents2: supervisingComment ?? null
+        },
+        auditActor
+      )
+    );
 
     if (validSupplyChecks.length || hasSupplyNotes(supplyNotes)) {
-      rowsToInsert.push({
-        workId,
-        type: 2,
-        contents1: validSupplyChecks,
-        contents2: hasSupplyNotes(supplyNotes) ? supplyNotes : null
-      });
+      rowsToInsert.push(
+        withInsertAuditFields(
+          {
+            workId,
+            type: 2,
+            contents1: validSupplyChecks,
+            contents2: hasSupplyNotes(supplyNotes) ? supplyNotes : null
+          },
+          auditActor
+        )
+      );
     }
 
     if (imageMap.size) {
@@ -179,7 +189,7 @@ export async function POST(req: Request) {
       // NOTE:
       //  - contents1: canonical slotId→url 매핑
       //  - contents2: legacy 호환을 위해 동일한 값을 중복 저장(과거 클라이언트가 contents2를 참조)
-      rowsToInsert.push({ workId, type: 5, contents1: images, contents2: images });
+      rowsToInsert.push(withInsertAuditFields({ workId, type: 5, contents1: images, contents2: images }, auditActor));
     }
 
     const targetTypes = [4, 2, 5];
@@ -207,14 +217,17 @@ export async function POST(req: Request) {
         const checklistPointSum = scoredIds.reduce((sum, id) => sum + (scoreMap.get(id) ?? 0), 0);
 
         if (targetWork.cleanerId) {
-          const evaluationPayload = {
-            workerId: targetWork.cleanerId,
-            evaluatedAt: new Date(),
-            workId,
-            checklistTitleArray: scoredIds,
-            checklistPointSum,
-            comment: '수퍼바이징 결과'
-          };
+          const evaluationPayload = withInsertAuditFields(
+            {
+              workerId: targetWork.cleanerId,
+              evaluatedAt: new Date(),
+              workId,
+              checklistTitleArray: scoredIds,
+              checklistPointSum,
+              comment: '수퍼바이징 결과'
+            },
+            auditActor
+          );
 
           const existingHistory = await tx
             .select({ id: workerEvaluateHistory.id })

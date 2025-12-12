@@ -102,8 +102,8 @@ def log_batch_execution(
             cur.execute(
                 """
                 INSERT INTO etc_errorLogs_batch
-                    (app_name, start_dttm, end_dttm, end_flag, context_json)
-                VALUES (%s, %s, %s, %s, %s)
+                    (app_name, start_dttm, end_dttm, end_flag, context_json, created_by, updated_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     app_name,
@@ -111,6 +111,8 @@ def log_batch_execution(
                     end_dttm,
                     end_flag,
                     json.dumps(context or {}, ensure_ascii=False),
+                    "BATCH",
+                    "BATCH",
                 ),
             )
         log_conn.commit()
@@ -276,7 +278,7 @@ def _persist_client_supplements(conn: mysql.connector.MySQLConnection, run_date:
             if description is None:
                 description = ""
 
-            inserts.append((room_id, run_date, next_date, title, description))
+            inserts.append((room_id, run_date, next_date, title, description, "BATCH", "BATCH"))
 
     if not inserts:
         logging.info("적재할 공급품 데이터가 없음(run_date=%s)", run_date)
@@ -288,8 +290,8 @@ def _persist_client_supplements(conn: mysql.connector.MySQLConnection, run_date:
         cur.execute("DELETE FROM client_supplements WHERE date = %s", (run_date,))
         cur.executemany(
             """
-            INSERT INTO client_supplements (room_id, date, next_date, title, dscpt)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO client_supplements (room_id, date, next_date, title, dscpt, created_by, updated_by)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
             inserts,
         )
@@ -379,8 +381,8 @@ class CleanerRankingBatch:
                 cur.execute(
                     """
                     INSERT INTO worker_evaluateHistory
-                        (worker_id, evaluate_dttm, work_id, checklist_title_array, checklist_point_sum, comment)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                        (worker_id, evaluate_dttm, work_id, checklist_title_array, checklist_point_sum, comment, created_by, updated_by)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         worker_id,
@@ -389,6 +391,8 @@ class CleanerRankingBatch:
                         checklist_json,
                         75,
                         bonus_label,
+                        "BATCH",
+                        "BATCH",
                     ),
                 )
         logging.info("버틀러 근무 가산점 부여: %s명", len(targets))
@@ -634,8 +638,14 @@ class CleanerRankingBatch:
         if "comment" in additional_columns:
             insert_columns.append("comment")
 
+        insert_columns.append("created_by")
+        insert_columns.append("updated_by")
+
         placeholders_insert = ", ".join(["%s"] * len(insert_columns))
         columns_sql = ", ".join(insert_columns)
+        for entry in inserts:
+            entry["created_by"] = "BATCH"
+            entry["updated_by"] = "BATCH"
         values = [[entry.get(col) for col in insert_columns] for entry in inserts]
         with self.conn.cursor() as cur:
             cur.executemany(
@@ -1135,8 +1145,8 @@ class CleanerRankingBatch:
                 cur.execute(
                     """
                     INSERT INTO etc_errorLogs
-                        (level, app_name, error_code, message, stacktrace, request_id, user_id, context_json)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        (level, app_name, error_code, message, stacktrace, request_id, user_id, context_json, created_by, updated_by)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         level,
@@ -1150,6 +1160,8 @@ class CleanerRankingBatch:
                             {"target_date": str(self.target_date), **(context or {})},
                             ensure_ascii=False,
                         ),
+                        "BATCH",
+                        "BATCH",
                     ),
                 )
             log_conn.commit()

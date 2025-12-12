@@ -12,7 +12,7 @@ import { getKstNow } from '@/src/utils/workWindow';
 import type { ProfileSummary } from '@/src/utils/profile';
 import { getActivePenalty } from '@/src/server/penalties';
 import { logServerError } from '@/src/server/errorLogger';
-import { withUpdateAuditFields } from '@/src/server/audit';
+import { withInsertAuditFields, withUpdateAuditFields } from '@/src/server/audit';
 
 // Next.js route config (must be declared once)
 const routeConfig = { dynamic: 'force-dynamic' as const, revalidate: 0 as const };
@@ -210,14 +210,19 @@ async function handleCancel({ profile, slot, now, daysUntil, isButlerSlot, occup
       .set(withUpdateAuditFields({ workerId: null }, profile.registerNo))
       .where(eq(workApply.id, slot.id));
 
-    await tx.insert(workerEvaluateHistory).values({
-      workerId: occupantId,
-      evaluatedAt: now,
-      workId: slot.id,
-      checklistTitleArray: checklist,
-      checklistPointSum: penalty,
-      comment: PENALTY_COMMENT
-    });
+    await tx.insert(workerEvaluateHistory).values(
+      withInsertAuditFields(
+        {
+          workerId: occupantId,
+          evaluatedAt: now,
+          workId: slot.id,
+          checklistTitleArray: checklist,
+          checklistPointSum: penalty,
+          comment: PENALTY_COMMENT
+        },
+        profile.registerNo
+      )
+    );
   });
 
   return NextResponse.json({ message: '신청이 취소되었습니다.' });

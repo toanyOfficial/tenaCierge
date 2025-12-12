@@ -572,8 +572,9 @@ function withManualFlag(table: string, data: Record<string, unknown>) {
   return data;
 }
 
-export async function insertRow(table: string, data: Record<string, unknown>) {
+export async function insertRow(table: string, data: Record<string, unknown>, actor = resolveWebActor()) {
   const columns = await fetchColumnMetadata(table);
+  const columnNames = new Set(columns.map((column) => column.name));
 
   if (table === 'client_additional_price') {
     const hasSeq = data.seq !== undefined && data.seq !== null && data.seq !== '';
@@ -593,7 +594,25 @@ export async function insertRow(table: string, data: Record<string, unknown>) {
   }
 
   const normalized = withManualFlag(table, data);
-  const { names, values } = buildInsertParts(normalized, columns);
+  const payload = { ...normalized };
+
+  if ('created_by' in payload) {
+    delete payload.created_by;
+  }
+
+  if ('updated_by' in payload) {
+    delete payload.updated_by;
+  }
+
+  if (columnNames.has('created_by')) {
+    payload.created_by = actor;
+  }
+
+  if (columnNames.has('updated_by')) {
+    payload.updated_by = actor;
+  }
+
+  const { names, values } = buildInsertParts(payload, columns);
 
   if (names.length === 0) {
     throw new Error('입력할 컬럼이 없습니다.');
