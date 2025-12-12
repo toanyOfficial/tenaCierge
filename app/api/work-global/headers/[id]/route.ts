@@ -39,7 +39,7 @@ export async function PUT(req: Request, { params }: RouteContext) {
       return NextResponse.json({ message: '필수 입력값을 확인해 주세요.' }, { status: 400 });
     }
 
-    const headers = await updateWorkGlobalHeader(id, payload);
+    const headers = await updateWorkGlobalHeader(id, payload, profile.registerNo);
     return NextResponse.json({ headers });
   } catch (error) {
     await logServerError({ appName: 'work-global-headers', message: '전수작업 헤더 수정 실패', error });
