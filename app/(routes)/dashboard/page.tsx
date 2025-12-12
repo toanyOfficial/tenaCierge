@@ -58,6 +58,7 @@ export type ButlerBuildingSummary = {
 
 export type ButlerSectorSummary = {
   sectorLabel: string;
+  sectorCode: number | null;
   totalWorkers: number;
   buildings: ButlerBuildingSummary[];
 };
@@ -393,6 +394,7 @@ async function buildButlerSnapshot(
     string,
     {
       label: string;
+      sectorCode: number | null;
       totalWorkers: number;
       buildings: Map<
         string,
@@ -405,8 +407,9 @@ async function buildButlerSnapshot(
     }
   >();
 
-  cleaningWorks.forEach((work) => {
+  normalizedWorks.forEach((work) => {
     const sectorKey = `${work.sectorCode ?? work.sectorLabel ?? ''}`;
+    const buildingKey = work.buildingName ?? '';
     if (!sectorGroups.has(sectorKey)) {
       sectorGroups.set(sectorKey, {
         label: work.sectorLabel ?? '',
@@ -419,15 +422,15 @@ async function buildButlerSnapshot(
     const sectorGroup = sectorGroups.get(sectorKey)!;
     sectorGroup.totalWorkers += 1;
 
-    if (!sectorGroup.buildings.has(work.buildingName)) {
-      sectorGroup.buildings.set(work.buildingName, {
-        label: work.buildingName,
+    if (!sectorGroup.buildings.has(buildingKey)) {
+      sectorGroup.buildings.set(buildingKey, {
+        label: buildingKey,
         totalWorkers: 0,
         checkoutGroups: new Map()
       });
     }
 
-    const buildingGroup = sectorGroup.buildings.get(work.buildingName)!;
+    const buildingGroup = sectorGroup.buildings.get(buildingKey)!;
     buildingGroup.totalWorkers += 1;
 
     const minutesKey = work.checkoutMinutes;
@@ -440,9 +443,10 @@ async function buildButlerSnapshot(
   });
 
   const sectorSummaries: ButlerSectorSummary[] = Array.from(sectorGroups.values())
-    .sort((a, b) => compareSectorByCode(a.sectorCode ?? null, b.sectorCode ?? null, a.label, b.label))
+    .sort((a, b) => compareSectorByCode(a.sectorCode, b.sectorCode, a.label, b.label))
     .map((sector) => ({
       sectorLabel: sector.label,
+      sectorCode: sector.sectorCode,
       totalWorkers: sector.totalWorkers,
       buildings: Array.from(sector.buildings.values())
         .sort((a, b) => {
