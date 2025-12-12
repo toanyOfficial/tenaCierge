@@ -16,7 +16,8 @@ function formatDateLabel(date: string) {
   return `${date}(${weekday})`;
 }
 
-const barPalette = ['#dbeafe', '#bfdbfe', '#93c5fd', '#60a5fa', '#3b82f6', '#2563eb'];
+const sectorPalette = ['#60a5fa', '#22d3ee', '#a78bfa', '#f472b6', '#fbbf24', '#34d399', '#f97316', '#38bdf8'];
+const buildingPalette = ['#0ea5e9', '#22c55e', '#a855f7', '#f97316', '#eab308', '#06b6d4'];
 
 const roomStatusMap = {
   assign: { label: '배', className: styles.statusAssign },
@@ -42,6 +43,8 @@ type StackedSegment = {
   completedWidth: number;
   color: string;
   sector: string;
+  total: number;
+  completed: number;
 };
 
 type RoomStatus = {
@@ -74,28 +77,28 @@ type DashboardSnapshot = {
 };
 
 function renderProgressRow(row: SectorProgress, index: number) {
-  const percent = row.total ? (row.completed / row.total) * 100 : 0;
-  return (
-    <div key={`${row.sector}-${index}`} className={styles.progressRow}>
-      <div className={styles.rowTop}>
-        <span className={styles.rowLabel}>{row.sector}</span>
+    const percent = row.total ? (row.completed / row.total) * 100 : 0;
+    return (
+      <div key={`${row.sector}-${index}`} className={styles.progressRow}>
+        <div className={styles.rowTop}>
+          <span className={styles.rowLabel}>{row.sector}</span>
         <span className={styles.rowValue}>
           {row.completed} / {row.total} 완료
         </span>
       </div>
-      <div className={styles.progressBar}>
-        {row.buildings.map((building, idx) => {
-          const width = row.total ? (building.total / row.total) * 100 : 0;
-          return (
-            <div
-              key={`${building.name}-${idx}`}
-              className={styles.progressSegment}
-              style={{ width: `${width}%`, backgroundColor: barPalette[(index + idx) % barPalette.length] }}
-              title={`${building.name} ${building.completed}/${building.total}`}
-            >
-              {width > 12 ? building.name : ''}
-            </div>
-          );
+        <div className={styles.progressBar}>
+          {row.buildings.map((building, idx) => {
+            const width = row.total ? (building.total / row.total) * 100 : 0;
+            return (
+              <div
+                key={`${building.name}-${idx}`}
+                className={styles.progressSegment}
+                style={{ width: `${width}%`, backgroundColor: buildingPalette[(index + idx) % buildingPalette.length] }}
+                title={`${building.name} ${building.completed}/${building.total}`}
+              >
+                {width > 12 ? building.name : ''}
+              </div>
+            );
         })}
         <span className={styles.progressMarker} style={{ left: `${percent}%` }} />
       </div>
@@ -125,20 +128,32 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
 
   const todayStacked: StackedSegment[] = useMemo(() => {
     if (todayTotal === 0) return [] as StackedSegment[];
+
+    const sectorColorMap = new Map<string, string>();
+    const getSectorColor = (code: string, index: number) => {
+      if (sectorColorMap.has(code)) return sectorColorMap.get(code)!;
+      const color = sectorPalette[index % sectorPalette.length];
+      sectorColorMap.set(code, color);
+      return color;
+    };
+
     const sortedSectors = [...todayProgress].sort((a, b) => a.code.localeCompare(b.code));
     return sortedSectors.flatMap((sector, sectorIdx) => {
       const sortedBuildings = [...sector.buildings].sort((a, b) => a.name.localeCompare(b.name));
+      const sectorColor = getSectorColor(sector.code, sectorIdx);
       return sortedBuildings.map((building, idx) => {
         const width = todayTotal ? (building.total / todayTotal) * 100 : 0;
         const completedWidth = building.total ? (building.completed / building.total) * 100 : 0;
-        const paletteIndex = (sectorIdx + idx) % barPalette.length;
+        const shade = `${sectorColor}e6`;
         return {
           key: `${sector.code}-${building.name}`,
           label: `${sector.code}·${building.name}`,
           width,
           completedWidth,
-          color: barPalette[paletteIndex],
-          sector: sector.sector
+          color: shade,
+          sector: sector.sector,
+          total: building.total,
+          completed: building.completed
         };
       });
     });
@@ -247,11 +262,20 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                       <div
                         key={segment.key}
                         className={styles.stackedSegment}
-                        style={{ width: `${segment.width}%`, backgroundColor: segment.color }}
+                        style={{
+                          width: `${segment.width}%`,
+                          background: `linear-gradient(120deg, ${segment.color} 0%, ${segment.color.replace(/e6$/i, 'ff')} 85%)`
+                        }}
                         title={`${segment.label} ${segment.width.toFixed(1)}%`}
                       >
                         <div className={styles.segmentProgress} style={{ width: `${segment.completedWidth}%` }} />
                         <span className={styles.segmentLabel}>{segment.label}</span>
+                        <div className={styles.segmentStats}>
+                          <span className={styles.segmentCount}>
+                            {segment.completed}/{segment.total}
+                          </span>
+                          <span className={styles.segmentPercent}>{segment.completedWidth.toFixed(0)}%</span>
+                        </div>
                       </div>
                     ))}
                   </div>
