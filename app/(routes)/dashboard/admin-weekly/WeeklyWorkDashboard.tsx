@@ -40,9 +40,14 @@ type StackedSegment = {
   key: string;
   label: string;
   width: number;
+  offset: number;
   completedWidth: number;
   color: string;
   sector: string;
+  sectorCode: string;
+  sectorTotal: number;
+  sectorCompleted: number;
+  isSectorHead: boolean;
   total: number;
   completed: number;
 };
@@ -138,25 +143,37 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
     };
 
     const sortedSectors = [...todayProgress].sort((a, b) => a.code.localeCompare(b.code));
-    return sortedSectors.flatMap((sector, sectorIdx) => {
+    const segments: StackedSegment[] = [];
+    let offset = 0;
+
+    sortedSectors.forEach((sector, sectorIdx) => {
       const sortedBuildings = [...sector.buildings].sort((a, b) => a.name.localeCompare(b.name));
       const sectorColor = getSectorColor(sector.code, sectorIdx);
-      return sortedBuildings.map((building, idx) => {
+
+      sortedBuildings.forEach((building, idx) => {
         const width = todayTotal ? (building.total / todayTotal) * 100 : 0;
         const completedWidth = building.total ? (building.completed / building.total) * 100 : 0;
         const shade = `${sectorColor}e6`;
-        return {
+        segments.push({
           key: `${sector.code}-${building.name}`,
           label: `${sector.code}·${building.name}`,
           width,
+          offset,
           completedWidth,
           color: shade,
           sector: sector.sector,
+          sectorCode: sector.code,
+          sectorTotal: sector.total,
+          sectorCompleted: sector.completed,
+          isSectorHead: idx === 0,
           total: building.total,
           completed: building.completed
-        };
+        });
+        offset += width;
       });
     });
+
+    return segments;
   }, [todayProgress, todayTotal]);
 
   useEffect(() => {
@@ -257,34 +274,45 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                 <div className={styles.emptyState}>오늘 등록된 업무가 없습니다.</div>
               ) : (
                 <>
-                  <div className={styles.stackedBar}>
-                    {todayStacked.map((segment) => (
-                      <div
-                        key={segment.key}
-                        className={styles.stackedSegment}
-                        style={{
-                          width: `${segment.width}%`,
-                          background: `linear-gradient(120deg, ${segment.color} 0%, ${segment.color.replace(/e6$/i, 'ff')} 85%)`
-                        }}
-                        title={`${segment.label} ${segment.width.toFixed(1)}%`}
-                      >
-                        <div className={styles.segmentProgress} style={{ width: `${segment.completedWidth}%` }} />
-                        <span className={styles.segmentLabel}>{segment.label}</span>
-                        <div className={styles.segmentStats}>
-                          <span className={styles.segmentCount}>
-                            {segment.completed}/{segment.total}
-                          </span>
-                          <span className={styles.segmentPercent}>{segment.completedWidth.toFixed(0)}%</span>
+                  <div className={styles.stackedBarShell}>
+                    <div className={styles.stackedBar}>
+                      {todayStacked.map((segment) => (
+                        <div
+                          key={segment.key}
+                          className={styles.stackedSegment}
+                          style={{
+                            width: `${segment.width}%`,
+                            background: `linear-gradient(120deg, ${segment.color} 0%, ${segment.color.replace(/e6$/i, 'ff')} 85%)`
+                          }}
+                          title={`${segment.label} ${segment.width.toFixed(1)}%`}
+                        >
+                          <div className={styles.segmentProgress} style={{ width: `${segment.completedWidth}%` }} />
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className={styles.segmentLegend}>
-                    {todayProgress.map((sector) => (
-                      <span key={sector.code} className={styles.legendPill}>
-                        {sector.code} {sector.completed}/{sector.total}
-                      </span>
-                    ))}
+                      ))}
+                      {todayStacked.map((segment) => (
+                        <div
+                          key={`${segment.key}-overlay`}
+                          className={styles.segmentOverlay}
+                          style={{ left: `${segment.offset}%`, width: `${segment.width}%` }}
+                        >
+                          <div className={styles.overlayTop}>
+                            <span className={styles.overlayLine} />
+                            <span className={styles.overlayPercent}>{segment.completedWidth.toFixed(0)}%</span>
+                          </div>
+                          <div className={styles.overlayBottom}>
+                            <span className={styles.overlayLine} />
+                            <span className={styles.overlayCount}>
+                              {segment.completed}/{segment.total}
+                            </span>
+                            {segment.isSectorHead ? (
+                              <span className={styles.overlaySector}>
+                                {segment.sector} {segment.sectorTotal}건
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </>
               )}
@@ -305,7 +333,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                         <div className={styles.statusButtonRow}>
                           {roomSteps.map((step) => {
                             const statusInfo = roomStatusMap[step];
-                            const active = room.status === step;
+                            const active = roomSteps.indexOf(step) <= roomSteps.indexOf(room.status);
                             return (
                               <button
                                 key={step}
