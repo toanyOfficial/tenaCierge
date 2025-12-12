@@ -1,4 +1,4 @@
-import { and, eq, gte, lte } from 'drizzle-orm';
+import { and, asc, eq, gte, isNotNull, lte } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import { clientRooms, etcBaseCode, etcBuildings, workHeader, workerHeader } from '@/src/db/schema';
@@ -22,10 +22,11 @@ type RawWorkRow = {
 export type WeeklySummaryItem = {
   day: string;
   date: string;
-  sectors: { name: string; count: number }[];
+  sectors: { code: string; name: string; count: number }[];
 };
 
 export type SectorProgress = {
+  code: string;
   sector: string;
   total: number;
   completed: number;
@@ -67,26 +68,30 @@ function resolveStatus(row: RawWorkRow): RoomStatus['status'] {
   return 'assign';
 }
 
-function mapSummary(rawRows: RawWorkRow[], baseDate: Date): WeeklySummaryItem[] {
+type SectorCatalog = { code: string; name: string }[];
+
+function mapSummary(rawRows: RawWorkRow[], baseDate: Date, sectorCatalog: SectorCatalog): WeeklySummaryItem[] {
   const days: WeeklySummaryItem[] = [];
   for (let i = 0; i < 8; i += 1) {
     const date = new Date(baseDate);
     date.setDate(baseDate.getDate() + i);
     const key = formatKstDateKey(date);
-    const sectors = new Map<string, number>();
 
+    const daily = sectorCatalog.map((sector) => ({ ...sector, count: 0 }));
     rawRows
       .filter((row) => formatKstDateKey(row.workDate) === key)
       .forEach((row) => {
         if (!row.sectorValue) return;
-        const label = row.sectorName || row.sectorValue;
-        sectors.set(label, (sectors.get(label) ?? 0) + 1);
+        const target = daily.find((sector) => sector.code === row.sectorValue);
+        if (target) {
+          target.count += 1;
+        }
       });
 
     days.push({
       day: `D${i}`,
       date: key,
-      sectors: Array.from(sectors.entries()).map(([name, count]) => ({ name, count }))
+      sectors: daily
     });
   }
   return days;
@@ -98,10 +103,12 @@ function mapDayProgress(rawRows: RawWorkRow[], targetKey: string): SectorProgres
 
   rows.forEach((row) => {
     if (!row.sectorValue) return;
-    const sectorLabel = row.sectorName || row.sectorValue;
+    const sectorCode = row.sectorValue;
+    const sectorLabel = row.sectorName || sectorCode;
     const buildingName = row.buildingShortName || '미지정';
-    const key = sectorLabel;
+    const key = sectorCode;
     const sector = grouped.get(key) || {
+      code: sectorCode,
       sector: sectorLabel,
       total: 0,
       completed: 0,
@@ -127,7 +134,7 @@ function mapDayProgress(rawRows: RawWorkRow[], targetKey: string): SectorProgres
     grouped.set(key, sector);
   });
 
-  return Array.from(grouped.values());
+  return Array.from(grouped.values()).sort((a, b) => a.code.localeCompare(b.code));
 }
 
 function mapRoomStatuses(rawRows: RawWorkRow[], todayKey: string): RoomStatus[] {
@@ -160,6 +167,19 @@ export async function fetchWeeklyDashboardData(): Promise<WeeklyDashboardSnapsho
   const baseDate = startOfKstDay(0);
   const endDate = startOfKstDay(7);
 
+  const sectorCatalog = await db
+    .selectDistinct({
+      code: etcBuildings.sectorValue,
+      name: etcBaseCode.value
+    })
+    .from(etcBuildings)
+    .leftJoin(
+      etcBaseCode,
+      and(eq(etcBaseCode.codeGroup, etcBuildings.sectorCode), eq(etcBaseCode.code, etcBuildings.sectorValue))
+    )
+    .where(isNotNull(etcBuildings.sectorValue))
+    .orderBy(asc(etcBuildings.sectorValue));
+
   const rawRows = await db
     .select({
       id: workHeader.id,
@@ -187,7 +207,11 @@ export async function fetchWeeklyDashboardData(): Promise<WeeklyDashboardSnapsho
   const todayKey = formatKstDateKey(baseDate);
   const tomorrowKey = formatKstDateKey(startOfKstDay(1));
 
-  const summary = mapSummary(rawRows, baseDate);
+  const normalizedCatalog: SectorCatalog = sectorCatalog
+    .filter((sector) => Boolean(sector.code))
+    .map((sector) => ({ code: sector.code as string, name: sector.name || (sector.code as string) }));
+
+  const summary = mapSummary(rawRows, baseDate, normalizedCatalog);
   const todayProgress = mapDayProgress(rawRows, todayKey);
   const tomorrowProgress = mapDayProgress(rawRows, tomorrowKey);
   const roomStatuses = mapRoomStatuses(rawRows, todayKey);

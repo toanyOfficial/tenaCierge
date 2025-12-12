@@ -10,6 +10,12 @@ function formatTimeLabel(date: Date) {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function formatDateLabel(date: string) {
+  const parsed = new Date(`${date}T00:00:00`);
+  const weekday = new Intl.DateTimeFormat('ko-KR', { weekday: 'short' }).format(parsed);
+  return `${date}(${weekday})`;
+}
+
 const barPalette = ['#dbeafe', '#bfdbfe', '#93c5fd', '#60a5fa', '#3b82f6', '#2563eb'];
 
 const roomStatusMap = {
@@ -22,10 +28,20 @@ const roomStatusMap = {
 type ProfileProps = { profile: ProfileSummary };
 
 type SectorProgress = {
+  code: string;
   sector: string;
   total: number;
   completed: number;
   buildings: { name: string; total: number; completed: number }[];
+};
+
+type StackedSegment = {
+  key: string;
+  label: string;
+  width: number;
+  completedWidth: number;
+  color: string;
+  sector: string;
 };
 
 type RoomStatus = {
@@ -45,7 +61,7 @@ type ApplyRow = {
 type SummaryItem = {
   day: string;
   date: string;
-  sectors: { name: string; count: number }[];
+  sectors: { code: string; name: string; count: number }[];
 };
 
 type DashboardSnapshot = {
@@ -102,6 +118,32 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   const todayUpdatedAt = summaryUpdatedAt;
   const tomorrowUpdatedAt = summaryUpdatedAt;
 
+  const todayTotal = useMemo(
+    () => todayProgress.reduce((acc, sector) => acc + sector.total, 0),
+    [todayProgress]
+  );
+
+  const todayStacked: StackedSegment[] = useMemo(() => {
+    if (todayTotal === 0) return [] as StackedSegment[];
+    const sortedSectors = [...todayProgress].sort((a, b) => a.code.localeCompare(b.code));
+    return sortedSectors.flatMap((sector, sectorIdx) => {
+      const sortedBuildings = [...sector.buildings].sort((a, b) => a.name.localeCompare(b.name));
+      return sortedBuildings.map((building, idx) => {
+        const width = todayTotal ? (building.total / todayTotal) * 100 : 0;
+        const completedWidth = building.total ? (building.completed / building.total) * 100 : 0;
+        const paletteIndex = (sectorIdx + idx) % barPalette.length;
+        return {
+          key: `${sector.code}-${building.name}`,
+          label: `${sector.code}·${building.name}`,
+          width,
+          completedWidth,
+          color: barPalette[paletteIndex],
+          sector: sector.sector
+        };
+      });
+    });
+  }, [todayProgress, todayTotal]);
+
   useEffect(() => {
     let canceled = false;
 
@@ -138,21 +180,22 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
 
   const isTodayDominant = layoutMode === 'todayDominant';
 
+  const roomSteps: RoomStatus['status'][] = ['assign', 'charge', 'clean', 'inspect'];
+
+  const formatSectorCounts = (item: SummaryItem) =>
+    item.sectors.map((sector) => sector.count).join(' / ') || '0';
+
   return (
     <div className={styles.weeklyShell}>
       <div className={styles.weeklyCanvas}>
-        <div className={styles.summaryStrip}>
+        <div className={styles.summaryGrid}>
           {summary.map((item) => {
             const total = item.sectors.reduce((acc, sector) => acc + sector.count, 0);
             return (
-              <div key={item.day} className={styles.summaryCard}>
-                <span className={styles.summaryLabel}>
-                  {item.day} · {item.date}
-                </span>
-                <span className={styles.summaryValue}>{total}건</span>
-                <span className={styles.summaryMeta}>
-                  {item.sectors.map(({ name, count }) => `${name} ${count}`).join(' / ') || '예약 없음'}
-                </span>
+              <div key={item.day} className={styles.summaryCell}>
+                <div className={styles.summaryDate}>{formatDateLabel(item.date)}</div>
+                <div className={styles.summaryTotal}>{total}건</div>
+                <div className={styles.summarySectors}>{formatSectorCounts(item)}</div>
               </div>
             );
           })}
@@ -193,29 +236,63 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
               </div>
               <span className={styles.badgeSoft}>실시간</span>
             </div>
-            <div className={styles.progressList}>
-              {todayProgress.length === 0 && !isLoading ? (
+
+            <div className={styles.stackedWrapper}>
+              {todayStacked.length === 0 && !isLoading ? (
                 <div className={styles.emptyState}>오늘 등록된 업무가 없습니다.</div>
               ) : (
-                todayProgress.map(renderProgressRow)
+                <>
+                  <div className={styles.stackedBar}>
+                    {todayStacked.map((segment) => (
+                      <div
+                        key={segment.key}
+                        className={styles.stackedSegment}
+                        style={{ width: `${segment.width}%`, backgroundColor: segment.color }}
+                        title={`${segment.label} ${segment.width.toFixed(1)}%`}
+                      >
+                        <div className={styles.segmentProgress} style={{ width: `${segment.completedWidth}%` }} />
+                        <span className={styles.segmentLabel}>{segment.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className={styles.segmentLegend}>
+                    {todayProgress.map((sector) => (
+                      <span key={sector.code} className={styles.legendPill}>
+                        {sector.code} {sector.completed}/{sector.total}
+                      </span>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
+
             <div className={styles.roomGrid}>
               {roomStatuses.length === 0 && !isLoading ? (
                 <div className={styles.emptyState}>배정된 호실이 없습니다.</div>
               ) : (
                 roomStatuses.map((room) => {
-                  const statusInfo = roomStatusMap[room.status];
                   return (
                     <div key={`${room.building}-${room.room}`} className={styles.roomChip}>
                       <span className={styles.roomName}>
                         {room.building} · {room.room}
                       </span>
                       <div className={styles.roomStatusRow}>
-                        <span className={`${styles.roomPill} ${statusInfo.className}`}>
-                          ⚡ {statusInfo.label}
-                        </span>
                         <span className={styles.roomValue}>{room.owner}</span>
+                        <div className={styles.statusButtonRow}>
+                          {roomSteps.map((step) => {
+                            const statusInfo = roomStatusMap[step];
+                            const active = room.status === step;
+                            return (
+                              <button
+                                key={step}
+                                type="button"
+                                className={`${styles.statusStep} ${active ? statusInfo.className : ''}`}
+                              >
+                                {statusInfo.label}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   );

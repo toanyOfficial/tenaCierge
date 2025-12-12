@@ -1,3 +1,10 @@
+:global(html, body) {
+  margin: 0;
+  height: 100%;
+  background: #0b1222;
+  overflow: hidden;
+}
+
 .dashboardShell {
   width: 100vw;
   max-width: 1920px;
@@ -46,42 +53,44 @@
   overflow: hidden;
 }
 
-.summaryStrip {
+.summaryGrid {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 10px;
   width: 100%;
-  min-height: 80px;
-}
-
-.summaryCard {
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
-  backdrop-filter: blur(6px);
+  border-radius: 14px;
+  overflow: hidden;
 }
 
-.summaryLabel {
-  font-size: 0.8rem;
-  color: #a5b4fc;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.summaryCell {
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 10px 12px;
+  display: grid;
+  grid-template-rows: repeat(3, auto);
+  align-items: center;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  min-height: 0;
 }
 
-.summaryValue {
-  font-size: 1.5rem;
+.summaryCell:last-child {
+  border-right: none;
+}
+
+.summaryDate {
+  font-weight: 700;
+  color: #cbd5f5;
+}
+
+.summaryTotal {
+  font-size: 1.4rem;
   font-weight: 800;
   color: #f8fafc;
 }
 
-.summaryMeta {
-  font-size: 0.78rem;
-  color: #cbd5f5;
+.summarySectors {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  color: #94a3b8;
+  font-size: 0.95rem;
 }
 
 .layoutToolbar {
@@ -178,6 +187,64 @@
   gap: var(--space-2);
 }
 
+.stackedWrapper {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stackedBar {
+  display: flex;
+  height: 46px;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.stackedSegment {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 0.85rem;
+  min-width: 36px;
+}
+
+.segmentProgress {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.18);
+  width: 0;
+}
+
+.segmentLabel {
+  position: relative;
+  z-index: 1;
+  padding: 0 6px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.segmentLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.legendPill {
+  padding: 6px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(148, 163, 184, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
 .cardTitle {
   font-size: 1.1rem;
   font-weight: 700;
@@ -266,8 +333,10 @@
 
 .roomGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 8px;
+  min-height: 0;
+  overflow: auto;
 }
 
 .roomChip {
@@ -294,24 +363,9 @@
 .roomStatusRow {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
-}
-
-.roomPill {
-  padding: 4px 8px;
-  border-radius: var(--radius-pill);
-  font-weight: 700;
-  font-size: 0.78rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: #ffffff;
-  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.08);
-}
-
-.roomPill span {
-  font-size: 0.75rem;
+  justify-content: space-between;
 }
 
 .statusAssign {
@@ -328,6 +382,23 @@
 
 .statusInspect {
   background: linear-gradient(135deg, #f7b733 0%, #fc4a1a 100%);
+}
+
+.statusButtonRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+}
+
+.statusStep {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e2e8f0;
+  border-radius: 10px;
+  padding: 6px 0;
+  font-weight: 700;
+  cursor: default;
 }
 
 .applyList {
