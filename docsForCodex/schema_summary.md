@@ -1,3 +1,8 @@
+## 2025-12-13 스키마 변경 요약
+- 추가된 컬럼: client_additional_price.created_by, client_additional_price.updated_by, client_detail.created_by, client_detail.updated_by, client_header.created_by 외 85건
+- 변경된 컬럼: work_reservation.work_id: bigint -> bigint
+- 테이블 수: 45개, 컬럼 수: 517개
+
 ## 2025-12-12 스키마 변경 요약
 - 추가된 컬럼: work_reservation.reflect_yn
 - 테이블 수: 45개, 컬럼 수: 427개

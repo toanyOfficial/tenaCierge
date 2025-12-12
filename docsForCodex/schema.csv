@@ -11,10 +11,14 @@ tenaCierge,client_additional_price,amount,"decimal(9,2)",NO,
 tenaCierge,client_additional_price,comment,varchar(255),YES,
 tenaCierge,client_additional_price,created_at,timestamp,NO,
 tenaCierge,client_additional_price,updated_at,timestamp,NO,
+tenaCierge,client_additional_price,created_by,varchar(50),YES,
+tenaCierge,client_additional_price,updated_by,varchar(50),YES,
 tenaCierge,client_detail,id,int unsigned,NO,PK
 tenaCierge,client_detail,client_id,mediumint unsigned,NO,client_header 참조
 tenaCierge,client_detail,created_at,timestamp,NO,
 tenaCierge,client_detail,updated_at,timestamp,NO,
+tenaCierge,client_detail,created_by,varchar(50),YES,
+tenaCierge,client_detail,updated_by,varchar(50),YES,
 tenaCierge,client_header,id,mediumint unsigned,NO,PK
 tenaCierge,client_header,register_no,varchar(6),NO,"영대문자,숫자섞어서 랜덤생성/중복불가"
 tenaCierge,client_header,name,varchar(10),NO,
@@ -28,6 +32,8 @@ tenaCierge,client_header,settle_flag,tinyint,NO,1:건별제/2:정액제/3:커스
 tenaCierge,client_header,desk_yn,tinyint(1),NO,0:사용안함/1:사용함
 tenaCierge,client_header,created_at,timestamp,NO,
 tenaCierge,client_header,updated_at,timestamp,NO,
+tenaCierge,client_header,created_by,varchar(50),YES,
+tenaCierge,client_header,updated_by,varchar(50),YES,
 tenaCierge,client_price_list,id,int unsigned,NO,PK
 tenaCierge,client_price_list,title,varchar(15),NO,
 tenaCierge,client_price_list,selected_by,tinyint,NO,1:client_price_set / 2:client_rooms / 3:client_additional_price
@@ -40,6 +46,8 @@ tenaCierge,client_price_list,amount,"decimal(11,2)",NO,
 tenaCierge,client_price_list,dscpt,varchar(255),YES,
 tenaCierge,client_price_list,created_at,timestamp,NO,
 tenaCierge,client_price_list,updated_at,timestamp,NO,
+tenaCierge,client_price_list,created_by,varchar(50),YES,
+tenaCierge,client_price_list,updated_by,varchar(50),YES,
 tenaCierge,client_price_set_detail,id,bigint unsigned,NO,PK
 tenaCierge,client_price_set_detail,price_set_id,int,YES,
 tenaCierge,client_price_set_detail,price_id,int,YES,
@@ -50,12 +58,16 @@ tenaCierge,client_price_set_detail,amount_per_month,"decimal(11,2)",YES,
 tenaCierge,client_price_set_detail,use_yn,tinyint(1),NO,0:사용안함 / 1:사용함
 tenaCierge,client_price_set_detail,created_at,timestamp,NO,
 tenaCierge,client_price_set_detail,updated_at,timestamp,NO,
+tenaCierge,client_price_set_detail,created_by,varchar(50),YES,
+tenaCierge,client_price_set_detail,updated_by,varchar(50),YES,
 tenaCierge,client_price_set_header,id,int unsigned,NO,PK
 tenaCierge,client_price_set_header,title,varchar(15),YES,
 tenaCierge,client_price_set_header,dscpt,varchar(50),YES,
 tenaCierge,client_price_set_header,use_yn,tinyint(1),NO,0:사용안함 / 1:사용함
 tenaCierge,client_price_set_header,created_at,timestamp,NO,
 tenaCierge,client_price_set_header,updated_at,timestamp,NO,
+tenaCierge,client_price_set_header,created_by,varchar(50),YES,
+tenaCierge,client_price_set_header,updated_by,varchar(50),YES,
 tenaCierge,client_rooms,id,int unsigned,NO,PK
 tenaCierge,client_rooms,client_id,mediumint unsigned,NO,client_header 참조
 tenaCierge,client_rooms,building_id,tinyint,NO,
@@ -80,6 +92,8 @@ tenaCierge,client_rooms,ical_url_2,varchar(2083),YES,
 tenaCierge,client_rooms,weight,tinyint,NO,
 tenaCierge,client_rooms,created_at,timestamp,NO,
 tenaCierge,client_rooms,updated_at,timestamp,NO,
+tenaCierge,client_rooms,created_by,varchar(50),YES,
+tenaCierge,client_rooms,updated_by,varchar(50),YES,
 tenaCierge,client_supplements,id,int unsigned,NO,PK
 tenaCierge,client_supplements,room_id,int,NO,
 tenaCierge,client_supplements,date,date,NO,
@@ -89,11 +103,15 @@ tenaCierge,client_supplements,dscpt,varchar(2083),YES,
 tenaCierge,client_supplements,buy_yn,tinyint(1),NO,"0:구매안함, 1:구매함"
 tenaCierge,client_supplements,created_at,timestamp,NO,
 tenaCierge,client_supplements,updated_at,timestamp,NO,
+tenaCierge,client_supplements,created_by,varchar(50),YES,
+tenaCierge,client_supplements,updated_by,varchar(50),YES,
 tenaCierge,etc_baseCode,code_group,varchar(30),NO,코드그룹명
 tenaCierge,etc_baseCode,code,varchar(10),NO,코드
 tenaCierge,etc_baseCode,value,varchar(255),NO,값
 tenaCierge,etc_baseCode,created_at,timestamp,NO,
 tenaCierge,etc_baseCode,updated_at,timestamp,NO,
+tenaCierge,etc_baseCode,created_by,varchar(50),YES,
+tenaCierge,etc_baseCode,updated_by,varchar(50),YES,
 tenaCierge,etc_buildings,id,tinyint unsigned,NO,PK
 tenaCierge,etc_buildings,basecode_sector,varchar(10),NO,지역코드
 tenaCierge,etc_buildings,basecode_code,varchar(255),NO,지역값
@@ -110,6 +128,8 @@ tenaCierge,etc_buildings,building_way_img_relativePath,varchar(255),YES,
 tenaCierge,etc_buildings,delete_yn,tinyint(1),NO,
 tenaCierge,etc_buildings,created_at,timestamp,NO,
 tenaCierge,etc_buildings,updated_at,timestamp,NO,
+tenaCierge,etc_buildings,created_by,varchar(50),YES,
+tenaCierge,etc_buildings,updated_by,varchar(50),YES,
 tenaCierge,etc_errorLogs,id,bigint unsigned,NO,PK
 tenaCierge,etc_errorLogs,level,tinyint unsigned,NO,1:FATAL/2:ERROR/3:WARN/4:INFO/5:DEBUG
 tenaCierge,etc_errorLogs,app_name,varchar(50),NO,서비스 또는 모듈명
@@ -121,6 +141,8 @@ tenaCierge,etc_errorLogs,user_id,bigint unsigned,YES,에러 발생 유저 PK
 tenaCierge,etc_errorLogs,context_json,json,YES,추가 상태/파라미터 JSON
 tenaCierge,etc_errorLogs,created_at,timestamp,NO,
 tenaCierge,etc_errorLogs,updated_at,timestamp,NO,
+tenaCierge,etc_errorLogs,created_by,varchar(50),YES,
+tenaCierge,etc_errorLogs,updated_by,varchar(50),YES,
 tenaCierge,etc_errorLogs_batch,id,int unsigned,NO,PK
 tenaCierge,etc_errorLogs_batch,level,tinyint unsigned,YES,1:FATAL/2:ERROR/3:WARN/4:INFO/5:DEBUG
 tenaCierge,etc_errorLogs_batch,app_name,varchar(50),NO,서비스 또는 모듈 또는 프로그램 명
@@ -135,11 +157,15 @@ tenaCierge,etc_errorLogs_batch,end_dttm,timestamp,NO,종료 dttm. 무조건 남�
 tenaCierge,etc_errorLogs_batch,end_flag,tinyint(1),NO,"1:정상종료, 2:비정상종료"
 tenaCierge,etc_errorLogs_batch,created_at,timestamp,NO,
 tenaCierge,etc_errorLogs_batch,updated_at,timestamp,NO,
+tenaCierge,etc_errorLogs_batch,created_by,varchar(50),YES,
+tenaCierge,etc_errorLogs_batch,updated_by,varchar(50),YES,
 tenaCierge,etc_notice,id,int unsigned,NO,PK
 tenaCierge,etc_notice,notice_date,date,NO,
 tenaCierge,etc_notice,notice,varchar(255),NO,
 tenaCierge,etc_notice,created_at,timestamp,NO,
 tenaCierge,etc_notice,updated_at,timestamp,NO,
+tenaCierge,etc_notice,created_by,varchar(50),YES,
+tenaCierge,etc_notice,updated_by,varchar(50),YES,
 tenaCierge,kakao_channel_subscribers,id,bigint,NO,PK
 tenaCierge,kakao_channel_subscribers,user_type,"enum('CLIENT','WORKER')",NO,
 tenaCierge,kakao_channel_subscribers,user_id,bigint,NO,
@@ -155,6 +181,8 @@ tenaCierge,kakao_channel_subscribers,source,"enum('APP','WEB','QR','API')",YES,
 tenaCierge,kakao_channel_subscribers,last_sync_dttm,datetime,YES,
 tenaCierge,kakao_channel_subscribers,created_at,datetime,NO,
 tenaCierge,kakao_channel_subscribers,updated_at,datetime,NO,
+tenaCierge,kakao_channel_subscribers,created_by,varchar(50),YES,
+tenaCierge,kakao_channel_subscribers,updated_by,varchar(50),YES,
 tenaCierge,kakao_message_logs,id,bigint,NO,
 tenaCierge,kakao_message_logs,user_type,"enum('CLIENT','WORKER')",NO,
 tenaCierge,kakao_message_logs,user_id,bigint,NO,
@@ -171,6 +199,8 @@ tenaCierge,kakao_message_logs,delivered_at,datetime,YES,
 tenaCierge,kakao_message_logs,failed_at,datetime,YES,
 tenaCierge,kakao_message_logs,price,int,YES,
 tenaCierge,kakao_message_logs,created_at,datetime,NO,
+tenaCierge,kakao_message_logs,created_by,varchar(50),YES,
+tenaCierge,kakao_message_logs,updated_by,varchar(50),YES,
 tenaCierge,kakao_optout_logs,id,bigint,NO,
 tenaCierge,kakao_optout_logs,user_type,"enum('CLIENT','WORKER')",NO,
 tenaCierge,kakao_optout_logs,user_id,bigint,NO,
@@ -178,6 +208,8 @@ tenaCierge,kakao_optout_logs,action,"enum('OPT_IN','OPT_OUT')",NO,
 tenaCierge,kakao_optout_logs,reason,varchar(200),YES,
 tenaCierge,kakao_optout_logs,source,"enum('APP','WEB','MESSAGE','ADMIN')",YES,
 tenaCierge,kakao_optout_logs,created_at,datetime,NO,
+tenaCierge,kakao_optout_logs,created_by,varchar(50),YES,
+tenaCierge,kakao_optout_logs,updated_by,varchar(50),YES,
 tenaCierge,kakao_templates,id,bigint,NO,
 tenaCierge,kakao_templates,template_code,varchar(50),NO,
 tenaCierge,kakao_templates,category,"enum('ALIMTALK','FRIENDTALK','CHANNEL_1TO1')",NO,
@@ -191,10 +223,14 @@ tenaCierge,kakao_templates,rest_api_key,varchar(200),YES,
 tenaCierge,kakao_templates,client_secret,varchar(200),YES,
 tenaCierge,kakao_templates,use_yn,"enum('Y','N')",NO,
 tenaCierge,kakao_templates,updated_at,datetime,NO,
+tenaCierge,kakao_templates,created_by,varchar(50),YES,
+tenaCierge,kakao_templates,updated_by,varchar(50),YES,
 tenaCierge,model_variable,name,varchar(32),NO,
 tenaCierge,model_variable,value,double,NO,
 tenaCierge,model_variable,description,varchar(255),YES,
 tenaCierge,model_variable,updated_at,timestamp,NO,
+tenaCierge,model_variable,created_by,varchar(50),YES,
+tenaCierge,model_variable,updated_by,varchar(50),YES,
 tenaCierge,work_apply,id,bigint unsigned,NO,PK
 tenaCierge,work_apply,work_date,date,NO,
 tenaCierge,work_apply,basecode_sector,varchar(10),NO,지역코드
@@ -204,6 +240,8 @@ tenaCierge,work_apply,position,tinyint,NO,1:클리너/2:버틀러
 tenaCierge,work_apply,worker_id,int,YES,
 tenaCierge,work_apply,created_at,timestamp,NO,
 tenaCierge,work_apply,updated_at,timestamp,NO,
+tenaCierge,work_apply,created_by,varchar(50),YES,
+tenaCierge,work_apply,updated_by,varchar(50),YES,
 tenaCierge,work_apply_rules,id,bigint unsigned,NO,PK
 tenaCierge,work_apply_rules,min_weight,smallint,NO,
 tenaCierge,work_apply_rules,max_weight,smallint,NO,
@@ -212,12 +250,16 @@ tenaCierge,work_apply_rules,butler_count,tinyint,NO,
 tenaCierge,work_apply_rules,level_flag,tinyint,NO,1:normal/2:warning/3:emergency
 tenaCierge,work_apply_rules,created_at,timestamp,NO,
 tenaCierge,work_apply_rules,updated_at,timestamp,NO,
+tenaCierge,work_apply_rules,created_by,varchar(50),YES,
+tenaCierge,work_apply_rules,updated_by,varchar(50),YES,
 tenaCierge,work_assignment,id,bigint unsigned,NO,PK
 tenaCierge,work_assignment,work_id,bigint,NO,
 tenaCierge,work_assignment,worker_id,int,NO,
 tenaCierge,work_assignment,assign_dttm,date,NO,
 tenaCierge,work_assignment,created_at,timestamp,NO,
 tenaCierge,work_assignment,updated_at,timestamp,NO,
+tenaCierge,work_assignment,created_by,varchar(50),YES,
+tenaCierge,work_assignment,updated_by,varchar(50),YES,
 tenaCierge,work_checklist_list,id,tinyint unsigned,NO,PK
 tenaCierge,work_checklist_list,type,tinyint,NO,1:cleaning/2:supervising/3:supplies
 tenaCierge,work_checklist_list,ordering,tinyint,NO,
@@ -226,6 +268,8 @@ tenaCierge,work_checklist_list,dscpt,varchar(2083),YES,
 tenaCierge,work_checklist_list,score,tinyint,YES,
 tenaCierge,work_checklist_list,created_at,timestamp,NO,
 tenaCierge,work_checklist_list,updated_at,timestamp,NO,
+tenaCierge,work_checklist_list,created_by,varchar(50),YES,
+tenaCierge,work_checklist_list,updated_by,varchar(50),YES,
 tenaCierge,work_checklist_set_detail,id,int unsigned,NO,PK
 tenaCierge,work_checklist_set_detail,checklist_list_id,tinyint,NO,
 tenaCierge,work_checklist_set_detail,checklist_header_id,int,NO,
@@ -235,11 +279,15 @@ tenaCierge,work_checklist_set_detail,dscpt,varchar(50),YES,
 tenaCierge,work_checklist_set_detail,score,tinyint,YES,
 tenaCierge,work_checklist_set_detail,created_at,timestamp,NO,
 tenaCierge,work_checklist_set_detail,updated_at,timestamp,NO,
+tenaCierge,work_checklist_set_detail,created_by,varchar(50),YES,
+tenaCierge,work_checklist_set_detail,updated_by,varchar(50),YES,
 tenaCierge,work_checklist_set_header,id,int unsigned,NO,PK
 tenaCierge,work_checklist_set_header,title,varchar(15),NO,
 tenaCierge,work_checklist_set_header,dscpt,varchar(50),YES,
 tenaCierge,work_checklist_set_header,created_at,timestamp,NO,
 tenaCierge,work_checklist_set_header,updated_at,timestamp,NO,
+tenaCierge,work_checklist_set_header,created_by,varchar(50),YES,
+tenaCierge,work_checklist_set_header,updated_by,varchar(50),YES,
 tenaCierge,work_fore_accuracy,id,bigint unsigned,NO,PK
 tenaCierge,work_fore_accuracy,date,date,NO,
 tenaCierge,work_fore_accuracy,horizon,char(3),NO,
@@ -250,6 +298,8 @@ tenaCierge,work_fore_accuracy,f1,"decimal(5,4)",NO,
 tenaCierge,work_fore_accuracy,n,tinyint,NO,
 tenaCierge,work_fore_accuracy,created_at,timestamp,NO,
 tenaCierge,work_fore_accuracy,updated_at,timestamp,NO,
+tenaCierge,work_fore_accuracy,created_by,varchar(50),YES,
+tenaCierge,work_fore_accuracy,updated_by,varchar(50),YES,
 tenaCierge,work_fore_d1,id,bigint unsigned,NO,PK
 tenaCierge,work_fore_d1,run_dttm,date,NO,
 tenaCierge,work_fore_d1,target_date,date,NO,
@@ -259,6 +309,8 @@ tenaCierge,work_fore_d1,actual_out,tinyint(1),NO,
 tenaCierge,work_fore_d1,correct,tinyint(1),NO,
 tenaCierge,work_fore_d1,created_at,timestamp,NO,
 tenaCierge,work_fore_d1,updated_at,timestamp,NO,
+tenaCierge,work_fore_d1,created_by,varchar(50),YES,
+tenaCierge,work_fore_d1,updated_by,varchar(50),YES,
 tenaCierge,work_fore_d7,id,bigint unsigned,NO,PK
 tenaCierge,work_fore_d7,run_dttm,date,NO,
 tenaCierge,work_fore_d7,target_date,date,NO,
@@ -268,6 +320,8 @@ tenaCierge,work_fore_d7,actual_out,tinyint(1),NO,
 tenaCierge,work_fore_d7,correct,tinyint(1),NO,
 tenaCierge,work_fore_d7,created_at,timestamp,NO,
 tenaCierge,work_fore_d7,updated_at,timestamp,NO,
+tenaCierge,work_fore_d7,created_by,varchar(50),YES,
+tenaCierge,work_fore_d7,updated_by,varchar(50),YES,
 tenaCierge,work_fore_tuning,id,bigint unsigned,NO,PK
 tenaCierge,work_fore_tuning,date,date,NO,
 tenaCierge,work_fore_tuning,horizon,char(3),NO,
@@ -278,16 +332,22 @@ tenaCierge,work_fore_tuning,delta,"decimal(10,6)",NO,
 tenaCierge,work_fore_tuning,explanation,varchar(50),NO,
 tenaCierge,work_fore_tuning,created_at,timestamp,NO,
 tenaCierge,work_fore_tuning,updated_at,timestamp,NO,
+tenaCierge,work_fore_tuning,created_by,varchar(50),YES,
+tenaCierge,work_fore_tuning,updated_by,varchar(50),YES,
 tenaCierge,work_fore_variable,id,bigint unsigned,NO,PK
 tenaCierge,work_fore_variable,name,varchar(15),NO,
 tenaCierge,work_fore_variable,value,"decimal(5,4)",NO,
 tenaCierge,work_fore_variable,created_at,timestamp,NO,
 tenaCierge,work_fore_variable,updated_at,timestamp,NO,
+tenaCierge,work_fore_variable,created_by,varchar(50),YES,
+tenaCierge,work_fore_variable,updated_by,varchar(50),YES,
 tenaCierge,work_global_detail,id,bigint unsigned,NO,PK
 tenaCierge,work_global_detail,work_global_id,tinyint,NO,
 tenaCierge,work_global_detail,room_id,int,NO,
 tenaCierge,work_global_detail,created_at,timestamp,NO,
 tenaCierge,work_global_detail,updated_at,timestamp,NO,
+tenaCierge,work_global_detail,created_by,varchar(50),YES,
+tenaCierge,work_global_detail,updated_by,varchar(50),YES,
 tenaCierge,work_global_header,id,tinyint unsigned,NO,PK
 tenaCierge,work_global_header,emoji,varchar(10),YES,
 tenaCierge,work_global_header,title,varchar(20),NO,
@@ -299,6 +359,8 @@ tenaCierge,work_global_header,closed_yn,tinyint(1),NO,
 tenaCierge,work_global_header,comment,varchar(255),YES,
 tenaCierge,work_global_header,created_at,timestamp,NO,
 tenaCierge,work_global_header,updated_at,timestamp,NO,
+tenaCierge,work_global_header,created_by,varchar(50),YES,
+tenaCierge,work_global_header,updated_by,varchar(50),YES,
 tenaCierge,work_header,id,bigint unsigned,NO,PK
 tenaCierge,work_header,date,date,NO,
 tenaCierge,work_header,room_id,int,NO,
@@ -320,6 +382,8 @@ tenaCierge,work_header,cancel_yn,tinyint(1),NO,0:정상/1:취소
 tenaCierge,work_header,manual_upt_yn,tinyint(1),NO,0:수동조작없음/1:수동조작있음
 tenaCierge,work_header,created_at,timestamp,NO,
 tenaCierge,work_header,updated_at,timestamp,NO,
+tenaCierge,work_header,created_by,varchar(50),YES,
+tenaCierge,work_header,updated_by,varchar(50),YES,
 tenaCierge,work_images_list,id,tinyint unsigned,NO,PK
 tenaCierge,work_images_list,title,varchar(15),NO,
 tenaCierge,work_images_list,ordering,tinyint,NO,
@@ -328,6 +392,8 @@ tenaCierge,work_images_list,required,tinyint(1),NO,0:선택 / 1:필수
 tenaCierge,work_images_list,role,tinyint,NO,1:클리너 / 2:버틀러/3:상태확인
 tenaCierge,work_images_list,created_at,timestamp,NO,
 tenaCierge,work_images_list,updated_at,timestamp,NO,
+tenaCierge,work_images_list,created_by,varchar(50),YES,
+tenaCierge,work_images_list,updated_by,varchar(50),YES,
 tenaCierge,work_images_set_detail,id,int unsigned,NO,PK
 tenaCierge,work_images_set_detail,images_set_id,int,NO,
 tenaCierge,work_images_set_detail,images_list_id,tinyint,NO,
@@ -338,11 +404,15 @@ tenaCierge,work_images_set_detail,title,varchar(15),YES,
 tenaCierge,work_images_set_detail,comment,varchar(50),YES,
 tenaCierge,work_images_set_detail,created_at,timestamp,NO,
 tenaCierge,work_images_set_detail,updated_at,timestamp,NO,
+tenaCierge,work_images_set_detail,created_by,varchar(50),YES,
+tenaCierge,work_images_set_detail,updated_by,varchar(50),YES,
 tenaCierge,work_images_set_header,id,int unsigned,NO,PK
 tenaCierge,work_images_set_header,title,varchar(15),NO,
 tenaCierge,work_images_set_header,dscpt,varchar(50),YES,
 tenaCierge,work_images_set_header,created_at,timestamp,NO,
 tenaCierge,work_images_set_header,updated_at,timestamp,NO,
+tenaCierge,work_images_set_header,created_by,varchar(50),YES,
+tenaCierge,work_images_set_header,updated_by,varchar(50),YES,
 tenaCierge,work_reports,id,bigint unsigned,NO,PK
 tenaCierge,work_reports,work_id,bigint,NO,
 tenaCierge,work_reports,type,tinyint,NO,1:cleaningChecklist/2:supplies/3:cleaningImages/4:supervisingChecklist/5:supervisingImages/6:workdttm/7:conditionCheckImages
@@ -350,8 +420,10 @@ tenaCierge,work_reports,contents1,json,NO,
 tenaCierge,work_reports,contents2,json,YES,
 tenaCierge,work_reports,created_at,timestamp,NO,
 tenaCierge,work_reports,updated_at,timestamp,NO,
+tenaCierge,work_reports,created_by,varchar(50),YES,
+tenaCierge,work_reports,updated_by,varchar(50),YES,
 tenaCierge,work_reservation,id,bigint unsigned,NO,PK
-tenaCierge,work_reservation,work_id,bigint,NO,
+tenaCierge,work_reservation,work_id,bigint,YES,
 tenaCierge,work_reservation,room_id,int,NO,
 tenaCierge,work_reservation,amenities_qty,tinyint,NO,
 tenaCierge,work_reservation,blanket_qty,tinyint,NO,
@@ -362,10 +434,14 @@ tenaCierge,work_reservation,cancel_yn,tinyint(1),NO,0:정상/1:취소
 tenaCierge,work_reservation,reflect_yn,tinyint(1),NO,
 tenaCierge,work_reservation,created_at,timestamp,NO,
 tenaCierge,work_reservation,updated_at,timestamp,NO,
+tenaCierge,work_reservation,created_by,varchar(50),YES,
+tenaCierge,work_reservation,updated_by,varchar(50),YES,
 tenaCierge,worker_detail,id,int unsigned,NO,PK
 tenaCierge,worker_detail,worker_id,bigint unsigned,NO,client_header 참조
 tenaCierge,worker_detail,created_at,timestamp,NO,
 tenaCierge,worker_detail,updated_at,timestamp,NO,
+tenaCierge,worker_detail,created_by,varchar(50),YES,
+tenaCierge,worker_detail,updated_by,varchar(50),YES,
 tenaCierge,worker_evaluateHistory,id,bigint unsigned,NO,PK
 tenaCierge,worker_evaluateHistory,worker_id,int unsigned,NO,client_header 참조
 tenaCierge,worker_evaluateHistory,evaluate_dttm,datetime,NO,
@@ -375,6 +451,8 @@ tenaCierge,worker_evaluateHistory,checklist_point_sum,tinyint,NO,
 tenaCierge,worker_evaluateHistory,comment,varchar(255),NO,당일의 마지막 청소 건에만 입력
 tenaCierge,worker_evaluateHistory,created_at,timestamp,NO,
 tenaCierge,worker_evaluateHistory,updated_at,timestamp,NO,
+tenaCierge,worker_evaluateHistory,created_by,varchar(50),YES,
+tenaCierge,worker_evaluateHistory,updated_by,varchar(50),YES,
 tenaCierge,worker_header,id,int unsigned,NO,PK
 tenaCierge,worker_header,register_no,varchar(6),NO,"영대문자,숫자섞어서 랜덤생성/중복불가"
 tenaCierge,worker_header,name,varchar(20),NO,
@@ -388,6 +466,8 @@ tenaCierge,worker_header,tier,tinyint,NO,
 tenaCierge,worker_header,comments,varchar(255),YES,
 tenaCierge,worker_header,created_at,timestamp,NO,
 tenaCierge,worker_header,updated_at,timestamp,NO,
+tenaCierge,worker_header,created_by,varchar(50),YES,
+tenaCierge,worker_header,updated_by,varchar(50),YES,
 tenaCierge,worker_penaltyHistory,id,int unsigned,NO,PK
 tenaCierge,worker_penaltyHistory,worker_id,int unsigned,NO,client_header 참조
 tenaCierge,worker_penaltyHistory,start_date,date,NO,
@@ -395,6 +475,8 @@ tenaCierge,worker_penaltyHistory,interval,tinyint,NO,
 tenaCierge,worker_penaltyHistory,comment,varchar(255),NO,
 tenaCierge,worker_penaltyHistory,created_at,timestamp,NO,
 tenaCierge,worker_penaltyHistory,updated_at,timestamp,NO,
+tenaCierge,worker_penaltyHistory,created_by,varchar(50),YES,
+tenaCierge,worker_penaltyHistory,updated_by,varchar(50),YES,
 tenaCierge,worker_salary_history,id,bigint unsigned,NO,PK
 tenaCierge,worker_salary_history,worker_id,int unsigned,NO,worker_header참조
 tenaCierge,worker_salary_history,work_date,date,NO,
@@ -404,6 +486,8 @@ tenaCierge,worker_salary_history,tier_target_date,tinyint,NO,
 tenaCierge,worker_salary_history,hourly_wage_target_date,smallint,NO,
 tenaCierge,worker_salary_history,created_at,timestamp,NO,
 tenaCierge,worker_salary_history,updated_at,timestamp,NO,
+tenaCierge,worker_salary_history,created_by,varchar(50),YES,
+tenaCierge,worker_salary_history,updated_by,varchar(50),YES,
 tenaCierge,worker_schedule_exception,id,int unsigned,NO,PK
 tenaCierge,worker_schedule_exception,worker_id,int unsigned,NO,client_header 참조
 tenaCierge,worker_schedule_exception,excpt_date,date,NO,0:일요일 ~ 6:토요일
@@ -411,6 +495,8 @@ tenaCierge,worker_schedule_exception,add_work_yn,tinyint(1),NO,0:규칙대로/1:
 tenaCierge,worker_schedule_exception,cancel_work_yn,tinyint(1),NO,0:규칙대로/1:무조건휴일
 tenaCierge,worker_schedule_exception,created_at,timestamp,NO,
 tenaCierge,worker_schedule_exception,updated_at,timestamp,NO,
+tenaCierge,worker_schedule_exception,created_by,varchar(50),YES,
+tenaCierge,worker_schedule_exception,updated_by,varchar(50),YES,
 tenaCierge,worker_tier_rules,id,int unsigned,NO,PK
 tenaCierge,worker_tier_rules,min_percentage,tinyint unsigned,NO,
 tenaCierge,worker_tier_rules,max_percentage,tinyint,NO,
@@ -421,8 +507,12 @@ tenaCierge,worker_tier_rules,apply_horizon,tinyint,YES,
 tenaCierge,worker_tier_rules,comment,varchar(100),YES,
 tenaCierge,worker_tier_rules,created_at,timestamp,NO,
 tenaCierge,worker_tier_rules,updated_at,timestamp,NO,
+tenaCierge,worker_tier_rules,created_by,varchar(50),YES,
+tenaCierge,worker_tier_rules,updated_by,varchar(50),YES,
 tenaCierge,worker_weekly_pattern,id,int unsigned,NO,PK
 tenaCierge,worker_weekly_pattern,worker_id,int unsigned,NO,client_header 참조
 tenaCierge,worker_weekly_pattern,weekday,tinyint,NO,0:일요일 ~ 6:토요일
 tenaCierge,worker_weekly_pattern,created_at,timestamp,NO,
 tenaCierge,worker_weekly_pattern,updated_at,timestamp,NO,
+tenaCierge,worker_weekly_pattern,created_by,varchar(50),YES,
+tenaCierge,worker_weekly_pattern,updated_by,varchar(50),YES,
