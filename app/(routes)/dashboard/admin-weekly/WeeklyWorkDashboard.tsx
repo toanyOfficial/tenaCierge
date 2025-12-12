@@ -224,8 +224,33 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
     { key: 'inspect' as const, active: (room: RoomStatus) => room.inspected }
   ];
 
+  const sortedRooms = useMemo(() => {
+    const buildingCounts = new Map<string, number>();
+
+    roomStatuses.forEach((room) => {
+      const key = `${room.sector}|||${room.building}`;
+      buildingCounts.set(key, (buildingCounts.get(key) ?? 0) + 1);
+    });
+
+    return [...roomStatuses].sort((a, b) => {
+      const sectorCompare = a.sector.localeCompare(b.sector);
+      if (sectorCompare !== 0) return sectorCompare;
+
+      const aKey = `${a.sector}|||${a.building}`;
+      const bKey = `${b.sector}|||${b.building}`;
+      const aCount = buildingCounts.get(aKey) ?? 0;
+      const bCount = buildingCounts.get(bKey) ?? 0;
+      if (aCount !== bCount) return bCount - aCount;
+
+      const roomCompare = b.room.localeCompare(a.room, undefined, { numeric: true, sensitivity: 'base' });
+      if (roomCompare !== 0) return roomCompare;
+
+      return a.building.localeCompare(b.building);
+    });
+  }, [roomStatuses]);
+
   const ROOM_GRID_SLOTS = 27;
-  const visibleRooms = roomStatuses.slice(0, ROOM_GRID_SLOTS);
+  const visibleRooms = sortedRooms.slice(0, ROOM_GRID_SLOTS);
   const roomPlaceholders = Math.max(ROOM_GRID_SLOTS - visibleRooms.length, 0);
   const showEmptyRooms = !isLoading && visibleRooms.length === 0;
 
