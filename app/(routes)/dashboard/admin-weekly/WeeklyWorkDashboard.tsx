@@ -19,12 +19,35 @@ function formatDateLabel(date: string) {
 const sectorPalette = ['#60a5fa', '#22d3ee', '#a78bfa', '#f472b6', '#fbbf24', '#34d399', '#f97316', '#38bdf8'];
 const buildingPalette = ['#0ea5e9', '#22c55e', '#a855f7', '#f97316', '#eab308', '#06b6d4'];
 
-const roomStatusMap = {
-  assign: { label: '배', className: styles.statusAssign },
-  charge: { label: '담', className: styles.statusCharge },
-  clean: { label: '청', className: styles.statusClean },
-  inspect: { label: '검', className: styles.statusInspect }
-} as const;
+const roomSteps = [
+  {
+    key: 'assign' as const,
+    label: '배',
+    resolveClassName: (room: RoomStatus) =>
+      room.supplyComplete ? styles.statusSupplyOn : styles.statusSupplyOff
+  },
+  {
+    key: 'charge' as const,
+    label: '담',
+    resolveClassName: (room: RoomStatus) => {
+      const isNoShow = !room.assigned && room.supplyComplete && room.cleaningComplete && room.inspected;
+      if (isNoShow) return styles.statusAssignNoShow;
+      return room.assigned ? styles.statusAssignOn : styles.statusAssignOff;
+    }
+  },
+  {
+    key: 'clean' as const,
+    label: '청',
+    resolveClassName: (room: RoomStatus) =>
+      room.cleaningComplete ? styles.statusCleaningDone : styles.statusCleaningIdle
+  },
+  {
+    key: 'inspect' as const,
+    label: '검',
+    resolveClassName: (room: RoomStatus) =>
+      room.inspected ? styles.statusInspectOn : styles.statusInspectOff
+  }
+];
 
 type ProfileProps = { profile: ProfileSummary };
 
@@ -218,12 +241,35 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
 
   const isTodayDominant = layoutMode === 'todayDominant';
 
-  const roomSteps = [
-    { key: 'assign' as const, active: (room: RoomStatus) => room.supplyComplete },
-    { key: 'charge' as const, active: (room: RoomStatus) => room.assigned },
-    { key: 'clean' as const, active: (room: RoomStatus) => room.cleaningComplete },
-    { key: 'inspect' as const, active: (room: RoomStatus) => room.inspected }
-  ];
+  const sortedRooms = useMemo(() => {
+    const buildingCounts = new Map<string, number>();
+
+    roomStatuses.forEach((room) => {
+      const key = `${room.sectorCode}|||${room.building}`;
+      buildingCounts.set(key, (buildingCounts.get(key) ?? 0) + 1);
+    });
+
+    return [...roomStatuses].sort((a, b) => {
+      const sectorCompare = a.sectorCode.localeCompare(b.sectorCode);
+      if (sectorCompare !== 0) return sectorCompare;
+
+      const aKey = `${a.sectorCode}|||${a.building}`;
+      const bKey = `${b.sectorCode}|||${b.building}`;
+      const aCount = buildingCounts.get(aKey) ?? 0;
+      const bCount = buildingCounts.get(bKey) ?? 0;
+      if (aCount !== bCount) return bCount - aCount;
+
+      const roomCompare = b.room.localeCompare(a.room, undefined, { numeric: true, sensitivity: 'base' });
+      if (roomCompare !== 0) return roomCompare;
+
+      return a.building.localeCompare(b.building);
+    });
+  }, [roomStatuses]);
+
+  const ROOM_GRID_SLOTS = 27;
+  const visibleRooms = sortedRooms.slice(0, ROOM_GRID_SLOTS);
+  const roomPlaceholders = Math.max(ROOM_GRID_SLOTS - visibleRooms.length, 0);
+  const showEmptyRooms = !isLoading && visibleRooms.length === 0;
 
   const sortedRooms = useMemo(() => {
     const buildingCounts = new Map<string, number>();
@@ -381,19 +427,15 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                         <div className={styles.roomStatusRow}>
                           <span className={styles.roomValue}>{room.owner}</span>
                           <div className={styles.statusButtonRow}>
-                            {roomSteps.map((step) => {
-                              const statusInfo = roomStatusMap[step.key];
-                              const active = step.active(room);
-                              return (
-                                <button
-                                  key={step.key}
-                                  type="button"
-                                  className={`${styles.statusStep} ${active ? statusInfo.className : ''}`}
-                                >
-                                  {statusInfo.label}
-                                </button>
-                              );
-                            })}
+                            {roomSteps.map((step) => (
+                              <button
+                                key={step.key}
+                                type="button"
+                                className={`${styles.statusStep} ${step.resolveClassName(room)}`}
+                              >
+                                {step.label}
+                              </button>
+                            ))}
                           </div>
                         </div>
                       </div>

@@ -440,20 +440,29 @@
   justify-content: space-between;
 }
 
-.statusAssign {
-  background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+
+.statusSupplyOff,
+.statusAssignOff,
+.statusCleaningIdle,
+.statusInspectOff {
+  background: var(--border);
+  color: #334155;
+  border-color: var(--border);
 }
 
-.statusCharge {
-  background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+.statusSupplyOn,
+.statusAssignOn,
+.statusCleaningDone,
+.statusInspectOn {
+  background: #2563eb;
+  border-color: #1d4ed8;
+  color: #f8fafc;
 }
 
-.statusClean {
-  background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
-}
-
-.statusInspect {
-  background: linear-gradient(135deg, #f7b733 0%, #fc4a1a 100%);
+.statusAssignNoShow {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fff;
 }
 
 .statusButtonRow {
