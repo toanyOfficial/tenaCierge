@@ -316,6 +316,7 @@ async function buildButlerSnapshot(
       sectorValue: etcBuildings.sectorValue,
       roomNo: clientRooms.roomNo,
       cleaningYn: workHeader.cleaningYn,
+      cancelYn: workHeader.cancelYn,
       conditionCheckYn: workHeader.conditionCheckYn,
       comment: workHeader.requirements
     })
@@ -330,7 +331,9 @@ async function buildButlerSnapshot(
       and(eq(workHeader.date, targetDateValue), eq(workHeader.cleaningYn, true), eq(workHeader.cancelYn, false))
     );
 
-  const normalizedWorks = works.map((work) => {
+  const cleaningWorks = works.filter((work) => work.cleaningYn === true && work.cancelYn === false);
+
+  const normalizedWorks = cleaningWorks.map((work) => {
     const sectorLabel = work.sectorLabel ?? work.sectorValue ?? work.sectorCode ?? '미지정 섹터';
     const sectorCode = normalizeSectorCode(work.sectorCode);
     const buildingName = work.buildingName ?? '미지정 빌딩';
@@ -385,8 +388,6 @@ async function buildButlerSnapshot(
     });
     buildingOrder.set(sectorKey, rankMap);
   });
-
-  const cleaningWorks = normalizedWorks;
 
   const sectorGroups = new Map<
     string,
