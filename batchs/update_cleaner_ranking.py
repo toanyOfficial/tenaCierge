@@ -734,8 +734,8 @@ class CleanerRankingBatch:
         if updates:
             with self.conn.cursor() as cur:
                 cur.executemany(
-                    "UPDATE worker_evaluateHistory SET checklist_point_sum=%s WHERE id=%s",
-                    updates,
+                    "UPDATE worker_evaluateHistory SET checklist_point_sum=%s, updated_by=%s WHERE id=%s",
+                    [(point, "BATCH", pk) for point, pk in updates],
                 )
         logging.info("checklist_point_sum 갱신 %s건", len(updates))
         return today_scores
@@ -1176,8 +1176,8 @@ class CleanerRankingBatch:
                         e.get("id", 0),
                     ),
                 )
-                sql = "UPDATE worker_evaluateHistory SET comment=%s WHERE id=%s"
-                cur.execute(sql, (comment[:COMMENT_DB_LIMIT], latest_entry["id"]))
+                sql = "UPDATE worker_evaluateHistory SET comment=%s, updated_by=%s WHERE id=%s"
+                cur.execute(sql, (comment[:COMMENT_DB_LIMIT], "BATCH", latest_entry["id"]))
         logging.info("AI 코멘트 업데이트 %s명", len(comments))
 
     def _persist_score_20days(
@@ -1200,8 +1200,8 @@ class CleanerRankingBatch:
                 current_score = float(worker.get("score_20days") or 0.0)
                 new_score = current_score + float(today_scores.get(worker_id, 0.0))
                 cur.execute(
-                    "UPDATE worker_header SET score_20days=%s WHERE id=%s",
-                    (new_score, worker_id),
+                    "UPDATE worker_header SET score_20days=%s, updated_by=%s WHERE id=%s",
+                    (new_score, "BATCH", worker_id),
                 )
         logging.info("score_20days 누적 업데이트 %s건", len(eligible))
 
@@ -1212,8 +1212,8 @@ class CleanerRankingBatch:
         with self.conn.cursor() as cur:
             for worker_id, tier in updates.items():
                 cur.execute(
-                    "UPDATE worker_header SET tier=%s WHERE id=%s",
-                    (tier, worker_id),
+                    "UPDATE worker_header SET tier=%s, updated_by=%s WHERE id=%s",
+                    (tier, "BATCH", worker_id),
                 )
         logging.info("tier 업데이트 %s건", len(updates))
 
@@ -1300,6 +1300,8 @@ class CleanerRankingBatch:
             "start_time",
             "end_time",
             "hourly_wage_target_date",
+            "created_by",
+            "updated_by",
         ]
 
         targets: Dict[int, List[Dict[str, object]]] = {}
@@ -1370,6 +1372,8 @@ class CleanerRankingBatch:
                 "start_time": self._to_kst_time(start_dt),
                 "end_time": self._to_kst_time(end_dt),
                 "hourly_wage_target_date": int(hourly_wage),
+                "created_by": "BATCH",
+                "updated_by": "BATCH",
             }
 
             insert_columns = [

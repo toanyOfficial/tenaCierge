@@ -12,6 +12,7 @@ import { getKstNow } from '@/src/utils/workWindow';
 import type { ProfileSummary } from '@/src/utils/profile';
 import { getActivePenalty } from '@/src/server/penalties';
 import { logServerError } from '@/src/server/errorLogger';
+import { withUpdateAuditFields } from '@/src/server/audit';
 
 // Next.js route config (must be declared once)
 const routeConfig = { dynamic: 'force-dynamic' as const, revalidate: 0 as const };
@@ -168,7 +169,10 @@ async function handleApply({ profile, slot, now, daysUntil, isButlerSlot, occupa
     return NextResponse.json({ message: '이미 신청이 완료된 일정입니다.' }, { status: 200 });
   }
 
-  await db.update(workApply).set({ workerId: worker.id }).where(eq(workApply.id, slot.id));
+  await db
+    .update(workApply)
+    .set(withUpdateAuditFields({ workerId: worker.id }, profile.registerNo))
+    .where(eq(workApply.id, slot.id));
 
   return NextResponse.json({ message: '신청이 완료되었습니다.' });
 }
@@ -201,7 +205,10 @@ async function handleCancel({ profile, slot, now, daysUntil, isButlerSlot, occup
   const checklist = { '1': `${Math.max(daysUntil, 0)}일전업무취소` };
 
   await db.transaction(async (tx) => {
-    await tx.update(workApply).set({ workerId: null }).where(eq(workApply.id, slot.id));
+    await tx
+      .update(workApply)
+      .set(withUpdateAuditFields({ workerId: null }, profile.registerNo))
+      .where(eq(workApply.id, slot.id));
 
     await tx.insert(workerEvaluateHistory).values({
       workerId: occupantId,

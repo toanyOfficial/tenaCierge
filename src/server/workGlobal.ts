@@ -3,6 +3,7 @@ import { alias } from 'drizzle-orm/mysql-core';
 
 import { db } from '@/src/db/client';
 import { clientRooms, etcBaseCode, etcBuildings, workGlobalDetail, workGlobalHeader } from '@/src/db/schema';
+import { resolveWebActor, withUpdateAuditFields } from '@/src/server/audit';
 import { formatKstDateKey, nowKst } from '@/src/lib/time';
 
 export type WorkGlobalHeaderRecord = {
@@ -145,7 +146,7 @@ export async function createWorkGlobalHeader(payload: HeaderPayload) {
   return listWorkGlobalHeaders();
 }
 
-export async function updateWorkGlobalHeader(id: number, payload: HeaderPayload) {
+export async function updateWorkGlobalHeader(id: number, payload: HeaderPayload, actor = resolveWebActor()) {
   const startDate = parseDate(payload.startDate);
   if (!startDate) {
     throw new Error('시작일을 입력해 주세요.');
@@ -155,16 +156,21 @@ export async function updateWorkGlobalHeader(id: number, payload: HeaderPayload)
 
   await db
     .update(workGlobalHeader)
-    .set({
-      emoji: payload.emoji ?? null,
-      title: payload.title,
-      dscpt: payload.dscpt,
-      startDate,
-      endDate,
-      remainQty: payload.remainQty,
-      closedYn: payload.closedYn,
-      comment: payload.comment ?? null
-    })
+    .set(
+      withUpdateAuditFields(
+        {
+          emoji: payload.emoji ?? null,
+          title: payload.title,
+          dscpt: payload.dscpt,
+          startDate,
+          endDate,
+          remainQty: payload.remainQty,
+          closedYn: payload.closedYn,
+          comment: payload.comment ?? null
+        },
+        actor
+      )
+    )
     .where(eq(workGlobalHeader.id, id));
 
   return listWorkGlobalHeaders();

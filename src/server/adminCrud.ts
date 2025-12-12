@@ -3,6 +3,7 @@ import type { RowDataPacket } from 'mysql2';
 import { getPool } from '@/src/db/client';
 import { logServerError } from '@/src/server/errorLogger';
 import { getSchemaTable, getSchemaTables, type SchemaTable } from '@/src/server/schemaRegistry';
+import { resolveWebActor } from '@/src/server/audit';
 
 export type AdminReference = { table: string; column: string };
 
@@ -606,16 +607,32 @@ export async function insertRow(table: string, data: Record<string, unknown>) {
   await pool.query(sql, [table, ...names, ...values]);
 }
 
-export async function updateRow(table: string, key: Record<string, unknown>, data: Record<string, unknown>) {
+export async function updateRow(
+  table: string,
+  key: Record<string, unknown>,
+  data: Record<string, unknown>,
+  actor = resolveWebActor()
+) {
   const columns = await fetchColumnMetadata(table);
   const primaryKey = columns.filter((column) => column.isPrimaryKey).map((column) => column.name);
+
+  const columnNames = new Set(columns.map((column) => column.name));
+  const normalized = withManualFlag(table, data);
+  const payload = { ...normalized };
+
+  if ('created_by' in payload) {
+    delete payload.created_by;
+  }
+
+  if (columnNames.has('updated_by')) {
+    payload.updated_by = actor;
+  }
 
   if (primaryKey.length === 0) {
     throw new Error('기본키가 정의되지 않은 테이블입니다.');
   }
 
-  const normalized = withManualFlag(table, data);
-  const { names, values } = buildInsertParts(normalized, columns);
+  const { names, values } = buildInsertParts(payload, columns);
 
   if (names.length === 0) {
     throw new Error('수정할 컬럼이 없습니다.');

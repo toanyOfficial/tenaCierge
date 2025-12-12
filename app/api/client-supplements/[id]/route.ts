@@ -6,6 +6,7 @@ import { clientHeader, clientRooms, clientSupplements } from '@/src/db/schema';
 import { findClientByProfile } from '@/src/server/clients';
 import { logServerError } from '@/src/server/errorLogger';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
+import { withUpdateAuditFields } from '@/src/server/audit';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -53,7 +54,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       }
     }
 
-    await db.update(clientSupplements).set({ buyYn }).where(eq(clientSupplements.id, supplyId));
+    await db
+      .update(clientSupplements)
+      .set(withUpdateAuditFields({ buyYn }, profile.registerNo))
+      .where(eq(clientSupplements.id, supplyId));
 
     return NextResponse.json({ id: supplyId, buyYn });
   } catch (error) {
