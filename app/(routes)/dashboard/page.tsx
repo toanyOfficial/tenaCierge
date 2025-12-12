@@ -16,7 +16,6 @@ export const metadata: Metadata = {
 };
 
 const roleOrder = ['admin', 'host', 'butler', 'cleaner'] as const;
-const butlerSectorOrder = ['신논현', '역삼', '논현'];
 
 type CleanerTimeSegment = 'preBatch' | 'batching' | 'applyWindow';
 
@@ -327,10 +326,11 @@ async function buildButlerSnapshot(
       etcBaseCode,
       and(eq(etcBaseCode.codeGroup, etcBuildings.sectorCode), eq(etcBaseCode.code, etcBuildings.sectorValue))
     )
-    .where(eq(workHeader.date, targetDateValue));
+    .where(and(eq(workHeader.date, targetDateValue), eq(workHeader.cleaningYn, true)));
 
   const normalizedWorks = works.map((work) => {
     const sectorLabel = work.sectorLabel ?? work.sectorValue ?? work.sectorCode ?? '미지정 섹터';
+    const sectorCode = normalizeSectorCode(work.sectorCode);
     const buildingName = work.buildingName ?? '미지정 빌딩';
     const checkoutTimeLabel = formatCheckoutTimeLabel(work.checkoutTime);
     const checkoutMinutes = checkoutTimeToMinutes(work.checkoutTime);
@@ -340,6 +340,7 @@ async function buildButlerSnapshot(
     return {
       id: work.id,
       sectorLabel,
+      sectorCode,
       buildingName,
       checkoutTimeLabel,
       checkoutMinutes,
@@ -352,11 +353,11 @@ async function buildButlerSnapshot(
 
   const buildingTotals = new Map<string, number>();
   normalizedWorks.forEach((work) => {
-    const buildingKey = `${work.sectorLabel}::${work.buildingName}`;
+    const buildingKey = `${work.sectorCode ?? work.sectorLabel}::${work.buildingName}`;
     buildingTotals.set(buildingKey, (buildingTotals.get(buildingKey) ?? 0) + 1);
   });
 
-  const cleaningWorks = normalizedWorks.filter((work) => work.isCleaning);
+  const cleaningWorks = normalizedWorks;
 
   const sectorGroups = new Map<
     string,
@@ -375,10 +376,11 @@ async function buildButlerSnapshot(
   >();
 
   cleaningWorks.forEach((work) => {
-    const sectorKey = work.sectorLabel;
+    const sectorKey = work.sectorCode ?? work.sectorLabel;
     if (!sectorGroups.has(sectorKey)) {
       sectorGroups.set(sectorKey, {
         label: work.sectorLabel,
+        sectorCode: work.sectorCode,
         totalWorkers: 0,
         buildings: new Map()
       });
@@ -408,7 +410,7 @@ async function buildButlerSnapshot(
   });
 
   const sectorSummaries: ButlerSectorSummary[] = Array.from(sectorGroups.values())
-    .sort((a, b) => sortSectorWithPreference(a.label, b.label, preferredSectors))
+    .sort((a, b) => compareSectorByCode(a.sectorCode ?? null, b.sectorCode ?? null, a.label, b.label))
     .map((sector) => ({
       sectorLabel: sector.label,
       totalWorkers: sector.totalWorkers,
@@ -432,13 +434,18 @@ async function buildButlerSnapshot(
     }));
 
   const sortedWorks = [...normalizedWorks].sort((a, b) => {
-    const sectorDiff = sortSectorWithPreference(a.sectorLabel, b.sectorLabel, preferredSectors);
+    const sectorDiff = compareSectorByCode(
+      a.sectorCode ?? null,
+      b.sectorCode ?? null,
+      a.sectorLabel,
+      b.sectorLabel
+    );
     if (sectorDiff !== 0) {
       return sectorDiff;
     }
 
-    const buildingKeyA = `${a.sectorLabel}::${a.buildingName}`;
-    const buildingKeyB = `${b.sectorLabel}::${b.buildingName}`;
+    const buildingKeyA = `${a.sectorCode ?? a.sectorLabel}::${a.buildingName}`;
+    const buildingKeyB = `${b.sectorCode ?? b.sectorLabel}::${b.buildingName}`;
     const buildingTotalA = buildingTotals.get(buildingKeyA) ?? 0;
     const buildingTotalB = buildingTotals.get(buildingKeyB) ?? 0;
     if (buildingTotalA !== buildingTotalB) {
@@ -725,25 +732,6 @@ function checkoutTimeToMinutes(value: string | Date | null | undefined) {
   return Number.MAX_SAFE_INTEGER;
 }
 
-function compareSectorLabel(a: string, b: string) {
-  const indexA = butlerSectorOrder.indexOf(a);
-  const indexB = butlerSectorOrder.indexOf(b);
-
-  if (indexA !== -1 && indexB !== -1) {
-    return indexA - indexB;
-  }
-
-  if (indexA !== -1) {
-    return -1;
-  }
-
-  if (indexB !== -1) {
-    return 1;
-  }
-
-  return a.localeCompare(b, 'ko');
-}
-
 async function resolvePreferredSectors(profile: ProfileSummary): Promise<string[]> {
   const phone = sanitize(profile.phone);
   const registerNo = sanitize(profile.registerNo);
@@ -815,17 +803,38 @@ async function resolvePreferredSectors(profile: ProfileSummary): Promise<string[
   }
 }
 
-function sortSectorWithPreference(a: string, b: string, preferred: string[]) {
-  const aPreferred = preferred.includes(a);
-  const bPreferred = preferred.includes(b);
+function compareSectorByCode(
+  aCode: number | null,
+  bCode: number | null,
+  aLabel: string,
+  bLabel: string
+) {
+  if (aCode !== null && bCode !== null && aCode !== bCode) {
+    return aCode - bCode;
+  }
 
-  if (aPreferred && !bPreferred) {
+  if (aCode !== null && bCode === null) {
     return -1;
   }
 
-  if (!aPreferred && bPreferred) {
+  if (aCode === null && bCode !== null) {
     return 1;
   }
 
-  return compareSectorLabel(a, b);
+  return aLabel.localeCompare(bLabel, 'ko');
+}
+
+function normalizeSectorCode(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return null;
 }
