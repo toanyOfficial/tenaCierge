@@ -12,6 +12,7 @@ import {
   workImagesSetDetail,
   workReports
 } from '@/src/db/schema';
+import { withInsertAuditFields, withUpdateAuditFields } from '@/src/server/audit';
 import { logServerError } from '@/src/server/errorLogger';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { fetchWorkRowById } from '@/src/server/workQueries';
@@ -25,6 +26,7 @@ export const revalidate = 0;
 
 export async function POST(req: Request) {
   const profile = await getProfileWithDynamicRoles();
+  const auditActor = profile.registerNo;
 
   if (!profile.roles.some((role) => role === 'admin' || role === 'butler' || role === 'cleaner')) {
     return NextResponse.json({ message: '접근 권한이 없습니다.' }, { status: 403 });
@@ -150,11 +152,16 @@ export async function POST(req: Request) {
     const cleaningOnly = cleaningChecks.filter((id) => checklistRows.some((row) => row.id === id && row.type === 1));
     const supplyOnly = supplyChecks.filter((id) => supplyChecklistRows.some((row) => row.id === id));
     if (cleaningOnly.length) {
-      rowsToInsert.push({ workId, type: 1, contents1: cleaningOnly });
+      rowsToInsert.push(withInsertAuditFields({ workId, type: 1, contents1: cleaningOnly }, auditActor));
     }
 
     if (supplyOnly.length || hasSupplyNotes(supplyNotes)) {
-      rowsToInsert.push({ workId, type: 2, contents1: supplyOnly, contents2: hasSupplyNotes(supplyNotes) ? supplyNotes : null });
+      rowsToInsert.push(
+        withInsertAuditFields(
+          { workId, type: 2, contents1: supplyOnly, contents2: hasSupplyNotes(supplyNotes) ? supplyNotes : null },
+          auditActor
+        )
+      );
     }
 
     if (imageMap.size) {
@@ -162,7 +169,7 @@ export async function POST(req: Request) {
       // NOTE:
       //  - contents1: canonical slotId→url 매핑
       //  - contents2: legacy 호환을 위해 동일한 값을 중복 저장(과거 클라이언트가 contents2를 참조)
-      rowsToInsert.push({ workId, type: 3, contents1: images, contents2: images });
+      rowsToInsert.push(withInsertAuditFields({ workId, type: 3, contents1: images, contents2: images }, auditActor));
     }
 
     const targetTypes = [1, 2, 3];
@@ -177,10 +184,10 @@ export async function POST(req: Request) {
 
     await db
       .update(workHeader)
-      .set({ cleaningFlag: 4, cleaningEndTime: nowTime })
+      .set(withUpdateAuditFields({ cleaningFlag: 4, cleaningEndTime: nowTime }, auditActor))
       .where(eq(workHeader.id, workId));
 
-    await upsertCleaningWorkReport(workId, { field: 'contents2', key: 'end_dttm' });
+    await upsertCleaningWorkReport(workId, { field: 'contents2', key: 'end_dttm' }, auditActor);
 
     return NextResponse.json({ ok: true, images: rowsToInsert.find((row) => row.type === 3)?.contents1 ?? [] });
   } catch (error) {
@@ -244,7 +251,8 @@ function hasSupplyNotes(notes: Record<number, string>) {
 
 async function upsertCleaningWorkReport(
   workId: number,
-  options: { field: 'contents1' | 'contents2'; key: 'start_dttm' | 'end_dttm' }
+  options: { field: 'contents1' | 'contents2'; key: 'start_dttm' | 'end_dttm' },
+  auditActor: string
 ) {
   const now = nowKst().toISO();
 
@@ -264,7 +272,7 @@ async function upsertCleaningWorkReport(
       contents2: options.field === 'contents2' ? { [options.key]: now } : null
     };
 
-    await db.insert(workReports).values(payload);
+    await db.insert(workReports).values(withInsertAuditFields(payload, auditActor));
     return;
   }
 
@@ -282,7 +290,10 @@ async function upsertCleaningWorkReport(
   }
 
   if (Object.keys(updates).length) {
-    await db.update(workReports).set(updates).where(eq(workReports.id, target.id));
+    await db
+      .update(workReports)
+      .set(withUpdateAuditFields(updates, auditActor))
+      .where(eq(workReports.id, target.id));
   }
 }
 
