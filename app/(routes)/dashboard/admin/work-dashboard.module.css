@@ -1,15 +1,17 @@
-:global(html) {
-  margin: 0;
-  height: 100%;
-  background: #0b1222;
-  overflow: hidden;
-}
+:global {
+  html {
+    margin: 0;
+    height: 100%;
+    background: #0b1222;
+    overflow: hidden;
+  }
 
-:global(body) {
-  margin: 0;
-  height: 100%;
-  background: #0b1222;
-  overflow: hidden;
+  body {
+    margin: 0;
+    height: 100%;
+    background: #0b1222;
+    overflow: hidden;
+  }
 }
 
 .dashboardShell {
