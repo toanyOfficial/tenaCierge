@@ -303,11 +303,11 @@ def save_model_variables(conn, values: Dict[str, float]) -> None:
         for name, value in values.items():
             cur.execute(
                 """
-                INSERT INTO work_fore_variable(name, value)
-                VALUES (%s, %s)
-                ON DUPLICATE KEY UPDATE value=VALUES(value)
+                INSERT INTO work_fore_variable(name, value, created_by, updated_by)
+                VALUES (%s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE value=VALUES(value), updated_by=VALUES(updated_by)
                 """,
-                (name, value),
+                (name, value, "BATCH", "BATCH"),
             )
     conn.commit()
 
@@ -966,8 +966,8 @@ class BatchRunner:
                 worker_id = worker_queue[worker_idx]
                 worker_idx += 1
                 cur.execute(
-                    "UPDATE work_apply SET worker_id=%s WHERE id=%s",
-                    (worker_id, int(row["id"])),
+                    "UPDATE work_apply SET worker_id=%s, updated_by=%s WHERE id=%s",
+                    (worker_id, "BATCH", int(row["id"])),
                 )
                 assigned += 1
 
@@ -1072,6 +1072,7 @@ class BatchRunner:
                                 pred.room.checkin_time,
                                 pred.room.checkout_time,
                                 requirements_text,
+                                "BATCH",
                                 int(existing["id"]),
                             )
                         )
@@ -1098,8 +1099,8 @@ class BatchRunner:
 
                 if to_cancel:
                     cur.executemany(
-                        "UPDATE work_header SET cancel_yn=1 WHERE id=%s",
-                        [(pk,) for pk in to_cancel],
+                        "UPDATE work_header SET cancel_yn=1, updated_by=%s WHERE id=%s",
+                        [("BATCH", pk) for pk in to_cancel],
                     )
                 if to_update:
                     cur.executemany(
@@ -1112,7 +1113,8 @@ class BatchRunner:
                             checkin_time=%s,
                             checkout_time=%s,
                             requirements=%s,
-                            cancel_yn=0
+                            cancel_yn=0,
+                            updated_by=%s
                         WHERE id=%s
                         """,
                         to_update,
@@ -1231,10 +1233,11 @@ class BatchRunner:
                         res["checkin_time"],
                         res["checkout_time"],
                         merged_req,
+                        "BATCH",
                         int(header["id"]),
                     )
                 )
-                reservations_to_mark.append((int(header["id"]), int(res["id"])))
+                reservations_to_mark.append((int(header["id"]), "BATCH", int(res["id"])))
 
             if not updates:
                 logging.info(
@@ -1250,13 +1253,14 @@ class BatchRunner:
                        blanket_qty = %s,
                        checkin_time = %s,
                        checkout_time = %s,
-                       requirements = %s
+                       requirements = %s,
+                       updated_by = %s
                  WHERE id = %s
                 """,
                 updates,
             )
             cur.executemany(
-                "UPDATE work_reservation SET work_id=%s, reflect_yn=1 WHERE id=%s",
+                "UPDATE work_reservation SET work_id=%s, updated_by=%s, reflect_yn=1 WHERE id=%s",
                 reservations_to_mark,
             )
             self.conn.commit()

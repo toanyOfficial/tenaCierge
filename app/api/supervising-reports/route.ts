@@ -18,6 +18,7 @@ import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { fetchWorkRowById } from '@/src/server/workQueries';
 import { processImageUploads, UploadError } from '@/src/server/imageUpload';
 import { getKstNow } from '@/src/utils/workWindow';
+import { withUpdateAuditFields } from '@/src/server/audit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,6 +26,7 @@ export const revalidate = 0;
 
 export async function POST(req: Request) {
   const profile = await getProfileWithDynamicRoles();
+  const auditActor = profile.registerNo;
 
   if (!profile.roles.some((role) => role === 'admin' || role === 'butler')) {
     return NextResponse.json({ message: '접근 권한이 없습니다.' }, { status: 403 });
@@ -194,7 +196,7 @@ export async function POST(req: Request) {
 
         await tx
           .update(workHeader)
-          .set({ supervisingYn: true, supervisingEndTime: nowTime })
+          .set(withUpdateAuditFields({ supervisingYn: true, supervisingEndTime: nowTime }, auditActor))
           .where(eq(workHeader.id, workId));
 
         const findingIds = supervisingChecklistIds.filter((id) => supervisingFindings[id]);
@@ -221,7 +223,10 @@ export async function POST(req: Request) {
             .limit(1);
 
           if (existingHistory.length) {
-            await tx.update(workerEvaluateHistory).set(evaluationPayload).where(eq(workerEvaluateHistory.workId, workId));
+            await tx
+              .update(workerEvaluateHistory)
+              .set(withUpdateAuditFields(evaluationPayload, auditActor))
+              .where(eq(workerEvaluateHistory.workId, workId));
           } else {
             await tx.insert(workerEvaluateHistory).values(evaluationPayload);
           }
