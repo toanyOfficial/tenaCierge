@@ -31,7 +31,7 @@ export async function PUT(_req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ message: '필수 입력값을 확인해 주세요.' }, { status: 400 });
     }
 
-    const reservations = await updateWorkReservation(Number(params.id), payload);
+    const reservations = await updateWorkReservation(Number(params.id), payload, profile.registerNo);
     return NextResponse.json({ reservations });
   } catch (error) {
     await logServerError({ appName: 'work-reservations-put', message: '요청사항 수정 실패', error });
