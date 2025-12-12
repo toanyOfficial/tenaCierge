@@ -224,6 +224,11 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
     { key: 'inspect' as const, active: (room: RoomStatus) => room.inspected }
   ];
 
+  const ROOM_GRID_SLOTS = 27;
+  const visibleRooms = roomStatuses.slice(0, ROOM_GRID_SLOTS);
+  const roomPlaceholders = Math.max(ROOM_GRID_SLOTS - visibleRooms.length, 0);
+  const showEmptyRooms = !isLoading && visibleRooms.length === 0;
+
   const formatSectorCounts = (item: SummaryItem) =>
     item.sectors.map((sector) => sector.count).join(' / ') || '0';
 
@@ -335,37 +340,44 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
             </div>
 
             <div className={styles.roomGrid}>
-              {roomStatuses.length === 0 && !isLoading ? (
-                <div className={styles.emptyState}>배정된 호실이 없습니다.</div>
+              {showEmptyRooms ? (
+                <div className={`${styles.roomChip} ${styles.roomPlaceholder}`}>
+                  <div className={styles.emptyState}>배정된 호실이 없습니다.</div>
+                </div>
               ) : (
-                roomStatuses.map((room) => {
-                  return (
-                    <div key={`${room.building}-${room.room}`} className={styles.roomChip}>
-                      <span className={styles.roomName}>
-                        {room.building} · {room.room}
-                      </span>
-                      <div className={styles.roomStatusRow}>
-                        <span className={styles.roomValue}>{room.owner}</span>
-                        <div className={styles.statusButtonRow}>
-                          {roomSteps.map((step) => {
-                            const statusInfo = roomStatusMap[step.key];
-                            const active = step.active(room);
-                            return (
-                              <button
-                                key={step.key}
-                                type="button"
-                                className={`${styles.statusStep} ${active ? statusInfo.className : ''}`}
-                              >
-                                {statusInfo.label}
-                              </button>
-                            );
-                          })}
+                <>
+                  {visibleRooms.map((room) => {
+                    return (
+                      <div key={`${room.building}-${room.room}`} className={styles.roomChip}>
+                        <span className={styles.roomName}>
+                          {room.building} · {room.room}
+                        </span>
+                        <div className={styles.roomStatusRow}>
+                          <span className={styles.roomValue}>{room.owner}</span>
+                          <div className={styles.statusButtonRow}>
+                            {roomSteps.map((step) => {
+                              const statusInfo = roomStatusMap[step.key];
+                              const active = step.active(room);
+                              return (
+                                <button
+                                  key={step.key}
+                                  type="button"
+                                  className={`${styles.statusStep} ${active ? statusInfo.className : ''}`}
+                                >
+                                  {statusInfo.label}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })
+                    );
+                  })}
+                </>
               )}
+              {Array.from({ length: roomPlaceholders - (showEmptyRooms ? 1 : 0) }).map((_, idx) => (
+                <div key={`placeholder-${idx}`} className={`${styles.roomChip} ${styles.roomPlaceholder}`} aria-hidden />
+              ))}
             </div>
           </section>
 
