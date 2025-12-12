@@ -406,10 +406,10 @@ async function buildButlerSnapshot(
   >();
 
   cleaningWorks.forEach((work) => {
-    const sectorKey = work.sectorCode ?? work.sectorLabel;
+    const sectorKey = `${work.sectorCode ?? work.sectorLabel ?? ''}`;
     if (!sectorGroups.has(sectorKey)) {
       sectorGroups.set(sectorKey, {
-        label: work.sectorLabel,
+        label: work.sectorLabel ?? '',
         sectorCode: work.sectorCode,
         totalWorkers: 0,
         buildings: new Map()
