@@ -97,8 +97,8 @@ def log_error(
             cur.execute(
                 """
                 INSERT INTO etc_errorLogs
-                    (level, app_name, error_code, message, stacktrace, request_id, user_id, context_json)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    (level, app_name, error_code, message, stacktrace, request_id, user_id, context_json, created_by, updated_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     level,
@@ -109,6 +109,8 @@ def log_error(
                     None,
                     None,
                     json.dumps({}, ensure_ascii=False),
+                    "BATCH",
+                    "BATCH",
                 ),
             )
         log_conn.commit()
@@ -271,8 +273,8 @@ def log_updates(conn, run_date: dt.date, updates: Sequence[ParameterUpdate]) -> 
             cur.execute(
                 """
                 INSERT INTO work_fore_tuning
-                    (date, horizon, variable, before, after, delta, explanation)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    (date, horizon, variable, before, after, delta, explanation, created_by, updated_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     run_date,
@@ -282,6 +284,8 @@ def log_updates(conn, run_date: dt.date, updates: Sequence[ParameterUpdate]) -> 
                     round(upd.after, 4),
                     round(upd.after - upd.before, 6),
                     upd.explanation,
+                    "BATCH",
+                    "BATCH",
                 ),
             )
     conn.commit()
