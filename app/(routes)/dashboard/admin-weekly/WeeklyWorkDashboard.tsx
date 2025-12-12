@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import styles from '../admin/work-dashboard.module.css';
-import CommonHeaderComponent from '../CommonHeader';
 import type { ProfileSummary } from '@/src/utils/profile';
 
 function formatTimeLabel(date: Date) {
@@ -187,13 +186,6 @@ export default function WeeklyWorkDashboard({ profile }: ProfileProps) {
 
   return (
     <div className={styles.dashboardShell}>
-      <CommonHeaderComponent profile={profile} activeRole="admin" onRoleChange={() => {}} />
-
-      <header className={styles.pageHeader}>
-        <p className={styles.pageTitle}>대시보드 - 주간업무</p>
-        <p className={styles.pageSubtitle}>1920x1080 한 화면 기준으로 요약과 카드 뷰를 모두 표시합니다.</p>
-      </header>
-
       <div className={styles.summaryStrip}>
         {summary.map((item) => {
           const total = Object.values(item.sectors).reduce((acc, val) => acc + val, 0);
@@ -206,7 +198,6 @@ export default function WeeklyWorkDashboard({ profile }: ProfileProps) {
                   .map(([sector, count]) => `${sector} ${count}`)
                   .join(' / ')}
               </span>
-              <span className={styles.summaryMeta}>16:30 자동 새로고침</span>
             </div>
           );
         })}
