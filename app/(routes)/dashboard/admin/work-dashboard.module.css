@@ -176,6 +176,8 @@
 .stackedBarShell {
   position: relative;
   width: 100%;
+  padding-top: 36px;
+  padding-bottom: 42px;
 }
 
 .stackedBar {
@@ -199,6 +201,7 @@
   min-width: 42px;
   border-right: 1px solid rgba(15, 23, 42, 0.35);
   padding: 6px 8px;
+  overflow: hidden;
 }
 
 .stackedSegment:last-child {
@@ -210,6 +213,22 @@
   inset: 0;
   background: linear-gradient(135deg, rgba(0, 0, 0, 0.28) 0%, rgba(0, 0, 0, 0.18) 100%);
   width: 0;
+}
+
+.segmentLabel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0b1222;
+  font-weight: 800;
+  font-size: 0.82rem;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 6px;
 }
 
 .segmentOverlay {
@@ -232,17 +251,19 @@
 }
 
 .overlayTop {
-  top: -24px;
+  top: -34px;
+  transform: translateY(-6px);
 }
 
 .overlayBottom {
-  bottom: -28px;
+  bottom: -40px;
   flex-wrap: wrap;
+  transform: translateY(6px);
 }
 
 .overlayLine {
   width: 1px;
-  height: 14px;
+  height: 22px;
   background: rgba(226, 232, 240, 0.7);
   box-shadow: 0 0 0 3px rgba(226, 232, 240, 0.18);
 }
@@ -268,6 +289,11 @@
 .overlaySector {
   font-size: 0.76rem;
   color: #cbd5f5;
+}
+
+.overlayBottom .overlaySector {
+  align-self: flex-end;
+  margin-top: 6px;
 }
 
 .segmentLegend {

@@ -39,6 +39,7 @@ type SectorProgress = {
 type StackedSegment = {
   key: string;
   label: string;
+  buildingName: string;
   width: number;
   offset: number;
   completedWidth: number;
@@ -157,6 +158,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
         segments.push({
           key: `${sector.code}-${building.name}`,
           label: `${sector.code}·${building.name}`,
+          buildingName: building.name,
           width,
           offset,
           completedWidth,
@@ -280,15 +282,16 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                         <div
                           key={segment.key}
                           className={styles.stackedSegment}
-                          style={{
-                            width: `${segment.width}%`,
-                            background: `linear-gradient(120deg, ${segment.color} 0%, ${segment.color.replace(/e6$/i, 'ff')} 85%)`
-                          }}
-                          title={`${segment.label} ${segment.width.toFixed(1)}%`}
-                        >
-                          <div className={styles.segmentProgress} style={{ width: `${segment.completedWidth}%` }} />
-                        </div>
-                      ))}
+                        style={{
+                          width: `${segment.width}%`,
+                          background: `linear-gradient(120deg, ${segment.color} 0%, ${segment.color.replace(/e6$/i, 'ff')} 85%)`
+                        }}
+                        title={`${segment.label} ${segment.width.toFixed(1)}%`}
+                      >
+                        <div className={styles.segmentProgress} style={{ width: `${segment.completedWidth}%` }} />
+                        <span className={styles.segmentLabel}>{segment.buildingName}</span>
+                      </div>
+                    ))}
                       {todayStacked.map((segment) => (
                         <div
                           key={`${segment.key}-overlay`}
