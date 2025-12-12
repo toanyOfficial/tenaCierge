@@ -10,6 +10,7 @@ import type { CleaningWork } from '@/src/server/workTypes';
 import { validateWorkInput, type WorkMutationValues } from '@/src/server/workValidation';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { resolveWorkWindow } from '@/src/utils/workWindow';
+import { withUpdateAuditFields } from '@/src/server/audit';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -71,7 +72,9 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
       return NextResponse.json({ message: '변경할 값이 없습니다.' }, { status: 400 });
     }
 
-    await db.update(workHeader).set(updatePayload).where(eq(workHeader.id, workId));
+    const auditedPayload = withUpdateAuditFields(updatePayload, profile.registerNo);
+
+    await db.update(workHeader).set(auditedPayload).where(eq(workHeader.id, workId));
 
     const refreshed = await fetchWorkRowById(workId);
     const nextState: CleaningWork | null = refreshed ? serializeWorkRow(refreshed) : null;
