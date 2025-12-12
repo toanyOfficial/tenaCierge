@@ -38,6 +38,7 @@ export type SectorProgress = {
 };
 
 export type RoomStatus = {
+  sectorCode: string;
   sector: string;
   building: string;
   room: string;
@@ -143,7 +144,9 @@ function mapRoomStatuses(rawRows: RawWorkRow[], todayKey: string): RoomStatus[] 
     .map((row) => {
       const building = row.buildingShortName || '미지정';
       const sector = row.sectorName || row.sectorValue || 'N/A';
+      const sectorCode = row.sectorValue || 'N/A';
       return {
+        sectorCode,
         building,
         sector,
         room: row.roomNo || `#${row.id}`,
