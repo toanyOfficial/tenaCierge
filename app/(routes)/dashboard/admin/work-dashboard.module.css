@@ -170,18 +170,18 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
 }
 
 .stackedWrapper + .roomGrid {
-  margin-top: -10px;
+  margin-top: -8px;
 }
 
 .stackedBarShell {
   position: relative;
   width: 100%;
-  padding-top: 18px;
-  padding-bottom: 0;
+  padding-top: 12px;
+  padding-bottom: 6px;
   margin-bottom: 0;
   height: auto;
   min-height: auto;
@@ -258,11 +258,11 @@
 }
 
 .overlayTop {
-  top: -22px;
+  top: -12px;
 }
 
 .overlayBottom {
-  bottom: -6px;
+  bottom: -4px;
   flex-wrap: wrap;
 }
 
