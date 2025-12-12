@@ -16,14 +16,14 @@ export const revalidate = 0;
 async function ensureAdmin() {
   const profile = await getProfileWithDynamicRoles();
   if (!profile.roles.includes('admin')) {
-    return false;
+    return null;
   }
-  return true;
+  return profile;
 }
 
 export async function GET(request: Request) {
-  const isAdmin = await ensureAdmin();
-  if (!isAdmin) {
+  const profile = await ensureAdmin();
+  if (!profile) {
     return NextResponse.json({ message: '관리자만 접근 가능합니다.' }, { status: 403 });
   }
 
@@ -46,8 +46,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const isAdmin = await ensureAdmin();
-  if (!isAdmin) {
+  const profile = await ensureAdmin();
+  if (!profile) {
     return NextResponse.json({ message: '관리자만 접근 가능합니다.' }, { status: 403 });
   }
 
@@ -70,8 +70,8 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const isAdmin = await ensureAdmin();
-  if (!isAdmin) {
+  const profile = await ensureAdmin();
+  if (!profile) {
     return NextResponse.json({ message: '관리자만 접근 가능합니다.' }, { status: 403 });
   }
 
@@ -95,8 +95,8 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const isAdmin = await ensureAdmin();
-  if (!isAdmin) {
+  const profile = await ensureAdmin();
+  if (!profile) {
     return NextResponse.json({ message: '관리자만 접근 가능합니다.' }, { status: 403 });
   }
 

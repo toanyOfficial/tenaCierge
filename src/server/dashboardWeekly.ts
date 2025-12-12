@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, isNotNull, lte } from 'drizzle-orm';
+import { and, asc, eq, gte, isNotNull, lte, sql } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import { clientRooms, etcBaseCode, etcBuildings, workHeader, workerHeader } from '@/src/db/schema';
@@ -38,13 +38,14 @@ export type SectorProgress = {
 };
 
 export type RoomStatus = {
+  sectorCode: string;
   sector: string;
   building: string;
   room: string;
-  supplyComplete: boolean;
-  assigned: boolean;
-  cleaningComplete: boolean;
-  inspected: boolean;
+  supplyYn: boolean;
+  cleanerId: number | null;
+  cleaningFlag: number | null;
+  supervisingYn: boolean;
   owner: string;
 };
 
@@ -70,12 +71,10 @@ function startOfKstDay(offsetDays = 0) {
 
 type SectorCatalog = { code: string; name: string }[];
 
-function mapSummary(rawRows: RawWorkRow[], baseDate: Date, sectorCatalog: SectorCatalog): WeeklySummaryItem[] {
+function mapSummary(rawRows: RawWorkRow[], dayKeys: string[], sectorCatalog: SectorCatalog): WeeklySummaryItem[] {
   const days: WeeklySummaryItem[] = [];
-  for (let i = 0; i < 8; i += 1) {
-    const date = new Date(baseDate);
-    date.setDate(baseDate.getDate() + i);
-    const key = formatKstDateKey(date);
+  for (let i = 0; i < dayKeys.length; i += 1) {
+    const key = dayKeys[i];
 
     const daily = sectorCatalog.map((sector) => ({ ...sector, count: 0 }));
     rawRows
@@ -89,7 +88,7 @@ function mapSummary(rawRows: RawWorkRow[], baseDate: Date, sectorCatalog: Sector
       });
 
     days.push({
-      day: `D${i}`,
+      day: i === 0 ? 'D0' : `D+${i}`,
       date: key,
       sectors: daily
     });
@@ -143,14 +142,16 @@ function mapRoomStatuses(rawRows: RawWorkRow[], todayKey: string): RoomStatus[] 
     .map((row) => {
       const building = row.buildingShortName || '미지정';
       const sector = row.sectorName || row.sectorValue || 'N/A';
+      const sectorCode = row.sectorValue || 'N/A';
       return {
+        sectorCode,
         building,
         sector,
         room: row.roomNo || `#${row.id}`,
-        supplyComplete: Boolean(row.supplyYn),
-        assigned: Boolean(row.cleanerId),
-        cleaningComplete: Boolean((row.cleaningFlag ?? 1) >= 4 || row.cleaningEndTime),
-        inspected: Boolean(row.supervisingYn || row.supervisingEndTime),
+        supplyYn: Boolean(row.supplyYn),
+        cleanerId: row.cleanerId,
+        cleaningFlag: row.cleaningFlag,
+        supervisingYn: Boolean(row.supervisingYn),
         owner: row.cleanerName || '담당자 미지정'
       };
     });
@@ -169,6 +170,11 @@ async function mapTomorrowApply(tomorrowKey: string): Promise<ApplyPreview[]> {
 export async function fetchWeeklyDashboardData(): Promise<WeeklyDashboardSnapshot> {
   const baseDate = startOfKstDay(0);
   const endDate = startOfKstDay(7);
+  const dayKeys = Array.from({ length: 8 }, (_, i) => {
+    const next = new Date(baseDate);
+    next.setDate(baseDate.getDate() + i);
+    return formatKstDateKey(next);
+  });
 
   const sectorCatalog = await db
     .selectDistinct({
@@ -182,6 +188,11 @@ export async function fetchWeeklyDashboardData(): Promise<WeeklyDashboardSnapsho
     )
     .where(isNotNull(etcBuildings.sectorValue))
     .orderBy(asc(etcBuildings.sectorValue));
+
+  const startKey = formatKstDateKey(baseDate);
+  const endKey = formatKstDateKey(endDate);
+  const startDateSql = sql`CAST(${startKey} AS DATE)`;
+  const endDateSql = sql`CAST(${endKey} AS DATE)`;
 
   const rawRows = await db
     .select({
@@ -209,16 +220,16 @@ export async function fetchWeeklyDashboardData(): Promise<WeeklyDashboardSnapsho
       and(eq(etcBaseCode.codeGroup, etcBuildings.sectorCode), eq(etcBaseCode.code, etcBuildings.sectorValue))
     )
     .leftJoin(workerHeader, eq(workHeader.cleanerId, workerHeader.id))
-    .where(and(gte(workHeader.date, baseDate), lte(workHeader.date, endDate), eq(workHeader.cancelYn, false)));
+    .where(and(gte(workHeader.date, startDateSql), lte(workHeader.date, endDateSql), eq(workHeader.cancelYn, false)));
 
-  const todayKey = formatKstDateKey(baseDate);
-  const tomorrowKey = formatKstDateKey(startOfKstDay(1));
+  const todayKey = dayKeys[0];
+  const tomorrowKey = dayKeys[1];
 
   const normalizedCatalog: SectorCatalog = sectorCatalog
     .filter((sector) => Boolean(sector.code))
     .map((sector) => ({ code: sector.code as string, name: sector.name || (sector.code as string) }));
 
-  const summary = mapSummary(rawRows, baseDate, normalizedCatalog);
+  const summary = mapSummary(rawRows, dayKeys, normalizedCatalog);
   const todayProgress = mapDayProgress(rawRows, todayKey);
   const tomorrowProgress = mapDayProgress(rawRows, tomorrowKey);
   const roomStatuses = mapRoomStatuses(rawRows, todayKey);
