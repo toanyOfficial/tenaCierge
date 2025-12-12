@@ -54,6 +54,7 @@ type StackedSegment = {
 };
 
 type RoomStatus = {
+  sectorCode: string;
   room: string;
   sector: string;
   building: string;
@@ -228,16 +229,16 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
     const buildingCounts = new Map<string, number>();
 
     roomStatuses.forEach((room) => {
-      const key = `${room.sector}|||${room.building}`;
+      const key = `${room.sectorCode}|||${room.building}`;
       buildingCounts.set(key, (buildingCounts.get(key) ?? 0) + 1);
     });
 
     return [...roomStatuses].sort((a, b) => {
-      const sectorCompare = a.sector.localeCompare(b.sector);
+      const sectorCompare = a.sectorCode.localeCompare(b.sectorCode);
       if (sectorCompare !== 0) return sectorCompare;
 
-      const aKey = `${a.sector}|||${a.building}`;
-      const bKey = `${b.sector}|||${b.building}`;
+      const aKey = `${a.sectorCode}|||${a.building}`;
+      const bKey = `${b.sectorCode}|||${b.building}`;
       const aCount = buildingCounts.get(aKey) ?? 0;
       const bCount = buildingCounts.get(bKey) ?? 0;
       if (aCount !== bCount) return bCount - aCount;
