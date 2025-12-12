@@ -57,7 +57,10 @@ type RoomStatus = {
   room: string;
   sector: string;
   building: string;
-  status: keyof typeof roomStatusMap;
+  supplyComplete: boolean;
+  assigned: boolean;
+  cleaningComplete: boolean;
+  inspected: boolean;
   owner: string;
 };
 
@@ -214,7 +217,12 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
 
   const isTodayDominant = layoutMode === 'todayDominant';
 
-  const roomSteps: RoomStatus['status'][] = ['assign', 'charge', 'clean', 'inspect'];
+  const roomSteps = [
+    { key: 'assign' as const, active: (room: RoomStatus) => room.supplyComplete },
+    { key: 'charge' as const, active: (room: RoomStatus) => room.assigned },
+    { key: 'clean' as const, active: (room: RoomStatus) => room.cleaningComplete },
+    { key: 'inspect' as const, active: (room: RoomStatus) => room.inspected }
+  ];
 
   const formatSectorCounts = (item: SummaryItem) =>
     item.sectors.map((sector) => sector.count).join(' / ') || '0';
@@ -300,13 +308,12 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                         >
                           <div className={styles.overlayTop}>
                             <span className={styles.overlayLine} />
-                            <span className={styles.overlayPercent}>{segment.completedWidth.toFixed(0)}%</span>
+                            <span className={styles.overlayStat}>
+                              {segment.completed}/{segment.total} · {segment.completedWidth.toFixed(0)}%
+                            </span>
                           </div>
                           <div className={styles.overlayBottom}>
                             <span className={styles.overlayLine} />
-                            <span className={styles.overlayCount}>
-                              {segment.completed}/{segment.total}
-                            </span>
                             {segment.isSectorHead ? (
                               <span className={styles.overlaySector}>
                                 {segment.sector} {segment.sectorTotal}건
@@ -335,11 +342,11 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                         <span className={styles.roomValue}>{room.owner}</span>
                         <div className={styles.statusButtonRow}>
                           {roomSteps.map((step) => {
-                            const statusInfo = roomStatusMap[step];
-                            const active = roomSteps.indexOf(step) <= roomSteps.indexOf(room.status);
+                            const statusInfo = roomStatusMap[step.key];
+                            const active = step.active(room);
                             return (
                               <button
-                                key={step}
+                                key={step.key}
                                 type="button"
                                 className={`${styles.statusStep} ${active ? statusInfo.className : ''}`}
                               >

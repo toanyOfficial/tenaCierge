@@ -268,8 +268,7 @@
   box-shadow: 0 0 0 3px rgba(226, 232, 240, 0.18);
 }
 
-.overlayPercent,
-.overlayCount,
+.overlayStat,
 .overlaySector {
   background: rgba(15, 23, 42, 0.76);
   border: 1px solid rgba(226, 232, 240, 0.2);
@@ -282,7 +281,7 @@
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
 }
 
-.overlayPercent {
+.overlayStat {
   color: #93c5fd;
 }
 

@@ -8,6 +8,9 @@ import { listApplyRows } from '@/src/server/workApply';
 type RawWorkRow = {
   id: number;
   workDate: Date;
+  supplyYn: boolean;
+  cleaningFlag: number | null;
+  supervisingYn: boolean;
   buildingId: number | null;
   buildingShortName: string | null;
   sectorCode: string | null;
@@ -15,6 +18,7 @@ type RawWorkRow = {
   sectorName: string | null;
   roomNo: string | null;
   cleanerName: string | null;
+  cleanerId: number | null;
   cleaningEndTime: string | null;
   supervisingEndTime: string | null;
 };
@@ -37,7 +41,10 @@ export type RoomStatus = {
   sector: string;
   building: string;
   room: string;
-  status: 'assign' | 'charge' | 'clean' | 'inspect';
+  supplyComplete: boolean;
+  assigned: boolean;
+  cleaningComplete: boolean;
+  inspected: boolean;
   owner: string;
 };
 
@@ -59,13 +66,6 @@ export type WeeklyDashboardSnapshot = {
 function startOfKstDay(offsetDays = 0) {
   const now = nowKst().plus({ days: offsetDays }).startOf('day');
   return now.toJSDate();
-}
-
-function resolveStatus(row: RawWorkRow): RoomStatus['status'] {
-  if (row.supervisingEndTime) return 'inspect';
-  if (row.cleaningEndTime) return 'clean';
-  if (row.cleanerName) return 'charge';
-  return 'assign';
 }
 
 type SectorCatalog = { code: string; name: string }[];
@@ -147,7 +147,10 @@ function mapRoomStatuses(rawRows: RawWorkRow[], todayKey: string): RoomStatus[] 
         building,
         sector,
         room: row.roomNo || `#${row.id}`,
-        status: resolveStatus(row),
+        supplyComplete: Boolean(row.supplyYn),
+        assigned: Boolean(row.cleanerId),
+        cleaningComplete: Boolean((row.cleaningFlag ?? 1) >= 4 || row.cleaningEndTime),
+        inspected: Boolean(row.supervisingYn || row.supervisingEndTime),
         owner: row.cleanerName || '담당자 미지정'
       };
     });
@@ -184,12 +187,16 @@ export async function fetchWeeklyDashboardData(): Promise<WeeklyDashboardSnapsho
     .select({
       id: workHeader.id,
       workDate: workHeader.date,
+      supplyYn: workHeader.supplyYn,
+      cleaningFlag: workHeader.cleaningFlag,
+      supervisingYn: workHeader.supervisingYn,
       buildingId: etcBuildings.id,
       buildingShortName: etcBuildings.shortName,
       sectorCode: etcBuildings.sectorCode,
       sectorValue: etcBuildings.sectorValue,
       sectorName: etcBaseCode.value,
       roomNo: clientRooms.roomNo,
+      cleanerId: workHeader.cleanerId,
       cleanerName: workerHeader.name,
       cleaningEndTime: workHeader.cleaningEndTime,
       supervisingEndTime: workHeader.supervisingEndTime
