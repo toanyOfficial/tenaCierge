@@ -303,11 +303,11 @@ def save_model_variables(conn, values: Dict[str, float]) -> None:
         for name, value in values.items():
             cur.execute(
                 """
-                INSERT INTO work_fore_variable(name, value)
-                VALUES (%s, %s)
-                ON DUPLICATE KEY UPDATE value=VALUES(value)
+                INSERT INTO work_fore_variable(name, value, created_by, updated_by)
+                VALUES (%s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE value=VALUES(value), updated_by=VALUES(updated_by)
                 """,
-                (name, value),
+                (name, value, "BATCH", "BATCH"),
             )
     conn.commit()
 
@@ -332,8 +332,8 @@ def log_error(
             cur.execute(
                 """
                 INSERT INTO etc_errorLogs
-                    (level, app_name, error_code, message, stacktrace, request_id, user_id, context_json)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    (level, app_name, error_code, message, stacktrace, request_id, user_id, context_json, created_by, updated_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     level,
@@ -344,6 +344,8 @@ def log_error(
                     None,
                     None,
                     context_json,
+                    "BATCH",
+                    "BATCH",
                 ),
             )
         log_conn.commit()
@@ -385,8 +387,8 @@ def log_batch_execution(
             cur.execute(
                 """
                 INSERT INTO etc_errorLogs_batch
-                    (app_name, start_dttm, end_dttm, end_flag, context_json)
-                VALUES (%s, %s, %s, %s, %s)
+                    (app_name, start_dttm, end_dttm, end_flag, context_json, created_by, updated_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     app_name,
@@ -394,6 +396,8 @@ def log_batch_execution(
                     end_dttm,
                     end_flag,
                     json.dumps(context or {}, ensure_ascii=False),
+                    "BATCH",
+                    "BATCH",
                 ),
             )
         log_conn.commit()
@@ -790,8 +794,8 @@ class BatchRunner:
         """Persist forecast outputs."""
 
         logging.info("예측 결과 %s건 DB 저장", len(predictions))
-        d1_rows: List[Tuple[dt.date, dt.date, int, float, int, int]] = []
-        d7_rows: List[Tuple[dt.date, dt.date, int, float, int, int]] = []
+        d1_rows: List[Tuple[dt.date, dt.date, int, float, int, int, str, str]] = []
+        d7_rows: List[Tuple[dt.date, dt.date, int, float, int, int, str, str]] = []
 
         for pred in predictions:
             payload = (
@@ -801,6 +805,8 @@ class BatchRunner:
                 round(pred.p_out, 3),
                 int(pred.has_checkout) if pred.actual_observed else 0,
                 int(pred.correct) if pred.actual_observed else 0,
+                "BATCH",
+                "BATCH",
             )
 
             # 1일/7일 외 구간은 가장 가까운 테이블에 저장한다.
@@ -813,21 +819,21 @@ class BatchRunner:
             cur.execute("DELETE FROM work_fore_d1 WHERE run_dttm=%s", (self.run_date,))
             cur.execute("DELETE FROM work_fore_d7 WHERE run_dttm=%s", (self.run_date,))
 
-            if d1_rows:
-                cur.executemany(
-                    "INSERT INTO work_fore_d1 "
-                    "(run_dttm, target_date, room_id, p_out, actual_out, correct) "
-                    "VALUES (%s, %s, %s, %s, %s, %s)",
-                    d1_rows,
-                )
+                if d1_rows:
+                    cur.executemany(
+                        "INSERT INTO work_fore_d1 "
+                    "(run_dttm, target_date, room_id, p_out, actual_out, correct, created_by, updated_by) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                        d1_rows,
+                    )
 
-            if d7_rows:
-                cur.executemany(
-                    "INSERT INTO work_fore_d7 "
-                    "(run_dttm, target_date, room_id, p_out, actual_out, correct) "
-                    "VALUES (%s, %s, %s, %s, %s, %s)",
-                    d7_rows,
-                )
+                if d7_rows:
+                    cur.executemany(
+                        "INSERT INTO work_fore_d7 "
+                    "(run_dttm, target_date, room_id, p_out, actual_out, correct, created_by, updated_by) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                        d7_rows,
+                    )
 
         self.conn.commit()
 
@@ -890,10 +896,10 @@ class BatchRunner:
                         cur.execute(
                             """
                             INSERT INTO work_apply
-                                (work_date, basecode_sector, basecode_code, seq, position, worker_id)
-                            VALUES (%s, %s, %s, %s, %s, NULL)
+                                (work_date, basecode_sector, basecode_code, seq, position, worker_id, created_by, updated_by)
+                            VALUES (%s, %s, %s, %s, %s, NULL, %s, %s)
                             """,
-                            (target_date, sector_code, sector_value, seq, position),
+                            (target_date, sector_code, sector_value, seq, position, "BATCH", "BATCH"),
                         )
         self.conn.commit()
         self._assign_workers_to_apply(target_date)
@@ -966,8 +972,8 @@ class BatchRunner:
                 worker_id = worker_queue[worker_idx]
                 worker_idx += 1
                 cur.execute(
-                    "UPDATE work_apply SET worker_id=%s WHERE id=%s",
-                    (worker_id, int(row["id"])),
+                    "UPDATE work_apply SET worker_id=%s, updated_by=%s WHERE id=%s",
+                    (worker_id, "BATCH", int(row["id"])),
                 )
                 assigned += 1
 
@@ -1072,6 +1078,7 @@ class BatchRunner:
                                 pred.room.checkin_time,
                                 pred.room.checkout_time,
                                 requirements_text,
+                                "BATCH",
                                 int(existing["id"]),
                             )
                         )
@@ -1098,8 +1105,8 @@ class BatchRunner:
 
                 if to_cancel:
                     cur.executemany(
-                        "UPDATE work_header SET cancel_yn=1 WHERE id=%s",
-                        [(pk,) for pk in to_cancel],
+                        "UPDATE work_header SET cancel_yn=1, updated_by=%s WHERE id=%s",
+                        [("BATCH", pk) for pk in to_cancel],
                     )
                 if to_update:
                     cur.executemany(
@@ -1112,7 +1119,8 @@ class BatchRunner:
                             checkin_time=%s,
                             checkout_time=%s,
                             requirements=%s,
-                            cancel_yn=0
+                            cancel_yn=0,
+                            updated_by=%s
                         WHERE id=%s
                         """,
                         to_update,
@@ -1126,13 +1134,13 @@ class BatchRunner:
                              amenities_qty, blanket_qty, condition_check_yn,
                              cleaning_yn, checkin_time, checkout_time,
                              supply_yn, clening_flag, cleaning_end_time,
-                             supervising_end_time, requirements, cancel_yn, manual_upt_yn)
+                             supervising_end_time, requirements, cancel_yn, manual_upt_yn, created_by, updated_by)
                         VALUES
                             (%s, %s, NULL, NULL,
                              %s, %s, %s,
                              %s, %s, %s,
                              0, 1, NULL,
-                             NULL, %s, 0, 0)
+                             NULL, %s, 0, 0, %s, %s)
                         """,
                         (
                             pred.target_date,
@@ -1144,6 +1152,8 @@ class BatchRunner:
                             pred.room.checkin_time,
                             pred.room.checkout_time,
                             requirements_text,
+                            "BATCH",
+                            "BATCH",
                         ),
                     )
                 self.conn.commit()
@@ -1231,10 +1241,11 @@ class BatchRunner:
                         res["checkin_time"],
                         res["checkout_time"],
                         merged_req,
+                        "BATCH",
                         int(header["id"]),
                     )
                 )
-                reservations_to_mark.append((int(header["id"]), int(res["id"])))
+                reservations_to_mark.append((int(header["id"]), "BATCH", int(res["id"])))
 
             if not updates:
                 logging.info(
@@ -1250,13 +1261,14 @@ class BatchRunner:
                        blanket_qty = %s,
                        checkin_time = %s,
                        checkout_time = %s,
-                       requirements = %s
+                       requirements = %s,
+                       updated_by = %s
                  WHERE id = %s
                 """,
                 updates,
             )
             cur.executemany(
-                "UPDATE work_reservation SET work_id=%s, reflect_yn=1 WHERE id=%s",
+                "UPDATE work_reservation SET work_id=%s, updated_by=%s, reflect_yn=1 WHERE id=%s",
                 reservations_to_mark,
             )
             self.conn.commit()
@@ -1296,8 +1308,8 @@ class BatchRunner:
                 cur.execute(
                     """
                     INSERT INTO work_fore_accuracy
-                        (date, horizon, acc, prec, rec, f1, n)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        (date, horizon, acc, prec, rec, f1, n, created_by, updated_by)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         self.run_date,
@@ -1307,6 +1319,8 @@ class BatchRunner:
                         round(rec, 4),
                         round(f1, 4),
                         total,
+                        "BATCH",
+                        "BATCH",
                     ),
                 )
         self.conn.commit()
@@ -1338,8 +1352,8 @@ class BatchRunner:
             cur.execute(
                 """
                 INSERT INTO work_fore_tuning
-                    (`date`, `horizon`, `variable`, `before`, `after`, `delta`, `explanation`)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    (`date`, `horizon`, `variable`, `before`, `after`, `delta`, `explanation`, created_by, updated_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     self.run_date,
@@ -1349,6 +1363,8 @@ class BatchRunner:
                     round(after, 4),
                     round(after - before, 6),
                     f"precision={precision:.2f}",
+                    "BATCH",
+                    "BATCH",
                 ),
             )
         self.conn.commit()
