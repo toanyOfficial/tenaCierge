@@ -30,6 +30,8 @@ type SectorProgress = {
 
 type RoomStatus = {
   room: string;
+  sector: string;
+  building: string;
   status: keyof typeof roomStatusMap;
   owner: string;
 };
@@ -40,147 +42,99 @@ type ApplyRow = {
   status: string;
 };
 
-function withDailyRefresh(callback: () => void) {
-  const now = new Date();
-  const next = new Date(now);
-  next.setHours(16, 30, 0, 0);
-  if (next <= now) {
-    next.setDate(next.getDate() + 1);
-  }
-  const delay = next.getTime() - now.getTime();
-  let interval: ReturnType<typeof setInterval> | undefined;
-  const timeout = setTimeout(() => {
-    callback();
-    interval = setInterval(callback, 24 * 60 * 60 * 1000);
-  }, delay);
-  return () => {
-    clearTimeout(timeout);
-    if (interval) {
-      clearInterval(interval);
-    }
-  };
+type SummaryItem = {
+  day: string;
+  date: string;
+  sectors: { name: string; count: number }[];
+};
+
+type DashboardSnapshot = {
+  summary: SummaryItem[];
+  todayProgress: SectorProgress[];
+  tomorrowProgress: SectorProgress[];
+  roomStatuses: RoomStatus[];
+  tomorrowApply: ApplyRow[];
+  capturedAt: string;
+};
+
+function renderProgressRow(row: SectorProgress, index: number) {
+  const percent = row.total ? (row.completed / row.total) * 100 : 0;
+  return (
+    <div key={`${row.sector}-${index}`} className={styles.progressRow}>
+      <div className={styles.rowTop}>
+        <span className={styles.rowLabel}>{row.sector}</span>
+        <span className={styles.rowValue}>
+          {row.completed} / {row.total} 완료
+        </span>
+      </div>
+      <div className={styles.progressBar}>
+        {row.buildings.map((building, idx) => {
+          const width = row.total ? (building.total / row.total) * 100 : 0;
+          return (
+            <div
+              key={`${building.name}-${idx}`}
+              className={styles.progressSegment}
+              style={{ width: `${width}%`, backgroundColor: barPalette[(index + idx) % barPalette.length] }}
+              title={`${building.name} ${building.completed}/${building.total}`}
+            >
+              {width > 12 ? building.name : ''}
+            </div>
+          );
+        })}
+        <span className={styles.progressMarker} style={{ left: `${percent}%` }} />
+      </div>
+    </div>
+  );
 }
 
-export default function WeeklyWorkDashboard({ profile }: ProfileProps) {
+export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps) {
   const [layoutMode, setLayoutMode] = useState<'todayDominant' | 'tomorrowDominant'>('todayDominant');
-  const [summaryUpdatedAt, setSummaryUpdatedAt] = useState<Date>(new Date());
-  const [todayUpdatedAt, setTodayUpdatedAt] = useState<Date>(new Date());
-  const [tomorrowUpdatedAt, setTomorrowUpdatedAt] = useState<Date>(new Date());
+  const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const summary = useMemo(
-    () => [
-      { day: 'D0', sectors: { 신논현: 18, 역삼: 11, 논현: 6 } },
-      { day: 'D1', sectors: { 신논현: 12, 역삼: 9, 논현: 7 } },
-      { day: 'D2', sectors: { 신논현: 14, 역삼: 11, 논현: 8 } },
-      { day: 'D3', sectors: { 신논현: 15, 역삼: 10, 논현: 9 } },
-      { day: 'D4', sectors: { 신논현: 13, 역삼: 12, 논현: 10 } },
-      { day: 'D5', sectors: { 신논현: 10, 역삼: 8, 논현: 6 } },
-      { day: 'D6', sectors: { 신논현: 9, 역삼: 7, 논현: 5 } },
-      { day: 'D7', sectors: { 신논현: 8, 역삼: 6, 논현: 4 } }
-    ],
-    []
-  );
+  const summary = useMemo(() => snapshot?.summary ?? [], [snapshot]);
+  const todayProgress: SectorProgress[] = useMemo(() => snapshot?.todayProgress ?? [], [snapshot]);
+  const tomorrowProgress: SectorProgress[] = useMemo(() => snapshot?.tomorrowProgress ?? [], [snapshot]);
+  const roomStatuses: RoomStatus[] = useMemo(() => snapshot?.roomStatuses ?? [], [snapshot]);
+  const tomorrowApply: ApplyRow[] = useMemo(() => snapshot?.tomorrowApply ?? [], [snapshot]);
+  const summaryUpdatedAt = useMemo(() => (snapshot ? new Date(snapshot.capturedAt) : new Date()), [snapshot]);
+  const todayUpdatedAt = summaryUpdatedAt;
+  const tomorrowUpdatedAt = summaryUpdatedAt;
 
-  const todayProgress: SectorProgress[] = useMemo(
-    () => [
-      {
-        sector: '신논현',
-        total: 22,
-        completed: 14,
-        buildings: [
-          { name: 'A동', total: 8, completed: 6 },
-          { name: 'B동', total: 6, completed: 4 },
-          { name: 'C동', total: 8, completed: 4 }
-        ]
-      },
-      {
-        sector: '역삼',
-        total: 18,
-        completed: 9,
-        buildings: [
-          { name: '리버타워', total: 10, completed: 6 },
-          { name: '센터포인트', total: 8, completed: 3 }
-        ]
-      },
-      {
-        sector: '논현',
-        total: 12,
-        completed: 7,
-        buildings: [
-          { name: '논현힐', total: 5, completed: 3 },
-          { name: '논현라움', total: 7, completed: 4 }
-        ]
+  useEffect(() => {
+    let canceled = false;
+
+    const load = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const res = await fetch('/api/dashboard/admin-weekly');
+        if (!res.ok) {
+          throw new Error('주간 대시보드를 불러오지 못했습니다.');
+        }
+        const data = (await res.json()) as DashboardSnapshot;
+        if (!canceled) {
+          setSnapshot(data);
+        }
+      } catch (err) {
+        if (!canceled) {
+          setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
+        }
+      } finally {
+        if (!canceled) {
+          setIsLoading(false);
+        }
       }
-    ],
-    []
-  );
+    };
 
-  const roomStatuses: RoomStatus[] = useMemo(
-    () => [
-      { room: '1201', status: 'assign', owner: '배정 완료' },
-      { room: '1202', status: 'charge', owner: '담당자 배치' },
-      { room: '1203', status: 'clean', owner: '청소 진행' },
-      { room: '1204', status: 'inspect', owner: '검수 대기' },
-      { room: '1205', status: 'clean', owner: '청소 진행' },
-      { room: '1206', status: 'charge', owner: '담당자 배치' },
-      { room: '1207', status: 'inspect', owner: '검수 대기' },
-      { room: '1208', status: 'assign', owner: '배정 완료' }
-    ],
-    []
-  );
-
-  const tomorrowApply: ApplyRow[] = useMemo(
-    () => [
-      { title: '신논현 · A동', subtitle: '대기 3건 / 확정 5건', status: '확정률 62%' },
-      { title: '역삼 · 리버타워', subtitle: '대기 2건 / 확정 4건', status: '확정률 67%' },
-      { title: '논현 · 논현힐', subtitle: '대기 1건 / 확정 2건', status: '확정률 67%' }
-    ],
-    []
-  );
-
-  useEffect(() => withDailyRefresh(() => setSummaryUpdatedAt(new Date())), []);
-
-  useEffect(() => {
-    const refresh = () => setTodayUpdatedAt(new Date());
-    const timer = setInterval(refresh, 10 * 60 * 1000);
-    return () => clearInterval(timer);
+    load();
+    const timer = setInterval(load, 10 * 60 * 1000);
+    return () => {
+      canceled = true;
+      clearInterval(timer);
+    };
   }, []);
-
-  useEffect(() => {
-    const refresh = () => setTomorrowUpdatedAt(new Date());
-    const timer = setInterval(refresh, 30 * 60 * 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const renderProgressRow = (row: SectorProgress, index: number) => {
-    const sectorPercent = (row.completed / row.total) * 100;
-    return (
-      <div key={row.sector} className={styles.progressRow}>
-        <div className={styles.rowTop}>
-          <span className={styles.rowLabel}>{row.sector}</span>
-          <span className={styles.rowValue}>
-            {row.completed} / {row.total} 완료
-          </span>
-        </div>
-        <div className={styles.progressBar}>
-          {row.buildings.map((building, idx) => {
-            const width = (building.total / row.total) * 100;
-            return (
-              <div
-                key={building.name}
-                className={styles.progressSegment}
-                style={{ width: `${width}%`, backgroundColor: barPalette[idx % barPalette.length] }}
-                title={`${building.name} ${building.completed}/${building.total}`}
-              >
-                {width > 10 ? building.name : ''}
-              </div>
-            );
-          })}
-          <span className={styles.progressMarker} style={{ left: `${sectorPercent}%` }} />
-        </div>
-      </div>
-    );
-  };
 
   const isTodayDominant = layoutMode === 'todayDominant';
 
@@ -189,15 +143,15 @@ export default function WeeklyWorkDashboard({ profile }: ProfileProps) {
       <div className={styles.weeklyCanvas}>
         <div className={styles.summaryStrip}>
           {summary.map((item) => {
-            const total = Object.values(item.sectors).reduce((acc, val) => acc + val, 0);
+            const total = item.sectors.reduce((acc, sector) => acc + sector.count, 0);
             return (
               <div key={item.day} className={styles.summaryCard}>
-                <span className={styles.summaryLabel}>{item.day}</span>
+                <span className={styles.summaryLabel}>
+                  {item.day} · {item.date}
+                </span>
                 <span className={styles.summaryValue}>{total}건</span>
                 <span className={styles.summaryMeta}>
-                  {Object.entries(item.sectors)
-                    .map(([sector, count]) => `${sector} ${count}`)
-                    .join(' / ')}
+                  {item.sectors.map(({ name, count }) => `${name} ${count}`).join(' / ') || '예약 없음'}
                 </span>
               </div>
             );
@@ -213,7 +167,7 @@ export default function WeeklyWorkDashboard({ profile }: ProfileProps) {
             >
               {isTodayDominant ? 'D+1가 넓게 보기 (8:2)' : 'D0가 넓게 보기 (2:8)'}
             </button>
-            <span className={styles.refreshNote}>시점과 무관하게 균형/우선 카드 레이아웃을 전환합니다.</span>
+            {error && <span className={styles.errorBadge}>{error}</span>}
           </div>
           <div className={styles.toolbarRight}>
             <span className={styles.refreshBadge}>업데이트 {formatTimeLabel(summaryUpdatedAt)}</span>
@@ -233,26 +187,40 @@ export default function WeeklyWorkDashboard({ profile }: ProfileProps) {
             <div className={styles.cardHeader}>
               <div>
                 <p className={styles.cardTitle}>D0 업무 진행</p>
-                <p className={styles.cardMeta}>10분마다 새로고침 · {formatTimeLabel(todayUpdatedAt)}</p>
+                <p className={styles.cardMeta}>
+                  {isLoading ? '데이터 로딩 중' : `실시간 동기화 · ${formatTimeLabel(todayUpdatedAt)}`}
+                </p>
               </div>
               <span className={styles.badgeSoft}>실시간</span>
             </div>
-            <div className={styles.progressList}>{todayProgress.map(renderProgressRow)}</div>
+            <div className={styles.progressList}>
+              {todayProgress.length === 0 && !isLoading ? (
+                <div className={styles.emptyState}>오늘 등록된 업무가 없습니다.</div>
+              ) : (
+                todayProgress.map(renderProgressRow)
+              )}
+            </div>
             <div className={styles.roomGrid}>
-              {roomStatuses.map((room) => {
-                const statusInfo = roomStatusMap[room.status];
-                return (
-                  <div key={room.room} className={styles.roomChip}>
-                    <span className={styles.roomName}>{room.room}</span>
-                    <div className={styles.roomStatusRow}>
-                      <span className={`${styles.roomPill} ${statusInfo.className}`}>
-                        ⚡ {statusInfo.label}
+              {roomStatuses.length === 0 && !isLoading ? (
+                <div className={styles.emptyState}>배정된 호실이 없습니다.</div>
+              ) : (
+                roomStatuses.map((room) => {
+                  const statusInfo = roomStatusMap[room.status];
+                  return (
+                    <div key={`${room.building}-${room.room}`} className={styles.roomChip}>
+                      <span className={styles.roomName}>
+                        {room.building} · {room.room}
                       </span>
-                      <span className={styles.roomValue}>{room.owner}</span>
+                      <div className={styles.roomStatusRow}>
+                        <span className={`${styles.roomPill} ${statusInfo.className}`}>
+                          ⚡ {statusInfo.label}
+                        </span>
+                        <span className={styles.roomValue}>{room.owner}</span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </section>
 
@@ -264,45 +232,33 @@ export default function WeeklyWorkDashboard({ profile }: ProfileProps) {
             <div className={styles.cardHeader}>
               <div>
                 <p className={styles.cardTitle}>D+1 준비 현황</p>
-                <p className={styles.cardMeta}>30분마다 새로고침 · {formatTimeLabel(tomorrowUpdatedAt)}</p>
+                <p className={styles.cardMeta}>
+                  {isLoading ? '데이터 로딩 중' : `30분 주기 동기화 · ${formatTimeLabel(tomorrowUpdatedAt)}`}
+                </p>
               </div>
               <span className={styles.badgeSoft}>배치 모니터링</span>
             </div>
             <div className={styles.progressList}>
-              {todayProgress.map((row, index) => (
-                <div key={row.sector} className={styles.progressRow}>
-                  <div className={styles.rowTop}>
-                    <span className={styles.rowLabel}>{row.sector}</span>
-                    <span className={styles.rowValue}>빌딩 {row.buildings.length}개 · 총 {row.total}건</span>
-                  </div>
-                  <div className={styles.progressBar}>
-                    {row.buildings.map((building, idx) => {
-                      const width = (building.total / row.total) * 100;
-                      return (
-                        <div
-                          key={`${building.name}-${idx}`}
-                          className={styles.progressSegment}
-                          style={{ width: `${width}%`, backgroundColor: barPalette[(index + idx) % barPalette.length] }}
-                          title={`${building.name} ${building.total}건`}
-                        >
-                          {width > 14 ? `${building.name} ${building.total}` : ''}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+              {tomorrowProgress.length === 0 && !isLoading ? (
+                <div className={styles.emptyState}>다가오는 업무 예약이 없습니다.</div>
+              ) : (
+                tomorrowProgress.map(renderProgressRow)
+              )}
             </div>
             <div className={styles.applyList}>
-              {tomorrowApply.map((row) => (
-                <div key={row.title} className={styles.applyRow}>
-                  <div className={styles.applyMeta}>
-                    <span className={styles.applyTitle}>{row.title}</span>
-                    <span className={styles.applySubtitle}>{row.subtitle}</span>
+              {tomorrowApply.length === 0 && !isLoading ? (
+                <div className={styles.emptyState}>D+1 배치가 비어 있습니다.</div>
+              ) : (
+                tomorrowApply.map((row) => (
+                  <div key={row.title} className={styles.applyRow}>
+                    <div className={styles.applyMeta}>
+                      <span className={styles.applyTitle}>{row.title}</span>
+                      <span className={styles.applySubtitle}>{row.subtitle}</span>
+                    </div>
+                    <span className={styles.applyBadge}>{row.status}</span>
                   </div>
-                  <span className={styles.applyBadge}>{row.status}</span>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </section>
         </div>

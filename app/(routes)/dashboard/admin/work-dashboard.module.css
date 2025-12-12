@@ -13,10 +13,12 @@
 }
 
 .weeklyShell {
-  width: min(100vw, 1920px);
-  height: min(100vh, 1080px);
-  margin: 0 auto;
-  padding: 22px 28px;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
   display: flex;
   align-items: stretch;
@@ -28,20 +30,20 @@
 }
 
 .weeklyCanvas {
-  width: 100%;
-  max-width: 1880px;
+  width: min(100%, 1920px);
   height: 100%;
   display: grid;
   grid-template-rows: auto auto 1fr;
-  gap: 18px;
+  gap: 14px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 24px;
-  padding: 20px 22px;
-  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.35);
+  border-radius: 0;
+  padding: 18px 20px;
+  box-shadow: none;
   backdrop-filter: blur(12px);
   color: #e2e8f0;
   min-height: 0;
+  overflow: hidden;
 }
 
 .summaryStrip {
@@ -49,7 +51,7 @@
   grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 10px;
   width: 100%;
-  min-height: 88px;
+  min-height: 80px;
 }
 
 .summaryCard {
@@ -87,7 +89,7 @@
   justify-content: space-between;
   align-items: center;
   gap: var(--space-2);
-  padding: 8px 10px;
+  padding: 6px 10px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -143,6 +145,7 @@
   align-items: stretch;
   height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .cardGridTodayDominant {
@@ -331,6 +334,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  overflow: auto;
 }
 
 .applyRow {
@@ -365,6 +369,27 @@
   font-weight: 700;
   color: #0f172a;
   background: #bfdbfe;
+}
+
+.emptyState {
+  width: 100%;
+  padding: 18px 12px;
+  text-align: center;
+  border: 1px dashed rgba(255, 255, 255, 0.24);
+  border-radius: 12px;
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.errorBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(248, 113, 113, 0.14);
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  color: #fecaca;
+  font-weight: 700;
 }
 
 .weeklyCanvas .cardTitle {
