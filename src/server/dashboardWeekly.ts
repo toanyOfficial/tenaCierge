@@ -38,13 +38,14 @@ export type SectorProgress = {
 };
 
 export type RoomStatus = {
+  sectorCode: string;
   sector: string;
   building: string;
   room: string;
-  supplyComplete: boolean;
-  assigned: boolean;
-  cleaningComplete: boolean;
-  inspected: boolean;
+  supplyYn: boolean;
+  cleanerId: number | null;
+  cleaningFlag: number | null;
+  supervisingYn: boolean;
   owner: string;
 };
 
@@ -143,14 +144,16 @@ function mapRoomStatuses(rawRows: RawWorkRow[], todayKey: string): RoomStatus[] 
     .map((row) => {
       const building = row.buildingShortName || '미지정';
       const sector = row.sectorName || row.sectorValue || 'N/A';
+      const sectorCode = row.sectorValue || 'N/A';
       return {
+        sectorCode,
         building,
         sector,
         room: row.roomNo || `#${row.id}`,
-        supplyComplete: Boolean(row.supplyYn),
-        assigned: Boolean(row.cleanerId),
-        cleaningComplete: Boolean((row.cleaningFlag ?? 1) >= 4 || row.cleaningEndTime),
-        inspected: Boolean(row.supervisingYn || row.supervisingEndTime),
+        supplyYn: Boolean(row.supplyYn),
+        cleanerId: row.cleanerId,
+        cleaningFlag: row.cleaningFlag,
+        supervisingYn: Boolean(row.supervisingYn),
         owner: row.cleanerName || '담당자 미지정'
       };
     });
