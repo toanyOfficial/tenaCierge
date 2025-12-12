@@ -19,12 +19,35 @@ function formatDateLabel(date: string) {
 const sectorPalette = ['#60a5fa', '#22d3ee', '#a78bfa', '#f472b6', '#fbbf24', '#34d399', '#f97316', '#38bdf8'];
 const buildingPalette = ['#0ea5e9', '#22c55e', '#a855f7', '#f97316', '#eab308', '#06b6d4'];
 
-const roomStatusMap = {
-  assign: { label: '배', className: styles.statusAssign },
-  charge: { label: '담', className: styles.statusCharge },
-  clean: { label: '청', className: styles.statusClean },
-  inspect: { label: '검', className: styles.statusInspect }
-} as const;
+const roomSteps = [
+  {
+    key: 'assign' as const,
+    label: '배',
+    resolveClassName: (room: RoomStatus) =>
+      room.supplyComplete ? styles.statusSupplyOn : styles.statusSupplyOff
+  },
+  {
+    key: 'charge' as const,
+    label: '담',
+    resolveClassName: (room: RoomStatus) => {
+      const isNoShow = !room.assigned && room.supplyComplete && room.cleaningComplete && room.inspected;
+      if (isNoShow) return styles.statusAssignNoShow;
+      return room.assigned ? styles.statusAssignOn : styles.statusAssignOff;
+    }
+  },
+  {
+    key: 'clean' as const,
+    label: '청',
+    resolveClassName: (room: RoomStatus) =>
+      room.cleaningComplete ? styles.statusCleaningDone : styles.statusCleaningIdle
+  },
+  {
+    key: 'inspect' as const,
+    label: '검',
+    resolveClassName: (room: RoomStatus) =>
+      room.inspected ? styles.statusInspectOn : styles.statusInspectOff
+  }
+];
 
 type ProfileProps = { profile: ProfileSummary };
 
@@ -54,6 +77,7 @@ type StackedSegment = {
 };
 
 type RoomStatus = {
+  sectorCode: string;
   room: string;
   sector: string;
   building: string;
@@ -217,12 +241,35 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
 
   const isTodayDominant = layoutMode === 'todayDominant';
 
-  const roomSteps = [
-    { key: 'assign' as const, active: (room: RoomStatus) => room.supplyComplete },
-    { key: 'charge' as const, active: (room: RoomStatus) => room.assigned },
-    { key: 'clean' as const, active: (room: RoomStatus) => room.cleaningComplete },
-    { key: 'inspect' as const, active: (room: RoomStatus) => room.inspected }
-  ];
+  const sortedRooms = useMemo(() => {
+    const buildingCounts = new Map<string, number>();
+
+    roomStatuses.forEach((room) => {
+      const key = `${room.sectorCode}|||${room.building}`;
+      buildingCounts.set(key, (buildingCounts.get(key) ?? 0) + 1);
+    });
+
+    return [...roomStatuses].sort((a, b) => {
+      const sectorCompare = a.sectorCode.localeCompare(b.sectorCode);
+      if (sectorCompare !== 0) return sectorCompare;
+
+      const aKey = `${a.sectorCode}|||${a.building}`;
+      const bKey = `${b.sectorCode}|||${b.building}`;
+      const aCount = buildingCounts.get(aKey) ?? 0;
+      const bCount = buildingCounts.get(bKey) ?? 0;
+      if (aCount !== bCount) return bCount - aCount;
+
+      const roomCompare = b.room.localeCompare(a.room, undefined, { numeric: true, sensitivity: 'base' });
+      if (roomCompare !== 0) return roomCompare;
+
+      return a.building.localeCompare(b.building);
+    });
+  }, [roomStatuses]);
+
+  const ROOM_GRID_SLOTS = 27;
+  const visibleRooms = sortedRooms.slice(0, ROOM_GRID_SLOTS);
+  const roomPlaceholders = Math.max(ROOM_GRID_SLOTS - visibleRooms.length, 0);
+  const showEmptyRooms = !isLoading && visibleRooms.length === 0;
 
   const formatSectorCounts = (item: SummaryItem) =>
     item.sectors.map((sector) => sector.count).join(' / ') || '0';
@@ -267,7 +314,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
           <section
             className={`${styles.workCard} ${
               isTodayDominant ? styles.dominantCard : styles.compactCard
-            }`}
+            } ${styles.todayCard}`}
           >
             <div className={styles.cardHeader}>
               <div>
@@ -285,43 +332,49 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
               ) : (
                 <>
                   <div className={styles.stackedBarShell}>
+                    <div className={styles.overlayRowTop}>
+                      {todayStacked.map((segment) => (
+                        <div
+                          key={`${segment.key}-top`}
+                          className={styles.overlayBlock}
+                          style={{ left: `${segment.offset}%`, width: `${segment.width}%` }}
+                        >
+                          <span className={styles.overlayStat}>
+                            {segment.completed}/{segment.total} · {segment.completedWidth.toFixed(0)}%
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                     <div className={styles.stackedBar}>
                       {todayStacked.map((segment) => (
                         <div
                           key={segment.key}
                           className={styles.stackedSegment}
-                        style={{
-                          width: `${segment.width}%`,
-                          background: `linear-gradient(120deg, ${segment.color} 0%, ${segment.color.replace(/e6$/i, 'ff')} 85%)`
-                        }}
-                        title={`${segment.label} ${segment.width.toFixed(1)}%`}
-                      >
-                        <div className={styles.segmentProgress} style={{ width: `${segment.completedWidth}%` }} />
-                        <span className={styles.segmentLabel}>{segment.buildingName}</span>
-                      </div>
-                    ))}
-                      {todayStacked.map((segment) => (
-                        <div
-                          key={`${segment.key}-overlay`}
-                          className={styles.segmentOverlay}
-                          style={{ left: `${segment.offset}%`, width: `${segment.width}%` }}
+                          style={{
+                            width: `${segment.width}%`,
+                            background: `linear-gradient(120deg, ${segment.color} 0%, ${segment.color.replace(/e6$/i, 'ff')} 85%)`
+                          }}
+                          title={`${segment.label} ${segment.width.toFixed(1)}%`}
                         >
-                          <div className={styles.overlayTop}>
-                            <span className={styles.overlayLine} />
-                            <span className={styles.overlayStat}>
-                              {segment.completed}/{segment.total} · {segment.completedWidth.toFixed(0)}%
-                            </span>
-                          </div>
-                          {segment.isSectorHead ? (
-                            <div className={styles.overlayBottom}>
-                              <span className={styles.overlayLine} />
-                              <span className={styles.overlaySector}>
-                                {segment.sector} {segment.sectorTotal}건
-                              </span>
-                            </div>
-                          ) : null}
+                          <div className={styles.segmentProgress} style={{ width: `${segment.completedWidth}%` }} />
+                          <span className={styles.segmentLabel}>{segment.buildingName}</span>
                         </div>
                       ))}
+                    </div>
+                    <div className={styles.overlayRowBottom}>
+                      {todayStacked.map((segment) =>
+                        segment.isSectorHead ? (
+                          <div
+                            key={`${segment.key}-sector`}
+                            className={styles.overlayBlock}
+                            style={{ left: `${segment.offset}%`, width: `${segment.width}%` }}
+                          >
+                            <span className={styles.overlaySector}>
+                              {segment.sector} {segment.sectorTotal}건
+                            </span>
+                          </div>
+                        ) : null
+                      )}
                     </div>
                   </div>
                 </>
@@ -329,37 +382,40 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
             </div>
 
             <div className={styles.roomGrid}>
-              {roomStatuses.length === 0 && !isLoading ? (
-                <div className={styles.emptyState}>배정된 호실이 없습니다.</div>
+              {showEmptyRooms ? (
+                <div className={`${styles.roomChip} ${styles.roomPlaceholder}`}>
+                  <div className={styles.emptyState}>배정된 호실이 없습니다.</div>
+                </div>
               ) : (
-                roomStatuses.map((room) => {
-                  return (
-                    <div key={`${room.building}-${room.room}`} className={styles.roomChip}>
-                      <span className={styles.roomName}>
-                        {room.building} · {room.room}
-                      </span>
-                      <div className={styles.roomStatusRow}>
-                        <span className={styles.roomValue}>{room.owner}</span>
-                        <div className={styles.statusButtonRow}>
-                          {roomSteps.map((step) => {
-                            const statusInfo = roomStatusMap[step.key];
-                            const active = step.active(room);
-                            return (
+                <>
+                  {visibleRooms.map((room) => {
+                    return (
+                      <div key={`${room.building}-${room.room}`} className={styles.roomChip}>
+                        <span className={styles.roomName}>
+                          {room.building} · {room.room}
+                        </span>
+                        <div className={styles.roomStatusRow}>
+                          <span className={styles.roomValue}>{room.owner}</span>
+                          <div className={styles.statusButtonRow}>
+                            {roomSteps.map((step) => (
                               <button
                                 key={step.key}
                                 type="button"
-                                className={`${styles.statusStep} ${active ? statusInfo.className : ''}`}
+                                className={`${styles.statusStep} ${step.resolveClassName(room)}`}
                               >
-                                {statusInfo.label}
+                                {step.label}
                               </button>
-                            );
-                          })}
+                            ))}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })
+                    );
+                  })}
+                </>
               )}
+              {Array.from({ length: roomPlaceholders - (showEmptyRooms ? 1 : 0) }).map((_, idx) => (
+                <div key={`placeholder-${idx}`} className={`${styles.roomChip} ${styles.roomPlaceholder}`} aria-hidden />
+              ))}
             </div>
           </section>
 
