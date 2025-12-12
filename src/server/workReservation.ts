@@ -2,6 +2,7 @@ import { asc, desc, eq } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import { clientRooms, etcBuildings, workHeader, workReservation } from '@/src/db/schema';
+import { resolveWebActor, withInsertAuditFields, withUpdateAuditFields } from '@/src/server/audit';
 
 export type WorkReservationRecord = {
   id: number;
@@ -211,7 +212,7 @@ export async function listOpenRoomsByBuilding(): Promise<BuildingRoomOption[]> {
   return Array.from(grouped.values());
 }
 
-export async function createWorkReservation(payload: ReservationPayload) {
+export async function createWorkReservation(payload: ReservationPayload, actor = resolveWebActor()) {
   const workId = parseWorkId(payload.workId);
 
   const checkinTime = normalizeTime(payload.checkinTime);
@@ -221,22 +222,27 @@ export async function createWorkReservation(payload: ReservationPayload) {
     throw new Error('입퇴실 시간을 확인해 주세요.');
   }
 
-  await db.insert(workReservation).values({
-    workId,
-    roomId: payload.roomId,
-    amenitiesQty: payload.amenitiesQty,
-    blanketQty: payload.blanketQty,
-    checkinTime,
-    checkoutTime,
-    requirements: payload.requirements ?? null,
-    cancelYn: Boolean(payload.cancelYn),
-    reflectYn: Boolean(payload.reflectYn)
-  });
+  await db.insert(workReservation).values(
+    withInsertAuditFields(
+      {
+        workId,
+        roomId: payload.roomId,
+        amenitiesQty: payload.amenitiesQty,
+        blanketQty: payload.blanketQty,
+        checkinTime,
+        checkoutTime,
+        requirements: payload.requirements ?? null,
+        cancelYn: Boolean(payload.cancelYn),
+        reflectYn: Boolean(payload.reflectYn)
+      },
+      actor
+    )
+  );
 
   return listWorkReservations();
 }
 
-export async function updateWorkReservation(id: number, payload: ReservationPayload) {
+export async function updateWorkReservation(id: number, payload: ReservationPayload, actor = resolveWebActor()) {
   const existing = await getWorkReservation(id);
   if (!existing) {
     throw new Error('대상을 찾을 수 없습니다.');
@@ -253,17 +259,22 @@ export async function updateWorkReservation(id: number, payload: ReservationPayl
 
   await db
     .update(workReservation)
-    .set({
-      workId,
-      roomId: payload.roomId,
-      amenitiesQty: payload.amenitiesQty,
-      blanketQty: payload.blanketQty,
-      checkinTime,
-      checkoutTime,
-      requirements: payload.requirements ?? null,
-      cancelYn: Boolean(payload.cancelYn),
-      reflectYn: Boolean(payload.reflectYn)
-    })
+    .set(
+      withUpdateAuditFields(
+        {
+          workId,
+          roomId: payload.roomId,
+          amenitiesQty: payload.amenitiesQty,
+          blanketQty: payload.blanketQty,
+          checkinTime,
+          checkoutTime,
+          requirements: payload.requirements ?? null,
+          cancelYn: Boolean(payload.cancelYn),
+          reflectYn: Boolean(payload.reflectYn)
+        },
+        actor
+      )
+    )
     .where(eq(workReservation.id, id));
 
   return listWorkReservations();
