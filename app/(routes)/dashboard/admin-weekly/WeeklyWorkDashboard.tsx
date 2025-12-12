@@ -312,14 +312,14 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                               {segment.completed}/{segment.total} · {segment.completedWidth.toFixed(0)}%
                             </span>
                           </div>
-                          <div className={styles.overlayBottom}>
-                            <span className={styles.overlayLine} />
-                            {segment.isSectorHead ? (
+                          {segment.isSectorHead ? (
+                            <div className={styles.overlayBottom}>
+                              <span className={styles.overlayLine} />
                               <span className={styles.overlaySector}>
                                 {segment.sector} {segment.sectorTotal}건
                               </span>
-                            ) : null}
-                          </div>
+                            </div>
+                          ) : null}
                         </div>
                       ))}
                     </div>
