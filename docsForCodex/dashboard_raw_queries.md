@@ -9,9 +9,9 @@ SELECT
   work_header.clening_flag AS cleaningFlag,
   work_header.supervising_yn AS supervisingYn,
   etc_buildings.id AS buildingId,
-  etc_buildings.short_name AS buildingShortName,
-  etc_buildings.sector_code AS sectorCode,
-  etc_buildings.sector_value AS sectorValue,
+  etc_buildings.building_short_name AS buildingShortName,
+  etc_buildings.basecode_sector AS sectorCode,
+  etc_buildings.basecode_code AS sectorValue,
   etc_baseCode.value AS sectorName,
   client_rooms.room_no AS roomNo,
   work_header.cleaner_id AS cleanerId,
@@ -22,8 +22,8 @@ FROM work_header
 LEFT JOIN client_rooms ON client_rooms.id = work_header.room_id
 LEFT JOIN etc_buildings ON client_rooms.building_id = etc_buildings.id
 LEFT JOIN etc_baseCode
-  ON etc_baseCode.code_group = etc_buildings.sector_code
-  AND etc_baseCode.code = etc_buildings.sector_value
+  ON etc_baseCode.code_group = etc_buildings.basecode_sector
+  AND etc_baseCode.code = etc_buildings.basecode_code
 LEFT JOIN worker_header ON work_header.cleaner_id = worker_header.id
 WHERE work_header.date >= CAST('2025-12-13' AS DATE)
   AND work_header.date <= CAST('2025-12-20' AS DATE)
@@ -54,10 +54,10 @@ SELECT
   client_rooms.central_password AS centralPassword,
   client_rooms.door_password AS doorPassword,
   client_rooms.building_id AS buildingId,
-  etc_buildings.sector_code AS sectorCode,
+  etc_buildings.basecode_sector AS sectorCode,
   buildingSector.value AS sectorValue,
-  etc_buildings.short_name AS buildingShortName,
-  etc_buildings.address_new AS buildingAddressNew,
+  etc_buildings.building_short_name AS buildingShortName,
+  etc_buildings.building_address_new AS buildingAddressNew,
   etc_buildings.building_password AS buildingPassword,
   etc_buildings.building_general AS generalTrashInfo,
   etc_buildings.building_food AS foodTrashInfo,
@@ -71,8 +71,8 @@ LEFT JOIN client_rooms ON work_header.room_id = client_rooms.id
 LEFT JOIN client_header ON client_rooms.client_id = client_header.id
 LEFT JOIN etc_buildings ON client_rooms.building_id = etc_buildings.id
 LEFT JOIN etc_baseCode AS buildingSector
-  ON buildingSector.code_group = etc_buildings.sector_code
-  AND buildingSector.code = etc_buildings.sector_value
+  ON buildingSector.code_group = etc_buildings.basecode_sector
+  AND buildingSector.code = etc_buildings.basecode_code
 LEFT JOIN worker_header ON work_header.cleaner_id = worker_header.id
 WHERE work_header.date = CAST('2025-12-13' AS DATE)
   AND work_header.cancel_yn = FALSE;
