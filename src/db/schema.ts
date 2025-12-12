@@ -32,7 +32,9 @@ export const clientAdditionalPrice = mysqlTable('client_additional_price', {
   price: decimal('price', { precision: 9, scale: 2 }).notNull(),
   comment: varchar('comment', { length: 255 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const clientCustomPrice = mysqlTable('client_custom_price', {
@@ -45,14 +47,18 @@ export const clientCustomPrice = mysqlTable('client_custom_price', {
   endDate: date('end_date').notNull(),
   comment: varchar('comment', { length: 255 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const clientDetail = mysqlTable('client_detail', {
   id: int('id', { unsigned: true }).autoincrement().notNull(),
   clientId: mediumint('client_id', { unsigned: true }).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const clientHeader = mysqlTable('client_header', {
@@ -68,7 +74,9 @@ export const clientHeader = mysqlTable('client_header', {
   settleFlag: tinyint('settle_flag').default(1).notNull(),
   deskYn: boolean('desk_yn').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const clientRooms = mysqlTable('client_rooms', {
@@ -96,7 +104,9 @@ export const clientRooms = mysqlTable('client_rooms', {
   settleFlag: tinyint('settle_flag').default(1).notNull(),
   weight: tinyint('weight').default(10).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const clientPriceSetHeader = mysqlTable('client_price_set_header', {
@@ -104,7 +114,9 @@ export const clientPriceSetHeader = mysqlTable('client_price_set_header', {
   title: varchar('title', { length: 30 }),
   description: varchar('dscpt', { length: 255 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const clientPriceList = mysqlTable('client_price_list', {
@@ -113,7 +125,9 @@ export const clientPriceList = mysqlTable('client_price_list', {
   amount: decimal('amount', { precision: 11, scale: 2 }).notNull(),
   type: tinyint('type').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const clientPriceSetDetail = mysqlTable('client_price_set_detail', {
@@ -121,7 +135,9 @@ export const clientPriceSetDetail = mysqlTable('client_price_set_detail', {
   priceSetId: int('price_set_id').notNull(),
   priceId: int('price_id').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const clientSupplements = mysqlTable('client_supplements', {
@@ -133,7 +149,9 @@ export const clientSupplements = mysqlTable('client_supplements', {
   dscpt: varchar('dscpt', { length: 255 }),
   buyYn: boolean('buy_yn').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const etcBaseCode = mysqlTable(
@@ -143,7 +161,9 @@ export const etcBaseCode = mysqlTable(
     code: varchar('code', { length: 10 }).notNull(),
     value: varchar('value', { length: 255 }).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+    updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+    createdBy: varchar('created_by', { length: 50 }),
+    updatedBy: varchar('updated_by', { length: 50 })
   },
   (table) => ({ pk: primaryKey({ columns: [table.codeGroup, table.code] }) })
 );
@@ -164,7 +184,9 @@ export const etcBuildings = mysqlTable('etc_buildings', {
   wayImageRelativePath: varchar('building_way_img_relativePath', { length: 255 }),
   deleteYn: boolean('delete_yn').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const etcErrorLogs = mysqlTable('etc_errorLogs', {
@@ -178,7 +200,9 @@ export const etcErrorLogs = mysqlTable('etc_errorLogs', {
   userId: bigintNumber('user_id', { unsigned: true }),
   contextJson: json('context_json'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const etcNotice = mysqlTable('etc_notice', {
@@ -186,7 +210,9 @@ export const etcNotice = mysqlTable('etc_notice', {
   noticeDate: date('notice_date').notNull(),
   notice: varchar('notice', { length: 255 }).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const workApply = mysqlTable(
@@ -200,7 +226,9 @@ export const workApply = mysqlTable(
     position: tinyint('position').notNull(),
     workerId: int('worker_id'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+    updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+    createdBy: varchar('created_by', { length: 50 }),
+    updatedBy: varchar('updated_by', { length: 50 })
   },
   (table) => ({ workApplyUniq: uniqueIndex('ux_work_apply').on(table.workDate, table.workerId) })
 );
@@ -360,7 +388,9 @@ export const workGlobalHeader = mysqlTable('work_global_header', {
   closedYn: boolean('closed_yn').default(false).notNull(),
   comment: varchar('comment', { length: 255 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const workGlobalDetail = mysqlTable('work_global_detail', {
@@ -368,7 +398,9 @@ export const workGlobalDetail = mysqlTable('work_global_detail', {
   workGlobalId: tinyint('work_global_id', { unsigned: true }).notNull(),
   roomId: int('room_id').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const workReservation = mysqlTable('work_reservation', {
@@ -383,7 +415,9 @@ export const workReservation = mysqlTable('work_reservation', {
   cancelYn: boolean('cancel_yn').default(false).notNull(),
   reflectYn: boolean('reflect_yn').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const workHeader = mysqlTable('work_header', {
@@ -407,7 +441,9 @@ export const workHeader = mysqlTable('work_header', {
   manualUptYn: boolean('manual_upt_yn').default(false).notNull(),
   supervisingYn: boolean('supervising_yn').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const workReports = mysqlTable('work_reports', {
@@ -417,7 +453,9 @@ export const workReports = mysqlTable('work_reports', {
   contents1: json('contents1').notNull(),
   contents2: json('contents2'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const workAssignment = mysqlTable('work_assignment', {
@@ -426,14 +464,18 @@ export const workAssignment = mysqlTable('work_assignment', {
   workerId: int('worker_id').notNull(),
   assignDate: date('assign_dttm').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const workerDetail = mysqlTable('worker_detail', {
   id: int('id', { unsigned: true }).autoincrement().notNull(),
   workerId: bigintNumber('worker_id', { unsigned: true }).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const workerEvaluateHistory = mysqlTable('worker_evaluateHistory', {
@@ -445,7 +487,9 @@ export const workerEvaluateHistory = mysqlTable('worker_evaluateHistory', {
   checklistPointSum: tinyint('checklist_point_sum').notNull(),
   comment: varchar('comment', { length: 255 }).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const workerHeader = mysqlTable('worker_header', {
@@ -460,7 +504,9 @@ export const workerHeader = mysqlTable('worker_header', {
   tier: tinyint('tier').notNull(),
   comments: varchar('comments', { length: 255 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const workerSalaryHistory = mysqlTable('worker_salary_history', {
@@ -472,7 +518,9 @@ export const workerSalaryHistory = mysqlTable('worker_salary_history', {
   tierTargetDate: tinyint('tier_target_date'),
   hourlyWageTargetDate: smallint('hourly_wage_target_date'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const workerPenaltyHistory = mysqlTable('worker_penaltyHistory', {
@@ -482,7 +530,9 @@ export const workerPenaltyHistory = mysqlTable('worker_penaltyHistory', {
   interval: tinyint('interval').notNull(),
   comment: varchar('comment', { length: 255 }).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
 
 export const workerScheduleException = mysqlTable(
@@ -494,7 +544,9 @@ export const workerScheduleException = mysqlTable(
     addWorkYn: boolean('add_work_yn').default(false).notNull(),
     cancelWorkYn: boolean('cancel_work_yn').default(false).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+    updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+    createdBy: varchar('created_by', { length: 50 }),
+    updatedBy: varchar('updated_by', { length: 50 })
   },
   (table) => ({
     workerScheduleExceptionUniq: uniqueIndex('ux_worker_schedule_exception').on(table.workerId, table.excptDate)
@@ -506,5 +558,7 @@ export const workerWeeklyPattern = mysqlTable('worker_weekly_pattern', {
   workerId: int('worker_id', { unsigned: true }).notNull(),
   weekday: tinyint('weekday').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull()
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar('created_by', { length: 50 }),
+  updatedBy: varchar('updated_by', { length: 50 })
 });
