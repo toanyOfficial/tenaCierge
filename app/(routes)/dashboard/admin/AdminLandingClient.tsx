@@ -73,6 +73,18 @@ const shortcuts: Shortcut[] = [
     label: '요청사항관리',
     href: '/dashboard/work-reservation',
     description: 'work_reservation 요청을 조회하고 수정합니다.'
+  },
+  {
+    id: 'weekly-work',
+    label: '대시보드-주간업무',
+    href: '/dashboard/admin-weekly',
+    description: '주간 업무 합계와 D0/D+1 카드 레이아웃을 한 화면에서 확인합니다.'
+  },
+  {
+    id: 'monthly-work',
+    label: '대시보드-월간업무',
+    href: '/dashboard/admin-monthly',
+    description: '출퇴근 캘린더와 월별 누적 청소 현황을 조회합니다.'
   }
 ];
 
