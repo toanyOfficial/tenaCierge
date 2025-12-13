@@ -435,13 +435,6 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
           })}
         </div>
 
-        <div className={styles.layoutToolbar}>
-          <div className={styles.toolbarLeft}>{error && <span className={styles.errorBadge}>{error}</span>}</div>
-          <div className={styles.toolbarRight}>
-            <span className={styles.refreshBadge}>업데이트 {formatTimeLabel(summaryUpdatedAt)}</span>
-          </div>
-        </div>
-
         <div
           className={`${styles.cardGrid} ${
             isTodayDominant ? styles.cardGridTodayDominant : styles.cardGridTomorrowDominant
