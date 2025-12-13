@@ -27,7 +27,10 @@ export type WeeklySummaryItem = {
   day: string;
   date: string;
   sectors: { code: string; name: string; count: number }[];
+  applyStatus: 'complete' | 'empty' | 'mixed';
 };
+
+export type RoleSlotSummary = { role: number; total: number; assigned: number };
 
 export type SectorProgress = {
   code: string;
@@ -35,6 +38,7 @@ export type SectorProgress = {
   total: number;
   completed: number;
   buildings: { name: string; total: number; completed: number }[];
+  applySlots?: RoleSlotSummary[];
 };
 
 export type RoomStatus = {
@@ -72,7 +76,27 @@ function startOfKstDay(offsetDays = 0) {
 
 type SectorCatalog = { code: string; name: string }[];
 
-function mapSummary(rawRows: RawWorkRow[], dayKeys: string[], sectorCatalog: SectorCatalog): WeeklySummaryItem[] {
+function resolveApplyStatus(applyRows: Awaited<ReturnType<typeof listApplyRows>>, targetKey: string) {
+  const targetRows = applyRows.filter(
+    (row) => row.position === 1 && formatKstDateKey(row.workDate) === targetKey
+  );
+
+  if (targetRows.length === 0) return 'mixed';
+
+  const hasAssigned = targetRows.some((row) => row.workerId != null);
+  const hasUnassigned = targetRows.some((row) => row.workerId == null);
+
+  if (hasAssigned && !hasUnassigned) return 'complete';
+  if (hasUnassigned && !hasAssigned) return 'empty';
+  return 'mixed';
+}
+
+function mapSummary(
+  rawRows: RawWorkRow[],
+  dayKeys: string[],
+  sectorCatalog: SectorCatalog,
+  applyRows: Awaited<ReturnType<typeof listApplyRows>>
+): WeeklySummaryItem[] {
   const days: WeeklySummaryItem[] = [];
   for (let i = 0; i < dayKeys.length; i += 1) {
     const key = dayKeys[i];
@@ -91,13 +115,46 @@ function mapSummary(rawRows: RawWorkRow[], dayKeys: string[], sectorCatalog: Sec
     days.push({
       day: i === 0 ? 'D0' : `D+${i}`,
       date: key,
-      sectors: daily
+      sectors: daily,
+      applyStatus: resolveApplyStatus(applyRows, key)
     });
   }
   return days;
 }
 
-function mapDayProgress(rawRows: RawWorkRow[], targetKey: string): SectorProgress[] {
+function buildRoleSlotMap(
+  applyRows: Awaited<ReturnType<typeof listApplyRows>>,
+  targetKey: string
+): Map<string, RoleSlotSummary[]> {
+  const slots = applyRows.filter((row) => formatKstDateKey(row.workDate) === targetKey);
+
+  const grouped = new Map<string, RoleSlotSummary[]>();
+
+  slots.forEach((slot) => {
+    const sectorCode = slot.sectorValue;
+    if (!sectorCode) return;
+
+    const roleSlots = grouped.get(sectorCode) || [];
+    const existing = roleSlots.find((entry) => entry.role === slot.position);
+
+    if (existing) {
+      existing.total += 1;
+      if (slot.workerId) existing.assigned += 1;
+    } else {
+      roleSlots.push({ role: slot.position, total: 1, assigned: slot.workerId ? 1 : 0 });
+    }
+
+    grouped.set(sectorCode, roleSlots);
+  });
+
+  return grouped;
+}
+
+function mapDayProgress(
+  rawRows: RawWorkRow[],
+  targetKey: string,
+  roleSlotMap?: Map<string, RoleSlotSummary[]>
+): SectorProgress[] {
   const rows = rawRows.filter((row) => formatKstDateKey(row.workDate) === targetKey);
   const grouped = new Map<string, SectorProgress>();
 
@@ -131,7 +188,9 @@ function mapDayProgress(rawRows: RawWorkRow[], targetKey: string): SectorProgres
       sector.buildings.push({ name: buildingName, total: 1, completed: completed ? 1 : 0 });
     }
 
-    grouped.set(key, sector);
+    const roleSlots = roleSlotMap?.get(sectorCode);
+
+    grouped.set(key, { ...sector, applySlots: roleSlots?.length ? roleSlots : undefined });
   });
 
   return Array.from(grouped.values()).sort((a, b) => a.code.localeCompare(b.code));
@@ -225,6 +284,8 @@ export async function fetchWeeklyDashboardData(): Promise<WeeklyDashboardSnapsho
   const startDateSql = sql`CAST(${startKey} AS DATE)`;
   const endDateSql = sql`CAST(${endKey} AS DATE)`;
 
+  const applyRows = await listApplyRows(startKey, endKey);
+
   const rawRows = await db
     .select({
       id: workHeader.id,
@@ -267,9 +328,12 @@ export async function fetchWeeklyDashboardData(): Promise<WeeklyDashboardSnapsho
     .filter((sector) => Boolean(sector.code))
     .map((sector) => ({ code: sector.code as string, name: sector.name || (sector.code as string) }));
 
-  const summary = mapSummary(rawRows, dayKeys, normalizedCatalog);
-  const todayProgress = mapDayProgress(rawRows, todayKey);
-  const tomorrowProgress = mapDayProgress(rawRows, tomorrowKey);
+  const todayRoleSlots = buildRoleSlotMap(applyRows, todayKey);
+  const tomorrowRoleSlots = buildRoleSlotMap(applyRows, tomorrowKey);
+
+  const summary = mapSummary(rawRows, dayKeys, normalizedCatalog, applyRows);
+  const todayProgress = mapDayProgress(rawRows, todayKey, todayRoleSlots);
+  const tomorrowProgress = mapDayProgress(rawRows, tomorrowKey, tomorrowRoleSlots);
   const roomStatuses = mapRoomStatuses(rawRows, todayKey);
   const tomorrowApply = await mapTomorrowApply(tomorrowKey);
 

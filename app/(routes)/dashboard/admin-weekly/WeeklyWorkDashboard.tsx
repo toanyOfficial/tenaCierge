@@ -19,6 +19,26 @@ function formatDateLabel(date: string) {
 const sectorPalette = ['#60a5fa', '#22d3ee', '#a78bfa', '#f472b6', '#fbbf24', '#34d399', '#f97316', '#38bdf8'];
 const buildingPalette = ['#0ea5e9', '#22c55e', '#a855f7', '#f97316', '#eab308', '#06b6d4'];
 
+const summaryRefreshSchedule = [
+  { hour: 9, minute: 0 },
+  { hour: 15, minute: 0 },
+  { hour: 16, minute: 30 }
+];
+
+function computeNextSummaryRefreshDelay(baseDate = new Date()) {
+  const now = baseDate.getTime();
+  const candidates = summaryRefreshSchedule.map(({ hour, minute }) => {
+    const target = new Date(baseDate);
+    target.setHours(hour, minute, 0, 0);
+    if (target.getTime() <= now) {
+      target.setDate(target.getDate() + 1);
+    }
+    return target.getTime() - now;
+  });
+
+  return Math.min(...candidates);
+}
+
 const roomSteps = [
   {
     key: 'assign' as const,
@@ -57,12 +77,15 @@ const roomSteps = [
 
 type ProfileProps = { profile: ProfileSummary };
 
+type RoleSlotSummary = { role: number; total: number; assigned: number };
+
 type SectorProgress = {
   code: string;
   sector: string;
   total: number;
   completed: number;
   buildings: { name: string; total: number; completed: number }[];
+  applySlots?: RoleSlotSummary[];
 };
 
 type StackedSegment = {
@@ -105,6 +128,7 @@ type SummaryItem = {
   day: string;
   date: string;
   sectors: { code: string; name: string; count: number }[];
+  applyStatus: 'complete' | 'empty' | 'mixed';
 };
 
 type DashboardSnapshot = {
@@ -120,7 +144,7 @@ function isRoomCompleted(room: RoomStatus) {
   return (room.cleaningFlag ?? 0) >= 4 && room.supervisingYn;
 }
 
-function renderProgressRow(row: SectorProgress, index: number) {
+function renderProgressRow(row: SectorProgress, index: number, options?: { showApplySlots?: boolean }) {
     const percent = row.total ? (row.completed / row.total) * 100 : 0;
     return (
       <div key={`${row.sector}-${index}`} className={styles.progressRow}>
@@ -130,6 +154,15 @@ function renderProgressRow(row: SectorProgress, index: number) {
           {row.completed} / {row.total} 완료
         </span>
       </div>
+        {options?.showApplySlots && row.applySlots?.length ? (
+          <div className={styles.applySlotRow}>
+            {row.applySlots.map((slot) => (
+              <span key={`${row.sector}-${slot.role}`} className={styles.applySlotBadge}>
+                {slot.role}팀 {slot.assigned}/{slot.total} 슬롯
+              </span>
+            ))}
+          </div>
+        ) : null}
         <div className={styles.progressBar}>
           {row.buildings.map((building, idx) => {
             const width = row.total ? (building.total / row.total) * 100 : 0;
@@ -166,6 +199,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   const [currentPage, setCurrentPage] = useState(0);
   const compactListRef = useRef<HTMLDivElement | null>(null);
   const sampleRowRef = useRef<HTMLDivElement | null>(null);
+  const manualLayoutHoldUntil = useRef<number | null>(null);
 
   const summary = useMemo(() => snapshot?.summary ?? [], [snapshot]);
   const todayProgress: SectorProgress[] = useMemo(() => snapshot?.todayProgress ?? [], [snapshot]);
@@ -229,6 +263,12 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
 
   useEffect(() => {
     const syncLayoutByTime = () => {
+      const now = Date.now();
+      if (manualLayoutHoldUntil.current && manualLayoutHoldUntil.current > now) {
+        return;
+      }
+      manualLayoutHoldUntil.current = null;
+
       const nextMode = getDefaultLayoutMode();
       setLayoutMode((prev) => (prev === nextMode ? prev : nextMode));
     };
@@ -240,6 +280,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
 
   useEffect(() => {
     let canceled = false;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
     const load = async () => {
       setIsLoading(true);
@@ -264,16 +305,40 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
       }
     };
 
+    const scheduleNext = () => {
+      const delay = computeNextSummaryRefreshDelay();
+      refreshTimer = setTimeout(async () => {
+        await load();
+        scheduleNext();
+      }, delay);
+    };
+
     load();
-    const timer = setInterval(load, 10 * 60 * 1000);
+    scheduleNext();
     return () => {
       canceled = true;
-      clearInterval(timer);
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+      }
     };
   }, []);
 
   const isTodayDominant = layoutMode === 'todayDominant';
   const isCompactView = layoutMode === 'tomorrowDominant';
+
+  useEffect(() => {
+    if (!isCompactView) return undefined;
+    setCurrentPage(0);
+    const handle = window.requestAnimationFrame(() => {
+      const containerHeight = compactListRef.current?.clientHeight ?? 0;
+      const rowHeight = sampleRowRef.current?.clientHeight ?? 0;
+      if (!containerHeight || !rowHeight) return;
+      const rows = Math.max(1, Math.floor(containerHeight / rowHeight));
+      setRowsPerPage(rows);
+    });
+
+    return () => window.cancelAnimationFrame(handle);
+  }, [isCompactView]);
 
   const sortedRooms = useMemo(() => {
     const buildingCounts = new Map<string, number>();
@@ -340,7 +405,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
     const resizeHandler = () => computeRowsPerPage();
     window.addEventListener('resize', resizeHandler);
     return () => window.removeEventListener('resize', resizeHandler);
-    }, [activeRooms.length, isCompactView]);
+  }, [activeRooms.length, isCompactView]);
 
   useEffect(() => {
     if (!isCompactView) return undefined;
@@ -365,6 +430,12 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
 
   const formatSectorCounts = (item: SummaryItem) =>
     item.sectors.map((sector) => sector.count).join(' / ') || '0';
+
+  const resolveSummaryStatusClass = (status: SummaryItem['applyStatus']) => {
+    if (status === 'complete') return styles.summaryCellComplete;
+    if (status === 'empty') return styles.summaryCellEmpty;
+    return '';
+  };
 
   if (isCompactView) {
     const compactRooms = paginatedRooms.length > 0 || rowsPerPage > 0 ? paginatedRooms : activeRooms;
@@ -425,8 +496,9 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
         <div className={styles.summaryGrid}>
           {summary.map((item) => {
             const total = item.sectors.reduce((acc, sector) => acc + sector.count, 0);
+            const statusClass = resolveSummaryStatusClass(item.applyStatus);
             return (
-              <div key={item.day} className={styles.summaryCell}>
+              <div key={item.day} className={`${styles.summaryCell} ${statusClass}`}>
                 <div className={styles.summaryDate}>{formatDateLabel(item.date)}</div>
                 <div className={styles.summaryTotal}>{total}건</div>
                 <div className={styles.summarySectors}>{formatSectorCounts(item)}</div>
@@ -607,7 +679,9 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
               <div>
                 <p className={styles.cardTitle}>D+1 준비 현황</p>
                 <p className={styles.cardMeta}>
-                  {isLoading ? '데이터 로딩 중' : `30분 주기 동기화 · ${formatTimeLabel(tomorrowUpdatedAt)}`}
+                  {isLoading
+                    ? '데이터 로딩 중'
+                    : `정시 리프레시(09:00/15:00/16:30) · ${formatTimeLabel(tomorrowUpdatedAt)}`}
                 </p>
               </div>
               <span className={styles.badgeSoft}>배치 모니터링</span>
@@ -616,7 +690,9 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
               {tomorrowProgress.length === 0 && !isLoading ? (
                 <div className={styles.emptyState}>다가오는 업무 예약이 없습니다.</div>
               ) : (
-                tomorrowProgress.map(renderProgressRow)
+                tomorrowProgress.map((row, index) =>
+                  renderProgressRow(row, index, { showApplySlots: true })
+                )
               )}
             </div>
             <div className={styles.applyList}>
@@ -642,6 +718,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
         aria-label="레이아웃 전환"
         className={styles.toggleBubble}
         onClick={() => {
+          manualLayoutHoldUntil.current = Date.now() + 5 * 60 * 1000;
           setLayoutMode(isTodayDominant ? 'tomorrowDominant' : 'todayDominant');
         }}
         title={isTodayDominant ? 'D+1가 넓게 보기 (8:2)' : 'D0가 넓게 보기 (2:8)'}
