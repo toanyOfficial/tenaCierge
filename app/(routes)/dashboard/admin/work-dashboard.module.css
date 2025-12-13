@@ -465,9 +465,9 @@
 .statusStep.statusCleaningProgress,
 .statusStep.statusCleaningNearDone,
 .statusStep.statusInspectOff {
-  background: var(--border);
-  color: #334155;
-  border-color: var(--border);
+  background: #1f2937;
+  color: #cbd5e1;
+  border-color: #334155;
 }
 
 .statusStep.statusSupplyOn,
