@@ -19,6 +19,26 @@ function formatDateLabel(date: string) {
 const sectorPalette = ['#60a5fa', '#22d3ee', '#a78bfa', '#f472b6', '#fbbf24', '#34d399', '#f97316', '#38bdf8'];
 const buildingPalette = ['#0ea5e9', '#22c55e', '#a855f7', '#f97316', '#eab308', '#06b6d4'];
 
+const summaryRefreshSchedule = [
+  { hour: 9, minute: 0 },
+  { hour: 15, minute: 0 },
+  { hour: 16, minute: 30 }
+];
+
+function computeNextSummaryRefreshDelay(baseDate = new Date()) {
+  const now = baseDate.getTime();
+  const candidates = summaryRefreshSchedule.map(({ hour, minute }) => {
+    const target = new Date(baseDate);
+    target.setHours(hour, minute, 0, 0);
+    if (target.getTime() <= now) {
+      target.setDate(target.getDate() + 1);
+    }
+    return target.getTime() - now;
+  });
+
+  return Math.min(...candidates);
+}
+
 const roomSteps = [
   {
     key: 'assign' as const,
@@ -105,6 +125,7 @@ type SummaryItem = {
   day: string;
   date: string;
   sectors: { code: string; name: string; count: number }[];
+  applyStatus: 'complete' | 'empty' | 'mixed';
 };
 
 type DashboardSnapshot = {
@@ -240,6 +261,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
 
   useEffect(() => {
     let canceled = false;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
     const load = async () => {
       setIsLoading(true);
@@ -264,11 +286,21 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
       }
     };
 
+    const scheduleNext = () => {
+      const delay = computeNextSummaryRefreshDelay();
+      refreshTimer = setTimeout(async () => {
+        await load();
+        scheduleNext();
+      }, delay);
+    };
+
     load();
-    const timer = setInterval(load, 10 * 60 * 1000);
+    scheduleNext();
     return () => {
       canceled = true;
-      clearInterval(timer);
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+      }
     };
   }, []);
 
@@ -366,6 +398,12 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   const formatSectorCounts = (item: SummaryItem) =>
     item.sectors.map((sector) => sector.count).join(' / ') || '0';
 
+  const resolveSummaryStatusClass = (status: SummaryItem['applyStatus']) => {
+    if (status === 'complete') return styles.summaryCellComplete;
+    if (status === 'empty') return styles.summaryCellEmpty;
+    return '';
+  };
+
   if (isCompactView) {
     const compactRooms = paginatedRooms.length > 0 || rowsPerPage > 0 ? paginatedRooms : activeRooms;
     const showCompactThankYou = !isLoading && activeRooms.length === 0;
@@ -425,8 +463,9 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
         <div className={styles.summaryGrid}>
           {summary.map((item) => {
             const total = item.sectors.reduce((acc, sector) => acc + sector.count, 0);
+            const statusClass = resolveSummaryStatusClass(item.applyStatus);
             return (
-              <div key={item.day} className={styles.summaryCell}>
+              <div key={item.day} className={`${styles.summaryCell} ${statusClass}`}>
                 <div className={styles.summaryDate}>{formatDateLabel(item.date)}</div>
                 <div className={styles.summaryTotal}>{total}건</div>
                 <div className={styles.summarySectors}>{formatSectorCounts(item)}</div>

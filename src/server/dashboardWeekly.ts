@@ -27,6 +27,7 @@ export type WeeklySummaryItem = {
   day: string;
   date: string;
   sectors: { code: string; name: string; count: number }[];
+  applyStatus: 'complete' | 'empty' | 'mixed';
 };
 
 export type SectorProgress = {
@@ -72,7 +73,27 @@ function startOfKstDay(offsetDays = 0) {
 
 type SectorCatalog = { code: string; name: string }[];
 
-function mapSummary(rawRows: RawWorkRow[], dayKeys: string[], sectorCatalog: SectorCatalog): WeeklySummaryItem[] {
+function resolveApplyStatus(applyRows: Awaited<ReturnType<typeof listApplyRows>>, targetKey: string) {
+  const targetRows = applyRows.filter(
+    (row) => row.position === 1 && formatKstDateKey(row.workDate) === targetKey
+  );
+
+  if (targetRows.length === 0) return 'mixed';
+
+  const hasAssigned = targetRows.some((row) => row.workerId != null);
+  const hasUnassigned = targetRows.some((row) => row.workerId == null);
+
+  if (hasAssigned && !hasUnassigned) return 'complete';
+  if (hasUnassigned && !hasAssigned) return 'empty';
+  return 'mixed';
+}
+
+function mapSummary(
+  rawRows: RawWorkRow[],
+  dayKeys: string[],
+  sectorCatalog: SectorCatalog,
+  applyRows: Awaited<ReturnType<typeof listApplyRows>>
+): WeeklySummaryItem[] {
   const days: WeeklySummaryItem[] = [];
   for (let i = 0; i < dayKeys.length; i += 1) {
     const key = dayKeys[i];
@@ -91,7 +112,8 @@ function mapSummary(rawRows: RawWorkRow[], dayKeys: string[], sectorCatalog: Sec
     days.push({
       day: i === 0 ? 'D0' : `D+${i}`,
       date: key,
-      sectors: daily
+      sectors: daily,
+      applyStatus: resolveApplyStatus(applyRows, key)
     });
   }
   return days;
@@ -225,6 +247,8 @@ export async function fetchWeeklyDashboardData(): Promise<WeeklyDashboardSnapsho
   const startDateSql = sql`CAST(${startKey} AS DATE)`;
   const endDateSql = sql`CAST(${endKey} AS DATE)`;
 
+  const applyRows = await listApplyRows(startKey, endKey);
+
   const rawRows = await db
     .select({
       id: workHeader.id,
@@ -267,7 +291,7 @@ export async function fetchWeeklyDashboardData(): Promise<WeeklyDashboardSnapsho
     .filter((sector) => Boolean(sector.code))
     .map((sector) => ({ code: sector.code as string, name: sector.name || (sector.code as string) }));
 
-  const summary = mapSummary(rawRows, dayKeys, normalizedCatalog);
+  const summary = mapSummary(rawRows, dayKeys, normalizedCatalog, applyRows);
   const todayProgress = mapDayProgress(rawRows, todayKey);
   const tomorrowProgress = mapDayProgress(rawRows, tomorrowKey);
   const roomStatuses = mapRoomStatuses(rawRows, todayKey);
