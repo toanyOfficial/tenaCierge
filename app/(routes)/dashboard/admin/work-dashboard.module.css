@@ -15,6 +15,33 @@
   overflow: hidden;
 }
 
+.toggleBubble {
+  position: absolute;
+  right: 26px;
+  bottom: 26px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: radial-gradient(circle at 30% 30%, rgba(59, 130, 246, 0.3), transparent 55%),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.94) 0%, rgba(15, 23, 42, 0.82) 100%);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.35);
+  color: #e2e8f0;
+  font-weight: 800;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.toggleBubble:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
+}
+
+.toggleBubble:active {
+  transform: translateY(1px) scale(0.98);
+}
+
 .weeklyCanvas {
   width: min(100%, 1920px);
   height: 100%;
@@ -117,6 +144,14 @@
 .compactOnly {
   grid-template-rows: auto 1fr;
   gap: 10px;
+}
+
+.compactPanel {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 8px;
+  height: 100%;
+  min-height: 0;
 }
 
 .compactSectorSummary {
