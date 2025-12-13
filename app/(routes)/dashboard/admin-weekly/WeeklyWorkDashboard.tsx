@@ -543,7 +543,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                             segment.isSectorHead ? (
                               <div
                                 key={`${segment.key}-sector`}
-                                className={styles.overlayBlock}
+                                className={`${styles.overlayBlock} ${styles.overlayBlockBottom}`}
                                 style={{ left: `${segment.offset}%`, width: `${segment.width}%` }}
                               >
                                 <span className={styles.overlaySector}>
