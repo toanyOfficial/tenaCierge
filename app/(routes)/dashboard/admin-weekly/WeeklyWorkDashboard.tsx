@@ -158,6 +158,9 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
     return now >= switchPoint ? 'tomorrowDominant' : 'todayDominant';
   };
 
+  const [scheduleLayoutMode, setScheduleLayoutMode] = useState<'todayDominant' | 'tomorrowDominant'>(
+    getDefaultLayoutMode
+  );
   const [layoutMode, setLayoutMode] = useState<'todayDominant' | 'tomorrowDominant'>(getDefaultLayoutMode);
   const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -273,7 +276,19 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   }, []);
 
   const isTodayDominant = layoutMode === 'todayDominant';
-  const isCompactView = layoutMode === 'tomorrowDominant';
+  const isCompactView = scheduleLayoutMode === 'tomorrowDominant';
+
+  useEffect(() => {
+    const alignLayoutWithSchedule = () => {
+      const nextMode = getDefaultLayoutMode();
+      setScheduleLayoutMode(nextMode);
+      setLayoutMode(nextMode);
+    };
+
+    alignLayoutWithSchedule();
+    const timer = setInterval(alignLayoutWithSchedule, 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const sortedRooms = useMemo(() => {
     const buildingCounts = new Map<string, number>();
