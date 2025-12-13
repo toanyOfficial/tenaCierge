@@ -151,11 +151,18 @@ function renderProgressRow(row: SectorProgress, index: number) {
 }
 
 export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps) {
-  const [layoutMode, setLayoutMode] = useState<'todayDominant' | 'tomorrowDominant'>('todayDominant');
+  const getDefaultLayoutMode = () => {
+    const now = new Date();
+    const switchPoint = new Date(now);
+    switchPoint.setHours(15, 30, 0, 0);
+    return now >= switchPoint ? 'tomorrowDominant' : 'todayDominant';
+  };
+
+  const [layoutMode, setLayoutMode] = useState<'todayDominant' | 'tomorrowDominant'>(getDefaultLayoutMode);
+  const [isLayoutManual, setIsLayoutManual] = useState(false);
   const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isCompactView, setIsCompactView] = useState(false);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(0);
   const compactListRef = useRef<HTMLDivElement | null>(null);
@@ -222,12 +229,16 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   }, [todayProgress, todayTotal]);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(max-width: 1280px)');
-    const handleChange = () => setIsCompactView(mediaQuery.matches);
-    handleChange();
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
+    const syncLayoutByTime = () => {
+      if (isLayoutManual) return;
+      const nextMode = getDefaultLayoutMode();
+      setLayoutMode((prev) => (prev === nextMode ? prev : nextMode));
+    };
+
+    syncLayoutByTime();
+    const timer = setInterval(syncLayoutByTime, 60 * 1000);
+    return () => clearInterval(timer);
+  }, [isLayoutManual]);
 
   useEffect(() => {
     let canceled = false;
@@ -264,6 +275,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   }, []);
 
   const isTodayDominant = layoutMode === 'todayDominant';
+  const isCompactView = layoutMode === 'tomorrowDominant';
 
   const sortedRooms = useMemo(() => {
     const buildingCounts = new Map<string, number>();
@@ -431,7 +443,10 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
             <button
               type="button"
               className={styles.toggleButton}
-              onClick={() => setLayoutMode(isTodayDominant ? 'tomorrowDominant' : 'todayDominant')}
+              onClick={() => {
+                setIsLayoutManual(true);
+                setLayoutMode(isTodayDominant ? 'tomorrowDominant' : 'todayDominant');
+              }}
             >
               {isTodayDominant ? 'D+1가 넓게 보기 (8:2)' : 'D0가 넓게 보기 (2:8)'}
             </button>
