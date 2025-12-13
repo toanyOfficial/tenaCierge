@@ -84,6 +84,7 @@ type StackedSegment = {
 
 type RoomStatus = {
   sectorCode: string;
+  buildingCode: number | null;
   room: string;
   sector: string;
   building: string;

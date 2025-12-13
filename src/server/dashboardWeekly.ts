@@ -40,6 +40,7 @@ export type SectorProgress = {
 export type RoomStatus = {
   sectorCode: string;
   sector: string;
+  buildingCode: number | null;
   building: string;
   room: string;
   supplyYn: boolean;
@@ -138,13 +139,13 @@ function mapDayProgress(rawRows: RawWorkRow[], targetKey: string): SectorProgres
 
 function mapRoomStatuses(rawRows: RawWorkRow[], todayKey: string): RoomStatus[] {
   const todaysRows = rawRows.filter((row) => formatKstDateKey(row.workDate) === todayKey);
-  const buildingCounts = new Map<string, Map<string, number>>();
+  const buildingCounts = new Map<string, Map<number, number>>();
 
   todaysRows.forEach((row) => {
     const sectorCode = row.sectorValue || 'N/A';
-    const building = row.buildingShortName || '미지정';
-    const sectorMap = buildingCounts.get(sectorCode) || new Map<string, number>();
-    sectorMap.set(building, (sectorMap.get(building) || 0) + 1);
+    const buildingCode = row.buildingId ?? Number.MAX_SAFE_INTEGER;
+    const sectorMap = buildingCounts.get(sectorCode) || new Map<number, number>();
+    sectorMap.set(buildingCode, (sectorMap.get(buildingCode) || 0) + 1);
     buildingCounts.set(sectorCode, sectorMap);
   });
 
@@ -153,8 +154,10 @@ function mapRoomStatuses(rawRows: RawWorkRow[], todayKey: string): RoomStatus[] 
       const building = row.buildingShortName || '미지정';
       const sector = row.sectorName || row.sectorValue || 'N/A';
       const sectorCode = row.sectorValue || 'N/A';
+      const buildingCode = row.buildingId ?? null;
       return {
         sectorCode,
+        buildingCode,
         building,
         sector,
         room: row.roomNo || `#${row.id}`,
@@ -169,10 +172,14 @@ function mapRoomStatuses(rawRows: RawWorkRow[], todayKey: string): RoomStatus[] 
       const sectorCompare = a.sectorCode.localeCompare(b.sectorCode);
       if (sectorCompare !== 0) return sectorCompare;
 
-      const sectorBuildingCounts = buildingCounts.get(a.sectorCode) || new Map<string, number>();
-      const aCount = sectorBuildingCounts.get(a.building) || 0;
-      const bCount = sectorBuildingCounts.get(b.building) || 0;
+      const sectorBuildingCounts = buildingCounts.get(a.sectorCode) || new Map<number, number>();
+      const aCode = a.buildingCode ?? Number.MAX_SAFE_INTEGER;
+      const bCode = b.buildingCode ?? Number.MAX_SAFE_INTEGER;
+      const aCount = sectorBuildingCounts.get(aCode) || 0;
+      const bCount = sectorBuildingCounts.get(bCode) || 0;
       if (aCount !== bCount) return bCount - aCount;
+
+      if (aCode !== bCode) return aCode - bCode;
 
       const buildingCompare = a.building.localeCompare(b.building);
       if (buildingCompare !== 0) return buildingCompare;
