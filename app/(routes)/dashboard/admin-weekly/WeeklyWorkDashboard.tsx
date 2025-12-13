@@ -197,9 +197,13 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   const [error, setError] = useState<string | null>(null);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(0);
+  const [sectorPage, setSectorPage] = useState(0);
+  const [sectorsPerPage, setSectorsPerPage] = useState(0);
   const [roomPage, setRoomPage] = useState(0);
+  const compactSectorRef = useRef<HTMLDivElement | null>(null);
   const compactListRef = useRef<HTMLDivElement | null>(null);
   const sampleRowRef = useRef<HTMLDivElement | null>(null);
+  const sampleSectorRef = useRef<HTMLDivElement | null>(null);
   const manualLayoutHoldUntil = useRef<number | null>(null);
 
   const summary = useMemo(() => snapshot?.summary ?? [], [snapshot]);
@@ -336,6 +340,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
 
   useEffect(() => {
     if (!isCompactView) return undefined;
+    setSectorPage(0);
     setCurrentPage(0);
     const handle = window.requestAnimationFrame(() => {
       const containerHeight = compactListRef.current?.clientHeight ?? 0;
@@ -400,6 +405,46 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
       .filter((sector) => sector.count > 0)
       .sort((a, b) => a.code.localeCompare(b.code));
   }, [activeRooms]);
+
+  const visibleSectorSummaries = useMemo(() => {
+    if (!isCompactView) return sectorSummaries;
+    if (sectorsPerPage <= 0) return sectorSummaries;
+    const start = sectorPage * sectorsPerPage;
+    return sectorSummaries.slice(start, start + sectorsPerPage);
+  }, [isCompactView, sectorPage, sectorSummaries, sectorsPerPage]);
+
+  useEffect(() => {
+    if (!isCompactView) return undefined;
+
+    const computeSectorsPerPage = () => {
+      const containerHeight = compactSectorRef.current?.clientHeight ?? 0;
+      const rowHeight = sampleSectorRef.current?.clientHeight ?? 0;
+      if (!containerHeight || !rowHeight) return;
+      const rows = Math.max(1, Math.floor(containerHeight / rowHeight));
+      setSectorsPerPage(rows);
+      const totalPages = Math.max(Math.ceil(sectorSummaries.length / rows) - 1, 0);
+      setSectorPage((prev) => Math.min(prev, totalPages));
+    };
+
+    computeSectorsPerPage();
+    const resizeHandler = () => computeSectorsPerPage();
+    window.addEventListener('resize', resizeHandler);
+    return () => window.removeEventListener('resize', resizeHandler);
+  }, [isCompactView, sectorSummaries.length]);
+
+  useEffect(() => {
+    if (!isCompactView) return undefined;
+    const totalPages = sectorsPerPage > 0 ? Math.ceil(sectorSummaries.length / sectorsPerPage) : 0;
+    if (totalPages <= 1) {
+      setSectorPage(0);
+      return undefined;
+    }
+
+    const timer = setInterval(() => {
+      setSectorPage((prev) => ((prev + 1) % totalPages + totalPages) % totalPages);
+    }, 60 * 1000);
+    return () => clearInterval(timer);
+  }, [isCompactView, sectorSummaries.length, sectorsPerPage]);
 
   useEffect(() => {
     if (!isCompactView) return undefined;
@@ -476,12 +521,20 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
     return (
       <div className={styles.weeklyShell}>
         <div className={`${styles.weeklyCanvas} ${styles.compactOnly}`}>
-          <div className={styles.compactSectorSummary}>
-            {sectorSummaries.map((sector) => (
-              <div key={sector.code} className={styles.compactSectorLine}>
-                {`${sector.sector} : 총 ${sector.count} 건이 현재 진행중입니다.`}
-              </div>
-            ))}
+          <div className={styles.compactSectorSummary} ref={compactSectorRef}>
+            {showCompactThankYou ? (
+              <div className={styles.compactEmpty}>오늘 하루도 수고하셨습니다.</div>
+            ) : (
+              visibleSectorSummaries.map((sector, index) => (
+                <div
+                  key={sector.code}
+                  className={styles.compactSectorLine}
+                  ref={index === 0 ? sampleSectorRef : null}
+                >
+                  {`${sector.sector} : 총 ${sector.count} 건이 현재 진행중입니다.`}
+                </div>
+              ))
+            )}
           </div>
 
           <div className={styles.compactList} ref={compactListRef}>
