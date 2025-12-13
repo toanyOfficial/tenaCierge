@@ -342,7 +342,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
     const resizeHandler = () => computeRowsPerPage();
     window.addEventListener('resize', resizeHandler);
     return () => window.removeEventListener('resize', resizeHandler);
-  }, [activeRooms.length, isCompactView]);
+  }, [activeRooms.length, isCompactLayout]);
 
   useEffect(() => {
     if (!isCompactLayout) return undefined;
@@ -356,7 +356,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
       setCurrentPage((prev) => ((prev + 1) % totalPages + totalPages) % totalPages);
     }, 60 * 1000);
     return () => clearInterval(timer);
-  }, [activeRooms.length, isCompactView, rowsPerPage]);
+  }, [activeRooms.length, isCompactLayout, rowsPerPage]);
 
   const paginatedRooms = useMemo(() => {
     if (!isCompactLayout) return [] as RoomStatus[];
