@@ -268,7 +268,8 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
     const buildingCounts = new Map<string, number>();
 
     roomStatuses.forEach((room) => {
-      const key = `${room.sectorCode}|||${room.building}`;
+      const buildingKey = room.building.trim();
+      const key = `${room.sectorCode}|||${buildingKey}`;
       buildingCounts.set(key, (buildingCounts.get(key) ?? 0) + 1);
     });
 
@@ -276,16 +277,18 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
       const sectorCompare = a.sectorCode.localeCompare(b.sectorCode);
       if (sectorCompare !== 0) return sectorCompare;
 
-      const aKey = `${a.sectorCode}|||${a.building}`;
-      const bKey = `${b.sectorCode}|||${b.building}`;
+      const aBuilding = a.building.trim();
+      const bBuilding = b.building.trim();
+      const aKey = `${a.sectorCode}|||${aBuilding}`;
+      const bKey = `${b.sectorCode}|||${bBuilding}`;
       const aCount = buildingCounts.get(aKey) ?? 0;
       const bCount = buildingCounts.get(bKey) ?? 0;
       if (aCount !== bCount) return bCount - aCount;
 
-      const roomCompare = b.room.localeCompare(a.room, undefined, { numeric: true, sensitivity: 'base' });
-      if (roomCompare !== 0) return roomCompare;
+      const buildingCompare = aBuilding.localeCompare(bBuilding, 'ko');
+      if (buildingCompare !== 0) return buildingCompare;
 
-      return a.building.localeCompare(b.building);
+      return b.room.localeCompare(a.room, undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [roomStatuses]);
 
