@@ -197,6 +197,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   const [error, setError] = useState<string | null>(null);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(0);
+  const [roomPage, setRoomPage] = useState(0);
   const compactListRef = useRef<HTMLDivElement | null>(null);
   const sampleRowRef = useRef<HTMLDivElement | null>(null);
   const manualLayoutHoldUntil = useRef<number | null>(null);
@@ -281,6 +282,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   useEffect(() => {
     let canceled = false;
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    let liveTimer: ReturnType<typeof setInterval> | null = null;
 
     const load = async () => {
       setIsLoading(true);
@@ -315,10 +317,16 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
 
     load();
     scheduleNext();
+    liveTimer = setInterval(() => {
+      load();
+    }, 10 * 60 * 1000);
     return () => {
       canceled = true;
       if (refreshTimer) {
         clearTimeout(refreshTimer);
+      }
+      if (liveTimer) {
+        clearInterval(liveTimer);
       }
     };
   }, []);
@@ -368,9 +376,13 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   }, [roomStatuses]);
 
   const ROOM_GRID_SLOTS = 36;
-  const visibleRooms = sortedRooms.slice(0, ROOM_GRID_SLOTS);
+  const totalRoomPages = Math.max(1, Math.ceil(sortedRooms.length / ROOM_GRID_SLOTS));
+  const visibleRooms = sortedRooms.slice(
+    roomPage * ROOM_GRID_SLOTS,
+    (roomPage + 1) * ROOM_GRID_SLOTS
+  );
   const roomPlaceholders = Math.max(ROOM_GRID_SLOTS - visibleRooms.length, 0);
-  const showEmptyRooms = !isLoading && visibleRooms.length === 0;
+  const showEmptyRooms = !isLoading && sortedRooms.length === 0;
 
   const activeRooms = useMemo(() => sortedRooms.filter((room) => !isRoomCompleted(room)), [sortedRooms]);
 
@@ -406,6 +418,26 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
     window.addEventListener('resize', resizeHandler);
     return () => window.removeEventListener('resize', resizeHandler);
   }, [activeRooms.length, isCompactView]);
+
+  useEffect(() => {
+    if (isCompactView) return undefined;
+    setRoomPage(0);
+    return undefined;
+  }, [isCompactView, sortedRooms.length]);
+
+  useEffect(() => {
+    if (isCompactView) return undefined;
+    const totalPages = totalRoomPages;
+    if (totalPages <= 1) {
+      setRoomPage(0);
+      return undefined;
+    }
+
+    const timer = setInterval(() => {
+      setRoomPage((prev) => ((prev + 1) % totalPages + totalPages) % totalPages);
+    }, 60 * 1000);
+    return () => clearInterval(timer);
+  }, [isCompactView, totalRoomPages]);
 
   useEffect(() => {
     if (!isCompactView) return undefined;
