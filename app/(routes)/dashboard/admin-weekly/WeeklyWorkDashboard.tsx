@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import styles from '../admin/work-dashboard.module.css';
 import type { ProfileSummary } from '@/src/utils/profile';
@@ -84,6 +84,7 @@ type StackedSegment = {
 
 type RoomStatus = {
   sectorCode: string;
+  buildingCode: number | null;
   room: string;
   sector: string;
   building: string;
@@ -114,6 +115,10 @@ type DashboardSnapshot = {
   tomorrowApply: ApplyRow[];
   capturedAt: string;
 };
+
+function isRoomCompleted(room: RoomStatus) {
+  return (room.cleaningFlag ?? 0) >= 4 && room.supervisingYn;
+}
 
 function renderProgressRow(row: SectorProgress, index: number) {
     const percent = row.total ? (row.completed / row.total) * 100 : 0;
@@ -146,10 +151,22 @@ function renderProgressRow(row: SectorProgress, index: number) {
 }
 
 export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps) {
-  const [layoutMode, setLayoutMode] = useState<'todayDominant' | 'tomorrowDominant'>('todayDominant');
+  const getDefaultLayoutMode = () => {
+    const now = new Date();
+    const switchPoint = new Date(now);
+    switchPoint.setHours(15, 30, 0, 0);
+    return now >= switchPoint ? 'tomorrowDominant' : 'todayDominant';
+  };
+
+  const [layoutMode, setLayoutMode] = useState<'todayDominant' | 'tomorrowDominant'>(getDefaultLayoutMode);
+  const [isLayoutManual, setIsLayoutManual] = useState(false);
   const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [currentPage, setCurrentPage] = useState(0);
+  const compactListRef = useRef<HTMLDivElement | null>(null);
+  const sampleRowRef = useRef<HTMLDivElement | null>(null);
 
   const summary = useMemo(() => snapshot?.summary ?? [], [snapshot]);
   const todayProgress: SectorProgress[] = useMemo(() => snapshot?.todayProgress ?? [], [snapshot]);
@@ -212,6 +229,18 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   }, [todayProgress, todayTotal]);
 
   useEffect(() => {
+    const syncLayoutByTime = () => {
+      if (isLayoutManual) return;
+      const nextMode = getDefaultLayoutMode();
+      setLayoutMode((prev) => (prev === nextMode ? prev : nextMode));
+    };
+
+    syncLayoutByTime();
+    const timer = setInterval(syncLayoutByTime, 60 * 1000);
+    return () => clearInterval(timer);
+  }, [isLayoutManual]);
+
+  useEffect(() => {
     let canceled = false;
 
     const load = async () => {
@@ -246,12 +275,14 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   }, []);
 
   const isTodayDominant = layoutMode === 'todayDominant';
+  const isCompactLayout = layoutMode === 'tomorrowDominant';
 
   const sortedRooms = useMemo(() => {
     const buildingCounts = new Map<string, number>();
 
     roomStatuses.forEach((room) => {
-      const key = `${room.sectorCode}|||${room.building}`;
+      const buildingKey = room.buildingCode ?? Number.MAX_SAFE_INTEGER;
+      const key = `${room.sectorCode}|||${buildingKey}`;
       buildingCounts.set(key, (buildingCounts.get(key) ?? 0) + 1);
     });
 
@@ -259,16 +290,17 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
       const sectorCompare = a.sectorCode.localeCompare(b.sectorCode);
       if (sectorCompare !== 0) return sectorCompare;
 
-      const aKey = `${a.sectorCode}|||${a.building}`;
-      const bKey = `${b.sectorCode}|||${b.building}`;
+      const aBuildingCode = a.buildingCode ?? Number.MAX_SAFE_INTEGER;
+      const bBuildingCode = b.buildingCode ?? Number.MAX_SAFE_INTEGER;
+      const aKey = `${a.sectorCode}|||${aBuildingCode}`;
+      const bKey = `${b.sectorCode}|||${bBuildingCode}`;
       const aCount = buildingCounts.get(aKey) ?? 0;
       const bCount = buildingCounts.get(bKey) ?? 0;
       if (aCount !== bCount) return bCount - aCount;
 
-      const roomCompare = b.room.localeCompare(a.room, undefined, { numeric: true, sensitivity: 'base' });
-      if (roomCompare !== 0) return roomCompare;
+      if (aBuildingCode !== bBuildingCode) return aBuildingCode - bBuildingCode;
 
-      return a.building.localeCompare(b.building);
+      return b.room.localeCompare(a.room, undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [roomStatuses]);
 
@@ -276,6 +308,62 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   const visibleRooms = sortedRooms.slice(0, ROOM_GRID_SLOTS);
   const roomPlaceholders = Math.max(ROOM_GRID_SLOTS - visibleRooms.length, 0);
   const showEmptyRooms = !isLoading && visibleRooms.length === 0;
+
+  const activeRooms = useMemo(() => sortedRooms.filter((room) => !isRoomCompleted(room)), [sortedRooms]);
+
+  const sectorSummaries = useMemo(() => {
+    const sectorMap = new Map<string, { sector: string; code: string; count: number }>();
+
+    activeRooms.forEach((room) => {
+      const key = room.sectorCode;
+      const current = sectorMap.get(key) || { sector: room.sector || key, code: key, count: 0 };
+      current.count += 1;
+      sectorMap.set(key, current);
+    });
+
+    return Array.from(sectorMap.values())
+      .filter((sector) => sector.count > 0)
+      .sort((a, b) => a.code.localeCompare(b.code));
+  }, [activeRooms]);
+
+  useEffect(() => {
+    if (!isCompactLayout) return undefined;
+
+    const computeRowsPerPage = () => {
+      const containerHeight = compactListRef.current?.clientHeight ?? 0;
+      const rowHeight = sampleRowRef.current?.clientHeight ?? 0;
+      if (!containerHeight || !rowHeight) return;
+      const rows = Math.max(1, Math.floor(containerHeight / rowHeight));
+      setRowsPerPage(rows);
+      setCurrentPage((prev) => Math.min(prev, Math.max(Math.ceil(activeRooms.length / rows) - 1, 0)));
+    };
+
+    computeRowsPerPage();
+    const resizeHandler = () => computeRowsPerPage();
+    window.addEventListener('resize', resizeHandler);
+    return () => window.removeEventListener('resize', resizeHandler);
+  }, [activeRooms.length, isCompactLayout]);
+
+  useEffect(() => {
+    if (!isCompactLayout) return undefined;
+    const totalPages = rowsPerPage > 0 ? Math.ceil(activeRooms.length / rowsPerPage) : 0;
+    if (totalPages <= 1) {
+      setCurrentPage(0);
+      return undefined;
+    }
+
+    const timer = setInterval(() => {
+      setCurrentPage((prev) => ((prev + 1) % totalPages + totalPages) % totalPages);
+    }, 60 * 1000);
+    return () => clearInterval(timer);
+  }, [activeRooms.length, isCompactLayout, rowsPerPage]);
+
+  const paginatedRooms = useMemo(() => {
+    if (!isCompactLayout) return [] as RoomStatus[];
+    if (rowsPerPage <= 0) return activeRooms;
+    const start = currentPage * rowsPerPage;
+    return activeRooms.slice(start, start + rowsPerPage);
+  }, [activeRooms, currentPage, isCompactLayout, rowsPerPage]);
 
   const formatSectorCounts = (item: SummaryItem) =>
     item.sectors.map((sector) => sector.count).join(' / ') || '0';
@@ -297,16 +385,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
         </div>
 
         <div className={styles.layoutToolbar}>
-          <div className={styles.toolbarLeft}>
-            <button
-              type="button"
-              className={styles.toggleButton}
-              onClick={() => setLayoutMode(isTodayDominant ? 'tomorrowDominant' : 'todayDominant')}
-            >
-              {isTodayDominant ? 'D+1가 넓게 보기 (8:2)' : 'D0가 넓게 보기 (2:8)'}
-            </button>
-            {error && <span className={styles.errorBadge}>{error}</span>}
-          </div>
+          <div className={styles.toolbarLeft}>{error && <span className={styles.errorBadge}>{error}</span>}</div>
           <div className={styles.toolbarRight}>
             <span className={styles.refreshBadge}>업데이트 {formatTimeLabel(summaryUpdatedAt)}</span>
           </div>
@@ -332,97 +411,145 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
               <span className={styles.badgeSoft}>실시간</span>
             </div>
 
-            <div className={styles.stackedWrapper}>
-              {todayStacked.length === 0 && !isLoading ? (
-                <div className={styles.emptyState}>오늘 등록된 업무가 없습니다.</div>
-              ) : (
-                <>
-                  <div className={styles.stackedBarShell}>
-                    <div className={styles.overlayRowTop}>
-                      {todayStacked.map((segment) => (
-                        <div
-                          key={`${segment.key}-top`}
-                          className={styles.overlayBlock}
-                          style={{ left: `${segment.offset}%`, width: `${segment.width}%` }}
-                        >
-                          <span className={styles.overlayStat}>
-                            {segment.completed}/{segment.total} · {segment.completedWidth.toFixed(0)}%
-                          </span>
-                        </div>
-                      ))}
+            {isCompactLayout ? (
+              <div className={styles.compactPanel}>
+                <div className={styles.compactSectorSummary}>
+                  {sectorSummaries.map((sector) => (
+                    <div key={sector.code} className={styles.compactSectorLine}>
+                      {`${sector.sector} : 총 ${sector.count} 건이 현재 진행중입니다.`}
                     </div>
-                    <div className={styles.stackedBar}>
-                      {todayStacked.map((segment) => (
-                        <div
-                          key={segment.key}
-                          className={styles.stackedSegment}
-                          style={{
-                            width: `${segment.width}%`,
-                            background: `linear-gradient(120deg, ${segment.color} 0%, ${segment.color.replace(/e6$/i, 'ff')} 85%)`
-                          }}
-                          title={`${segment.label} ${segment.width.toFixed(1)}%`}
-                        >
-                          <div className={styles.segmentProgress} style={{ width: `${segment.completedWidth}%` }} />
-                          <span className={styles.segmentLabel}>{segment.buildingName}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className={styles.overlayRowBottom}>
-                      {todayStacked.map((segment) =>
-                        segment.isSectorHead ? (
-                          <div
-                            key={`${segment.key}-sector`}
-                            className={styles.overlayBlock}
-                            style={{ left: `${segment.offset}%`, width: `${segment.width}%` }}
-                          >
-                            <span className={styles.overlaySector}>
-                              {segment.sector} {segment.sectorTotal}건
-                            </span>
-                          </div>
-                        ) : null
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className={styles.roomGrid}>
-              {showEmptyRooms ? (
-                <div className={`${styles.roomChip} ${styles.roomPlaceholder}`}>
-                  <div className={styles.emptyState}>배정된 호실이 없습니다.</div>
+                  ))}
                 </div>
-              ) : (
-                <>
-                  {visibleRooms.map((room) => {
-                    return (
-                      <div key={`${room.building}-${room.room}`} className={styles.roomChip}>
-                        <span className={styles.roomName}>
-                          {room.building} · {room.room}
-                        </span>
-                        <div className={styles.roomStatusRow}>
-                          <span className={styles.roomValue}>{room.owner}</span>
-                          <div className={styles.statusButtonRow}>
-                            {roomSteps.map((step) => (
-                              <button
-                                key={step.key}
-                                type="button"
-                                className={`${styles.statusStep} ${step.resolveClassName(room)}`}
-                              >
-                                {step.label}
-                              </button>
-                            ))}
-                          </div>
+
+                <div className={styles.compactList} ref={compactListRef}>
+                  {!isLoading && activeRooms.length === 0 ? (
+                    <div className={styles.compactEmpty}>오늘 하루도 수고하셨습니다.</div>
+                  ) : isLoading ? (
+                    <div className={styles.compactEmpty}>데이터를 불러오는 중입니다…</div>
+                  ) : (
+                    (paginatedRooms.length > 0 ? paginatedRooms : activeRooms).map((room, index) => (
+                      <div
+                        key={`${room.building}-${room.room}-${index}`}
+                        className={styles.compactRow}
+                        ref={index === 0 ? sampleRowRef : null}
+                      >
+                        <div className={styles.compactRoomMeta}>
+                          <span className={styles.compactRoomName}>
+                            {room.sector} · {room.building} · {room.room}
+                          </span>
+                          <span className={styles.compactRoomOwner}>{room.owner}</span>
+                        </div>
+                        <div className={styles.compactStatusRow}>
+                          {roomSteps.map((step) => (
+                            <button
+                              key={step.key}
+                              type="button"
+                              className={`${styles.statusStep} ${step.resolveClassName(room)}`}
+                            >
+                              {step.label}
+                            </button>
+                          ))}
                         </div>
                       </div>
-                    );
-                  })}
-                </>
-              )}
-              {Array.from({ length: roomPlaceholders - (showEmptyRooms ? 1 : 0) }).map((_, idx) => (
-                <div key={`placeholder-${idx}`} className={`${styles.roomChip} ${styles.roomPlaceholder}`} aria-hidden />
-              ))}
-            </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className={styles.stackedWrapper}>
+                  {todayStacked.length === 0 && !isLoading ? (
+                    <div className={styles.emptyState}>오늘 등록된 업무가 없습니다.</div>
+                  ) : (
+                    <>
+                      <div className={styles.stackedBarShell}>
+                        <div className={styles.overlayRowTop}>
+                          {todayStacked.map((segment) => (
+                            <div
+                              key={`${segment.key}-top`}
+                              className={styles.overlayBlock}
+                              style={{ left: `${segment.offset}%`, width: `${segment.width}%` }}
+                            >
+                              <span className={styles.overlayStat}>
+                                {segment.completed}/{segment.total} · {segment.completedWidth.toFixed(0)}%
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className={styles.stackedBar}>
+                          {todayStacked.map((segment) => (
+                            <div
+                              key={segment.key}
+                              className={styles.stackedSegment}
+                              style={{
+                                width: `${segment.width}%`,
+                                background: `linear-gradient(120deg, ${segment.color} 0%, ${segment.color.replace(/e6$/i, 'ff')} 85%)`
+                              }}
+                              title={`${segment.label} ${segment.width.toFixed(1)}%`}
+                            >
+                              <div className={styles.segmentProgress} style={{ width: `${segment.completedWidth}%` }} />
+                              <span className={styles.segmentLabel}>{segment.buildingName}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className={styles.overlayRowBottom}>
+                          {todayStacked.map((segment) =>
+                            segment.isSectorHead ? (
+                              <div
+                                key={`${segment.key}-sector`}
+                                className={styles.overlayBlock}
+                                style={{ left: `${segment.offset}%`, width: `${segment.width}%` }}
+                              >
+                                <span className={styles.overlaySector}>
+                                  {segment.sector} {segment.sectorTotal}건
+                                </span>
+                              </div>
+                            ) : null
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className={styles.roomGrid}>
+                  {showEmptyRooms ? (
+                    <div className={`${styles.roomChip} ${styles.roomPlaceholder}`}>
+                      <div className={styles.emptyState}>배정된 호실이 없습니다.</div>
+                    </div>
+                  ) : (
+                    <>
+                      {visibleRooms.map((room) => {
+                        return (
+                          <div key={`${room.building}-${room.room}`} className={styles.roomChip}>
+                            <span className={styles.roomName}>
+                              {room.building} · {room.room}
+                            </span>
+                            <div className={styles.roomStatusRow}>
+                              <span className={styles.roomValue}>{room.owner}</span>
+                              <div className={styles.statusButtonRow}>
+                                {roomSteps.map((step) => (
+                                  <button
+                                    key={step.key}
+                                    type="button"
+                                    className={`${styles.statusStep} ${step.resolveClassName(room)}`}
+                                  >
+                                    {step.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+                  {Array.from({ length: roomPlaceholders - (showEmptyRooms ? 1 : 0) }).map((_, idx) => (
+                    <div key={`placeholder-${idx}`} className={`${styles.roomChip} ${styles.roomPlaceholder}`} aria-hidden />
+                  ))}
+                </div>
+              </>
+            )}
           </section>
 
           <section
@@ -464,6 +591,18 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
           </section>
         </div>
       </div>
+      <button
+        type="button"
+        aria-label="레이아웃 전환"
+        className={styles.toggleBubble}
+        onClick={() => {
+          setIsLayoutManual(true);
+          setLayoutMode(isTodayDominant ? 'tomorrowDominant' : 'todayDominant');
+        }}
+        title={isTodayDominant ? 'D+1가 넓게 보기 (8:2)' : 'D0가 넓게 보기 (2:8)'}
+      >
+        ↔
+      </button>
     </div>
   );
 }
