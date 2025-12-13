@@ -199,6 +199,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   const [currentPage, setCurrentPage] = useState(0);
   const compactListRef = useRef<HTMLDivElement | null>(null);
   const sampleRowRef = useRef<HTMLDivElement | null>(null);
+  const manualLayoutHoldUntil = useRef<number | null>(null);
 
   const summary = useMemo(() => snapshot?.summary ?? [], [snapshot]);
   const todayProgress: SectorProgress[] = useMemo(() => snapshot?.todayProgress ?? [], [snapshot]);
@@ -262,6 +263,12 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
 
   useEffect(() => {
     const syncLayoutByTime = () => {
+      const now = Date.now();
+      if (manualLayoutHoldUntil.current && manualLayoutHoldUntil.current > now) {
+        return;
+      }
+      manualLayoutHoldUntil.current = null;
+
       const nextMode = getDefaultLayoutMode();
       setLayoutMode((prev) => (prev === nextMode ? prev : nextMode));
     };
@@ -318,6 +325,20 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
 
   const isTodayDominant = layoutMode === 'todayDominant';
   const isCompactView = layoutMode === 'tomorrowDominant';
+
+  useEffect(() => {
+    if (!isCompactView) return undefined;
+    setCurrentPage(0);
+    const handle = window.requestAnimationFrame(() => {
+      const containerHeight = compactListRef.current?.clientHeight ?? 0;
+      const rowHeight = sampleRowRef.current?.clientHeight ?? 0;
+      if (!containerHeight || !rowHeight) return;
+      const rows = Math.max(1, Math.floor(containerHeight / rowHeight));
+      setRowsPerPage(rows);
+    });
+
+    return () => window.cancelAnimationFrame(handle);
+  }, [isCompactView]);
 
   const sortedRooms = useMemo(() => {
     const buildingCounts = new Map<string, number>();
@@ -384,7 +405,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
     const resizeHandler = () => computeRowsPerPage();
     window.addEventListener('resize', resizeHandler);
     return () => window.removeEventListener('resize', resizeHandler);
-    }, [activeRooms.length, isCompactView]);
+  }, [activeRooms.length, isCompactView]);
 
   useEffect(() => {
     if (!isCompactView) return undefined;
@@ -697,6 +718,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
         aria-label="레이아웃 전환"
         className={styles.toggleBubble}
         onClick={() => {
+          manualLayoutHoldUntil.current = Date.now() + 5 * 60 * 1000;
           setLayoutMode(isTodayDominant ? 'tomorrowDominant' : 'todayDominant');
         }}
         title={isTodayDominant ? 'D+1가 넓게 보기 (8:2)' : 'D0가 넓게 보기 (2:8)'}
