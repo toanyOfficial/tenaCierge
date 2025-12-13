@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import styles from '../admin/work-dashboard.module.css';
 import type { ProfileSummary } from '@/src/utils/profile';
@@ -115,6 +115,10 @@ type DashboardSnapshot = {
   capturedAt: string;
 };
 
+function isRoomCompleted(room: RoomStatus) {
+  return (room.cleaningFlag ?? 0) >= 4 && room.supervisingYn;
+}
+
 function renderProgressRow(row: SectorProgress, index: number) {
     const percent = row.total ? (row.completed / row.total) * 100 : 0;
     return (
@@ -150,6 +154,11 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCompactView, setIsCompactView] = useState(false);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [currentPage, setCurrentPage] = useState(0);
+  const compactListRef = useRef<HTMLDivElement | null>(null);
+  const sampleRowRef = useRef<HTMLDivElement | null>(null);
 
   const summary = useMemo(() => snapshot?.summary ?? [], [snapshot]);
   const todayProgress: SectorProgress[] = useMemo(() => snapshot?.todayProgress ?? [], [snapshot]);
@@ -212,6 +221,14 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   }, [todayProgress, todayTotal]);
 
   useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 1280px)');
+    const handleChange = () => setIsCompactView(mediaQuery.matches);
+    handleChange();
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  useEffect(() => {
     let canceled = false;
 
     const load = async () => {
@@ -251,7 +268,8 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
     const buildingCounts = new Map<string, number>();
 
     roomStatuses.forEach((room) => {
-      const key = `${room.sectorCode}|||${room.building}`;
+      const buildingKey = room.building.trim();
+      const key = `${room.sectorCode}|||${buildingKey}`;
       buildingCounts.set(key, (buildingCounts.get(key) ?? 0) + 1);
     });
 
@@ -259,16 +277,18 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
       const sectorCompare = a.sectorCode.localeCompare(b.sectorCode);
       if (sectorCompare !== 0) return sectorCompare;
 
-      const aKey = `${a.sectorCode}|||${a.building}`;
-      const bKey = `${b.sectorCode}|||${b.building}`;
+      const aBuilding = a.building.trim();
+      const bBuilding = b.building.trim();
+      const aKey = `${a.sectorCode}|||${aBuilding}`;
+      const bKey = `${b.sectorCode}|||${bBuilding}`;
       const aCount = buildingCounts.get(aKey) ?? 0;
       const bCount = buildingCounts.get(bKey) ?? 0;
       if (aCount !== bCount) return bCount - aCount;
 
-      const roomCompare = b.room.localeCompare(a.room, undefined, { numeric: true, sensitivity: 'base' });
-      if (roomCompare !== 0) return roomCompare;
+      const buildingCompare = aBuilding.localeCompare(bBuilding, 'ko');
+      if (buildingCompare !== 0) return buildingCompare;
 
-      return a.building.localeCompare(b.building);
+      return b.room.localeCompare(a.room, undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [roomStatuses]);
 
@@ -277,8 +297,117 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   const roomPlaceholders = Math.max(ROOM_GRID_SLOTS - visibleRooms.length, 0);
   const showEmptyRooms = !isLoading && visibleRooms.length === 0;
 
+  const activeRooms = useMemo(() => sortedRooms.filter((room) => !isRoomCompleted(room)), [sortedRooms]);
+
+  const sectorSummaries = useMemo(() => {
+    const sectorMap = new Map<string, { sector: string; code: string; count: number }>();
+
+    activeRooms.forEach((room) => {
+      const key = room.sectorCode;
+      const current = sectorMap.get(key) || { sector: room.sector || key, code: key, count: 0 };
+      current.count += 1;
+      sectorMap.set(key, current);
+    });
+
+    return Array.from(sectorMap.values())
+      .filter((sector) => sector.count > 0)
+      .sort((a, b) => a.code.localeCompare(b.code));
+  }, [activeRooms]);
+
+  useEffect(() => {
+    if (!isCompactView) return undefined;
+
+    const computeRowsPerPage = () => {
+      const containerHeight = compactListRef.current?.clientHeight ?? 0;
+      const rowHeight = sampleRowRef.current?.clientHeight ?? 0;
+      if (!containerHeight || !rowHeight) return;
+      const rows = Math.max(1, Math.floor(containerHeight / rowHeight));
+      setRowsPerPage(rows);
+      setCurrentPage((prev) => Math.min(prev, Math.max(Math.ceil(activeRooms.length / rows) - 1, 0)));
+    };
+
+    computeRowsPerPage();
+    const resizeHandler = () => computeRowsPerPage();
+    window.addEventListener('resize', resizeHandler);
+    return () => window.removeEventListener('resize', resizeHandler);
+  }, [activeRooms.length, isCompactView]);
+
+  useEffect(() => {
+    if (!isCompactView) return undefined;
+    const totalPages = rowsPerPage > 0 ? Math.ceil(activeRooms.length / rowsPerPage) : 0;
+    if (totalPages <= 1) {
+      setCurrentPage(0);
+      return undefined;
+    }
+
+    const timer = setInterval(() => {
+      setCurrentPage((prev) => ((prev + 1) % totalPages + totalPages) % totalPages);
+    }, 60 * 1000);
+    return () => clearInterval(timer);
+  }, [activeRooms.length, isCompactView, rowsPerPage]);
+
+  const paginatedRooms = useMemo(() => {
+    if (!isCompactView) return [] as RoomStatus[];
+    if (rowsPerPage <= 0) return activeRooms;
+    const start = currentPage * rowsPerPage;
+    return activeRooms.slice(start, start + rowsPerPage);
+  }, [activeRooms, currentPage, isCompactView, rowsPerPage]);
+
   const formatSectorCounts = (item: SummaryItem) =>
     item.sectors.map((sector) => sector.count).join(' / ') || '0';
+
+  if (isCompactView) {
+    const compactRooms = paginatedRooms.length > 0 || rowsPerPage > 0 ? paginatedRooms : activeRooms;
+    const showCompactThankYou = !isLoading && activeRooms.length === 0;
+
+    return (
+      <div className={styles.weeklyShell}>
+        <div className={`${styles.weeklyCanvas} ${styles.compactOnly}`}>
+          <div className={styles.compactSectorSummary}>
+            {sectorSummaries.map((sector) => (
+              <div key={sector.code} className={styles.compactSectorLine}>
+                {`${sector.sector} : 총 ${sector.count} 건이 현재 진행중입니다.`}
+              </div>
+            ))}
+          </div>
+
+          <div className={styles.compactList} ref={compactListRef}>
+            {showCompactThankYou ? (
+              <div className={styles.compactEmpty}>오늘 하루도 수고하셨습니다.</div>
+            ) : isLoading ? (
+              <div className={styles.compactEmpty}>데이터를 불러오는 중입니다…</div>
+            ) : (
+              compactRooms.map((room, index) => (
+                <div
+                  key={`${room.building}-${room.room}-${index}`}
+                  className={styles.compactRow}
+                  ref={index === 0 ? sampleRowRef : null}
+                >
+                  <div className={styles.compactRoomMeta}>
+                    <span className={styles.compactRoomName}>
+                      {room.sector} · {room.building} · {room.room}
+                    </span>
+                    <span className={styles.compactRoomOwner}>{room.owner}</span>
+                  </div>
+                  <div className={styles.compactStatusRow}>
+                    {roomSteps.map((step) => (
+                      <button
+                        key={step.key}
+                        type="button"
+                        className={`${styles.statusStep} ${step.resolveClassName(room)}`}
+                      >
+                        {step.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.weeklyShell}>
