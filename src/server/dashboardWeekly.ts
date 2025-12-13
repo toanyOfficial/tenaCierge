@@ -40,6 +40,7 @@ export type SectorProgress = {
 export type RoomStatus = {
   sectorCode: string;
   sector: string;
+  buildingCode: number | null;
   building: string;
   room: string;
   supplyYn: boolean;
@@ -137,14 +138,26 @@ function mapDayProgress(rawRows: RawWorkRow[], targetKey: string): SectorProgres
 }
 
 function mapRoomStatuses(rawRows: RawWorkRow[], todayKey: string): RoomStatus[] {
-  return rawRows
-    .filter((row) => formatKstDateKey(row.workDate) === todayKey)
+  const todaysRows = rawRows.filter((row) => formatKstDateKey(row.workDate) === todayKey);
+  const buildingCounts = new Map<string, Map<number, number>>();
+
+  todaysRows.forEach((row) => {
+    const sectorCode = row.sectorValue || 'N/A';
+    const buildingCode = row.buildingId ?? Number.MAX_SAFE_INTEGER;
+    const sectorMap = buildingCounts.get(sectorCode) || new Map<number, number>();
+    sectorMap.set(buildingCode, (sectorMap.get(buildingCode) || 0) + 1);
+    buildingCounts.set(sectorCode, sectorMap);
+  });
+
+  return todaysRows
     .map((row) => {
       const building = row.buildingShortName || '미지정';
       const sector = row.sectorName || row.sectorValue || 'N/A';
       const sectorCode = row.sectorValue || 'N/A';
+      const buildingCode = row.buildingId ?? null;
       return {
         sectorCode,
+        buildingCode,
         building,
         sector,
         room: row.roomNo || `#${row.id}`,
@@ -154,6 +167,24 @@ function mapRoomStatuses(rawRows: RawWorkRow[], todayKey: string): RoomStatus[] 
         supervisingYn: Boolean(row.supervisingYn),
         owner: row.cleanerName || '담당자 미지정'
       };
+    })
+    .sort((a, b) => {
+      const sectorCompare = a.sectorCode.localeCompare(b.sectorCode);
+      if (sectorCompare !== 0) return sectorCompare;
+
+      const sectorBuildingCounts = buildingCounts.get(a.sectorCode) || new Map<number, number>();
+      const aCode = a.buildingCode ?? Number.MAX_SAFE_INTEGER;
+      const bCode = b.buildingCode ?? Number.MAX_SAFE_INTEGER;
+      const aCount = sectorBuildingCounts.get(aCode) || 0;
+      const bCount = sectorBuildingCounts.get(bCode) || 0;
+      if (aCount !== bCount) return bCount - aCount;
+
+      if (aCode !== bCode) return aCode - bCode;
+
+      const buildingCompare = a.building.localeCompare(b.building);
+      if (buildingCompare !== 0) return buildingCompare;
+
+      return (b.room || '').localeCompare(a.room || '', undefined, { numeric: true, sensitivity: 'base' });
     });
 }
 
@@ -220,7 +251,14 @@ export async function fetchWeeklyDashboardData(): Promise<WeeklyDashboardSnapsho
       and(eq(etcBaseCode.codeGroup, etcBuildings.sectorCode), eq(etcBaseCode.code, etcBuildings.sectorValue))
     )
     .leftJoin(workerHeader, eq(workHeader.cleanerId, workerHeader.id))
-    .where(and(gte(workHeader.date, startDateSql), lte(workHeader.date, endDateSql), eq(workHeader.cancelYn, false)));
+    .where(
+      and(
+        gte(workHeader.date, startDateSql),
+        lte(workHeader.date, endDateSql),
+        eq(workHeader.cancelYn, false),
+        eq(workHeader.cleaningYn, true)
+      )
+    );
 
   const todayKey = dayKeys[0];
   const tomorrowKey = dayKeys[1];
