@@ -302,7 +302,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
     });
   }, [roomStatuses]);
 
-  const ROOM_GRID_SLOTS = 27;
+  const ROOM_GRID_SLOTS = 36;
   const visibleRooms = sortedRooms.slice(0, ROOM_GRID_SLOTS);
   const roomPlaceholders = Math.max(ROOM_GRID_SLOTS - visibleRooms.length, 0);
   const showEmptyRooms = !isLoading && visibleRooms.length === 0;
