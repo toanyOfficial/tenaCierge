@@ -137,8 +137,18 @@ function mapDayProgress(rawRows: RawWorkRow[], targetKey: string): SectorProgres
 }
 
 function mapRoomStatuses(rawRows: RawWorkRow[], todayKey: string): RoomStatus[] {
-  return rawRows
-    .filter((row) => formatKstDateKey(row.workDate) === todayKey)
+  const todaysRows = rawRows.filter((row) => formatKstDateKey(row.workDate) === todayKey);
+  const buildingCounts = new Map<string, Map<string, number>>();
+
+  todaysRows.forEach((row) => {
+    const sectorCode = row.sectorValue || 'N/A';
+    const building = row.buildingShortName || '미지정';
+    const sectorMap = buildingCounts.get(sectorCode) || new Map<string, number>();
+    sectorMap.set(building, (sectorMap.get(building) || 0) + 1);
+    buildingCounts.set(sectorCode, sectorMap);
+  });
+
+  return todaysRows
     .map((row) => {
       const building = row.buildingShortName || '미지정';
       const sector = row.sectorName || row.sectorValue || 'N/A';
@@ -154,6 +164,20 @@ function mapRoomStatuses(rawRows: RawWorkRow[], todayKey: string): RoomStatus[] 
         supervisingYn: Boolean(row.supervisingYn),
         owner: row.cleanerName || '담당자 미지정'
       };
+    })
+    .sort((a, b) => {
+      const sectorCompare = a.sectorCode.localeCompare(b.sectorCode);
+      if (sectorCompare !== 0) return sectorCompare;
+
+      const sectorBuildingCounts = buildingCounts.get(a.sectorCode) || new Map<string, number>();
+      const aCount = sectorBuildingCounts.get(a.building) || 0;
+      const bCount = sectorBuildingCounts.get(b.building) || 0;
+      if (aCount !== bCount) return bCount - aCount;
+
+      const buildingCompare = a.building.localeCompare(b.building);
+      if (buildingCompare !== 0) return buildingCompare;
+
+      return (b.room || '').localeCompare(a.room || '', undefined, { numeric: true, sensitivity: 'base' });
     });
 }
 
