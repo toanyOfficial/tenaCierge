@@ -77,12 +77,15 @@ const roomSteps = [
 
 type ProfileProps = { profile: ProfileSummary };
 
+type RoleSlotSummary = { role: number; total: number; assigned: number };
+
 type SectorProgress = {
   code: string;
   sector: string;
   total: number;
   completed: number;
   buildings: { name: string; total: number; completed: number }[];
+  applySlots?: RoleSlotSummary[];
 };
 
 type StackedSegment = {
@@ -141,7 +144,7 @@ function isRoomCompleted(room: RoomStatus) {
   return (room.cleaningFlag ?? 0) >= 4 && room.supervisingYn;
 }
 
-function renderProgressRow(row: SectorProgress, index: number) {
+function renderProgressRow(row: SectorProgress, index: number, options?: { showApplySlots?: boolean }) {
     const percent = row.total ? (row.completed / row.total) * 100 : 0;
     return (
       <div key={`${row.sector}-${index}`} className={styles.progressRow}>
@@ -151,6 +154,15 @@ function renderProgressRow(row: SectorProgress, index: number) {
           {row.completed} / {row.total} 완료
         </span>
       </div>
+        {options?.showApplySlots && row.applySlots?.length ? (
+          <div className={styles.applySlotRow}>
+            {row.applySlots.map((slot) => (
+              <span key={`${row.sector}-${slot.role}`} className={styles.applySlotBadge}>
+                {slot.role}팀 {slot.assigned}/{slot.total} 슬롯
+              </span>
+            ))}
+          </div>
+        ) : null}
         <div className={styles.progressBar}>
           {row.buildings.map((building, idx) => {
             const width = row.total ? (building.total / row.total) * 100 : 0;
@@ -646,7 +658,9 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
               <div>
                 <p className={styles.cardTitle}>D+1 준비 현황</p>
                 <p className={styles.cardMeta}>
-                  {isLoading ? '데이터 로딩 중' : `30분 주기 동기화 · ${formatTimeLabel(tomorrowUpdatedAt)}`}
+                  {isLoading
+                    ? '데이터 로딩 중'
+                    : `정시 리프레시(09:00/15:00/16:30) · ${formatTimeLabel(tomorrowUpdatedAt)}`}
                 </p>
               </div>
               <span className={styles.badgeSoft}>배치 모니터링</span>
@@ -655,7 +669,9 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
               {tomorrowProgress.length === 0 && !isLoading ? (
                 <div className={styles.emptyState}>다가오는 업무 예약이 없습니다.</div>
               ) : (
-                tomorrowProgress.map(renderProgressRow)
+                tomorrowProgress.map((row, index) =>
+                  renderProgressRow(row, index, { showApplySlots: true })
+                )
               )}
             </div>
             <div className={styles.applyList}>

@@ -463,6 +463,26 @@
   gap: 8px;
 }
 
+.applySlotRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.applySlotBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(59, 130, 246, 0.12);
+  color: #c7d2fe;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
 .rowLabel {
   font-weight: 700;
   color: #e2e8f0;
