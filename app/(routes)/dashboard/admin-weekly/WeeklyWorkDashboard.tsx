@@ -366,6 +366,59 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   const formatSectorCounts = (item: SummaryItem) =>
     item.sectors.map((sector) => sector.count).join(' / ') || '0';
 
+  if (isCompactView) {
+    const compactRooms = paginatedRooms.length > 0 || rowsPerPage > 0 ? paginatedRooms : activeRooms;
+    const showCompactThankYou = !isLoading && activeRooms.length === 0;
+
+    return (
+      <div className={styles.weeklyShell}>
+        <div className={`${styles.weeklyCanvas} ${styles.compactOnly}`}>
+          <div className={styles.compactSectorSummary}>
+            {sectorSummaries.map((sector) => (
+              <div key={sector.code} className={styles.compactSectorLine}>
+                {`${sector.sector} : 총 ${sector.count} 건이 현재 진행중입니다.`}
+              </div>
+            ))}
+          </div>
+
+          <div className={styles.compactList} ref={compactListRef}>
+            {showCompactThankYou ? (
+              <div className={styles.compactEmpty}>오늘 하루도 수고하셨습니다.</div>
+            ) : isLoading ? (
+              <div className={styles.compactEmpty}>데이터를 불러오는 중입니다…</div>
+            ) : (
+              compactRooms.map((room, index) => (
+                <div
+                  key={`${room.building}-${room.room}-${index}`}
+                  className={styles.compactRow}
+                  ref={index === 0 ? sampleRowRef : null}
+                >
+                  <div className={styles.compactRoomMeta}>
+                    <span className={styles.compactRoomName}>
+                      {room.sector} · {room.building} · {room.room}
+                    </span>
+                    <span className={styles.compactRoomOwner}>{room.owner}</span>
+                  </div>
+                  <div className={styles.compactStatusRow}>
+                    {roomSteps.map((step) => (
+                      <button
+                        key={step.key}
+                        type="button"
+                        className={`${styles.statusStep} ${step.resolveClassName(room)}`}
+                      >
+                        {step.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.weeklyShell}>
       <div className={styles.weeklyCanvas}>
