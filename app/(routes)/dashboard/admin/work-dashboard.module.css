@@ -15,6 +15,33 @@
   overflow: hidden;
 }
 
+.toggleBubble {
+  position: absolute;
+  right: 26px;
+  bottom: 26px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: radial-gradient(circle at 30% 30%, rgba(59, 130, 246, 0.3), transparent 55%),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.94) 0%, rgba(15, 23, 42, 0.82) 100%);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.35);
+  color: #e2e8f0;
+  font-weight: 800;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.toggleBubble:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
+}
+
+.toggleBubble:active {
+  transform: translateY(1px) scale(0.98);
+}
+
 .weeklyCanvas {
   width: min(100%, 1920px);
   height: 100%;
@@ -72,25 +99,6 @@
   font-size: 0.95rem;
 }
 
-.layoutToolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 6px 10px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.toolbarLeft,
-.toolbarRight {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
 .toggleButton {
   border: 1px solid rgba(255, 255, 255, 0.22);
   background: linear-gradient(120deg, #3b82f6 0%, #8b5cf6 100%);
@@ -111,6 +119,90 @@
 
 .refreshNote {
   font-size: 0.85rem;
+  color: #cbd5e1;
+}
+
+.compactOnly {
+  grid-template-rows: auto 1fr;
+  gap: 10px;
+}
+
+.compactPanel {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 8px;
+  height: 100%;
+  min-height: 0;
+}
+
+.compactSectorSummary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e2e8f0;
+}
+
+.compactSectorLine {
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.compactList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(175deg, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.78) 100%);
+  min-height: 0;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.compactRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.compactRoomMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.compactRoomName {
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.compactRoomOwner {
+  color: #cbd5e1;
+  font-size: 0.95rem;
+}
+
+.compactStatusRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.compactEmpty {
+  text-align: center;
+  padding: 32px 12px;
+  font-size: 1.2rem;
+  font-weight: 800;
   color: #cbd5e1;
 }
 
@@ -441,42 +533,6 @@
 }
 
 
-.statusSupplyOff,
-.statusAssignOff,
-.statusCleaningIdle,
-.statusCleaningProgress,
-.statusCleaningNearDone,
-.statusInspectOff {
-  background: var(--border);
-  color: #334155;
-  border-color: var(--border);
-}
-
-.statusSupplyOn,
-.statusAssignOn,
-.statusCleaningDone,
-.statusInspectOn {
-  background: #2563eb;
-  border-color: #1d4ed8;
-  color: #f8fafc;
-}
-
-.statusCleaningProgress {
-  background: #bfdbfe;
-  color: var(--text-strong);
-}
-
-.statusCleaningNearDone {
-  background: #60a5fa;
-  color: #0f172a;
-}
-
-.statusAssignNoShow {
-  background: #0f172a;
-  border-color: #0f172a;
-  color: #fff;
-}
-
 .statusButtonRow {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -492,6 +548,43 @@
   padding: 6px 0;
   font-weight: 700;
   cursor: default;
+}
+
+/* 상태 색상: 기본 버튼 스타일보다 높은 우선순위를 갖도록 결합 클래스 사용 */
+.statusStep.statusSupplyOff,
+.statusStep.statusAssignOff,
+.statusStep.statusCleaningIdle,
+.statusStep.statusCleaningProgress,
+.statusStep.statusCleaningNearDone,
+.statusStep.statusInspectOff {
+  background: #1f2937;
+  color: #cbd5e1;
+  border-color: #334155;
+}
+
+.statusStep.statusSupplyOn,
+.statusStep.statusAssignOn,
+.statusStep.statusCleaningDone,
+.statusStep.statusInspectOn {
+  background: #2563eb;
+  border-color: #1d4ed8;
+  color: #f8fafc;
+}
+
+.statusStep.statusCleaningProgress {
+  background: #bfdbfe;
+  color: var(--text-strong);
+}
+
+.statusStep.statusCleaningNearDone {
+  background: #60a5fa;
+  color: #0f172a;
+}
+
+.statusStep.statusAssignNoShow {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fff;
 }
 
 .applyList {
