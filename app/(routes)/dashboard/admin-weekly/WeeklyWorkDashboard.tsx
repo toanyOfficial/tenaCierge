@@ -273,7 +273,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   }, []);
 
   const isTodayDominant = layoutMode === 'todayDominant';
-  const isCompactView = layoutMode === 'tomorrowDominant';
+  const isD0CompactView = layoutMode === 'tomorrowDominant';
 
   const sortedRooms = useMemo(() => {
     const buildingCounts = new Map<string, number>();
@@ -325,7 +325,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   }, [activeRooms]);
 
   useEffect(() => {
-    if (!isCompactView) return undefined;
+    if (!isD0CompactView) return undefined;
 
     const computeRowsPerPage = () => {
       const containerHeight = compactListRef.current?.clientHeight ?? 0;
@@ -340,10 +340,10 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
     const resizeHandler = () => computeRowsPerPage();
     window.addEventListener('resize', resizeHandler);
     return () => window.removeEventListener('resize', resizeHandler);
-  }, [activeRooms.length, isCompactView]);
+  }, [activeRooms.length, isD0CompactView]);
 
   useEffect(() => {
-    if (!isCompactView) return undefined;
+    if (!isD0CompactView) return undefined;
     const totalPages = rowsPerPage > 0 ? Math.ceil(activeRooms.length / rowsPerPage) : 0;
     if (totalPages <= 1) {
       setCurrentPage(0);
@@ -354,14 +354,14 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
       setCurrentPage((prev) => ((prev + 1) % totalPages + totalPages) % totalPages);
     }, 60 * 1000);
     return () => clearInterval(timer);
-  }, [activeRooms.length, isCompactView, rowsPerPage]);
+  }, [activeRooms.length, isD0CompactView, rowsPerPage]);
 
   const paginatedRooms = useMemo(() => {
-    if (!isCompactView) return [] as RoomStatus[];
+    if (!isD0CompactView) return [] as RoomStatus[];
     if (rowsPerPage <= 0) return activeRooms;
     const start = currentPage * rowsPerPage;
     return activeRooms.slice(start, start + rowsPerPage);
-  }, [activeRooms, currentPage, isCompactView, rowsPerPage]);
+  }, [activeRooms, currentPage, isD0CompactView, rowsPerPage]);
 
   const formatSectorCounts = (item: SummaryItem) =>
     item.sectors.map((sector) => sector.count).join(' / ') || '0';
@@ -452,17 +452,19 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
               isTodayDominant ? styles.dominantCard : styles.compactCard
             } ${styles.todayCard}`}
           >
-            <div className={styles.cardHeader}>
-              <div>
-                <p className={styles.cardTitle}>D0 업무 진행</p>
-                <p className={styles.cardMeta}>
-                  {isLoading ? '데이터 로딩 중' : `실시간 동기화 · ${formatTimeLabel(todayUpdatedAt)}`}
-                </p>
+            {!isD0CompactView && (
+              <div className={styles.cardHeader}>
+                <div>
+                  <p className={styles.cardTitle}>D0 업무 진행</p>
+                  <p className={styles.cardMeta}>
+                    {isLoading ? '데이터 로딩 중' : `실시간 동기화 · ${formatTimeLabel(todayUpdatedAt)}`}
+                  </p>
+                </div>
+                <span className={styles.badgeSoft}>실시간</span>
               </div>
-              <span className={styles.badgeSoft}>실시간</span>
-            </div>
+            )}
 
-            {isCompactView ? (
+            {isD0CompactView ? (
               <div className={styles.compactPanel}>
                 <div className={styles.compactSectorSummary}>
                   {sectorSummaries.map((sector) => (
