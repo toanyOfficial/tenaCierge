@@ -441,42 +441,6 @@
 }
 
 
-.statusSupplyOff,
-.statusAssignOff,
-.statusCleaningIdle,
-.statusCleaningProgress,
-.statusCleaningNearDone,
-.statusInspectOff {
-  background: var(--border);
-  color: #334155;
-  border-color: var(--border);
-}
-
-.statusSupplyOn,
-.statusAssignOn,
-.statusCleaningDone,
-.statusInspectOn {
-  background: #2563eb;
-  border-color: #1d4ed8;
-  color: #f8fafc;
-}
-
-.statusCleaningProgress {
-  background: #bfdbfe;
-  color: var(--text-strong);
-}
-
-.statusCleaningNearDone {
-  background: #60a5fa;
-  color: #0f172a;
-}
-
-.statusAssignNoShow {
-  background: #0f172a;
-  border-color: #0f172a;
-  color: #fff;
-}
-
 .statusButtonRow {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -492,6 +456,43 @@
   padding: 6px 0;
   font-weight: 700;
   cursor: default;
+}
+
+/* 상태 색상: 기본 버튼 스타일보다 높은 우선순위를 갖도록 결합 클래스 사용 */
+.statusStep.statusSupplyOff,
+.statusStep.statusAssignOff,
+.statusStep.statusCleaningIdle,
+.statusStep.statusCleaningProgress,
+.statusStep.statusCleaningNearDone,
+.statusStep.statusInspectOff {
+  background: var(--border);
+  color: #334155;
+  border-color: var(--border);
+}
+
+.statusStep.statusSupplyOn,
+.statusStep.statusAssignOn,
+.statusStep.statusCleaningDone,
+.statusStep.statusInspectOn {
+  background: #2563eb;
+  border-color: #1d4ed8;
+  color: #f8fafc;
+}
+
+.statusStep.statusCleaningProgress {
+  background: #bfdbfe;
+  color: var(--text-strong);
+}
+
+.statusStep.statusCleaningNearDone {
+  background: #60a5fa;
+  color: #0f172a;
+}
+
+.statusStep.statusAssignNoShow {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fff;
 }
 
 .applyList {
