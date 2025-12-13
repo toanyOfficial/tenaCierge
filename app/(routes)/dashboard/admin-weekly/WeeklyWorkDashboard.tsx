@@ -275,7 +275,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   }, []);
 
   const isTodayDominant = layoutMode === 'todayDominant';
-  const isCompactLayout = layoutMode === 'tomorrowDominant';
+  const isCompactView = layoutMode === 'tomorrowDominant';
 
   const sortedRooms = useMemo(() => {
     const buildingCounts = new Map<string, number>();
@@ -327,7 +327,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   }, [activeRooms]);
 
   useEffect(() => {
-    if (!isCompactLayout) return undefined;
+    if (!isCompactView) return undefined;
 
     const computeRowsPerPage = () => {
       const containerHeight = compactListRef.current?.clientHeight ?? 0;
@@ -342,10 +342,10 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
     const resizeHandler = () => computeRowsPerPage();
     window.addEventListener('resize', resizeHandler);
     return () => window.removeEventListener('resize', resizeHandler);
-  }, [activeRooms.length, isCompactLayout]);
+  }, [activeRooms.length, isCompactView]);
 
   useEffect(() => {
-    if (!isCompactLayout) return undefined;
+    if (!isCompactView) return undefined;
     const totalPages = rowsPerPage > 0 ? Math.ceil(activeRooms.length / rowsPerPage) : 0;
     if (totalPages <= 1) {
       setCurrentPage(0);
@@ -356,14 +356,14 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
       setCurrentPage((prev) => ((prev + 1) % totalPages + totalPages) % totalPages);
     }, 60 * 1000);
     return () => clearInterval(timer);
-  }, [activeRooms.length, isCompactLayout, rowsPerPage]);
+  }, [activeRooms.length, isCompactView, rowsPerPage]);
 
   const paginatedRooms = useMemo(() => {
-    if (!isCompactLayout) return [] as RoomStatus[];
+    if (!isCompactView) return [] as RoomStatus[];
     if (rowsPerPage <= 0) return activeRooms;
     const start = currentPage * rowsPerPage;
     return activeRooms.slice(start, start + rowsPerPage);
-  }, [activeRooms, currentPage, isCompactLayout, rowsPerPage]);
+  }, [activeRooms, currentPage, isCompactView, rowsPerPage]);
 
   const formatSectorCounts = (item: SummaryItem) =>
     item.sectors.map((sector) => sector.count).join(' / ') || '0';
@@ -464,7 +464,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
               <span className={styles.badgeSoft}>실시간</span>
             </div>
 
-            {isCompactLayout ? (
+            {isCompactView ? (
               <div className={styles.compactPanel}>
                 <div className={styles.compactSectorSummary}>
                   {sectorSummaries.map((sector) => (
