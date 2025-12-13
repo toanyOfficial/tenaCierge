@@ -99,6 +99,18 @@
   font-size: 0.95rem;
 }
 
+.summaryCellComplete .summaryDate,
+.summaryCellComplete .summaryTotal,
+.summaryCellComplete .summarySectors {
+  color: #60a5fa;
+}
+
+.summaryCellEmpty .summaryDate,
+.summaryCellEmpty .summaryTotal,
+.summaryCellEmpty .summarySectors {
+  color: #f87171;
+}
+
 .toggleButton {
   border: 1px solid rgba(255, 255, 255, 0.22);
   background: linear-gradient(120deg, #3b82f6 0%, #8b5cf6 100%);
