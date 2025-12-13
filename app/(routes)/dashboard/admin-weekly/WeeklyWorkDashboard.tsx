@@ -159,7 +159,6 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   };
 
   const [layoutMode, setLayoutMode] = useState<'todayDominant' | 'tomorrowDominant'>(getDefaultLayoutMode);
-  const [isLayoutManual, setIsLayoutManual] = useState(false);
   const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -230,7 +229,6 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
 
   useEffect(() => {
     const syncLayoutByTime = () => {
-      if (isLayoutManual) return;
       const nextMode = getDefaultLayoutMode();
       setLayoutMode((prev) => (prev === nextMode ? prev : nextMode));
     };
@@ -238,7 +236,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
     syncLayoutByTime();
     const timer = setInterval(syncLayoutByTime, 60 * 1000);
     return () => clearInterval(timer);
-  }, [isLayoutManual]);
+  }, []);
 
   useEffect(() => {
     let canceled = false;
@@ -649,7 +647,6 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
         aria-label="레이아웃 전환"
         className={styles.toggleBubble}
         onClick={() => {
-          setIsLayoutManual(true);
           setLayoutMode(isTodayDominant ? 'tomorrowDominant' : 'todayDominant');
         }}
         title={isTodayDominant ? 'D+1가 넓게 보기 (8:2)' : 'D0가 넓게 보기 (2:8)'}
