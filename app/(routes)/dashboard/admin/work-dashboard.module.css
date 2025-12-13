@@ -99,6 +99,18 @@
   font-size: 0.95rem;
 }
 
+.summaryCellComplete .summaryDate,
+.summaryCellComplete .summaryTotal,
+.summaryCellComplete .summarySectors {
+  color: #60a5fa;
+}
+
+.summaryCellEmpty .summaryDate,
+.summaryCellEmpty .summaryTotal,
+.summaryCellEmpty .summarySectors {
+  color: #f87171;
+}
+
 .toggleButton {
   border: 1px solid rgba(255, 255, 255, 0.22);
   background: linear-gradient(120deg, #3b82f6 0%, #8b5cf6 100%);
@@ -449,6 +461,26 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.applySlotRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.applySlotBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(59, 130, 246, 0.12);
+  color: #c7d2fe;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .rowLabel {
