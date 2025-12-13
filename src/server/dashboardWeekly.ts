@@ -220,7 +220,14 @@ export async function fetchWeeklyDashboardData(): Promise<WeeklyDashboardSnapsho
       and(eq(etcBaseCode.codeGroup, etcBuildings.sectorCode), eq(etcBaseCode.code, etcBuildings.sectorValue))
     )
     .leftJoin(workerHeader, eq(workHeader.cleanerId, workerHeader.id))
-    .where(and(gte(workHeader.date, startDateSql), lte(workHeader.date, endDateSql), eq(workHeader.cancelYn, false)));
+    .where(
+      and(
+        gte(workHeader.date, startDateSql),
+        lte(workHeader.date, endDateSql),
+        eq(workHeader.cancelYn, false),
+        eq(workHeader.cleaningYn, true)
+      )
+    );
 
   const todayKey = dayKeys[0];
   const tomorrowKey = dayKeys[1];
