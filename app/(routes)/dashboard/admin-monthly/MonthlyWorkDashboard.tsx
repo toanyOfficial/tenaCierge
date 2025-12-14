@@ -347,13 +347,7 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
                             (
                             <span className={styles.dayPrevCount}>{totals.prev}</span>
                             /
-                            <span
-                              className={`${styles.dayCurrentCount} ${
-                                isWeekend ? styles.weekendDayNumber : ''
-                              }`}
-                            >
-                              {totals.current}
-                            </span>
+                            <span className={styles.dayCurrentCount}>{totals.current}</span>
                             )
                           </span>
                         </div>
