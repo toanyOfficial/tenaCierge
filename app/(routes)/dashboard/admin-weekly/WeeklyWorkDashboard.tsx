@@ -760,15 +760,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
             }`}
           >
             <div className={styles.cardHeader}>
-              <div>
-                <p className={styles.cardTitle}>D+1 준비 현황</p>
-                <p className={styles.cardMeta}>
-                  {isLoading
-                    ? '데이터 로딩 중'
-                    : `정시 리프레시(09:00/15:00/16:30) · ${formatTimeLabel(tomorrowUpdatedAt)}`}
-                </p>
-              </div>
-              <span className={styles.badgeSoft}>배치 모니터링</span>
+              <p className={styles.cardTitle}>D+1 준비 현황</p>
             </div>
             {isTodayDominant ? (
               <div className={styles.tomorrowCompactList}>
@@ -778,38 +770,6 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                       <span className={styles.tomorrowCompactTitle}>{card.sector}</span>
                       <span className={styles.tomorrowCompactTotal}>{card.total}건</span>
                     </div>
-
-                    <div className={styles.tomorrowBuildingList}>
-                      {card.checkoutByBuilding.length ? (
-                        card.checkoutByBuilding.map((building) => {
-                          const buildingTotal =
-                            card.buildings.find((b) => b.name === building.building)?.total ??
-                            building.times.reduce((sum, time) => sum + time.total, 0);
-                          return (
-                            <div key={`${card.code}-${building.building}`} className={styles.tomorrowBuildingRow}>
-                              <div className={styles.tomorrowBuildingHead}>
-                                <span className={styles.tomorrowBuildingName}>{building.building}</span>
-                                <span className={styles.tomorrowBuildingTotal}>{buildingTotal}건</span>
-                              </div>
-                              <div className={styles.tomorrowCheckoutChips}>
-                                {building.times.length ? (
-                                  building.times.map((checkout) => (
-                                    <span key={`${building.building}-${checkout.time}`} className={styles.checkoutChip}>
-                                      {checkout.time} · {checkout.total}건
-                                    </span>
-                                  ))
-                                ) : (
-                                  <span className={styles.emptyStateInline}>체크아웃 없음</span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <span className={styles.emptyStateInline}>건물/체크아웃 정보 없음</span>
-                      )}
-                    </div>
-
                     <div className={styles.tomorrowApplyGroupList}>
                       {card.applySlotGroups.length ? (
                         card.applySlotGroups.map((group) => (
