@@ -330,7 +330,7 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
                       className={`${styles.calendarCell} ${day.workYn ? styles.workCell : ''} ${
                         day.cancelYn ? styles.cancelCell : ''
                       } ${isAddedOffDay ? styles.addedOffDayCell : ''} ${
-                        isToday ? 'today' : ''
+                        isToday ? styles.todayCell : ''
                       } ${day.isCurrentWeek ? styles.currentWeekCell : ''} ${
                         day.isCurrentMonth ? '' : styles.outsideMonth
                       }`}
@@ -346,7 +346,6 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
                             )
                           </span>
                         </div>
-                        {isToday && <span className={styles.todayPill}>오늘</span>}
                       </div>
                       <div className={styles.workerList}>
                         {day.workers.length === 0 ? (
