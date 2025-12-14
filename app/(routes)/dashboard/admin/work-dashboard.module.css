@@ -1238,12 +1238,6 @@
   display: none;
 }
 
-.todayCell {
-  border: 2px solid #38bdf8;
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.24);
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.02) 100%);
-}
-
 .workCell {
   box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.35);
 }
@@ -1314,6 +1308,12 @@
   min-height: 0;
   box-sizing: border-box;
   overflow: hidden;
+}
+
+.calendarCell.todayCell {
+  border: 2px solid #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.24);
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.02) 100%);
 }
 
 .calendarCellHeader {
