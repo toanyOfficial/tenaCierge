@@ -323,7 +323,6 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
                   const isAddedOffDay = day.baseWorkerCount === 0 && day.addYn;
                   const totals = cumulativeCounts[key] ?? { prev: 0, current: 0 };
                   const dayNumber = `${`${day.date.getDate()}`.padStart(2, '0')}`;
-                  const dayGauge = `(${totals.prev}/${totals.current})`;
                   const workerRows = chunkWorkers(day.workers, 3);
                   return (
                     <div
@@ -335,11 +334,17 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
                       } ${day.isCurrentWeek ? styles.currentWeekCell : ''} ${
                         day.isCurrentMonth ? '' : styles.outsideMonth
                       }`}
-                    >
+                      >
                       <div className={styles.calendarCellHeader}>
                         <div className={styles.dayMeta}>
                           <span className={styles.dayNumber}>{dayNumber}</span>
-                          <span className={styles.dayCounts}>{dayGauge}</span>
+                          <span className={styles.dayCounts}>
+                            (
+                            <span className={styles.dayPrevCount}>{totals.prev}</span>
+                            /
+                            <span className={styles.dayCurrentCount}>{totals.current}</span>
+                            )
+                          </span>
                         </div>
                         {isToday && <span className={styles.todayPill}>오늘</span>}
                       </div>

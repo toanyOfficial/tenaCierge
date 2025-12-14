@@ -1195,6 +1195,15 @@
   color: rgba(148, 163, 184, 0.9);
 }
 
+.dayPrevCount {
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.dayCurrentCount {
+  color: #f8fafc;
+  font-weight: 800;
+}
+
 .dayMeta {
   display: flex;
   align-items: baseline;
