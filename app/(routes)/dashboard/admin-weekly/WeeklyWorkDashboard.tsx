@@ -782,8 +782,10 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                 {tomorrowCards.map((card, index) => (
                   <div key={`${card.code}-${index}`} className={styles.tomorrowCompactRow}>
                     <div className={styles.tomorrowCompactHeader}>
-                      <span className={styles.tomorrowCompactTitle}>{card.sector}</span>
-                      <span className={styles.tomorrowCompactTotal}>{card.total}건</span>
+                      <div className={styles.tomorrowCompactTitleLine}>
+                        <span className={styles.tomorrowCompactTitle}>{card.sector}</span>
+                        <span className={styles.tomorrowCompactTotal}>{card.total}건</span>
+                      </div>
                     </div>
                     <div className={styles.tomorrowApplyGroupList}>
                       {card.applySlotGroups.length ? (
