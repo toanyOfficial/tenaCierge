@@ -696,6 +696,13 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                               title={`${segment.label} ${segment.width.toFixed(1)}%`}
                             >
                               <div className={styles.segmentProgress} style={{ width: `${segment.completedWidth}%` }} />
+                              <span
+                                className={styles.segmentProgressDot}
+                                style={{
+                                  left: `${Math.min(segment.completedWidth, 100)}%`,
+                                  opacity: segment.completedWidth === 0 ? 0 : 1
+                                }}
+                              />
                               <span className={styles.segmentLabel}>{segment.buildingName}</span>
                             </div>
                           ))}

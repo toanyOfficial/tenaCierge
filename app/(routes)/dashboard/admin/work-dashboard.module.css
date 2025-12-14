@@ -318,7 +318,7 @@
   min-width: 42px;
   border-right: 1px solid rgba(15, 23, 42, 0.35);
   padding: 6px 8px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .stackedSegment:last-child {
@@ -336,6 +336,21 @@
   opacity: 0.92;
   transition: width 220ms ease;
   pointer-events: none;
+  z-index: 1;
+}
+
+.segmentProgressDot {
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #0b0b0f;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92), 0 0 0 5px rgba(15, 23, 42, 0.65);
+  z-index: 2;
+  pointer-events: none;
+  transition: left 220ms ease, opacity 180ms ease;
 }
 
 .segmentLabel {
