@@ -1336,6 +1336,11 @@
   color: #64748b;
 }
 
+.calendarCell .dayNumber.weekendDayNumber,
+.calendarCell .dayCurrentCount.weekendDayNumber {
+  color: #fca5a5;
+}
+
 .workerList {
   display: flex;
   flex-direction: column;
