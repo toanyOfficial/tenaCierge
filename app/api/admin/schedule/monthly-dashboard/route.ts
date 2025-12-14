@@ -1,0 +1,80 @@
+import { and, asc, eq, gte, lte } from 'drizzle-orm';
+import { NextResponse } from 'next/server';
+
+import { db } from '@/src/db/client';
+import { workerHeader, workerScheduleException, workerWeeklyPattern } from '@/src/db/schema';
+import { formatKstDateKey, nowKst } from '@/src/lib/time';
+import { handleAdminError } from '@/src/server/adminCrud';
+import { logServerError } from '@/src/server/errorLogger';
+import { getProfileWithDynamicRoles } from '@/src/server/profile';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+function ensureStartOfWeekKst(date = nowKst()) {
+  const weekday = date.weekday % 7; // Monday=1 ... Sunday=7
+  return date.startOf('day').minus({ days: weekday });
+}
+
+async function ensureAdmin() {
+  const profile = await getProfileWithDynamicRoles();
+  return profile.roles.includes('admin');
+}
+
+export async function GET() {
+  const isAdmin = await ensureAdmin();
+  if (!isAdmin) {
+    return NextResponse.json({ message: '관리자만 접근 가능합니다.' }, { status: 403 });
+  }
+
+  const today = nowKst();
+  const monthStart = today.startOf('month');
+  const start = ensureStartOfWeekKst(monthStart);
+  const end = start.plus({ days: 41 });
+
+  try {
+    const weeklyPatterns = await db
+      .select({ workerId: workerWeeklyPattern.workerId, worker: workerHeader.name, weekday: workerWeeklyPattern.weekday })
+      .from(workerWeeklyPattern)
+      .leftJoin(workerHeader, eq(workerWeeklyPattern.workerId, workerHeader.id))
+      .where(eq(workerHeader.tier, 99))
+      .orderBy(asc(workerWeeklyPattern.weekday), asc(workerHeader.name));
+
+    const exceptions = await db
+      .select({
+        id: workerScheduleException.id,
+        workerId: workerScheduleException.workerId,
+        worker: workerHeader.name,
+        excptDate: workerScheduleException.excptDate,
+        addWorkYn: workerScheduleException.addWorkYn,
+        cancelWorkYn: workerScheduleException.cancelWorkYn
+      })
+      .from(workerScheduleException)
+      .leftJoin(workerHeader, eq(workerScheduleException.workerId, workerHeader.id))
+      .where(
+        and(
+          eq(workerHeader.tier, 99),
+          gte(workerScheduleException.excptDate, formatKstDateKey(start.toJSDate())),
+          lte(workerScheduleException.excptDate, formatKstDateKey(end.toJSDate()))
+        )
+      )
+      .orderBy(asc(workerScheduleException.excptDate), asc(workerHeader.name));
+
+    return NextResponse.json({
+      startDate: formatKstDateKey(start.toJSDate()),
+      endDate: formatKstDateKey(end.toJSDate()),
+      today: formatKstDateKey(today.toJSDate()),
+      weeklyPatterns,
+      exceptions
+    });
+  } catch (error) {
+    await logServerError({
+      appName: 'admin-monthly-dashboard',
+      message: '월간 대시보드 데이터를 불러오지 못했습니다.',
+      error
+    });
+    await handleAdminError(error);
+    const message = error instanceof Error ? error.message : '월간 데이터를 불러오지 못했습니다.';
+    return NextResponse.json({ message }, { status: 500 });
+  }
+}
