@@ -1070,6 +1070,107 @@
   font-weight: 700;
 }
 
+.monthlyShell {
+  background: radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.12), transparent 30%),
+    radial-gradient(circle at 90% 10%, rgba(14, 165, 233, 0.12), transparent 28%),
+    linear-gradient(135deg, #0f172a 0%, #0b1222 38%, #0b1222 100%);
+}
+
+.monthlyCanvas {
+  grid-template-rows: auto 1fr;
+  gap: 18px;
+}
+
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  color: #e2e8f0;
+}
+
+.pageTitle {
+  font-size: 1.4rem;
+  font-weight: 800;
+  margin: 0 0 6px 0;
+}
+
+.pageSubtitle {
+  margin: 0;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.pageBadges {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pageMeta {
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.monthlyGrid {
+  display: grid;
+  grid-template-columns: 4fr 1fr;
+  gap: var(--space-3);
+  min-height: 0;
+  align-items: start;
+}
+
+.weekList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.weekRow {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 14px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.85) 0%, rgba(15, 23, 42, 0.72) 100%);
+}
+
+.currentWeekRow {
+  border-color: rgba(59, 130, 246, 0.45);
+  box-shadow: 0 12px 32px rgba(59, 130, 246, 0.22);
+}
+
+.weekMeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.weekLabel {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin: 0;
+  color: #f8fafc;
+}
+
+.weekRange {
+  margin: 2px 0 0 0;
+  color: #cbd5e1;
+}
+
+.weekGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .weeklyCanvas .cardTitle {
   color: #f8fafc;
 }
@@ -1145,6 +1246,45 @@
   font-size: 0.85rem;
 }
 
+.weekCell {
+  min-height: 120px;
+  border-radius: 12px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.weekCellHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.todayPill {
+  padding: 4px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(59, 130, 246, 0.16);
+  border: 1px solid rgba(59, 130, 246, 0.48);
+  color: #e0f2fe;
+  font-weight: 800;
+  font-size: 0.78rem;
+}
+
+.todayCell {
+  border-color: rgba(59, 130, 246, 0.68);
+}
+
+.workCell {
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.35);
+}
+
+.cancelCell {
+  box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.35);
+}
+
 .exceptionPill {
   position: absolute;
   top: 10px;
@@ -1154,6 +1294,10 @@
   font-weight: 700;
   font-size: 0.75rem;
   color: #ffffff;
+}
+
+.inlineExceptionPill {
+  position: static;
 }
 
 .workPill {
@@ -1223,4 +1367,67 @@
   background: rgba(148, 163, 184, 0.16);
   color: #e2e8f0;
   border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.monthlyCard {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.35);
+}
+
+.exceptionCard {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.35);
+  gap: 18px;
+}
+
+.exceptionList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 100%;
+}
+
+.exceptionRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.exceptionMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.exceptionDate {
+  margin: 0;
+  color: #cbd5e1;
+  font-weight: 700;
+}
+
+.exceptionWorker {
+  margin: 0;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.exceptionNote {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.exceptionBadges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
