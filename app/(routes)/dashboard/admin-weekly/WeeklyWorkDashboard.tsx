@@ -685,27 +685,29 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                           ))}
                         </div>
                         <div className={styles.stackedBar}>
-                          {todayStacked.map((segment) => (
-                            <div
-                              key={segment.key}
-                              className={styles.stackedSegment}
-                              style={{
-                                width: `${segment.width}%`,
-                                background: `linear-gradient(120deg, ${segment.color} 0%, ${segment.color.replace(/e6$/i, 'ff')} 85%)`
-                              }}
-                              title={`${segment.label} ${segment.width.toFixed(1)}%`}
-                            >
-                              <div className={styles.segmentProgress} style={{ width: `${segment.completedWidth}%` }} />
-                              <span
-                                className={styles.segmentProgressDot}
+                          {todayStacked.map((segment) => {
+                            const showProgressDot = segment.completedWidth > 0 && segment.completedWidth < 100;
+                            return (
+                              <div
+                                key={segment.key}
+                                className={styles.stackedSegment}
                                 style={{
-                                  left: `${Math.min(segment.completedWidth, 100)}%`,
-                                  opacity: segment.completedWidth === 0 ? 0 : 1
+                                  width: `${segment.width}%`,
+                                  background: `linear-gradient(120deg, ${segment.color} 0%, ${segment.color.replace(/e6$/i, 'ff')} 85%)`
                                 }}
-                              />
-                              <span className={styles.segmentLabel}>{segment.buildingName}</span>
-                            </div>
-                          ))}
+                                title={`${segment.label} ${segment.width.toFixed(1)}%`}
+                              >
+                                <div className={styles.segmentProgress} style={{ width: `${segment.completedWidth}%` }} />
+                                {showProgressDot ? (
+                                  <span
+                                    className={styles.segmentProgressDot}
+                                    style={{ left: `${Math.min(segment.completedWidth, 100)}%` }}
+                                  />
+                                ) : null}
+                                <span className={styles.segmentLabel}>{segment.buildingName}</span>
+                              </div>
+                            );
+                          })}
                         </div>
                         <div className={styles.overlayRowBottom}>
                           {todayStacked.map((segment) =>
