@@ -81,6 +81,7 @@ type RoleSlotSummary = { role: number; total: number; assigned: number };
 type RoleSlotDetail = { role: number; seq: number; workerName: string | null };
 type RoleSlotGroup = { role: number; slots: RoleSlotDetail[] };
 type CheckoutTimeSummary = { time: string; total: number };
+type CheckoutByBuilding = { building: string; times: CheckoutTimeSummary[] };
 
 type SectorProgress = {
   code: string;
@@ -91,6 +92,7 @@ type SectorProgress = {
   applySlots?: RoleSlotSummary[];
   applySlotGroups?: RoleSlotGroup[];
   checkoutTimes?: CheckoutTimeSummary[];
+  checkoutByBuilding?: CheckoutByBuilding[];
 };
 
 type StackedSegment = {
@@ -142,6 +144,12 @@ function isRoomCompleted(room: RoomStatus) {
   return (room.cleaningFlag ?? 0) >= 4 && room.supervisingYn;
 }
 
+function resolveRoleLabel(role: number) {
+  if (role === 1) return '클리너';
+  if (role === 2) return '버틀러';
+  return `Role ${role}`;
+}
+
 function renderProgressRow(row: SectorProgress, index: number, options?: { showApplySlots?: boolean }) {
     const percent = row.total ? (row.completed / row.total) * 100 : 0;
     return (
@@ -156,7 +164,7 @@ function renderProgressRow(row: SectorProgress, index: number, options?: { showA
           <div className={styles.applySlotRow}>
             {row.applySlots.map((slot) => (
               <span key={`${row.sector}-${slot.role}`} className={styles.applySlotBadge}>
-                {slot.role}팀 {slot.assigned}/{slot.total} 슬롯
+                {resolveRoleLabel(slot.role)} {slot.assigned}/{slot.total} 슬롯
               </span>
             ))}
           </div>
@@ -429,6 +437,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
         total: data?.total ?? sector.count ?? 0,
         buildings: data?.buildings ?? [],
         checkoutTimes: data?.checkoutTimes ?? [],
+        checkoutByBuilding: data?.checkoutByBuilding ?? [],
         applySlotGroups: data?.applySlotGroups ?? []
       };
     });
@@ -440,6 +449,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
         total: 0,
         buildings: [],
         checkoutTimes: [],
+        checkoutByBuilding: [],
         applySlotGroups: []
       });
     }
@@ -769,41 +779,42 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                       <span className={styles.tomorrowCompactTotal}>{card.total}건</span>
                     </div>
 
-                    <div className={styles.tomorrowCompactMeta}>
-                      <span className={styles.tomorrowMetaLabel}>건물</span>
-                      <div className={styles.tomorrowMetaChips}>
-                        {card.buildings.length ? (
-                          card.buildings.map((building) => (
-                            <span key={building.name} className={styles.metaChip}>
-                              {building.name} {building.total}건
-                            </span>
-                          ))
-                        ) : (
-                          <span className={styles.emptyStateInline}>건물 없음</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className={styles.tomorrowCompactMeta}>
-                      <span className={styles.tomorrowMetaLabel}>체크아웃</span>
-                      <div className={styles.tomorrowMetaChips}>
-                        {card.checkoutTimes.length ? (
-                          card.checkoutTimes.map((checkout) => (
-                            <span key={checkout.time} className={styles.metaChip}>
-                              {checkout.time} · {checkout.total}건
-                            </span>
-                          ))
-                        ) : (
-                          <span className={styles.emptyStateInline}>체크아웃 없음</span>
-                        )}
-                      </div>
+                    <div className={styles.tomorrowBuildingList}>
+                      {card.checkoutByBuilding.length ? (
+                        card.checkoutByBuilding.map((building) => {
+                          const buildingTotal =
+                            card.buildings.find((b) => b.name === building.building)?.total ??
+                            building.times.reduce((sum, time) => sum + time.total, 0);
+                          return (
+                            <div key={`${card.code}-${building.building}`} className={styles.tomorrowBuildingRow}>
+                              <div className={styles.tomorrowBuildingHead}>
+                                <span className={styles.tomorrowBuildingName}>{building.building}</span>
+                                <span className={styles.tomorrowBuildingTotal}>{buildingTotal}건</span>
+                              </div>
+                              <div className={styles.tomorrowCheckoutChips}>
+                                {building.times.length ? (
+                                  building.times.map((checkout) => (
+                                    <span key={`${building.building}-${checkout.time}`} className={styles.checkoutChip}>
+                                      {checkout.time} · {checkout.total}건
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className={styles.emptyStateInline}>체크아웃 없음</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <span className={styles.emptyStateInline}>건물/체크아웃 정보 없음</span>
+                      )}
                     </div>
 
                     <div className={styles.tomorrowApplyGroupList}>
                       {card.applySlotGroups.length ? (
                         card.applySlotGroups.map((group) => (
                           <div key={`${card.code}-role-${group.role}`} className={styles.tomorrowApplyGroup}>
-                            <span className={styles.tomorrowApplyRole}>Role {group.role}</span>
+                            <span className={styles.tomorrowApplyRole}>{resolveRoleLabel(group.role)}</span>
                             <div className={styles.tomorrowSlotRow}>
                               {group.slots.length ? (
                                 [...group.slots]
@@ -813,6 +824,12 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                                       key={`${card.code}-role-${group.role}-slot-${slot.seq}`}
                                       className={`${styles.slotBadge} ${
                                         slot.workerName ? styles.slotAssigned : styles.slotEmpty
+                                      } ${
+                                        group.role === 1
+                                          ? styles.slotCleaner
+                                          : group.role === 2
+                                            ? styles.slotButler
+                                            : ''
                                       }`}
                                     >
                                       슬롯 {slot.seq} · {slot.workerName || '미배정'}
@@ -836,50 +853,57 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                 {tomorrowCards.map((card, index) => (
                   <div key={`${card.code}-${index}`} className={styles.tomorrowCard}>
                     <div className={styles.tomorrowCardHeader}>
-                      <div>
+                      <div className={styles.tomorrowCardTitleWrap}>
                         <p className={styles.tomorrowCardTitle}>{card.sector}</p>
-                        <p className={styles.tomorrowCardSubtitle}>미래 준비 현황(진행률 없음)</p>
+                        <span className={styles.tomorrowCardPill}>D+1 준비</span>
                       </div>
                       <span className={styles.tomorrowCardTotal}>{card.total}건</span>
                     </div>
 
                     <div className={styles.tomorrowSection}>
-                      <p className={styles.tomorrowSectionTitle}>건물별</p>
-                      <div className={styles.tomorrowMetaChips}>
-                        {card.buildings.length ? (
-                          card.buildings.map((building) => (
-                            <span key={building.name} className={styles.metaChip}>
-                              {building.name} {building.total}건
-                            </span>
-                          ))
+                      <p className={styles.tomorrowSectionTitle}>건물·체크아웃</p>
+                      <div className={styles.tomorrowBuildingGrid}>
+                        {card.checkoutByBuilding.length ? (
+                          card.checkoutByBuilding.map((building) => {
+                            const buildingTotal =
+                              card.buildings.find((b) => b.name === building.building)?.total ??
+                              building.times.reduce((sum, time) => sum + time.total, 0);
+                            return (
+                              <div key={`${card.code}-dominant-${building.building}`} className={styles.tomorrowBuildingCard}>
+                                <div className={styles.tomorrowBuildingHead}>
+                                  <span className={styles.tomorrowBuildingName}>{building.building}</span>
+                                  <span className={styles.tomorrowBuildingTotal}>{buildingTotal}건</span>
+                                </div>
+                                <div className={styles.tomorrowCheckoutChips}>
+                                  {building.times.length ? (
+                                    building.times.map((checkout) => (
+                                      <span
+                                        key={`${building.building}-dominant-${checkout.time}`}
+                                        className={styles.checkoutChipStrong}
+                                      >
+                                        {checkout.time} · {checkout.total}건
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className={styles.emptyStateInline}>체크아웃 없음</span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })
                         ) : (
-                          <span className={styles.emptyStateInline}>건물 없음</span>
+                          <div className={styles.emptyStateInline}>건물/체크아웃 정보 없음</div>
                         )}
                       </div>
                     </div>
 
                     <div className={styles.tomorrowSection}>
-                      <p className={styles.tomorrowSectionTitle}>체크아웃 시각</p>
-                      <div className={styles.tomorrowMetaChips}>
-                        {card.checkoutTimes.length ? (
-                          card.checkoutTimes.map((checkout) => (
-                            <span key={checkout.time} className={styles.metaChip}>
-                              {checkout.time} · {checkout.total}건
-                            </span>
-                          ))
-                        ) : (
-                          <span className={styles.emptyStateInline}>체크아웃 없음</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className={styles.tomorrowSection}>
-                      <p className={styles.tomorrowSectionTitle}>Apply 슬롯 (Role 별)</p>
+                      <p className={styles.tomorrowSectionTitle}>Apply 슬롯 (역할별)</p>
                       <div className={styles.tomorrowApplyGroupList}>
                         {card.applySlotGroups.length ? (
                           card.applySlotGroups.map((group) => (
                             <div key={`${card.code}-dominant-role-${group.role}`} className={styles.tomorrowApplyGroup}>
-                              <span className={styles.tomorrowApplyRole}>Role {group.role}</span>
+                              <span className={styles.tomorrowApplyRole}>{resolveRoleLabel(group.role)}</span>
                               <div className={styles.tomorrowSlotRow}>
                                 {group.slots.length ? (
                                   [...group.slots]
@@ -889,6 +913,12 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                                         key={`${card.code}-dominant-role-${group.role}-slot-${slot.seq}`}
                                         className={`${styles.slotBadge} ${
                                           slot.workerName ? styles.slotAssigned : styles.slotEmpty
+                                        } ${
+                                          group.role === 1
+                                            ? styles.slotCleaner
+                                            : group.role === 2
+                                              ? styles.slotButler
+                                              : ''
                                         }`}
                                       >
                                         슬롯 {slot.seq} · {slot.workerName || '미배정'}

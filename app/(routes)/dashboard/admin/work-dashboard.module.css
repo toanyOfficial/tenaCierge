@@ -787,6 +787,14 @@
   color: #fca5a5;
 }
 
+.slotCleaner {
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.35);
+}
+
+.slotButler {
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.4);
+}
+
 .tomorrowCardGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -796,13 +804,16 @@
 }
 
 .tomorrowCard {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
-  padding: 12px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 16px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  background: radial-gradient(circle at 18% 20%, rgba(56, 189, 248, 0.12), transparent 38%),
+    radial-gradient(circle at 82% 14%, rgba(147, 197, 253, 0.16), transparent 42%),
+    linear-gradient(185deg, rgba(15, 23, 42, 0.9) 0%, rgba(12, 17, 32, 0.82) 100%);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.34);
 }
 
 .tomorrowCardHeader {
@@ -811,21 +822,32 @@
   justify-content: space-between;
 }
 
+.tomorrowCardTitleWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .tomorrowCardTitle {
   font-weight: 800;
   color: #f8fafc;
 }
 
-.tomorrowCardSubtitle {
-  margin: 2px 0 0;
-  color: #cbd5e1;
-  font-size: 0.9rem;
+.tomorrowCardPill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: linear-gradient(120deg, rgba(56, 189, 248, 0.25) 0%, rgba(147, 197, 253, 0.25) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #e0f2fe;
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.01em;
 }
 
 .tomorrowCardTotal {
   font-weight: 900;
-  color: #93c5fd;
-  font-size: 1.1rem;
+  color: #7dd3fc;
+  font-size: 1.15rem;
 }
 
 .tomorrowSection {
@@ -837,7 +859,73 @@
 .tomorrowSectionTitle {
   margin: 0;
   font-weight: 800;
-  color: #cbd5e1;
+  color: #bfdbfe;
+}
+
+.tomorrowBuildingList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tomorrowBuildingGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tomorrowBuildingRow,
+.tomorrowBuildingCard {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tomorrowBuildingCard {
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.1) 0%, rgba(12, 17, 32, 0.8) 100%);
+}
+
+.tomorrowBuildingHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tomorrowBuildingName {
+  font-weight: 800;
+  color: #e2e8f0;
+}
+
+.tomorrowBuildingTotal {
+  font-weight: 800;
+  color: #7dd3fc;
+}
+
+.tomorrowCheckoutChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.checkoutChip,
+.checkoutChipStrong {
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e2e8f0;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.checkoutChipStrong {
+  background: linear-gradient(120deg, rgba(56, 189, 248, 0.18) 0%, rgba(147, 197, 253, 0.14) 100%);
+  border-color: rgba(56, 189, 248, 0.35);
+  color: #e0f2fe;
 }
 
 .errorBadge {

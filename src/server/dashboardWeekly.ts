@@ -36,6 +36,7 @@ export type RoleSlotDetail = { role: number; seq: number; workerName: string | n
 export type RoleSlotGroup = { role: number; slots: RoleSlotDetail[] };
 
 export type CheckoutTimeSummary = { time: string; total: number };
+export type CheckoutByBuilding = { building: string; times: CheckoutTimeSummary[] };
 
 export type SectorProgress = {
   code: string;
@@ -46,6 +47,7 @@ export type SectorProgress = {
   applySlots?: RoleSlotSummary[];
   applySlotGroups?: RoleSlotGroup[];
   checkoutTimes?: CheckoutTimeSummary[];
+  checkoutByBuilding?: CheckoutByBuilding[];
 };
 
 export type RoomStatus = {
@@ -179,7 +181,8 @@ function mapDayProgress(
       total: 0,
       completed: 0,
       buildings: [] as SectorProgress['buildings'],
-      checkoutTimes: [] as SectorProgress['checkoutTimes']
+      checkoutTimes: [] as SectorProgress['checkoutTimes'],
+      checkoutByBuilding: [] as CheckoutByBuilding[]
     };
 
     const completed = Boolean(row.cleaningEndTime || row.supervisingEndTime);
@@ -198,6 +201,11 @@ function mapDayProgress(
       sector.buildings.push({ name: buildingName, total: 1, completed: completed ? 1 : 0 });
     }
 
+    const checkoutBuilding = sector.checkoutByBuilding?.find((b) => b.building === buildingName);
+    if (!checkoutBuilding) {
+      sector.checkoutByBuilding?.push({ building: buildingName, times: [] });
+    }
+
     if (row.checkoutTime) {
       const timeLabel = row.checkoutTime.slice(0, 5);
       const checkoutEntry = sector.checkoutTimes?.find((c) => c.time === timeLabel);
@@ -205,6 +213,16 @@ function mapDayProgress(
         checkoutEntry.total += 1;
       } else {
         sector.checkoutTimes?.push({ time: timeLabel, total: 1 });
+      }
+
+      const buildingEntry = sector.checkoutByBuilding?.find((b) => b.building === buildingName);
+      if (buildingEntry) {
+        const timeEntry = buildingEntry.times.find((t) => t.time === timeLabel);
+        if (timeEntry) {
+          timeEntry.total += 1;
+        } else {
+          buildingEntry.times.push({ time: timeLabel, total: 1 });
+        }
       }
     }
 
@@ -221,7 +239,15 @@ function mapDayProgress(
   return Array.from(grouped.values())
     .map((sector) => ({
       ...sector,
-      checkoutTimes: sector.checkoutTimes?.slice().sort((a, b) => a.time.localeCompare(b.time))
+      checkoutTimes: sector.checkoutTimes?.slice().sort((a, b) => a.time.localeCompare(b.time)),
+      checkoutByBuilding: sector.checkoutByBuilding?.length
+        ? sector.checkoutByBuilding
+            .map((entry) => ({
+              ...entry,
+              times: entry.times.slice().sort((a, b) => a.time.localeCompare(b.time))
+            }))
+            .sort((a, b) => a.building.localeCompare(b.building))
+        : undefined
     }))
     .sort((a, b) => a.code.localeCompare(b.code));
 }
