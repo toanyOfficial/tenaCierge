@@ -19,6 +19,26 @@ function formatDateLabel(date: string) {
 const sectorPalette = ['#60a5fa', '#22d3ee', '#a78bfa', '#f472b6', '#fbbf24', '#34d399', '#f97316', '#38bdf8'];
 const buildingPalette = ['#0ea5e9', '#22c55e', '#a855f7', '#f97316', '#eab308', '#06b6d4'];
 
+const summaryRefreshSchedule = [
+  { hour: 9, minute: 0 },
+  { hour: 15, minute: 0 },
+  { hour: 16, minute: 30 }
+];
+
+function computeNextSummaryRefreshDelay(baseDate = new Date()) {
+  const now = baseDate.getTime();
+  const candidates = summaryRefreshSchedule.map(({ hour, minute }) => {
+    const target = new Date(baseDate);
+    target.setHours(hour, minute, 0, 0);
+    if (target.getTime() <= now) {
+      target.setDate(target.getDate() + 1);
+    }
+    return target.getTime() - now;
+  });
+
+  return Math.min(...candidates);
+}
+
 const roomSteps = [
   {
     key: 'assign' as const,
@@ -57,12 +77,22 @@ const roomSteps = [
 
 type ProfileProps = { profile: ProfileSummary };
 
+type RoleSlotSummary = { role: number; total: number; assigned: number };
+type RoleSlotDetail = { role: number; seq: number; workerName: string | null };
+type RoleSlotGroup = { role: number; slots: RoleSlotDetail[] };
+type CheckoutTimeSummary = { time: string; total: number };
+type CheckoutByBuilding = { building: string; times: CheckoutTimeSummary[] };
+
 type SectorProgress = {
   code: string;
   sector: string;
   total: number;
   completed: number;
   buildings: { name: string; total: number; completed: number }[];
+  applySlots?: RoleSlotSummary[];
+  applySlotGroups?: RoleSlotGroup[];
+  checkoutTimes?: CheckoutTimeSummary[];
+  checkoutByBuilding?: CheckoutByBuilding[];
 };
 
 type StackedSegment = {
@@ -95,16 +125,11 @@ type RoomStatus = {
   owner: string;
 };
 
-type ApplyRow = {
-  title: string;
-  subtitle: string;
-  status: string;
-};
-
 type SummaryItem = {
   day: string;
   date: string;
   sectors: { code: string; name: string; count: number }[];
+  applyStatus: 'complete' | 'empty' | 'mixed';
 };
 
 type DashboardSnapshot = {
@@ -112,7 +137,6 @@ type DashboardSnapshot = {
   todayProgress: SectorProgress[];
   tomorrowProgress: SectorProgress[];
   roomStatuses: RoomStatus[];
-  tomorrowApply: ApplyRow[];
   capturedAt: string;
 };
 
@@ -120,7 +144,13 @@ function isRoomCompleted(room: RoomStatus) {
   return (room.cleaningFlag ?? 0) >= 4 && room.supervisingYn;
 }
 
-function renderProgressRow(row: SectorProgress, index: number) {
+function resolveRoleLabel(role: number) {
+  if (role === 1) return '클리너';
+  if (role === 2) return '버틀러';
+  return `Role ${role}`;
+}
+
+function renderProgressRow(row: SectorProgress, index: number, options?: { showApplySlots?: boolean }) {
     const percent = row.total ? (row.completed / row.total) * 100 : 0;
     return (
       <div key={`${row.sector}-${index}`} className={styles.progressRow}>
@@ -130,6 +160,15 @@ function renderProgressRow(row: SectorProgress, index: number) {
           {row.completed} / {row.total} 완료
         </span>
       </div>
+        {options?.showApplySlots && row.applySlots?.length ? (
+          <div className={styles.applySlotRow}>
+            {row.applySlots.map((slot) => (
+              <span key={`${row.sector}-${slot.role}`} className={styles.applySlotBadge}>
+                {resolveRoleLabel(slot.role)} {slot.assigned}/{slot.total} 슬롯
+              </span>
+            ))}
+          </div>
+        ) : null}
         <div className={styles.progressBar}>
           {row.buildings.map((building, idx) => {
             const width = row.total ? (building.total / row.total) * 100 : 0;
@@ -164,14 +203,19 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   const [error, setError] = useState<string | null>(null);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(0);
+  const [sectorPage, setSectorPage] = useState(0);
+  const [sectorsPerPage, setSectorsPerPage] = useState(0);
+  const [roomPage, setRoomPage] = useState(0);
+  const compactSectorRef = useRef<HTMLDivElement | null>(null);
   const compactListRef = useRef<HTMLDivElement | null>(null);
   const sampleRowRef = useRef<HTMLDivElement | null>(null);
+  const sampleSectorRef = useRef<HTMLDivElement | null>(null);
+  const manualLayoutHoldUntil = useRef<number | null>(null);
 
   const summary = useMemo(() => snapshot?.summary ?? [], [snapshot]);
   const todayProgress: SectorProgress[] = useMemo(() => snapshot?.todayProgress ?? [], [snapshot]);
   const tomorrowProgress: SectorProgress[] = useMemo(() => snapshot?.tomorrowProgress ?? [], [snapshot]);
   const roomStatuses: RoomStatus[] = useMemo(() => snapshot?.roomStatuses ?? [], [snapshot]);
-  const tomorrowApply: ApplyRow[] = useMemo(() => snapshot?.tomorrowApply ?? [], [snapshot]);
   const summaryUpdatedAt = useMemo(() => (snapshot ? new Date(snapshot.capturedAt) : new Date()), [snapshot]);
   const todayUpdatedAt = summaryUpdatedAt;
   const tomorrowUpdatedAt = summaryUpdatedAt;
@@ -229,6 +273,12 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
 
   useEffect(() => {
     const syncLayoutByTime = () => {
+      const now = Date.now();
+      if (manualLayoutHoldUntil.current && manualLayoutHoldUntil.current > now) {
+        return;
+      }
+      manualLayoutHoldUntil.current = null;
+
       const nextMode = getDefaultLayoutMode();
       setLayoutMode((prev) => (prev === nextMode ? prev : nextMode));
     };
@@ -240,6 +290,8 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
 
   useEffect(() => {
     let canceled = false;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    let liveTimer: ReturnType<typeof setInterval> | null = null;
 
     const load = async () => {
       setIsLoading(true);
@@ -264,16 +316,47 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
       }
     };
 
+    const scheduleNext = () => {
+      const delay = computeNextSummaryRefreshDelay();
+      refreshTimer = setTimeout(async () => {
+        await load();
+        scheduleNext();
+      }, delay);
+    };
+
     load();
-    const timer = setInterval(load, 10 * 60 * 1000);
+    scheduleNext();
+    liveTimer = setInterval(() => {
+      load();
+    }, 10 * 60 * 1000);
     return () => {
       canceled = true;
-      clearInterval(timer);
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+      }
+      if (liveTimer) {
+        clearInterval(liveTimer);
+      }
     };
   }, []);
 
   const isTodayDominant = layoutMode === 'todayDominant';
   const isCompactView = layoutMode === 'tomorrowDominant';
+
+  useEffect(() => {
+    if (!isCompactView) return undefined;
+    setSectorPage(0);
+    setCurrentPage(0);
+    const handle = window.requestAnimationFrame(() => {
+      const containerHeight = compactListRef.current?.clientHeight ?? 0;
+      const rowHeight = sampleRowRef.current?.clientHeight ?? 0;
+      if (!containerHeight || !rowHeight) return;
+      const rows = Math.max(1, Math.floor(containerHeight / rowHeight));
+      setRowsPerPage(rows);
+    });
+
+    return () => window.cancelAnimationFrame(handle);
+  }, [isCompactView]);
 
   const sortedRooms = useMemo(() => {
     const buildingCounts = new Map<string, number>();
@@ -303,9 +386,13 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   }, [roomStatuses]);
 
   const ROOM_GRID_SLOTS = 36;
-  const visibleRooms = sortedRooms.slice(0, ROOM_GRID_SLOTS);
+  const totalRoomPages = Math.max(1, Math.ceil(sortedRooms.length / ROOM_GRID_SLOTS));
+  const visibleRooms = sortedRooms.slice(
+    roomPage * ROOM_GRID_SLOTS,
+    (roomPage + 1) * ROOM_GRID_SLOTS
+  );
   const roomPlaceholders = Math.max(ROOM_GRID_SLOTS - visibleRooms.length, 0);
-  const showEmptyRooms = !isLoading && visibleRooms.length === 0;
+  const showEmptyRooms = !isLoading && sortedRooms.length === 0;
 
   const activeRooms = useMemo(() => sortedRooms.filter((room) => !isRoomCompleted(room)), [sortedRooms]);
 
@@ -324,6 +411,85 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
       .sort((a, b) => a.code.localeCompare(b.code));
   }, [activeRooms]);
 
+  const visibleSectorSummaries = useMemo(() => {
+    if (!isCompactView) return sectorSummaries;
+    if (sectorsPerPage <= 0) return sectorSummaries;
+    const start = sectorPage * sectorsPerPage;
+    return sectorSummaries.slice(start, start + sectorsPerPage);
+  }, [isCompactView, sectorPage, sectorSummaries, sectorsPerPage]);
+
+  const tomorrowCatalog = useMemo(
+    () => summary.find((item) => item.day === 'D+1')?.sectors ?? [],
+    [summary]
+  );
+
+  const tomorrowCards = useMemo(() => {
+    const sectorMap = new Map(tomorrowProgress.map((sector) => [sector.code, sector]));
+    const baseSectors = tomorrowCatalog.length
+      ? tomorrowCatalog
+      : tomorrowProgress.map((sector) => ({ code: sector.code, name: sector.sector, count: sector.total }));
+
+    const cards = baseSectors.map((sector) => {
+      const data = sectorMap.get(sector.code);
+      return {
+        code: sector.code,
+        sector: sector.name || sector.code,
+        total: data?.total ?? sector.count ?? 0,
+        buildings: data?.buildings ?? [],
+        checkoutTimes: data?.checkoutTimes ?? [],
+        checkoutByBuilding: data?.checkoutByBuilding ?? [],
+        applySlotGroups: data?.applySlotGroups ?? []
+      };
+    });
+
+    while (cards.length < 3) {
+      cards.push({
+        code: `placeholder-${cards.length}`,
+        sector: '미정',
+        total: 0,
+        buildings: [],
+        checkoutTimes: [],
+        checkoutByBuilding: [],
+        applySlotGroups: []
+      });
+    }
+
+    return cards.slice(0, 3);
+  }, [summary, tomorrowCatalog, tomorrowProgress]);
+
+  useEffect(() => {
+    if (!isCompactView) return undefined;
+
+    const computeSectorsPerPage = () => {
+      const containerHeight = compactSectorRef.current?.clientHeight ?? 0;
+      const rowHeight = sampleSectorRef.current?.clientHeight ?? 0;
+      if (!containerHeight || !rowHeight) return;
+      const rows = Math.max(1, Math.floor(containerHeight / rowHeight));
+      setSectorsPerPage(rows);
+      const totalPages = Math.max(Math.ceil(sectorSummaries.length / rows) - 1, 0);
+      setSectorPage((prev) => Math.min(prev, totalPages));
+    };
+
+    computeSectorsPerPage();
+    const resizeHandler = () => computeSectorsPerPage();
+    window.addEventListener('resize', resizeHandler);
+    return () => window.removeEventListener('resize', resizeHandler);
+  }, [isCompactView, sectorSummaries.length]);
+
+  useEffect(() => {
+    if (!isCompactView) return undefined;
+    const totalPages = sectorsPerPage > 0 ? Math.ceil(sectorSummaries.length / sectorsPerPage) : 0;
+    if (totalPages <= 1) {
+      setSectorPage(0);
+      return undefined;
+    }
+
+    const timer = setInterval(() => {
+      setSectorPage((prev) => ((prev + 1) % totalPages + totalPages) % totalPages);
+    }, 60 * 1000);
+    return () => clearInterval(timer);
+  }, [isCompactView, sectorSummaries.length, sectorsPerPage]);
+
   useEffect(() => {
     if (!isCompactView) return undefined;
 
@@ -340,7 +506,27 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
     const resizeHandler = () => computeRowsPerPage();
     window.addEventListener('resize', resizeHandler);
     return () => window.removeEventListener('resize', resizeHandler);
-    }, [activeRooms.length, isCompactView]);
+  }, [activeRooms.length, isCompactView]);
+
+  useEffect(() => {
+    if (isCompactView) return undefined;
+    setRoomPage(0);
+    return undefined;
+  }, [isCompactView, sortedRooms.length]);
+
+  useEffect(() => {
+    if (isCompactView) return undefined;
+    const totalPages = totalRoomPages;
+    if (totalPages <= 1) {
+      setRoomPage(0);
+      return undefined;
+    }
+
+    const timer = setInterval(() => {
+      setRoomPage((prev) => ((prev + 1) % totalPages + totalPages) % totalPages);
+    }, 60 * 1000);
+    return () => clearInterval(timer);
+  }, [isCompactView, totalRoomPages]);
 
   useEffect(() => {
     if (!isCompactView) return undefined;
@@ -363,61 +549,22 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
     return activeRooms.slice(start, start + rowsPerPage);
   }, [activeRooms, currentPage, isCompactView, rowsPerPage]);
 
+  const compactRooms = useMemo(() => {
+    if (!isCompactView) return [] as RoomStatus[];
+    if (paginatedRooms.length > 0 || rowsPerPage > 0) return paginatedRooms;
+    return activeRooms;
+  }, [activeRooms, isCompactView, paginatedRooms, rowsPerPage]);
+
+  const showCompactThankYou = !isLoading && activeRooms.length === 0;
+
   const formatSectorCounts = (item: SummaryItem) =>
     item.sectors.map((sector) => sector.count).join(' / ') || '0';
 
-  if (isCompactView) {
-    const compactRooms = paginatedRooms.length > 0 || rowsPerPage > 0 ? paginatedRooms : activeRooms;
-    const showCompactThankYou = !isLoading && activeRooms.length === 0;
-
-    return (
-      <div className={styles.weeklyShell}>
-        <div className={`${styles.weeklyCanvas} ${styles.compactOnly}`}>
-          <div className={styles.compactSectorSummary}>
-            {sectorSummaries.map((sector) => (
-              <div key={sector.code} className={styles.compactSectorLine}>
-                {`${sector.sector} : 총 ${sector.count} 건이 현재 진행중입니다.`}
-              </div>
-            ))}
-          </div>
-
-          <div className={styles.compactList} ref={compactListRef}>
-            {showCompactThankYou ? (
-              <div className={styles.compactEmpty}>오늘 하루도 수고하셨습니다.</div>
-            ) : isLoading ? (
-              <div className={styles.compactEmpty}>데이터를 불러오는 중입니다…</div>
-            ) : (
-              compactRooms.map((room, index) => (
-                <div
-                  key={`${room.building}-${room.room}-${index}`}
-                  className={styles.compactRow}
-                  ref={index === 0 ? sampleRowRef : null}
-                >
-                  <div className={styles.compactRoomMeta}>
-                    <span className={styles.compactRoomName}>
-                      {room.sector} · {room.building} · {room.room}
-                    </span>
-                    <span className={styles.compactRoomOwner}>{room.owner}</span>
-                  </div>
-                  <div className={styles.compactStatusRow}>
-                    {roomSteps.map((step) => (
-                      <button
-                        key={step.key}
-                        type="button"
-                        className={`${styles.statusStep} ${step.resolveClassName(room)}`}
-                      >
-                        {step.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const resolveSummaryStatusClass = (status: SummaryItem['applyStatus']) => {
+    if (status === 'complete') return styles.summaryCellComplete;
+    if (status === 'empty') return styles.summaryCellEmpty;
+    return '';
+  };
 
   return (
     <div className={styles.weeklyShell}>
@@ -425,8 +572,9 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
         <div className={styles.summaryGrid}>
           {summary.map((item) => {
             const total = item.sectors.reduce((acc, sector) => acc + sector.count, 0);
+            const statusClass = resolveSummaryStatusClass(item.applyStatus);
             return (
-              <div key={item.day} className={styles.summaryCell}>
+              <div key={item.day} className={`${styles.summaryCell} ${statusClass}`}>
                 <div className={styles.summaryDate}>{formatDateLabel(item.date)}</div>
                 <div className={styles.summaryTotal}>{total}건</div>
                 <div className={styles.summarySectors}>{formatSectorCounts(item)}</div>
@@ -458,50 +606,58 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
             )}
 
               {isCompactView ? (
-              <div className={styles.compactPanel}>
-                <div className={styles.compactSectorSummary}>
-                  {sectorSummaries.map((sector) => (
-                    <div key={sector.code} className={styles.compactSectorLine}>
-                      {`${sector.sector} : 총 ${sector.count} 건이 현재 진행중입니다.`}
-                    </div>
-                  ))}
-                </div>
+                <div className={styles.compactPanel}>
+                  <div className={styles.compactSectorSummary} ref={compactSectorRef}>
+                    {showCompactThankYou ? (
+                      <div className={styles.compactEmpty}>오늘 하루도 수고하셨습니다.</div>
+                    ) : (
+                      visibleSectorSummaries.map((sector, index) => (
+                        <div
+                          key={sector.code}
+                          className={styles.compactSectorLine}
+                          ref={index === 0 ? sampleSectorRef : null}
+                        >
+                          {`${sector.sector} : 총 ${sector.count} 건이 현재 진행중입니다.`}
+                        </div>
+                      ))
+                    )}
+                  </div>
 
-                <div className={styles.compactList} ref={compactListRef}>
-                  {!isLoading && activeRooms.length === 0 ? (
-                    <div className={styles.compactEmpty}>오늘 하루도 수고하셨습니다.</div>
-                  ) : isLoading ? (
-                    <div className={styles.compactEmpty}>데이터를 불러오는 중입니다…</div>
-                  ) : (
-                    (paginatedRooms.length > 0 ? paginatedRooms : activeRooms).map((room, index) => (
-                      <div
-                        key={`${room.building}-${room.room}-${index}`}
-                        className={styles.compactRow}
-                        ref={index === 0 ? sampleRowRef : null}
-                      >
-                        <div className={styles.compactRoomMeta}>
-                          <span className={styles.compactRoomName}>
-                            {room.sector} · {room.building} · {room.room}
-                          </span>
-                          <span className={styles.compactRoomOwner}>{room.owner}</span>
+                  <div className={styles.compactList} ref={compactListRef}>
+                    {showCompactThankYou ? (
+                      <div className={styles.compactEmpty}>오늘 하루도 수고하셨습니다.</div>
+                    ) : isLoading ? (
+                      <div className={styles.compactEmpty}>데이터를 불러오는 중입니다…</div>
+                    ) : (
+                      compactRooms.map((room, index) => (
+                        <div
+                          key={`${room.building}-${room.room}-${index}`}
+                          className={styles.compactRow}
+                          ref={index === 0 ? sampleRowRef : null}
+                        >
+                          <div className={styles.compactRoomMeta}>
+                            <span className={styles.compactRoomName}>
+                              {room.sector} · {room.building} · {room.room}
+                            </span>
+                            <span className={styles.compactRoomOwner}>{room.owner}</span>
+                          </div>
+                          <div className={styles.compactStatusRow}>
+                            {roomSteps.map((step) => (
+                              <button
+                                key={step.key}
+                                type="button"
+                                className={`${styles.statusStep} ${step.resolveClassName(room)}`}
+                              >
+                                {step.label}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                        <div className={styles.compactStatusRow}>
-                          {roomSteps.map((step) => (
-                            <button
-                              key={step.key}
-                              type="button"
-                              className={`${styles.statusStep} ${step.resolveClassName(room)}`}
-                            >
-                              {step.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))
-                  )}
+                      ))
+                    )}
+                  </div>
                 </div>
-              </div>
-            ) : (
+              ) : (
               <>
                 <div className={styles.stackedWrapper}>
                   {todayStacked.length === 0 && !isLoading ? (
@@ -607,33 +763,182 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
               <div>
                 <p className={styles.cardTitle}>D+1 준비 현황</p>
                 <p className={styles.cardMeta}>
-                  {isLoading ? '데이터 로딩 중' : `30분 주기 동기화 · ${formatTimeLabel(tomorrowUpdatedAt)}`}
+                  {isLoading
+                    ? '데이터 로딩 중'
+                    : `정시 리프레시(09:00/15:00/16:30) · ${formatTimeLabel(tomorrowUpdatedAt)}`}
                 </p>
               </div>
               <span className={styles.badgeSoft}>배치 모니터링</span>
             </div>
-            <div className={styles.progressList}>
-              {tomorrowProgress.length === 0 && !isLoading ? (
-                <div className={styles.emptyState}>다가오는 업무 예약이 없습니다.</div>
-              ) : (
-                tomorrowProgress.map(renderProgressRow)
-              )}
-            </div>
-            <div className={styles.applyList}>
-              {tomorrowApply.length === 0 && !isLoading ? (
-                <div className={styles.emptyState}>D+1 배치가 비어 있습니다.</div>
-              ) : (
-                tomorrowApply.map((row) => (
-                  <div key={row.title} className={styles.applyRow}>
-                    <div className={styles.applyMeta}>
-                      <span className={styles.applyTitle}>{row.title}</span>
-                      <span className={styles.applySubtitle}>{row.subtitle}</span>
+            {isTodayDominant ? (
+              <div className={styles.tomorrowCompactList}>
+                {tomorrowCards.map((card, index) => (
+                  <div key={`${card.code}-${index}`} className={styles.tomorrowCompactRow}>
+                    <div className={styles.tomorrowCompactHeader}>
+                      <span className={styles.tomorrowCompactTitle}>{card.sector}</span>
+                      <span className={styles.tomorrowCompactTotal}>{card.total}건</span>
                     </div>
-                    <span className={styles.applyBadge}>{row.status}</span>
+
+                    <div className={styles.tomorrowBuildingList}>
+                      {card.checkoutByBuilding.length ? (
+                        card.checkoutByBuilding.map((building) => {
+                          const buildingTotal =
+                            card.buildings.find((b) => b.name === building.building)?.total ??
+                            building.times.reduce((sum, time) => sum + time.total, 0);
+                          return (
+                            <div key={`${card.code}-${building.building}`} className={styles.tomorrowBuildingRow}>
+                              <div className={styles.tomorrowBuildingHead}>
+                                <span className={styles.tomorrowBuildingName}>{building.building}</span>
+                                <span className={styles.tomorrowBuildingTotal}>{buildingTotal}건</span>
+                              </div>
+                              <div className={styles.tomorrowCheckoutChips}>
+                                {building.times.length ? (
+                                  building.times.map((checkout) => (
+                                    <span key={`${building.building}-${checkout.time}`} className={styles.checkoutChip}>
+                                      {checkout.time} · {checkout.total}건
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className={styles.emptyStateInline}>체크아웃 없음</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <span className={styles.emptyStateInline}>건물/체크아웃 정보 없음</span>
+                      )}
+                    </div>
+
+                    <div className={styles.tomorrowApplyGroupList}>
+                      {card.applySlotGroups.length ? (
+                        card.applySlotGroups.map((group) => (
+                          <div key={`${card.code}-role-${group.role}`} className={styles.tomorrowApplyGroup}>
+                            <span className={styles.tomorrowApplyRole}>{resolveRoleLabel(group.role)}</span>
+                            <div className={styles.tomorrowSlotRow}>
+                              {group.slots.length ? (
+                                [...group.slots]
+                                  .sort((a, b) => a.seq - b.seq)
+                                  .map((slot) => (
+                                    <span
+                                      key={`${card.code}-role-${group.role}-slot-${slot.seq}`}
+                                      className={`${styles.slotBadge} ${
+                                        slot.workerName ? styles.slotAssigned : styles.slotEmpty
+                                      } ${
+                                        group.role === 1
+                                          ? styles.slotCleaner
+                                          : group.role === 2
+                                            ? styles.slotButler
+                                            : ''
+                                      }`}
+                                    >
+                                      슬롯 {slot.seq} · {slot.workerName || '미배정'}
+                                    </span>
+                                  ))
+                              ) : (
+                                <span className={styles.emptyStateInline}>슬롯 없음</span>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className={styles.emptyStateInline}>슬롯 정보 없음</div>
+                      )}
+                    </div>
                   </div>
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.tomorrowCardGrid}>
+                {tomorrowCards.map((card, index) => (
+                  <div key={`${card.code}-${index}`} className={styles.tomorrowCard}>
+                    <div className={styles.tomorrowCardHeader}>
+                      <div className={styles.tomorrowCardTitleWrap}>
+                        <p className={styles.tomorrowCardTitle}>{card.sector}</p>
+                        <span className={styles.tomorrowCardPill}>D+1 준비</span>
+                      </div>
+                      <span className={styles.tomorrowCardTotal}>{card.total}건</span>
+                    </div>
+
+                    <div className={styles.tomorrowSection}>
+                      <p className={styles.tomorrowSectionTitle}>건물·체크아웃</p>
+                      <div className={styles.tomorrowBuildingGrid}>
+                        {card.checkoutByBuilding.length ? (
+                          card.checkoutByBuilding.map((building) => {
+                            const buildingTotal =
+                              card.buildings.find((b) => b.name === building.building)?.total ??
+                              building.times.reduce((sum, time) => sum + time.total, 0);
+                            return (
+                              <div key={`${card.code}-dominant-${building.building}`} className={styles.tomorrowBuildingCard}>
+                                <div className={styles.tomorrowBuildingHead}>
+                                  <span className={styles.tomorrowBuildingName}>{building.building}</span>
+                                  <span className={styles.tomorrowBuildingTotal}>{buildingTotal}건</span>
+                                </div>
+                                <div className={styles.tomorrowCheckoutChips}>
+                                  {building.times.length ? (
+                                    building.times.map((checkout) => (
+                                      <span
+                                        key={`${building.building}-dominant-${checkout.time}`}
+                                        className={styles.checkoutChipStrong}
+                                      >
+                                        {checkout.time} · {checkout.total}건
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className={styles.emptyStateInline}>체크아웃 없음</span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className={styles.emptyStateInline}>건물/체크아웃 정보 없음</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className={styles.tomorrowSection}>
+                      <p className={styles.tomorrowSectionTitle}>Apply 슬롯 (역할별)</p>
+                      <div className={styles.tomorrowApplyGroupList}>
+                        {card.applySlotGroups.length ? (
+                          card.applySlotGroups.map((group) => (
+                            <div key={`${card.code}-dominant-role-${group.role}`} className={styles.tomorrowApplyGroup}>
+                              <span className={styles.tomorrowApplyRole}>{resolveRoleLabel(group.role)}</span>
+                              <div className={styles.tomorrowSlotRow}>
+                                {group.slots.length ? (
+                                  [...group.slots]
+                                    .sort((a, b) => a.seq - b.seq)
+                                    .map((slot) => (
+                                      <span
+                                        key={`${card.code}-dominant-role-${group.role}-slot-${slot.seq}`}
+                                        className={`${styles.slotBadge} ${
+                                          slot.workerName ? styles.slotAssigned : styles.slotEmpty
+                                        } ${
+                                          group.role === 1
+                                            ? styles.slotCleaner
+                                            : group.role === 2
+                                              ? styles.slotButler
+                                              : ''
+                                        }`}
+                                      >
+                                        슬롯 {slot.seq} · {slot.workerName || '미배정'}
+                                      </span>
+                                    ))
+                                ) : (
+                                  <span className={styles.emptyStateInline}>슬롯 없음</span>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className={styles.emptyStateInline}>슬롯 정보 없음</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         </div>
       </div>
@@ -642,6 +947,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
         aria-label="레이아웃 전환"
         className={styles.toggleBubble}
         onClick={() => {
+          manualLayoutHoldUntil.current = Date.now() + 5 * 60 * 1000;
           setLayoutMode(isTodayDominant ? 'tomorrowDominant' : 'todayDominant');
         }}
         title={isTodayDominant ? 'D+1가 넓게 보기 (8:2)' : 'D0가 넓게 보기 (2:8)'}
