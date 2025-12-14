@@ -78,6 +78,21 @@ function startOfKstDay(offsetDays = 0) {
 
 type SectorCatalog = { code: string; name: string }[];
 
+function isFullyLit(row: {
+  supplyYn: boolean;
+  cleanerId: number | null;
+  cleaningFlag: number | null;
+  supervisingYn: boolean;
+}) {
+  const cleaningFlag = row.cleaningFlag ?? 0;
+  const hasSupply = !!row.supplyYn;
+  const hasAssignment = row.cleanerId != null || (hasSupply && row.supervisingYn && cleaningFlag >= 4);
+  const hasCleaningProgress = cleaningFlag >= 2;
+  const hasInspection = row.supervisingYn;
+
+  return hasSupply && hasAssignment && hasCleaningProgress && hasInspection;
+}
+
 function resolveApplyStatus(applyRows: Awaited<ReturnType<typeof listApplyRows>>, targetKey: string) {
   const targetRows = applyRows.filter(
     (row) => row.position === 1 && formatKstDateKey(row.workDate) === targetKey
@@ -185,7 +200,7 @@ function mapDayProgress(
       checkoutByBuilding: [] as CheckoutByBuilding[]
     };
 
-    const completed = Boolean(row.cleaningEndTime || row.supervisingEndTime);
+    const completed = isFullyLit(row);
     sector.total += 1;
     if (completed) {
       sector.completed += 1;

@@ -141,7 +141,13 @@ type DashboardSnapshot = {
 };
 
 function isRoomCompleted(room: RoomStatus) {
-  return (room.cleaningFlag ?? 0) >= 4 && room.supervisingYn;
+  const cleaningFlag = room.cleaningFlag ?? 0;
+  const hasSupply = !!room.supplyYn;
+  const hasAssignment = room.cleanerId != null || (hasSupply && room.supervisingYn && cleaningFlag >= 4);
+  const hasCleaningProgress = cleaningFlag >= 2;
+  const hasInspection = room.supervisingYn;
+
+  return hasSupply && hasAssignment && hasCleaningProgress && hasInspection;
 }
 
 function resolveRoleLabel(role: number) {
