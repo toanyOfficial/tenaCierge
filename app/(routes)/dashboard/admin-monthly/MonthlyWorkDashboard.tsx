@@ -398,29 +398,48 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
               {exceptions.length === 0 ? (
                 <div className={styles.emptyState}>예외 근무가 없습니다.</div>
               ) : (
-                exceptions.map((item) => {
-                  const key = formatDateKey(item.date);
-                  return (
-                    <div key={`${item.id}-${key}`} className={styles.exceptionRow}>
-                      <div className={styles.exceptionMeta}>
-                        <p className={styles.exceptionDate}>{formatDisplayDate(item.date)}</p>
-                        <p className={styles.exceptionWorker}>{item.worker}</p>
-                      </div>
-                      <div className={styles.exceptionBadges}>
-                        {item.addWork && (
-                          <span className={`${styles.exceptionPill} ${styles.workPill} ${styles.inlineExceptionPill}`}>
-                            휴무일 근무 추가
-                          </span>
-                        )}
-                        {item.cancelWork && (
-                          <span className={`${styles.exceptionPill} ${styles.cancelPill} ${styles.inlineExceptionPill}`}>
-                            근무 취소
-                          </span>
-                        )}
-                      </div>
+                <div className={styles.exceptionColumns}>
+                  <div className={styles.exceptionColumn}>
+                    <div className={`${styles.exceptionTitle} ${styles.cancelTitle}`}>근무-&gt;휴가</div>
+                    <div className={styles.exceptionItems}>
+                      {exceptions.filter((item) => item.cancelWork).length === 0 ? (
+                        <p className={styles.exceptionEmpty}>없음</p>
+                      ) : (
+                        exceptions
+                          .filter((item) => item.cancelWork)
+                          .map((item) => {
+                            const key = formatDateKey(item.date);
+                            return (
+                              <div key={`${item.id}-${key}`} className={styles.exceptionCompactRow}>
+                                <span className={styles.exceptionCompactDate}>{formatDisplayDate(item.date)}</span>
+                                <span className={styles.exceptionCompactWorker}>{item.worker}</span>
+                              </div>
+                            );
+                          })
+                      )}
                     </div>
-                  );
-                })
+                  </div>
+                  <div className={styles.exceptionColumn}>
+                    <div className={`${styles.exceptionTitle} ${styles.addTitle}`}>휴가-&gt;근무</div>
+                    <div className={styles.exceptionItems}>
+                      {exceptions.filter((item) => item.addWork).length === 0 ? (
+                        <p className={styles.exceptionEmpty}>없음</p>
+                      ) : (
+                        exceptions
+                          .filter((item) => item.addWork)
+                          .map((item) => {
+                            const key = formatDateKey(item.date);
+                            return (
+                              <div key={`${item.id}-${key}`} className={styles.exceptionCompactRow}>
+                                <span className={styles.exceptionCompactDate}>{formatDisplayDate(item.date)}</span>
+                                <span className={styles.exceptionCompactWorker}>{item.worker}</span>
+                              </div>
+                            );
+                          })
+                      )}
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           </section>

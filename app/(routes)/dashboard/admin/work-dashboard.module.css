@@ -1500,18 +1500,18 @@
 .sideHeader {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  padding: 6px 10px;
+  justify-content: center;
+  padding: 10px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
 }
 
 .sideMonth {
   margin: 0;
-  font-weight: 800;
+  font-weight: 900;
   letter-spacing: 0.04em;
   color: #e2e8f0;
+  font-size: 2rem;
+  text-align: center;
 }
 
 .exceptionList {
@@ -1520,6 +1520,70 @@
   gap: 10px;
   max-height: 100%;
   overflow: hidden;
+}
+
+.exceptionColumns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  height: 100%;
+}
+
+.exceptionColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.exceptionTitle {
+  font-weight: 900;
+  font-size: 1.1rem;
+}
+
+.cancelTitle {
+  color: #f87171;
+}
+
+.addTitle {
+  color: #60a5fa;
+}
+
+.exceptionItems {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.exceptionCompactRow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.exceptionCompactDate {
+  color: #cbd5e1;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.exceptionCompactWorker {
+  color: #f8fafc;
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.exceptionEmpty {
+  margin: 0;
+  color: #94a3b8;
+  font-weight: 700;
 }
 
 .exceptionRow {
