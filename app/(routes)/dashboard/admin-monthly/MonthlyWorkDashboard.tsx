@@ -14,6 +14,8 @@ type DayAttendance = {
   cancelYn: boolean;
 };
 
+type DayCell = DayAttendance & { isCurrentWeek: boolean };
+
 type WeekAttendance = {
   start: Date;
   end: Date;
@@ -50,10 +52,6 @@ function formatDateKey(date: Date) {
   const month = `${date.getMonth() + 1}`.padStart(2, '0');
   const day = `${date.getDate()}`.padStart(2, '0');
   return `${year}-${month}-${day}`;
-}
-
-function formatWeekLabel(start: Date, end: Date) {
-  return `${start.getMonth() + 1}/${start.getDate()} - ${end.getMonth() + 1}/${end.getDate()}`;
 }
 
 function parseDate(dateString: string) {
@@ -165,19 +163,14 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
     load();
   }, []);
 
-  const summary = useMemo(
+  const dayCells: DayCell[] = useMemo(
     () =>
-      weeks.map((week) => {
-        const totalWorkers = week.days.reduce((acc, day) => acc + day.workers.length, 0);
-        const workFlags = week.days.reduce(
-          (acc, day) => ({
-            work: acc.work + (day.workYn ? 1 : 0),
-            cancel: acc.cancel + (day.cancelYn ? 1 : 0)
-          }),
-          { work: 0, cancel: 0 }
-        );
-        return { totalWorkers, workFlags };
-      }),
+      weeks.flatMap((week) =>
+        week.days.map((day) => ({
+          ...day,
+          isCurrentWeek: week.isCurrentWeek
+        }))
+      ),
     [weeks]
   );
 
@@ -195,81 +188,65 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
         {error ? <div className={styles.errorBadge}>{error}</div> : null}
 
         <div className={styles.monthlyGrid}>
-          <section className={`${styles.calendarCard} ${styles.monthlyCard}`}>
+          <section className={styles.calendarPanel}>
             <div className={styles.calendarHeader}>
               <div>
-                <p className={styles.cardTitle}>월간 출퇴근 현황(6주)</p>
-                <p className={styles.cardMeta}>주간업무 톤앤매너 · 실데이터 캘린더</p>
+                <p className={styles.cardTitle}>월간 출퇴근 캘린더</p>
+                <p className={styles.cardMeta}>이번주 기준 6주 구간 · 실데이터</p>
               </div>
               <div className={styles.pageBadges}>
                 {dateRange && <span className={styles.pageMeta}>{dateRange.start} ~ {dateRange.end}</span>}
-                <span className={styles.refreshBadge}>최신 기준 {formatDateKey(refreshedAt)}</span>
-              </div>
-              <div className={styles.legend}>
-                <span className={styles.legendItem}>
-                  <span className={styles.legendDot} style={{ background: '#60a5fa' }} />
-                  work_yn=1
-                </span>
-                <span className={styles.legendItem}>
-                  <span className={styles.legendDot} style={{ background: '#f87171' }} />
-                  cancel_yn=1
-                </span>
+                <span className={styles.refreshBadge}>최신 {formatDateKey(refreshedAt)}</span>
               </div>
             </div>
 
-            <div className={styles.weekList}>
-              {weeks.length === 0 ? (
-                <div className={styles.emptyState}>실제 달력 데이터를 준비하고 있습니다.</div>
-              ) : (
-                weeks.map((week, idx) => (
-                  <div
-                    key={formatDateKey(week.start)}
-                    className={`${styles.weekRow} ${week.isCurrentWeek ? styles.currentWeekRow : ''}`}
-                  >
-                    <div className={styles.weekMeta}>
-                      <div>
-                        <p className={styles.weekLabel}>W{idx + 1} · {formatWeekLabel(week.start, week.end)}</p>
-                        <p className={styles.weekRange}>
-                          출근 합계 {summary[idx]?.totalWorkers ?? 0}명 · work_yn={summary[idx]?.workFlags.work ?? 0} · cancel_yn={
-                            summary[idx]?.workFlags.cancel ?? 0
-                          }
-                        </p>
-                      </div>
-                      {week.isCurrentWeek && <span className={styles.refreshBadge}>이번주</span>}
-                    </div>
+            <div className={styles.legend}>
+              <span className={styles.legendItem}>
+                <span className={styles.legendDot} style={{ background: '#60a5fa' }} />
+                work_yn=1
+              </span>
+              <span className={styles.legendItem}>
+                <span className={styles.legendDot} style={{ background: '#f87171' }} />
+                cancel_yn=1
+              </span>
+            </div>
 
-                    <div className={styles.weekGrid}>
-                      {['일', '월', '화', '수', '목', '금', '토'].map((label) => (
-                        <div key={`${formatDateKey(week.start)}-${label}-label`} className={styles.weekday}>
-                          {label}
-                        </div>
-                      ))}
-                      {week.days.map((day) => {
-                        const key = formatDateKey(day.date);
-                        const isToday = key === todayKey;
-                        return (
-                          <div
-                            key={key}
-                            className={`${styles.weekCell} ${day.workYn ? styles.workCell : ''} ${
-                              day.cancelYn ? styles.cancelCell : ''
-                            } ${isToday ? styles.todayCell : ''}`}
-                          >
-                            <div className={styles.weekCellHeader}>
-                              <span className={styles.dayNumber}>{day.date.getDate()}</span>
-                              {isToday && <span className={styles.todayPill}>오늘</span>}
-                            </div>
-                            <span className={styles.dayCounts}>출근 인원 {day.workers.length}명</span>
-                            <div className={styles.workerList}>
-                              {day.workers.map((worker) => (
-                                <span key={`${key}-${worker}`}>{worker}</span>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })}
+            <div className={styles.calendarGrid}>
+              {['일', '월', '화', '수', '목', '금', '토'].map((label) => (
+                <div key={`weekday-${label}`} className={styles.weekday}>
+                  {label}
+                </div>
+              ))}
+
+              {dayCells.length === 0 ? (
+                <div className={styles.emptyState} style={{ gridColumn: '1 / span 7' }}>
+                  실제 달력 데이터를 준비하고 있습니다.
+                </div>
+              ) : (
+                dayCells.map((day) => {
+                  const key = formatDateKey(day.date);
+                  const isToday = key === todayKey;
+                  return (
+                    <div
+                      key={key}
+                      className={`${styles.calendarCell} ${day.workYn ? styles.workCell : ''} ${
+                        day.cancelYn ? styles.cancelCell : ''
+                      } ${isToday ? styles.todayCell : ''} ${day.isCurrentWeek ? styles.currentWeekCell : ''}`}
+                    >
+                      <div className={styles.calendarCellHeader}>
+                        <span className={styles.dayNumber}>{day.date.getDate()}</span>
+                        {isToday && <span className={styles.todayPill}>오늘</span>}
+                      </div>
+                      <div className={styles.workerList}>
+                        {day.workers.length === 0 ? (
+                          <span className={styles.noWorker}>근무 없음</span>
+                        ) : (
+                          day.workers.map((worker) => <span key={`${key}-${worker}`}>{worker}</span>)
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </section>
