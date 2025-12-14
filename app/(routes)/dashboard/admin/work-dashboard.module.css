@@ -795,6 +795,23 @@
   box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.4);
 }
 
+.slotHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.slotCountChip {
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  font-weight: 700;
+  font-size: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .tomorrowCardGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -806,54 +823,109 @@
 .tomorrowCard {
   border: 1px solid rgba(56, 189, 248, 0.35);
   border-radius: 16px;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
+  padding: 14px 14px 16px;
+  display: grid;
+  grid-template-rows: auto 1fr;
   gap: 12px;
   background: radial-gradient(circle at 18% 20%, rgba(56, 189, 248, 0.12), transparent 38%),
     radial-gradient(circle at 82% 14%, rgba(147, 197, 253, 0.16), transparent 42%),
-    linear-gradient(185deg, rgba(15, 23, 42, 0.9) 0%, rgba(12, 17, 32, 0.82) 100%);
+    linear-gradient(185deg, rgba(15, 23, 42, 0.94) 0%, rgba(12, 17, 32, 0.88) 36%, rgba(11, 17, 30, 0.92) 100%);
   box-shadow: 0 14px 38px rgba(0, 0, 0, 0.34);
+  min-height: 0;
 }
 
 .tomorrowCardHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
 }
 
 .tomorrowCardTitleWrap {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .tomorrowCardTitle {
-  font-weight: 800;
+  margin: 0;
+  font-weight: 900;
   color: #f8fafc;
+  font-size: 1.2rem;
 }
 
-.tomorrowCardPill {
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: linear-gradient(120deg, rgba(56, 189, 248, 0.25) 0%, rgba(147, 197, 253, 0.25) 100%);
-  border: 1px solid rgba(56, 189, 248, 0.45);
-  color: #e0f2fe;
-  font-weight: 800;
-  font-size: 0.78rem;
-  letter-spacing: 0.01em;
+.tomorrowCardSubtitle {
+  margin: 0;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #a5b4fc;
+}
+
+.tomorrowCardTotalBlock {
+  display: grid;
+  grid-template-rows: auto auto;
+  gap: 2px;
+  align-items: end;
+  text-align: right;
+}
+
+.tomorrowCardTotalLabel {
+  font-weight: 700;
+  color: #cbd5e1;
+  font-size: 0.85rem;
 }
 
 .tomorrowCardTotal {
   font-weight: 900;
   color: #7dd3fc;
-  font-size: 1.15rem;
+  font-size: 1.4rem;
+}
+
+.tomorrowCardBody {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 12px;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sectionHint {
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  opacity: 0.85;
+}
+
+.sectionBar {
+  width: 100%;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.45) 0%, rgba(99, 102, 241, 0.55) 100%);
 }
 
 .tomorrowSection {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tomorrowSectionBuilding {
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.06) 0%, rgba(15, 23, 42, 0.78) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.tomorrowSectionSlots {
+  background: linear-gradient(180deg, rgba(124, 58, 237, 0.09) 0%, rgba(15, 23, 42, 0.8) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .tomorrowSectionTitle {
@@ -926,6 +998,22 @@
   background: linear-gradient(120deg, rgba(56, 189, 248, 0.18) 0%, rgba(147, 197, 253, 0.14) 100%);
   border-color: rgba(56, 189, 248, 0.35);
   color: #e0f2fe;
+}
+
+.tomorrowEmpty {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.72) 0%, rgba(15, 23, 42, 0.9) 100%);
+  border-radius: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  color: #cbd5e1;
+  min-height: 200px;
+}
+
+.tomorrowEmptyLabel {
+  font-weight: 900;
+  font-size: 1.3rem;
+  letter-spacing: 0.01em;
 }
 
 .errorBadge {
