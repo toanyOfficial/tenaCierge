@@ -62,6 +62,11 @@ export async function GET() {
       )
       .orderBy(asc(workerScheduleException.excptDate), asc(workerHeader.name));
 
+    const normalizedExceptions = exceptions.map((row) => ({
+      ...row,
+      excptDate: formatKstDateKey(new Date(row.excptDate))
+    }));
+
     const workCounts = await db
       .select({ date: workHeader.date, count: sql<number>`count(*)` })
       .from(workHeader)
@@ -88,7 +93,7 @@ export async function GET() {
       endDate: formatKstDateKey(end.toJSDate()),
       today: formatKstDateKey(today.toJSDate()),
       weeklyPatterns,
-      exceptions,
+      exceptions: normalizedExceptions,
       workCounts: normalizedWorkCounts
     });
   } catch (error) {
