@@ -55,6 +55,7 @@ type MonthlyApiResponse = {
     addWorkYn: boolean;
     cancelWorkYn: boolean;
   }[];
+  workCounts: { date: string; count: number }[];
 };
 
 function formatDateKey(date: Date) {
@@ -65,7 +66,8 @@ function formatDateKey(date: Date) {
 }
 
 function parseDate(dateString: string) {
-  return new Date(`${dateString}T00:00:00`);
+  const [year, month, day] = dateString.split('-').map((part) => Number(part));
+  return new Date(year, (month ?? 1) - 1, day ?? 1);
 }
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -116,7 +118,13 @@ function buildWeeks(
       ...activeBaseWorkers.map((name) => ({ name, status: 'base' as const })),
       ...addedWorkers.map((name) => ({ name, status: 'added' as const })),
       ...cancelWorkers.map((row) => ({ name: row.worker, status: 'canceled' as const }))
-    ].sort((a, b) => a.name.localeCompare(b.name));
+    ].sort((a, b) => {
+      const order = { base: 0, added: 1, canceled: 2 } as const;
+      if (order[a.status] !== order[b.status]) {
+        return order[a.status] - order[b.status];
+      }
+      return a.name.localeCompare(b.name);
+    });
 
     const effectiveWorkerCount = activeBaseWorkers.length + addedWorkers.length;
 
@@ -165,8 +173,7 @@ function chunkWorkers(workers: WorkerDisplay[], size: number) {
 function buildCumulativeCounts(
   startDate: Date,
   endDate: Date,
-  weeklyPatterns: MonthlyApiResponse['weeklyPatterns'],
-  exceptions: WorkerScheduleException[],
+  workCounts: MonthlyApiResponse['workCounts'],
   currentMonthIndex: number,
   currentYear: number
 ) {
@@ -181,38 +188,29 @@ function buildCumulativeCounts(
   let prevRunning = 0;
   let currentRunning = 0;
 
-  const exceptionMap = exceptions.reduce<Record<string, WorkerScheduleException[]>>((acc, row) => {
-    const key = formatDateKey(row.date);
-    acc[key] = acc[key] ? [...acc[key], row] : [row];
-    return acc;
-  }, {});
+  const prevDailyCounts = Array.from({ length: prevMonthDays + 1 }).fill(0) as number[];
+  const currentDailyCounts = Array.from({ length: currentMonthDays + 1 }).fill(0) as number[];
 
-  const computeEffectiveCount = (date: Date) => {
-    const key = formatDateKey(date);
-    const weekday = date.getDay();
-
-    const baseWorkers = weeklyPatterns
-      .filter((row) => row.weekday === weekday)
-      .map((row) => row.worker || `워커-${row.workerId}`);
-    const dailyExceptions = exceptionMap[key] ?? [];
-
-    const cancelWorkers = new Set(dailyExceptions.filter((row) => row.cancelWork).map((row) => row.worker));
-    const addedWorkers = dailyExceptions.filter((row) => row.addWork).map((row) => row.worker).filter(Boolean);
-
-    return baseWorkers.filter((name) => !cancelWorkers.has(name)).length + addedWorkers.length;
-  };
+  workCounts.forEach((row) => {
+    const date = parseDate(row.date);
+    const day = date.getDate();
+    if (date.getFullYear() === prevMonthYear && date.getMonth() === prevMonthIndex) {
+      prevDailyCounts[day] += row.count;
+    }
+    if (date.getFullYear() === currentYear && date.getMonth() === currentMonthIndex) {
+      currentDailyCounts[day] += row.count;
+    }
+  });
 
   const prevTotals: number[] = [];
   for (let day = 1; day <= prevMonthDays; day += 1) {
-    const date = new Date(prevMonthYear, prevMonthIndex, day);
-    prevRunning += computeEffectiveCount(date);
+    prevRunning += prevDailyCounts[day] ?? 0;
     prevTotals[day] = prevRunning;
   }
 
   const currentTotals: number[] = [];
   for (let day = 1; day <= currentMonthDays; day += 1) {
-    const date = new Date(currentYear, currentMonthIndex, day);
-    currentRunning += computeEffectiveCount(date);
+    currentRunning += currentDailyCounts[day] ?? 0;
     currentTotals[day] = currentRunning;
   }
 
@@ -276,8 +274,7 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
         const counts = buildCumulativeCounts(
           prevMonthStartDate,
           calendarEndDate,
-          data.weeklyPatterns,
-          exceptionRows,
+          data.workCounts,
           currentMonthStartDate.getMonth(),
           currentMonthStartDate.getFullYear()
         );
@@ -308,6 +305,16 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
     [weeks, currentMonthIndex]
   );
 
+  const displayedExceptions = useMemo(() => {
+    const rangeStart = new Date(currentYear, currentMonthIndex, 1);
+    const rangeEnd = new Date(currentYear, currentMonthIndex + 1, 7);
+
+    return exceptions.filter((item) => {
+      const time = item.date.getTime();
+      return time >= rangeStart.getTime() && time <= rangeEnd.getTime();
+    });
+  }, [currentMonthIndex, currentYear, exceptions]);
+
   return (
     <div className={`${styles.weeklyShell} ${styles.monthlyShell}`}>
       <div className={`${styles.weeklyCanvas} ${styles.monthlyCanvas}`}>
@@ -331,9 +338,9 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
                   const key = formatDateKey(day.date);
                   const isToday = key === todayKey;
                   const isAddedOffDay = day.baseWorkerCount === 0 && day.addYn;
+                  const isWeekend = day.date.getDay() === 0 || day.date.getDay() === 6;
                   const totals = cumulativeCounts[key] ?? { prev: 0, current: 0 };
                   const dayNumber = `${`${day.date.getDate()}`.padStart(2, '0')}`;
-                  const dayGauge = `(${totals.prev}/${totals.current})`;
                   const workerRows = chunkWorkers(day.workers, 3);
                   return (
                     <div
@@ -341,17 +348,26 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
                       className={`${styles.calendarCell} ${day.workYn ? styles.workCell : ''} ${
                         day.cancelYn ? styles.cancelCell : ''
                       } ${isAddedOffDay ? styles.addedOffDayCell : ''} ${
-                        isToday ? 'today' : ''
+                        isToday ? styles.todayCell : ''
                       } ${day.isCurrentWeek ? styles.currentWeekCell : ''} ${
                         day.isCurrentMonth ? '' : styles.outsideMonth
                       }`}
                     >
                       <div className={styles.calendarCellHeader}>
                         <div className={styles.dayMeta}>
-                          <span className={styles.dayNumber}>{dayNumber}</span>
-                          <span className={styles.dayCounts}>{dayGauge}</span>
+                          <span
+                            className={`${styles.dayNumber} ${isWeekend ? styles.weekendDayNumber : ''}`}
+                          >
+                            {dayNumber}
+                          </span>
+                          <span className={styles.dayCounts}>
+                            (
+                            <span className={styles.dayPrevCount}>{totals.prev}</span>
+                            /
+                            <span className={styles.dayCurrentCount}>{totals.current}</span>
+                            )
+                          </span>
                         </div>
-                        {isToday && <span className={styles.todayPill}>오늘</span>}
                       </div>
                       <div className={styles.workerList}>
                         {day.workers.length === 0 ? (
@@ -389,32 +405,51 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
               <p className={styles.sideMonth}>{`${currentYear}-${`${currentMonthIndex + 1}`.padStart(2, '0')}`}</p>
             </div>
             <div className={styles.exceptionList}>
-              {exceptions.length === 0 ? (
+              {displayedExceptions.length === 0 ? (
                 <div className={styles.emptyState}>예외 근무가 없습니다.</div>
               ) : (
-                exceptions.map((item) => {
-                  const key = formatDateKey(item.date);
-                  return (
-                    <div key={`${item.id}-${key}`} className={styles.exceptionRow}>
-                      <div className={styles.exceptionMeta}>
-                        <p className={styles.exceptionDate}>{formatDisplayDate(item.date)}</p>
-                        <p className={styles.exceptionWorker}>{item.worker}</p>
-                      </div>
-                      <div className={styles.exceptionBadges}>
-                        {item.addWork && (
-                          <span className={`${styles.exceptionPill} ${styles.workPill} ${styles.inlineExceptionPill}`}>
-                            휴무일 근무 추가
-                          </span>
-                        )}
-                        {item.cancelWork && (
-                          <span className={`${styles.exceptionPill} ${styles.cancelPill} ${styles.inlineExceptionPill}`}>
-                            근무 취소
-                          </span>
-                        )}
-                      </div>
+                <div className={styles.exceptionRows}>
+                  <div className={`${styles.exceptionRowBox} ${styles.exceptionRowPrimary}`}>
+                    <div className={`${styles.exceptionTitle} ${styles.cancelTitle}`}>근무-&gt;휴가</div>
+                    <div className={styles.exceptionItems}>
+                      {displayedExceptions.filter((item) => item.cancelWork).length === 0 ? (
+                        <p className={styles.exceptionEmpty}>없음</p>
+                      ) : (
+                        displayedExceptions
+                          .filter((item) => item.cancelWork)
+                          .map((item) => {
+                            const key = formatDateKey(item.date);
+                            return (
+                              <div key={`${item.id}-${key}`} className={styles.exceptionCompactRow}>
+                                <span className={styles.exceptionCompactDate}>{formatDisplayDate(item.date)}</span>
+                                <span className={styles.exceptionCompactWorker}>{item.worker}</span>
+                              </div>
+                            );
+                          })
+                      )}
                     </div>
-                  );
-                })
+                  </div>
+                  <div className={`${styles.exceptionRowBox} ${styles.exceptionRowSecondary}`}>
+                    <div className={`${styles.exceptionTitle} ${styles.addTitle}`}>휴가-&gt;근무</div>
+                    <div className={styles.exceptionItems}>
+                      {displayedExceptions.filter((item) => item.addWork).length === 0 ? (
+                        <p className={styles.exceptionEmpty}>없음</p>
+                      ) : (
+                        displayedExceptions
+                          .filter((item) => item.addWork)
+                          .map((item) => {
+                            const key = formatDateKey(item.date);
+                            return (
+                              <div key={`${item.id}-${key}`} className={styles.exceptionCompactRow}>
+                                <span className={styles.exceptionCompactDate}>{formatDisplayDate(item.date)}</span>
+                                <span className={styles.exceptionCompactWorker}>{item.worker}</span>
+                              </div>
+                            );
+                          })
+                      )}
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           </section>

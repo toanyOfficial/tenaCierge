@@ -1190,9 +1190,22 @@
   color: var(--text-strong);
 }
 
+.weekendDayNumber {
+  color: #fca5a5;
+}
+
 .dayCounts {
   font-size: 0.88rem;
   color: rgba(148, 163, 184, 0.9);
+}
+
+.dayPrevCount {
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.dayCurrentCount {
+  color: #f8fafc;
+  font-weight: 800;
 }
 
 .dayMeta {
@@ -1226,19 +1239,7 @@
 }
 
 .todayPill {
-  padding: 4px 8px;
-  border-radius: var(--radius-pill);
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(14, 165, 233, 0.4));
-  border: 1px solid rgba(59, 130, 246, 0.8);
-  color: #0b1222;
-  font-weight: 800;
-  font-size: 0.78rem;
-  box-shadow: 0 10px 28px rgba(59, 130, 246, 0.32);
-}
-
-.dayCell.today {
-  border: 2px solid #00ffff;
-  box-shadow: 0 0 6px #00ffff;
+  display: none;
 }
 
 .workCell {
@@ -1313,6 +1314,12 @@
   overflow: hidden;
 }
 
+.calendarCell.todayCell {
+  border: 2px solid #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.24);
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.02) 100%);
+}
+
 .calendarCellHeader {
   display: flex;
   justify-content: space-between;
@@ -1327,6 +1334,11 @@
 
 .outsideMonth .dayNumber {
   color: #64748b;
+}
+
+.calendarCell .dayNumber.weekendDayNumber,
+.calendarCell .dayCurrentCount.weekendDayNumber {
+  color: #fca5a5;
 }
 
 .workerList {
@@ -1488,18 +1500,18 @@
 .sideHeader {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  padding: 6px 10px;
+  justify-content: center;
+  padding: 10px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
 }
 
 .sideMonth {
   margin: 0;
-  font-weight: 800;
+  font-weight: 900;
   letter-spacing: 0.04em;
   color: #e2e8f0;
+  font-size: 2rem;
+  text-align: center;
 }
 
 .exceptionList {
@@ -1508,6 +1520,79 @@
   gap: 10px;
   max-height: 100%;
   overflow: hidden;
+}
+
+.exceptionRows {
+  display: grid;
+  grid-template-rows: 3fr 2fr;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  height: 100%;
+}
+
+.exceptionRowBox {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.exceptionRowPrimary {
+  min-height: 0;
+}
+
+.exceptionRowSecondary {
+  min-height: 0;
+}
+
+.exceptionTitle {
+  font-weight: 900;
+  font-size: 1.1rem;
+}
+
+.cancelTitle {
+  color: #f87171;
+}
+
+.addTitle {
+  color: #60a5fa;
+}
+
+.exceptionItems {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.exceptionCompactRow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.exceptionCompactDate {
+  color: #cbd5e1;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.exceptionCompactWorker {
+  color: #f8fafc;
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.exceptionEmpty {
+  margin: 0;
+  color: #94a3b8;
+  font-weight: 700;
 }
 
 .exceptionRow {

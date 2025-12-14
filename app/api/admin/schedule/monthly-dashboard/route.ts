@@ -1,8 +1,8 @@
-import { and, asc, eq, gte, lte } from 'drizzle-orm';
+import { and, asc, eq, gte, lte, sql } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
 import { db } from '@/src/db/client';
-import { workerHeader, workerScheduleException, workerWeeklyPattern } from '@/src/db/schema';
+import { workHeader, workerHeader, workerScheduleException, workerWeeklyPattern } from '@/src/db/schema';
 import { formatKstDateKey, nowKst } from '@/src/lib/time';
 import { handleAdminError } from '@/src/server/adminCrud';
 import { logServerError } from '@/src/server/errorLogger';
@@ -32,6 +32,7 @@ export async function GET() {
   const prevMonthStart = monthStart.minus({ months: 1 }).startOf('month');
   const calendarStart = ensureStartOfWeekKst(monthStart);
   const end = calendarStart.plus({ days: 41 });
+  const monthEnd = monthStart.endOf('month');
 
   try {
     const weeklyPatterns = await db
@@ -61,6 +62,30 @@ export async function GET() {
       )
       .orderBy(asc(workerScheduleException.excptDate), asc(workerHeader.name));
 
+    const normalizedExceptions = exceptions.map((row) => ({
+      ...row,
+      excptDate: formatKstDateKey(new Date(row.excptDate))
+    }));
+
+    const workCounts = await db
+      .select({ date: workHeader.date, count: sql<number>`count(*)` })
+      .from(workHeader)
+      .where(
+        and(
+          gte(workHeader.date, formatKstDateKey(prevMonthStart.toJSDate())),
+          lte(workHeader.date, formatKstDateKey(monthEnd.toJSDate())),
+          eq(workHeader.cleaningYn, true),
+          eq(workHeader.cancelYn, false)
+        )
+      )
+      .groupBy(workHeader.date)
+      .orderBy(asc(workHeader.date));
+
+    const normalizedWorkCounts = workCounts.map((row) => ({
+      date: formatKstDateKey(new Date(row.date)),
+      count: Number(row.count)
+    }));
+
     return NextResponse.json({
       startDate: formatKstDateKey(calendarStart.toJSDate()),
       prevMonthStartDate: formatKstDateKey(prevMonthStart.toJSDate()),
@@ -68,7 +93,8 @@ export async function GET() {
       endDate: formatKstDateKey(end.toJSDate()),
       today: formatKstDateKey(today.toJSDate()),
       weeklyPatterns,
-      exceptions
+      exceptions: normalizedExceptions,
+      workCounts: normalizedWorkCounts
     });
   } catch (error) {
     await logServerError({
