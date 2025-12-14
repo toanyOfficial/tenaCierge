@@ -3,18 +3,58 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import styles from '../admin/work-dashboard.module.css';
-import CommonHeader from '../CommonHeader';
 import type { ProfileSummary } from '@/src/utils/profile';
 
 type ProfileProps = { profile: ProfileSummary };
 
+type WorkerDisplay = {
+  name: string;
+  status: 'base' | 'added' | 'canceled';
+};
+
 type DayAttendance = {
   date: Date;
-  workers: string[];
+  workers: WorkerDisplay[];
   workYn: boolean;
   cancelYn: boolean;
-  currentCleanings: number;
-  previousCleanings: number;
+  addYn: boolean;
+  baseWorkerCount: number;
+  effectiveWorkerCount: number;
+};
+
+type DayCell = DayAttendance & { isCurrentWeek: boolean; isCurrentMonth: boolean };
+
+type WeekAttendance = {
+  start: Date;
+  end: Date;
+  days: DayAttendance[];
+  isCurrentWeek: boolean;
+};
+
+type WorkerScheduleException = {
+  id: number;
+  workerId: number;
+  worker: string;
+  date: Date;
+  addWork: boolean;
+  cancelWork: boolean;
+};
+
+type MonthlyApiResponse = {
+  startDate: string;
+  prevMonthStartDate: string;
+  currentMonthStartDate: string;
+  endDate: string;
+  today: string;
+  weeklyPatterns: { workerId: number; worker: string; weekday: number }[];
+  exceptions: {
+    id: number;
+    workerId: number;
+    worker: string;
+    excptDate: string;
+    addWorkYn: boolean;
+    cancelWorkYn: boolean;
+  }[];
 };
 
 function formatDateKey(date: Date) {
@@ -24,167 +64,331 @@ function formatDateKey(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function withDailyRefresh(callback: () => void) {
-  const now = new Date();
-  const next = new Date(now);
-  next.setHours(16, 30, 0, 0);
-  if (next <= now) {
-    next.setDate(next.getDate() + 1);
-  }
-  const delay = next.getTime() - now.getTime();
-  let interval: ReturnType<typeof setInterval> | undefined;
-  const timeout = setTimeout(() => {
-    callback();
-    interval = setInterval(callback, 24 * 60 * 60 * 1000);
-  }, delay);
-  return () => {
-    clearTimeout(timeout);
-    if (interval) {
-      clearInterval(interval);
-    }
-  };
+function parseDate(dateString: string) {
+  return new Date(`${dateString}T00:00:00`);
 }
 
-function buildSampleMonth(now: Date): DayAttendance[] {
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
+
+function buildWeeks(
+  startKey: string,
+  todayKey: string,
+  weeklyPatterns: MonthlyApiResponse['weeklyPatterns'],
+  exceptions: MonthlyApiResponse['exceptions']
+): { weeks: WeekAttendance[]; exceptionRows: WorkerScheduleException[] } {
+  const startDate = parseDate(startKey);
   const days: DayAttendance[] = [];
-  const sampleWorkers = ['김정윤', '이지훈', '박서연', '최민수', '윤다혜'];
+  const exceptionRows: WorkerScheduleException[] = exceptions
+    .map((row) => ({
+      id: row.id,
+      workerId: row.workerId,
+      worker: row.worker || `워커-${row.workerId}`,
+      date: parseDate(row.excptDate),
+      addWork: row.addWorkYn,
+      cancelWork: row.cancelWorkYn
+    }))
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  for (let d = 0; d < 31; d += 1) {
-    const day = new Date(start);
-    day.setDate(start.getDate() + d);
-    if (day.getMonth() !== now.getMonth()) {
-      break;
-    }
+  for (let i = 0; i < 6 * 7; i += 1) {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + i);
+    const key = formatDateKey(date);
+    const weekday = date.getDay();
 
-    const workers = sampleWorkers.slice(0, ((d + 2) % sampleWorkers.length) + 1);
-    const workYn = (d + 1) % 3 === 0;
-    const cancelYn = d % 7 === 0;
+    const baseWorkers = weeklyPatterns
+      .filter((row) => row.weekday === weekday)
+      .map((row) => ({ ...row, worker: row.worker || `워커-${row.workerId}` }));
+    const dailyExceptions = exceptionRows.filter((row) => formatDateKey(row.date) === key);
+
+    const cancelWorkers = dailyExceptions.filter((row) => row.cancelWork);
+    const cancelWorkerNames = new Set(cancelWorkers.map((row) => row.worker));
+
+    const activeBaseWorkers = baseWorkers
+      .filter((row) => !cancelWorkerNames.has(row.worker))
+      .map((row) => row.worker);
+
+    const addedWorkers = dailyExceptions
+      .filter((row) => row.addWork)
+      .map((row) => row.worker)
+      .filter((name) => name);
+
+    const workerEntries: WorkerDisplay[] = [
+      ...activeBaseWorkers.map((name) => ({ name, status: 'base' as const })),
+      ...addedWorkers.map((name) => ({ name, status: 'added' as const })),
+      ...cancelWorkers.map((row) => ({ name: row.worker, status: 'canceled' as const }))
+    ].sort((a, b) => a.name.localeCompare(b.name));
+
+    const effectiveWorkerCount = activeBaseWorkers.length + addedWorkers.length;
+
     days.push({
-      date: day,
-      workers,
-      workYn,
-      cancelYn,
-      currentCleanings: (d + 1) * 3,
-      previousCleanings: (d + 1) * 2
+      date,
+      workers: workerEntries,
+      workYn: effectiveWorkerCount > 0,
+      cancelYn: cancelWorkers.length > 0,
+      addYn: addedWorkers.length > 0,
+      baseWorkerCount: baseWorkers.length,
+      effectiveWorkerCount
     });
   }
 
-  return days;
+  const weeks: WeekAttendance[] = [];
+  for (let i = 0; i < 6; i += 1) {
+    const weekDays = days.slice(i * 7, (i + 1) * 7);
+    weeks.push({
+      start: weekDays[0]?.date ?? new Date(),
+      end: weekDays[6]?.date ?? new Date(),
+      days: weekDays,
+      isCurrentWeek:
+        todayKey >= formatDateKey(weekDays[0]?.date ?? new Date()) &&
+        todayKey <= formatDateKey(weekDays[6]?.date ?? new Date())
+    });
+  }
+
+  return { weeks, exceptionRows };
 }
 
-export default function MonthlyWorkDashboard({ profile }: ProfileProps) {
-  const [monthSnapshot, setMonthSnapshot] = useState<DayAttendance[]>(() => buildSampleMonth(new Date()));
-  const [refreshedAt, setRefreshedAt] = useState<Date>(new Date());
+function formatDisplayDate(date: Date) {
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  const weekday = WEEKDAY_LABELS[date.getDay()];
+  return `${month}/${day} (${weekday})`;
+}
 
-  const startWeekday = useMemo(() => new Date(monthSnapshot[0]?.date ?? new Date()).getDay(), [monthSnapshot]);
-  const daysInMonth = useMemo(() => monthSnapshot.length, [monthSnapshot]);
+function chunkWorkers(workers: WorkerDisplay[], size: number) {
+  const rows: WorkerDisplay[][] = [];
+  for (let i = 0; i < workers.length; i += size) {
+    rows.push(workers.slice(i, i + size));
+  }
+  return rows;
+}
+
+function buildCumulativeCounts(
+  startDate: Date,
+  endDate: Date,
+  weeklyPatterns: MonthlyApiResponse['weeklyPatterns'],
+  exceptions: WorkerScheduleException[],
+  currentMonthIndex: number,
+  currentYear: number
+) {
+  const totals: Record<string, { prev: number; current: number }> = {};
+  const prevMonthDate = new Date(currentYear, currentMonthIndex - 1, 1);
+  const prevMonthIndex = prevMonthDate.getMonth();
+  const prevMonthYear = prevMonthDate.getFullYear();
+
+  let prevRunning = 0;
+  let currentRunning = 0;
+
+  const exceptionMap = exceptions.reduce<Record<string, WorkerScheduleException[]>>((acc, row) => {
+    const key = formatDateKey(row.date);
+    acc[key] = acc[key] ? [...acc[key], row] : [row];
+    return acc;
+  }, {});
+
+  const dayDiff = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+  for (let i = 0; i <= dayDiff; i += 1) {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + i);
+    const key = formatDateKey(date);
+    const weekday = date.getDay();
+
+    const baseWorkers = weeklyPatterns
+      .filter((row) => row.weekday === weekday)
+      .map((row) => row.worker || `워커-${row.workerId}`);
+    const dailyExceptions = exceptionMap[key] ?? [];
+
+    const cancelWorkers = new Set(dailyExceptions.filter((row) => row.cancelWork).map((row) => row.worker));
+    const addedWorkers = dailyExceptions.filter((row) => row.addWork).map((row) => row.worker).filter(Boolean);
+    const effectiveCount = baseWorkers.filter((name) => !cancelWorkers.has(name)).length + addedWorkers.length;
+
+    if (date.getFullYear() === prevMonthYear && date.getMonth() === prevMonthIndex) {
+      prevRunning += effectiveCount;
+    }
+
+    if (date.getFullYear() === currentYear && date.getMonth() === currentMonthIndex) {
+      currentRunning += effectiveCount;
+    }
+
+    totals[key] = { prev: prevRunning, current: currentRunning };
+  }
+
+  return totals;
+}
+
+export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps) {
+  const [weeks, setWeeks] = useState<WeekAttendance[]>([]);
+  const [currentMonthIndex, setCurrentMonthIndex] = useState<number>(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
+  const [exceptions, setExceptions] = useState<WorkerScheduleException[]>([]);
+  const [cumulativeCounts, setCumulativeCounts] = useState<Record<string, { prev: number; current: number }>>({});
+  const [error, setError] = useState<string | null>(null);
+
   const todayKey = formatDateKey(new Date());
 
-  useEffect(() =>
-    withDailyRefresh(() => {
-      setMonthSnapshot(buildSampleMonth(new Date()));
-      setRefreshedAt(new Date());
-    }),
-  []);
+  useEffect(() => {
+    async function load() {
+      try {
+        const response = await fetch('/api/admin/schedule/monthly-dashboard');
+        if (!response.ok) {
+          throw new Error('월간 데이터를 불러오지 못했습니다.');
+        }
+        const data: MonthlyApiResponse = await response.json();
+        const prevMonthStartDate = parseDate(data.prevMonthStartDate);
+        const currentMonthStartDate = parseDate(data.currentMonthStartDate);
+        const { weeks: mappedWeeks, exceptionRows } = buildWeeks(
+          data.startDate,
+          data.today,
+          data.weeklyPatterns,
+          data.exceptions
+        );
+        const calendarStartDate = parseDate(data.startDate);
+        const calendarEndDate = parseDate(data.endDate);
 
-  const cumulative = useMemo(() => {
-    const current = monthSnapshot.reduce((acc, day) => acc + day.currentCleanings, 0);
-    const previous = monthSnapshot.reduce((acc, day) => acc + day.previousCleanings, 0);
-    return { current, previous };
-  }, [monthSnapshot]);
+        const counts = buildCumulativeCounts(
+          prevMonthStartDate,
+          calendarEndDate,
+          data.weeklyPatterns,
+          exceptionRows,
+          currentMonthStartDate.getMonth(),
+          currentMonthStartDate.getFullYear()
+        );
+        setWeeks(mappedWeeks);
+        setExceptions(exceptionRows);
+        setCurrentMonthIndex(currentMonthStartDate.getMonth());
+        setCurrentYear(currentMonthStartDate.getFullYear());
+        setCumulativeCounts(counts);
+        setError(null);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : '월간 데이터를 불러오는 중 오류가 발생했습니다.';
+        setError(message);
+      }
+    }
+
+    load();
+  }, []);
+
+  const dayCells: DayCell[] = useMemo(
+    () =>
+      weeks.flatMap((week) =>
+        week.days.map((day) => ({
+          ...day,
+          isCurrentWeek: week.isCurrentWeek,
+          isCurrentMonth: day.date.getMonth() === currentMonthIndex
+        }))
+      ),
+    [weeks, currentMonthIndex]
+  );
 
   return (
-    <div className={styles.dashboardShell}>
-      <CommonHeader profile={profile} activeRole="admin" onRoleChange={() => {}} />
+    <div className={`${styles.weeklyShell} ${styles.monthlyShell}`}>
+      <div className={`${styles.weeklyCanvas} ${styles.monthlyCanvas}`}>
+        {error ? <div className={styles.errorBadge}>{error}</div> : null}
 
-      <header className={styles.pageHeader}>
-        <p className={styles.pageTitle}>대시보드 - 월간업무</p>
-        <p className={styles.pageSubtitle}>출퇴근 캘린더와 월별 청소 누적 현황을 한 화면(1920x1080)으로 제공합니다.</p>
-      </header>
-
-      <div className={styles.calendarShell}>
-        <section className={styles.calendarCard}>
-          <div className={styles.calendarHeader}>
-            <div>
-              <p className={styles.cardTitle}>월간 출퇴근현황</p>
-              <p className={styles.cardMeta}>매일 16:30 새로고침 · {formatDateKey(refreshedAt)}</p>
-            </div>
-            <div className={styles.legend}>
-              <span className={styles.legendItem}>
-                <span className={styles.legendDot} style={{ background: '#60a5fa' }} />
-                work_yn=1
-              </span>
-              <span className={styles.legendItem}>
-                <span className={styles.legendDot} style={{ background: '#f87171' }} />
-                cancel_yn=1
-              </span>
-            </div>
-          </div>
-
-          <div className={styles.calendarGrid}>
-            {['일', '월', '화', '수', '목', '금', '토'].map((label) => (
-              <div key={label} className={styles.weekday}>
-                {label}
-              </div>
-            ))}
-            {Array.from({ length: startWeekday }).map((_, idx) => (
-              <div key={`blank-${idx}`} />
-            ))}
-            {monthSnapshot.map((day) => {
-              const key = formatDateKey(day.date);
-              const isToday = key === todayKey;
-              return (
-                <div key={key} className={styles.dayCell} style={isToday ? { borderColor: '#3b82f6' } : undefined}>
-                  <span className={styles.dayNumber}>{day.date.getDate()}</span>
-                  <span className={styles.dayCounts}>출근 인원 {day.workers.length}명</span>
-                  <div className={styles.workerList}>
-                    {day.workers.map((worker) => (
-                      <span key={`${key}-${worker}`}>{worker}</span>
-                    ))}
-                  </div>
-                  {day.workYn && <span className={`${styles.exceptionPill} ${styles.workPill}`}>work_yn=1</span>}
-                  {day.cancelYn && <span className={`${styles.exceptionPill} ${styles.cancelPill}`}>cancel_yn=1</span>}
+        <div className={styles.monthlyGrid}>
+          <section className={styles.calendarPanel}>
+            <div className={styles.calendarGrid}>
+              {WEEKDAY_LABELS.map((label) => (
+                <div key={`weekday-${label}`} className={styles.weekday}>
+                  {label}
                 </div>
-              );
-            })}
-            {Array.from({ length: (7 - ((startWeekday + daysInMonth) % 7)) % 7 }).map((_, idx) => (
-              <div key={`tail-${idx}`} />
-            ))}
-          </div>
-        </section>
+              ))}
 
-        <section className={styles.summaryCardTall}>
-          <div className={styles.summaryHeader}>
-            <div>
-              <p className={styles.cardTitle}>월별 누적 현황</p>
-              <p className={styles.cardMeta}>전월 대비 당월 누적 청소 횟수</p>
-            </div>
-            <span className={styles.refreshBadge}>16:30 자동 새로고침</span>
-          </div>
-
-          <div className={styles.summaryList}>
-            {monthSnapshot.map((day) => {
-              const key = formatDateKey(day.date);
-              return (
-                <div key={`summary-${key}`} className={styles.summaryRow}>
-                  <strong>{day.date.getDate()}일</strong>
-                  <span>
-                    <span className={styles.previousMonth}>{day.previousCleanings}회(전월)</span> → {day.currentCleanings}
-                    회(당월)
-                  </span>
+              {dayCells.length === 0 ? (
+                <div className={styles.emptyState} style={{ gridColumn: '1 / span 7' }}>
+                  실제 달력 데이터를 준비하고 있습니다.
                 </div>
-              );
-            })}
-          </div>
+              ) : (
+                dayCells.map((day) => {
+                  const key = formatDateKey(day.date);
+                  const isToday = key === todayKey;
+                  const isAddedOffDay = day.baseWorkerCount === 0 && day.addYn;
+                  const totals = cumulativeCounts[key] ?? { prev: 0, current: 0 };
+                  const dayLabel = `${`${day.date.getDate()}`.padStart(2, '0')}(${totals.prev}/${totals.current})`;
+                  const workerRows = chunkWorkers(day.workers, 3);
+                  return (
+                    <div
+                      key={key}
+                      className={`${styles.calendarCell} ${day.workYn ? styles.workCell : ''} ${
+                        day.cancelYn ? styles.cancelCell : ''
+                      } ${isAddedOffDay ? styles.addedOffDayCell : ''} ${
+                        isToday ? 'today' : ''
+                      } ${day.isCurrentWeek ? styles.currentWeekCell : ''} ${
+                        day.isCurrentMonth ? '' : styles.outsideMonth
+                      }`}
+                    >
+                      <div className={styles.calendarCellHeader}>
+                        <div className={styles.dayMeta}>
+                          <span className={styles.dayNumber}>{day.date.getDate()}</span>
+                          <span className={styles.dayCounts}>{dayLabel}</span>
+                        </div>
+                        {isToday && <span className={styles.todayPill}>오늘</span>}
+                      </div>
+                      <div className={styles.workerList}>
+                        {day.workers.length === 0 ? (
+                          <span className={styles.noWorker}>근무 없음</span>
+                        ) : (
+                          workerRows.map((row, rowIndex) => (
+                            <div key={`${key}-row-${rowIndex}`} className={styles.workerRow}>
+                              {row.map((worker) => (
+                                <span
+                                  key={`${key}-${worker.name}-${worker.status}`}
+                                  className={`${styles.workerTag} ${
+                                    worker.status === 'added'
+                                      ? styles.workerAdded
+                                      : worker.status === 'canceled'
+                                        ? styles.workerCanceled
+                                        : ''
+                                  }`}
+                                >
+                                  {worker.name}
+                                </span>
+                              ))}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </section>
 
-          <div className={styles.summaryRow}>
-            <strong>월 누적 합계</strong>
-            <span>
-              <span className={styles.previousMonth}>{cumulative.previous}회(전월)</span> → {cumulative.current}회(당월)
-            </span>
-          </div>
-        </section>
+          <section className={`${styles.summaryCardTall} ${styles.exceptionCard}`}>
+            <div className={styles.sideHeader}>
+              <p className={styles.sideMonth}>{`${currentYear}-${`${currentMonthIndex + 1}`.padStart(2, '0')}`}</p>
+            </div>
+            <div className={styles.exceptionList}>
+              {exceptions.length === 0 ? (
+                <div className={styles.emptyState}>예외 근무가 없습니다.</div>
+              ) : (
+                exceptions.map((item) => {
+                  const key = formatDateKey(item.date);
+                  return (
+                    <div key={`${item.id}-${key}`} className={styles.exceptionRow}>
+                      <div className={styles.exceptionMeta}>
+                        <p className={styles.exceptionDate}>{formatDisplayDate(item.date)}</p>
+                        <p className={styles.exceptionWorker}>{item.worker}</p>
+                      </div>
+                      <div className={styles.exceptionBadges}>
+                        {item.addWork && (
+                          <span className={`${styles.exceptionPill} ${styles.workPill} ${styles.inlineExceptionPill}`}>
+                            휴무일 근무 추가
+                          </span>
+                        )}
+                        {item.cancelWork && (
+                          <span className={`${styles.exceptionPill} ${styles.cancelPill} ${styles.inlineExceptionPill}`}>
+                            근무 취소
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );
