@@ -342,12 +342,11 @@
 .segmentProgressDot {
   position: absolute;
   top: 50%;
-  width: 9px;
-  height: 9px;
+  width: 5px;
+  height: 5px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
   background: #0b0b0f;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92), 0 0 0 5px rgba(15, 23, 42, 0.65);
   z-index: 2;
   pointer-events: none;
   transition: left 220ms ease, opacity 180ms ease;
@@ -549,18 +548,6 @@
   content: '';
   width: 2px;
   height: 2px;
-  border-radius: 50%;
-  background: #0b0b0f;
-}
-
-.progressMarker::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 3px;
-  height: 3px;
-  transform: translate(-50%, -50%);
   border-radius: 50%;
   background: #0b0b0f;
 }
