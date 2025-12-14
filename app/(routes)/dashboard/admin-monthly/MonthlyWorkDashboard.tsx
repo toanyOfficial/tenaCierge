@@ -321,6 +321,7 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
                   const key = formatDateKey(day.date);
                   const isToday = key === todayKey;
                   const isAddedOffDay = day.baseWorkerCount === 0 && day.addYn;
+                  const isWeekend = day.date.getDay() === 0 || day.date.getDay() === 6;
                   const totals = cumulativeCounts[key] ?? { prev: 0, current: 0 };
                   const dayNumber = `${`${day.date.getDate()}`.padStart(2, '0')}`;
                   const workerRows = chunkWorkers(day.workers, 3);
@@ -337,12 +338,22 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
                       >
                       <div className={styles.calendarCellHeader}>
                         <div className={styles.dayMeta}>
-                          <span className={styles.dayNumber}>{dayNumber}</span>
+                          <span
+                            className={`${styles.dayNumber} ${isWeekend ? styles.weekendDayNumber : ''}`}
+                          >
+                            {dayNumber}
+                          </span>
                           <span className={styles.dayCounts}>
                             (
                             <span className={styles.dayPrevCount}>{totals.prev}</span>
                             /
-                            <span className={styles.dayCurrentCount}>{totals.current}</span>
+                            <span
+                              className={`${styles.dayCurrentCount} ${
+                                isWeekend ? styles.weekendDayNumber : ''
+                              }`}
+                            >
+                              {totals.current}
+                            </span>
                             )
                           </span>
                         </div>

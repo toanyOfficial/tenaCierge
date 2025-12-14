@@ -1190,6 +1190,10 @@
   color: var(--text-strong);
 }
 
+.weekendDayNumber {
+  color: #fca5a5;
+}
+
 .dayCounts {
   font-size: 0.88rem;
   color: rgba(148, 163, 184, 0.9);
