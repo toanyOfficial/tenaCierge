@@ -547,12 +547,11 @@
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 6px;
-  height: 6px;
+  width: 3px;
+  height: 3px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
   background: #0b0b0f;
-  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.6);
 }
 
 .roomGrid {
