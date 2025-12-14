@@ -12,6 +12,8 @@ type DayAttendance = {
   workers: string[];
   workYn: boolean;
   cancelYn: boolean;
+  addYn: boolean;
+  baseWorkerCount: number;
 };
 
 type DayCell = DayAttendance & { isCurrentWeek: boolean; isCurrentMonth: boolean };
@@ -57,6 +59,8 @@ function formatDateKey(date: Date) {
 function parseDate(dateString: string) {
   return new Date(`${dateString}T00:00:00`);
 }
+
+const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
 function buildWeeks(
   startKey: string,
@@ -106,7 +110,9 @@ function buildWeeks(
       date,
       workers: Array.from(workerNames).sort(),
       workYn: workerNames.size > 0,
-      cancelYn: dailyExceptions.some((row) => row.cancelWork)
+      cancelYn: dailyExceptions.some((row) => row.cancelWork),
+      addYn: dailyExceptions.some((row) => row.addWork),
+      baseWorkerCount: baseWorkers.length
     });
   }
 
@@ -124,6 +130,13 @@ function buildWeeks(
   }
 
   return { weeks, exceptionRows };
+}
+
+function formatDisplayDate(date: Date) {
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  const weekday = WEEKDAY_LABELS[date.getDay()];
+  return `${month}/${day} (${weekday})`;
 }
 
 export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps) {
@@ -190,7 +203,7 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
             </div>
 
             <div className={styles.calendarGrid}>
-              {['일', '월', '화', '수', '목', '금', '토'].map((label) => (
+              {WEEKDAY_LABELS.map((label) => (
                 <div key={`weekday-${label}`} className={styles.weekday}>
                   {label}
                 </div>
@@ -204,12 +217,15 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
                 dayCells.map((day) => {
                   const key = formatDateKey(day.date);
                   const isToday = key === todayKey;
+                  const isAddedOffDay = day.baseWorkerCount === 0 && day.addYn;
                   return (
                     <div
                       key={key}
                       className={`${styles.calendarCell} ${day.workYn ? styles.workCell : ''} ${
                         day.cancelYn ? styles.cancelCell : ''
-                      } ${isToday ? styles.todayCell : ''} ${day.isCurrentWeek ? styles.currentWeekCell : ''} ${
+                      } ${isAddedOffDay ? styles.addedOffDayCell : ''} ${
+                        isToday ? styles.todayCell : ''
+                      } ${day.isCurrentWeek ? styles.currentWeekCell : ''} ${
                         day.isCurrentMonth ? '' : styles.outsideMonth
                       }`}
                     >
@@ -241,18 +257,18 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
                   return (
                     <div key={`${item.id}-${key}`} className={styles.exceptionRow}>
                       <div className={styles.exceptionMeta}>
-                        <p className={styles.exceptionDate}>{key}</p>
+                        <p className={styles.exceptionDate}>{formatDisplayDate(item.date)}</p>
                         <p className={styles.exceptionWorker}>{item.worker}</p>
                       </div>
                       <div className={styles.exceptionBadges}>
                         {item.addWork && (
                           <span className={`${styles.exceptionPill} ${styles.workPill} ${styles.inlineExceptionPill}`}>
-                            add_work_yn=1
+                            휴무일 근무 추가
                           </span>
                         )}
                         {item.cancelWork && (
                           <span className={`${styles.exceptionPill} ${styles.cancelPill} ${styles.inlineExceptionPill}`}>
-                            cancel_work_yn=1
+                            근무 취소
                           </span>
                         )}
                       </div>
