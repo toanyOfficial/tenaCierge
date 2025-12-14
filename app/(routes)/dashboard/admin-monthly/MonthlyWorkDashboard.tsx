@@ -311,7 +311,7 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
                       className={`${styles.calendarCell} ${day.workYn ? styles.workCell : ''} ${
                         day.cancelYn ? styles.cancelCell : ''
                       } ${isAddedOffDay ? styles.addedOffDayCell : ''} ${
-                        isToday ? styles.todayCell : ''
+                        isToday ? 'today' : ''
                       } ${day.isCurrentWeek ? styles.currentWeekCell : ''} ${
                         day.isCurrentMonth ? '' : styles.outsideMonth
                       }`}
