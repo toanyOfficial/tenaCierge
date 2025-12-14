@@ -78,6 +78,9 @@ const roomSteps = [
 type ProfileProps = { profile: ProfileSummary };
 
 type RoleSlotSummary = { role: number; total: number; assigned: number };
+type RoleSlotDetail = { role: number; seq: number; workerName: string | null };
+type RoleSlotGroup = { role: number; slots: RoleSlotDetail[] };
+type CheckoutTimeSummary = { time: string; total: number };
 
 type SectorProgress = {
   code: string;
@@ -86,6 +89,8 @@ type SectorProgress = {
   completed: number;
   buildings: { name: string; total: number; completed: number }[];
   applySlots?: RoleSlotSummary[];
+  applySlotGroups?: RoleSlotGroup[];
+  checkoutTimes?: CheckoutTimeSummary[];
 };
 
 type StackedSegment = {
@@ -118,12 +123,6 @@ type RoomStatus = {
   owner: string;
 };
 
-type ApplyRow = {
-  title: string;
-  subtitle: string;
-  status: string;
-};
-
 type SummaryItem = {
   day: string;
   date: string;
@@ -136,7 +135,6 @@ type DashboardSnapshot = {
   todayProgress: SectorProgress[];
   tomorrowProgress: SectorProgress[];
   roomStatuses: RoomStatus[];
-  tomorrowApply: ApplyRow[];
   capturedAt: string;
 };
 
@@ -210,7 +208,6 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
   const todayProgress: SectorProgress[] = useMemo(() => snapshot?.todayProgress ?? [], [snapshot]);
   const tomorrowProgress: SectorProgress[] = useMemo(() => snapshot?.tomorrowProgress ?? [], [snapshot]);
   const roomStatuses: RoomStatus[] = useMemo(() => snapshot?.roomStatuses ?? [], [snapshot]);
-  const tomorrowApply: ApplyRow[] = useMemo(() => snapshot?.tomorrowApply ?? [], [snapshot]);
   const summaryUpdatedAt = useMemo(() => (snapshot ? new Date(snapshot.capturedAt) : new Date()), [snapshot]);
   const todayUpdatedAt = summaryUpdatedAt;
   const tomorrowUpdatedAt = summaryUpdatedAt;
@@ -412,6 +409,43 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
     const start = sectorPage * sectorsPerPage;
     return sectorSummaries.slice(start, start + sectorsPerPage);
   }, [isCompactView, sectorPage, sectorSummaries, sectorsPerPage]);
+
+  const tomorrowCatalog = useMemo(
+    () => summary.find((item) => item.day === 'D+1')?.sectors ?? [],
+    [summary]
+  );
+
+  const tomorrowCards = useMemo(() => {
+    const sectorMap = new Map(tomorrowProgress.map((sector) => [sector.code, sector]));
+    const baseSectors = tomorrowCatalog.length
+      ? tomorrowCatalog
+      : tomorrowProgress.map((sector) => ({ code: sector.code, name: sector.sector, count: sector.total }));
+
+    const cards = baseSectors.map((sector) => {
+      const data = sectorMap.get(sector.code);
+      return {
+        code: sector.code,
+        sector: sector.name || sector.code,
+        total: data?.total ?? sector.count ?? 0,
+        buildings: data?.buildings ?? [],
+        checkoutTimes: data?.checkoutTimes ?? [],
+        applySlotGroups: data?.applySlotGroups ?? []
+      };
+    });
+
+    while (cards.length < 3) {
+      cards.push({
+        code: `placeholder-${cards.length}`,
+        sector: '미정',
+        total: 0,
+        buildings: [],
+        checkoutTimes: [],
+        applySlotGroups: []
+      });
+    }
+
+    return cards.slice(0, 3);
+  }, [summary, tomorrowCatalog, tomorrowProgress]);
 
   useEffect(() => {
     if (!isCompactView) return undefined;
@@ -726,30 +760,155 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
               </div>
               <span className={styles.badgeSoft}>배치 모니터링</span>
             </div>
-            <div className={styles.progressList}>
-              {tomorrowProgress.length === 0 && !isLoading ? (
-                <div className={styles.emptyState}>다가오는 업무 예약이 없습니다.</div>
-              ) : (
-                tomorrowProgress.map((row, index) =>
-                  renderProgressRow(row, index, { showApplySlots: true })
-                )
-              )}
-            </div>
-            <div className={styles.applyList}>
-              {tomorrowApply.length === 0 && !isLoading ? (
-                <div className={styles.emptyState}>D+1 배치가 비어 있습니다.</div>
-              ) : (
-                tomorrowApply.map((row) => (
-                  <div key={row.title} className={styles.applyRow}>
-                    <div className={styles.applyMeta}>
-                      <span className={styles.applyTitle}>{row.title}</span>
-                      <span className={styles.applySubtitle}>{row.subtitle}</span>
+            {isTodayDominant ? (
+              <div className={styles.tomorrowCompactList}>
+                {tomorrowCards.map((card, index) => (
+                  <div key={`${card.code}-${index}`} className={styles.tomorrowCompactRow}>
+                    <div className={styles.tomorrowCompactHeader}>
+                      <span className={styles.tomorrowCompactTitle}>{card.sector}</span>
+                      <span className={styles.tomorrowCompactTotal}>{card.total}건</span>
                     </div>
-                    <span className={styles.applyBadge}>{row.status}</span>
+
+                    <div className={styles.tomorrowCompactMeta}>
+                      <span className={styles.tomorrowMetaLabel}>건물</span>
+                      <div className={styles.tomorrowMetaChips}>
+                        {card.buildings.length ? (
+                          card.buildings.map((building) => (
+                            <span key={building.name} className={styles.metaChip}>
+                              {building.name} {building.total}건
+                            </span>
+                          ))
+                        ) : (
+                          <span className={styles.emptyStateInline}>건물 없음</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className={styles.tomorrowCompactMeta}>
+                      <span className={styles.tomorrowMetaLabel}>체크아웃</span>
+                      <div className={styles.tomorrowMetaChips}>
+                        {card.checkoutTimes.length ? (
+                          card.checkoutTimes.map((checkout) => (
+                            <span key={checkout.time} className={styles.metaChip}>
+                              {checkout.time} · {checkout.total}건
+                            </span>
+                          ))
+                        ) : (
+                          <span className={styles.emptyStateInline}>체크아웃 없음</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className={styles.tomorrowApplyGroupList}>
+                      {card.applySlotGroups.length ? (
+                        card.applySlotGroups.map((group) => (
+                          <div key={`${card.code}-role-${group.role}`} className={styles.tomorrowApplyGroup}>
+                            <span className={styles.tomorrowApplyRole}>Role {group.role}</span>
+                            <div className={styles.tomorrowSlotRow}>
+                              {group.slots.length ? (
+                                [...group.slots]
+                                  .sort((a, b) => a.seq - b.seq)
+                                  .map((slot) => (
+                                    <span
+                                      key={`${card.code}-role-${group.role}-slot-${slot.seq}`}
+                                      className={`${styles.slotBadge} ${
+                                        slot.workerName ? styles.slotAssigned : styles.slotEmpty
+                                      }`}
+                                    >
+                                      슬롯 {slot.seq} · {slot.workerName || '미배정'}
+                                    </span>
+                                  ))
+                              ) : (
+                                <span className={styles.emptyStateInline}>슬롯 없음</span>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className={styles.emptyStateInline}>슬롯 정보 없음</div>
+                      )}
+                    </div>
                   </div>
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.tomorrowCardGrid}>
+                {tomorrowCards.map((card, index) => (
+                  <div key={`${card.code}-${index}`} className={styles.tomorrowCard}>
+                    <div className={styles.tomorrowCardHeader}>
+                      <div>
+                        <p className={styles.tomorrowCardTitle}>{card.sector}</p>
+                        <p className={styles.tomorrowCardSubtitle}>미래 준비 현황(진행률 없음)</p>
+                      </div>
+                      <span className={styles.tomorrowCardTotal}>{card.total}건</span>
+                    </div>
+
+                    <div className={styles.tomorrowSection}>
+                      <p className={styles.tomorrowSectionTitle}>건물별</p>
+                      <div className={styles.tomorrowMetaChips}>
+                        {card.buildings.length ? (
+                          card.buildings.map((building) => (
+                            <span key={building.name} className={styles.metaChip}>
+                              {building.name} {building.total}건
+                            </span>
+                          ))
+                        ) : (
+                          <span className={styles.emptyStateInline}>건물 없음</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className={styles.tomorrowSection}>
+                      <p className={styles.tomorrowSectionTitle}>체크아웃 시각</p>
+                      <div className={styles.tomorrowMetaChips}>
+                        {card.checkoutTimes.length ? (
+                          card.checkoutTimes.map((checkout) => (
+                            <span key={checkout.time} className={styles.metaChip}>
+                              {checkout.time} · {checkout.total}건
+                            </span>
+                          ))
+                        ) : (
+                          <span className={styles.emptyStateInline}>체크아웃 없음</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className={styles.tomorrowSection}>
+                      <p className={styles.tomorrowSectionTitle}>Apply 슬롯 (Role 별)</p>
+                      <div className={styles.tomorrowApplyGroupList}>
+                        {card.applySlotGroups.length ? (
+                          card.applySlotGroups.map((group) => (
+                            <div key={`${card.code}-dominant-role-${group.role}`} className={styles.tomorrowApplyGroup}>
+                              <span className={styles.tomorrowApplyRole}>Role {group.role}</span>
+                              <div className={styles.tomorrowSlotRow}>
+                                {group.slots.length ? (
+                                  [...group.slots]
+                                    .sort((a, b) => a.seq - b.seq)
+                                    .map((slot) => (
+                                      <span
+                                        key={`${card.code}-dominant-role-${group.role}-slot-${slot.seq}`}
+                                        className={`${styles.slotBadge} ${
+                                          slot.workerName ? styles.slotAssigned : styles.slotEmpty
+                                        }`}
+                                      >
+                                        슬롯 {slot.seq} · {slot.workerName || '미배정'}
+                                      </span>
+                                    ))
+                                ) : (
+                                  <span className={styles.emptyStateInline}>슬롯 없음</span>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className={styles.emptyStateInline}>슬롯 정보 없음</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         </div>
       </div>

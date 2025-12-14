@@ -17,6 +17,7 @@ type RawWorkRow = {
   sectorValue: string | null;
   sectorName: string | null;
   roomNo: string | null;
+  checkoutTime: string | null;
   cleanerName: string | null;
   cleanerId: number | null;
   cleaningEndTime: string | null;
@@ -31,6 +32,10 @@ export type WeeklySummaryItem = {
 };
 
 export type RoleSlotSummary = { role: number; total: number; assigned: number };
+export type RoleSlotDetail = { role: number; seq: number; workerName: string | null };
+export type RoleSlotGroup = { role: number; slots: RoleSlotDetail[] };
+
+export type CheckoutTimeSummary = { time: string; total: number };
 
 export type SectorProgress = {
   code: string;
@@ -39,6 +44,8 @@ export type SectorProgress = {
   completed: number;
   buildings: { name: string; total: number; completed: number }[];
   applySlots?: RoleSlotSummary[];
+  applySlotGroups?: RoleSlotGroup[];
+  checkoutTimes?: CheckoutTimeSummary[];
 };
 
 export type RoomStatus = {
@@ -54,18 +61,11 @@ export type RoomStatus = {
   owner: string;
 };
 
-export type ApplyPreview = {
-  title: string;
-  subtitle: string;
-  status: string;
-};
-
 export type WeeklyDashboardSnapshot = {
   summary: WeeklySummaryItem[];
   todayProgress: SectorProgress[];
   tomorrowProgress: SectorProgress[];
   roomStatuses: RoomStatus[];
-  tomorrowApply: ApplyPreview[];
   capturedAt: string;
 };
 
@@ -125,26 +125,35 @@ function mapSummary(
 function buildRoleSlotMap(
   applyRows: Awaited<ReturnType<typeof listApplyRows>>,
   targetKey: string
-): Map<string, RoleSlotSummary[]> {
+): Map<string, { summary: RoleSlotSummary[]; groups: RoleSlotGroup[] }> {
   const slots = applyRows.filter((row) => formatKstDateKey(row.workDate) === targetKey);
 
-  const grouped = new Map<string, RoleSlotSummary[]>();
+  const grouped = new Map<string, { summary: RoleSlotSummary[]; groups: RoleSlotGroup[] }>();
 
   slots.forEach((slot) => {
     const sectorCode = slot.sectorValue;
     if (!sectorCode) return;
 
-    const roleSlots = grouped.get(sectorCode) || [];
-    const existing = roleSlots.find((entry) => entry.role === slot.position);
+    const entry = grouped.get(sectorCode) || { summary: [] as RoleSlotSummary[], groups: [] as RoleSlotGroup[] };
 
-    if (existing) {
-      existing.total += 1;
-      if (slot.workerId) existing.assigned += 1;
+    const summary = entry.summary;
+    const existingSummary = summary.find((s) => s.role === slot.position);
+    if (existingSummary) {
+      existingSummary.total += 1;
+      if (slot.workerId) existingSummary.assigned += 1;
     } else {
-      roleSlots.push({ role: slot.position, total: 1, assigned: slot.workerId ? 1 : 0 });
+      summary.push({ role: slot.position, total: 1, assigned: slot.workerId ? 1 : 0 });
     }
 
-    grouped.set(sectorCode, roleSlots);
+    const groups = entry.groups;
+    const group = groups.find((g) => g.role === slot.position);
+    if (group) {
+      group.slots.push({ role: slot.position, seq: slot.seq, workerName: slot.workerName || null });
+    } else {
+      groups.push({ role: slot.position, slots: [{ role: slot.position, seq: slot.seq, workerName: slot.workerName || null }] });
+    }
+
+    grouped.set(sectorCode, entry);
   });
 
   return grouped;
@@ -153,7 +162,7 @@ function buildRoleSlotMap(
 function mapDayProgress(
   rawRows: RawWorkRow[],
   targetKey: string,
-  roleSlotMap?: Map<string, RoleSlotSummary[]>
+  roleSlotMap?: Map<string, { summary: RoleSlotSummary[]; groups: RoleSlotGroup[] }>
 ): SectorProgress[] {
   const rows = rawRows.filter((row) => formatKstDateKey(row.workDate) === targetKey);
   const grouped = new Map<string, SectorProgress>();
@@ -169,7 +178,8 @@ function mapDayProgress(
       sector: sectorLabel,
       total: 0,
       completed: 0,
-      buildings: [] as SectorProgress['buildings']
+      buildings: [] as SectorProgress['buildings'],
+      checkoutTimes: [] as SectorProgress['checkoutTimes']
     };
 
     const completed = Boolean(row.cleaningEndTime || row.supervisingEndTime);
@@ -188,12 +198,32 @@ function mapDayProgress(
       sector.buildings.push({ name: buildingName, total: 1, completed: completed ? 1 : 0 });
     }
 
+    if (row.checkoutTime) {
+      const timeLabel = row.checkoutTime.slice(0, 5);
+      const checkoutEntry = sector.checkoutTimes?.find((c) => c.time === timeLabel);
+      if (checkoutEntry) {
+        checkoutEntry.total += 1;
+      } else {
+        sector.checkoutTimes?.push({ time: timeLabel, total: 1 });
+      }
+    }
+
     const roleSlots = roleSlotMap?.get(sectorCode);
 
-    grouped.set(key, { ...sector, applySlots: roleSlots?.length ? roleSlots : undefined });
+    grouped.set(key, {
+      ...sector,
+      applySlots: roleSlots?.summary?.length ? roleSlots.summary : undefined,
+      applySlotGroups: roleSlots?.groups?.length ? roleSlots.groups : undefined,
+      checkoutTimes: sector.checkoutTimes?.length ? sector.checkoutTimes : undefined
+    });
   });
 
-  return Array.from(grouped.values()).sort((a, b) => a.code.localeCompare(b.code));
+  return Array.from(grouped.values())
+    .map((sector) => ({
+      ...sector,
+      checkoutTimes: sector.checkoutTimes?.slice().sort((a, b) => a.time.localeCompare(b.time))
+    }))
+    .sort((a, b) => a.code.localeCompare(b.code));
 }
 
 function mapRoomStatuses(rawRows: RawWorkRow[], todayKey: string): RoomStatus[] {
@@ -247,16 +277,6 @@ function mapRoomStatuses(rawRows: RawWorkRow[], todayKey: string): RoomStatus[] 
     });
 }
 
-async function mapTomorrowApply(tomorrowKey: string): Promise<ApplyPreview[]> {
-  const rows = await listApplyRows(tomorrowKey, tomorrowKey);
-
-  return rows.map((row) => ({
-    title: `${row.sectorName || row.sectorValue} · ${row.position === 1 ? '1팀' : '2팀'}`,
-    subtitle: `슬롯 ${row.seq}번${row.workerName ? ` · 담당 ${row.workerName}` : ''}`,
-    status: row.workerName ? '배정 완료' : '대기'
-  }));
-}
-
 export async function fetchWeeklyDashboardData(): Promise<WeeklyDashboardSnapshot> {
   const baseDate = startOfKstDay(0);
   const endDate = startOfKstDay(7);
@@ -299,6 +319,7 @@ export async function fetchWeeklyDashboardData(): Promise<WeeklyDashboardSnapsho
       sectorValue: etcBuildings.sectorValue,
       sectorName: etcBaseCode.value,
       roomNo: clientRooms.roomNo,
+      checkoutTime: clientRooms.checkoutTime,
       cleanerId: workHeader.cleanerId,
       cleanerName: workerHeader.name,
       cleaningEndTime: workHeader.cleaningEndTime,
@@ -335,14 +356,12 @@ export async function fetchWeeklyDashboardData(): Promise<WeeklyDashboardSnapsho
   const todayProgress = mapDayProgress(rawRows, todayKey, todayRoleSlots);
   const tomorrowProgress = mapDayProgress(rawRows, tomorrowKey, tomorrowRoleSlots);
   const roomStatuses = mapRoomStatuses(rawRows, todayKey);
-  const tomorrowApply = await mapTomorrowApply(tomorrowKey);
 
   return {
     summary,
     todayProgress,
     tomorrowProgress,
     roomStatuses,
-    tomorrowApply,
     capturedAt: new Date().toISOString()
   };
 }
