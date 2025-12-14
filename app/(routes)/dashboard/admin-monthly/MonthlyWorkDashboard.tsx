@@ -66,7 +66,8 @@ function formatDateKey(date: Date) {
 }
 
 function parseDate(dateString: string) {
-  return new Date(`${dateString}T00:00:00`);
+  const [year, month, day] = dateString.split('-').map((part) => Number(part));
+  return new Date(year, (month ?? 1) - 1, day ?? 1);
 }
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
