@@ -1192,7 +1192,13 @@
 
 .dayCounts {
   font-size: 0.88rem;
-  color: var(--text-muted);
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.dayMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .workerList {
@@ -1231,9 +1237,9 @@
 }
 
 .todayCell {
-  border: 2px solid #a855f7;
-  box-shadow: 0 0 14px rgba(168, 85, 247, 0.8), 0 0 32px rgba(59, 130, 246, 0.55);
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.22) 0%, rgba(14, 165, 233, 0.14) 100%),
+  border: 2px solid #67e8f9;
+  box-shadow: 0 0 14px rgba(103, 232, 249, 0.95), 0 0 32px rgba(125, 211, 252, 0.72);
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.24) 0%, rgba(14, 165, 233, 0.2) 100%),
     radial-gradient(circle at 80% 20%, rgba(14, 165, 233, 0.25), transparent 42%),
     radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.18), transparent 38%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));

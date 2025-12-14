@@ -29,8 +29,9 @@ export async function GET() {
 
   const today = nowKst();
   const monthStart = today.startOf('month');
-  const start = ensureStartOfWeekKst(monthStart);
-  const end = start.plus({ days: 41 });
+  const prevMonthStart = monthStart.minus({ months: 1 }).startOf('month');
+  const calendarStart = ensureStartOfWeekKst(monthStart);
+  const end = calendarStart.plus({ days: 41 });
 
   try {
     const weeklyPatterns = await db
@@ -54,14 +55,16 @@ export async function GET() {
       .where(
         and(
           eq(workerHeader.tier, 99),
-          gte(workerScheduleException.excptDate, formatKstDateKey(start.toJSDate())),
+          gte(workerScheduleException.excptDate, formatKstDateKey(prevMonthStart.toJSDate())),
           lte(workerScheduleException.excptDate, formatKstDateKey(end.toJSDate()))
         )
       )
       .orderBy(asc(workerScheduleException.excptDate), asc(workerHeader.name));
 
     return NextResponse.json({
-      startDate: formatKstDateKey(start.toJSDate()),
+      startDate: formatKstDateKey(calendarStart.toJSDate()),
+      prevMonthStartDate: formatKstDateKey(prevMonthStart.toJSDate()),
+      currentMonthStartDate: formatKstDateKey(monthStart.toJSDate()),
       endDate: formatKstDateKey(end.toJSDate()),
       today: formatKstDateKey(today.toJSDate()),
       weeklyPatterns,
