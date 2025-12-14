@@ -7,9 +7,14 @@ import type { ProfileSummary } from '@/src/utils/profile';
 
 type ProfileProps = { profile: ProfileSummary };
 
+type WorkerDisplay = {
+  name: string;
+  status: 'base' | 'added' | 'canceled';
+};
+
 type DayAttendance = {
   date: Date;
-  workers: string[];
+  workers: WorkerDisplay[];
   workYn: boolean;
   cancelYn: boolean;
   addYn: boolean;
@@ -92,26 +97,30 @@ function buildWeeks(
       .map((row) => ({ ...row, worker: row.worker || `워커-${row.workerId}` }));
     const dailyExceptions = exceptionRows.filter((row) => formatDateKey(row.date) === key);
 
-    const workerNames = new Set(baseWorkers.map((row) => row.worker));
+    const cancelWorkers = dailyExceptions.filter((row) => row.cancelWork);
+    const cancelWorkerNames = new Set(cancelWorkers.map((row) => row.worker));
 
-    dailyExceptions
+    const activeBaseWorkers = baseWorkers
+      .filter((row) => !cancelWorkerNames.has(row.worker))
+      .map((row) => row.worker);
+
+    const addedWorkers = dailyExceptions
       .filter((row) => row.addWork)
-      .forEach((row) => {
-        workerNames.add(row.worker);
-      });
+      .map((row) => row.worker)
+      .filter((name) => name);
 
-    dailyExceptions
-      .filter((row) => row.cancelWork)
-      .forEach((row) => {
-        workerNames.delete(row.worker);
-      });
+    const workerEntries: WorkerDisplay[] = [
+      ...activeBaseWorkers.map((name) => ({ name, status: 'base' as const })),
+      ...addedWorkers.map((name) => ({ name, status: 'added' as const })),
+      ...cancelWorkers.map((row) => ({ name: row.worker, status: 'canceled' as const }))
+    ].sort((a, b) => a.name.localeCompare(b.name));
 
     days.push({
       date,
-      workers: Array.from(workerNames).sort(),
-      workYn: workerNames.size > 0,
-      cancelYn: dailyExceptions.some((row) => row.cancelWork),
-      addYn: dailyExceptions.some((row) => row.addWork),
+      workers: workerEntries,
+      workYn: activeBaseWorkers.length + addedWorkers.length > 0,
+      cancelYn: cancelWorkers.length > 0,
+      addYn: addedWorkers.length > 0,
       baseWorkerCount: baseWorkers.length
     });
   }
@@ -137,6 +146,14 @@ function formatDisplayDate(date: Date) {
   const day = `${date.getDate()}`.padStart(2, '0');
   const weekday = WEEKDAY_LABELS[date.getDay()];
   return `${month}/${day} (${weekday})`;
+}
+
+function chunkWorkers(workers: WorkerDisplay[], size: number) {
+  const rows: WorkerDisplay[][] = [];
+  for (let i = 0; i < workers.length; i += size) {
+    rows.push(workers.slice(i, i + size));
+  }
+  return rows;
 }
 
 export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps) {
@@ -196,12 +213,6 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
 
         <div className={styles.monthlyGrid}>
           <section className={styles.calendarPanel}>
-            <div className={styles.monthBanner}>
-              <p className={styles.monthLabel}>
-                {currentYear}년 {currentMonthIndex + 1}월
-              </p>
-            </div>
-
             <div className={styles.calendarGrid}>
               {WEEKDAY_LABELS.map((label) => (
                 <div key={`weekday-${label}`} className={styles.weekday}>
@@ -218,6 +229,7 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
                   const key = formatDateKey(day.date);
                   const isToday = key === todayKey;
                   const isAddedOffDay = day.baseWorkerCount === 0 && day.addYn;
+                  const workerRows = chunkWorkers(day.workers, 3);
                   return (
                     <div
                       key={key}
@@ -237,7 +249,24 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
                         {day.workers.length === 0 ? (
                           <span className={styles.noWorker}>근무 없음</span>
                         ) : (
-                          day.workers.map((worker) => <span key={`${key}-${worker}`}>{worker}</span>)
+                          workerRows.map((row, rowIndex) => (
+                            <div key={`${key}-row-${rowIndex}`} className={styles.workerRow}>
+                              {row.map((worker) => (
+                                <span
+                                  key={`${key}-${worker.name}-${worker.status}`}
+                                  className={`${styles.workerTag} ${
+                                    worker.status === 'added'
+                                      ? styles.workerAdded
+                                      : worker.status === 'canceled'
+                                        ? styles.workerCanceled
+                                        : ''
+                                  }`}
+                                >
+                                  {worker.name}
+                                </span>
+                              ))}
+                            </div>
+                          ))
                         )}
                       </div>
                     </div>
@@ -248,6 +277,9 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
           </section>
 
           <section className={`${styles.summaryCardTall} ${styles.exceptionCard}`}>
+            <div className={styles.sideHeader}>
+              <p className={styles.sideMonth}>{`${currentYear}-${`${currentMonthIndex + 1}`.padStart(2, '0')}`}</p>
+            </div>
             <div className={styles.exceptionList}>
               {exceptions.length === 0 ? (
                 <div className={styles.emptyState}>예외 근무가 없습니다.</div>
