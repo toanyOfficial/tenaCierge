@@ -35,7 +35,14 @@ type MonthlyApiResponse = {
   endDate: string;
   today: string;
   weeklyPatterns: { workerId: number; worker: string; weekday: number }[];
-  exceptions: { id: number; workerId: number; worker: string; excptDate: string; addWorkYn: boolean; cancelWorkYn: boolean }[];
+  exceptions: {
+    id: number;
+    workerId: number;
+    worker: string;
+    excptDate: string;
+    addWorkYn: boolean;
+    cancelWorkYn: boolean;
+  }[];
 };
 
 function formatDateKey(date: Date) {
@@ -103,6 +110,7 @@ function buildWeeks(
       workYn: workerNames.size > 0,
       cancelYn: dailyExceptions.some((row) => row.cancelWork)
     });
+  }
 
   const weeks: WeekAttendance[] = [];
   for (let i = 0; i < 6; i += 1) {
@@ -184,19 +192,6 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
   return (
     <div className={`${styles.weeklyShell} ${styles.monthlyShell}`}>
       <div className={`${styles.weeklyCanvas} ${styles.monthlyCanvas}`}>
-        <header className={styles.pageHeader}>
-          <div>
-            <p className={styles.pageTitle}>대시보드 - 월간업무</p>
-            <p className={styles.pageSubtitle}>
-              worker_weekly_pattern · worker_schedule_exception 데이터 기반으로 이번 주 중심 6주 달력을 노출합니다.
-            </p>
-          </div>
-          <div className={styles.pageBadges}>
-            {dateRange && <span className={styles.pageMeta}>{dateRange.start} ~ {dateRange.end}</span>}
-            <span className={styles.refreshBadge}>최신 기준 {formatDateKey(refreshedAt)}</span>
-          </div>
-        </header>
-
         {error ? <div className={styles.errorBadge}>{error}</div> : null}
 
         <div className={styles.monthlyGrid}>
@@ -205,6 +200,10 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
               <div>
                 <p className={styles.cardTitle}>월간 출퇴근 현황(6주)</p>
                 <p className={styles.cardMeta}>주간업무 톤앤매너 · 실데이터 캘린더</p>
+              </div>
+              <div className={styles.pageBadges}>
+                {dateRange && <span className={styles.pageMeta}>{dateRange.start} ~ {dateRange.end}</span>}
+                <span className={styles.refreshBadge}>최신 기준 {formatDateKey(refreshedAt)}</span>
               </div>
               <div className={styles.legend}>
                 <span className={styles.legendItem}>
