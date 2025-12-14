@@ -857,7 +857,6 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                       <div className={styles.tomorrowCardHeader}>
                         <div className={styles.tomorrowCardTitleWrap}>
                           <p className={styles.tomorrowCardTitle}>{card.sector}</p>
-                          <p className={styles.tomorrowCardSubtitle}>익일 배치 현황</p>
                         </div>
                         <div className={styles.tomorrowCardTotalBlock}>
                           <span className={styles.tomorrowCardTotalLabel}>총 예정</span>
@@ -873,10 +872,7 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                         <div className={styles.tomorrowCardBody}>
                           <div className={`${styles.tomorrowSection} ${styles.tomorrowSectionBuilding}`}>
                             <div className={styles.sectionBar} aria-hidden />
-                            <div className={styles.sectionHeading}>
-                              <p className={styles.tomorrowSectionTitle}>건물 · 체크아웃</p>
-                              <span className={styles.sectionHint}>건물별 박스 안에 체크아웃별 물량</span>
-                            </div>
+                            <p className={styles.tomorrowSectionTitle}>건물 · 체크아웃</p>
                             <div className={styles.tomorrowBuildingGrid}>
                               {card.checkoutByBuilding.length ? (
                                 card.checkoutByBuilding.map((building) => {
@@ -910,17 +906,14 @@ export default function WeeklyWorkDashboard({ profile: _profile }: ProfileProps)
                                 <div className={styles.emptyStateInline}>건물/체크아웃 정보 없음</div>
                               )}
                             </div>
-                          </div>
-
-                          <div className={`${styles.tomorrowSection} ${styles.tomorrowSectionSlots}`}>
-                            <div className={styles.sectionBar} aria-hidden />
-                            <div className={styles.sectionHeading}>
-                              <p className={styles.tomorrowSectionTitle}>Apply 슬롯 · 역할별</p>
-                              <span className={styles.sectionHint}>클리너/버틀러 슬롯을 구분해 표시</span>
                             </div>
-                            <div className={styles.tomorrowApplyGroupList}>
-                              {card.applySlotGroups.length ? (
-                                card.applySlotGroups.map((group) => (
+
+                            <div className={`${styles.tomorrowSection} ${styles.tomorrowSectionSlots}`}>
+                              <div className={styles.sectionBar} aria-hidden />
+                              <p className={styles.tomorrowSectionTitle}>Apply 슬롯 · 역할별</p>
+                              <div className={styles.tomorrowApplyGroupList}>
+                                {card.applySlotGroups.length ? (
+                                  card.applySlotGroups.map((group) => (
                                   <div key={`${card.code}-dominant-role-${group.role}`} className={styles.tomorrowApplyGroup}>
                                     <div className={styles.slotHeaderRow}>
                                       <span className={styles.tomorrowApplyRole}>{resolveRoleLabel(group.role)}</span>
