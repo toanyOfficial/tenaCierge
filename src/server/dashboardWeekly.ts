@@ -319,8 +319,7 @@ function mapRoomStatuses(rawRows: RawWorkRow[], todayKey: string): RoomStatus[] 
 }
 
 export async function fetchWeeklyDashboardData(): Promise<WeeklyDashboardSnapshot> {
-  const tmp_20251215DateOffset = -1; // 임시: 어제 기준으로 스냅샷 요청 (tmp_20251215)
-  const baseDate = startOfKstDay(tmp_20251215DateOffset);
+  const baseDate = startOfKstDay();
   const endDate = startOfKstDay(7);
   const dayKeys = Array.from({ length: 8 }, (_, i) => {
     const next = new Date(baseDate);
