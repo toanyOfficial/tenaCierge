@@ -175,6 +175,9 @@ function buildCumulativeCounts(
   const prevMonthIndex = prevMonthDate.getMonth();
   const prevMonthYear = prevMonthDate.getFullYear();
 
+  const prevMonthDays = new Date(prevMonthYear, prevMonthIndex + 1, 0).getDate();
+  const currentMonthDays = new Date(currentYear, currentMonthIndex + 1, 0).getDate();
+
   let prevRunning = 0;
   let currentRunning = 0;
 
@@ -184,11 +187,7 @@ function buildCumulativeCounts(
     return acc;
   }, {});
 
-  const dayDiff = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-
-  for (let i = 0; i <= dayDiff; i += 1) {
-    const date = new Date(startDate);
-    date.setDate(startDate.getDate() + i);
+  const computeEffectiveCount = (date: Date) => {
     const key = formatDateKey(date);
     const weekday = date.getDay();
 
@@ -199,17 +198,47 @@ function buildCumulativeCounts(
 
     const cancelWorkers = new Set(dailyExceptions.filter((row) => row.cancelWork).map((row) => row.worker));
     const addedWorkers = dailyExceptions.filter((row) => row.addWork).map((row) => row.worker).filter(Boolean);
-    const effectiveCount = baseWorkers.filter((name) => !cancelWorkers.has(name)).length + addedWorkers.length;
 
-    if (date.getFullYear() === prevMonthYear && date.getMonth() === prevMonthIndex) {
-      prevRunning += effectiveCount;
-    }
+    return baseWorkers.filter((name) => !cancelWorkers.has(name)).length + addedWorkers.length;
+  };
 
+  const prevTotals: number[] = [];
+  for (let day = 1; day <= prevMonthDays; day += 1) {
+    const date = new Date(prevMonthYear, prevMonthIndex, day);
+    prevRunning += computeEffectiveCount(date);
+    prevTotals[day] = prevRunning;
+  }
+
+  const currentTotals: number[] = [];
+  for (let day = 1; day <= currentMonthDays; day += 1) {
+    const date = new Date(currentYear, currentMonthIndex, day);
+    currentRunning += computeEffectiveCount(date);
+    currentTotals[day] = currentRunning;
+  }
+
+  const dayDiff = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+  const currentMonthStart = new Date(currentYear, currentMonthIndex, 1).getTime();
+
+  for (let i = 0; i <= dayDiff; i += 1) {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + i);
+    const key = formatDateKey(date);
+    const dayOfMonth = date.getDate();
+
+    const prevIndex = Math.min(dayOfMonth, prevMonthDays);
+    const currentIndex = Math.min(dayOfMonth, currentMonthDays);
+
+    const prevCount = prevTotals[prevIndex] ?? prevTotals[prevTotals.length - 1] ?? 0;
+
+    let currentCount = 0;
     if (date.getFullYear() === currentYear && date.getMonth() === currentMonthIndex) {
-      currentRunning += effectiveCount;
+      currentCount = currentTotals[currentIndex] ?? currentTotals[currentTotals.length - 1] ?? 0;
+    } else if (date.getTime() >= currentMonthStart) {
+      currentCount = currentTotals[currentMonthDays] ?? currentTotals[currentTotals.length - 1] ?? 0;
     }
 
-    totals[key] = { prev: prevRunning, current: currentRunning };
+    totals[key] = { prev: prevCount, current: currentCount };
   }
 
   return totals;
@@ -303,7 +332,8 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
                   const isToday = key === todayKey;
                   const isAddedOffDay = day.baseWorkerCount === 0 && day.addYn;
                   const totals = cumulativeCounts[key] ?? { prev: 0, current: 0 };
-                  const dayLabel = `${`${day.date.getDate()}`.padStart(2, '0')}(${totals.prev}/${totals.current})`;
+                  const dayNumber = `${`${day.date.getDate()}`.padStart(2, '0')}`;
+                  const dayGauge = `(${totals.prev}/${totals.current})`;
                   const workerRows = chunkWorkers(day.workers, 3);
                   return (
                     <div
@@ -318,8 +348,8 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
                     >
                       <div className={styles.calendarCellHeader}>
                         <div className={styles.dayMeta}>
-                          <span className={styles.dayNumber}>{day.date.getDate()}</span>
-                          <span className={styles.dayCounts}>{dayLabel}</span>
+                          <span className={styles.dayNumber}>{dayNumber}</span>
+                          <span className={styles.dayCounts}>{dayGauge}</span>
                         </div>
                         {isToday && <span className={styles.todayPill}>오늘</span>}
                       </div>
