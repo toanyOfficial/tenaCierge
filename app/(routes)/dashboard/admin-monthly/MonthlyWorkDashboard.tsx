@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import styles from '../admin/work-dashboard.module.css';
-import CommonHeader from '../CommonHeader';
 import type { ProfileSummary } from '@/src/utils/profile';
 
 type ProfileProps = { profile: ProfileSummary };
@@ -23,11 +22,20 @@ type WeekAttendance = {
 };
 
 type WorkerScheduleException = {
+  id: number;
+  workerId: number;
   worker: string;
   date: Date;
   addWork: boolean;
   cancelWork: boolean;
-  note?: string;
+};
+
+type MonthlyApiResponse = {
+  startDate: string;
+  endDate: string;
+  today: string;
+  weeklyPatterns: { workerId: number; worker: string; weekday: number }[];
+  exceptions: { id: number; workerId: number; worker: string; excptDate: string; addWorkYn: boolean; cancelWorkYn: boolean }[];
 };
 
 function formatDateKey(date: Date) {
@@ -41,92 +49,113 @@ function formatWeekLabel(start: Date, end: Date) {
   return `${start.getMonth() + 1}/${start.getDate()} - ${end.getMonth() + 1}/${end.getDate()}`;
 }
 
-function startOfWeek(date: Date) {
-  const clone = new Date(date);
-  const day = clone.getDay();
-  clone.setDate(clone.getDate() - day);
-  clone.setHours(0, 0, 0, 0);
-  return clone;
+function parseDate(dateString: string) {
+  return new Date(`${dateString}T00:00:00`);
 }
 
-function withDailyRefresh(callback: () => void) {
-  const now = new Date();
-  const next = new Date(now);
-  next.setHours(16, 30, 0, 0);
-  if (next <= now) {
-    next.setDate(next.getDate() + 1);
-  }
-  const delay = next.getTime() - now.getTime();
-  let interval: ReturnType<typeof setInterval> | undefined;
-  const timeout = setTimeout(() => {
-    callback();
-    interval = setInterval(callback, 24 * 60 * 60 * 1000);
-  }, delay);
-  return () => {
-    clearTimeout(timeout);
-    if (interval) {
-      clearInterval(interval);
-    }
-  };
-}
+function buildWeeks(
+  startKey: string,
+  todayKey: string,
+  weeklyPatterns: MonthlyApiResponse['weeklyPatterns'],
+  exceptions: MonthlyApiResponse['exceptions']
+): { weeks: WeekAttendance[]; exceptionRows: WorkerScheduleException[] } {
+  const startDate = parseDate(startKey);
+  const days: DayAttendance[] = [];
+  const exceptionRows: WorkerScheduleException[] = exceptions
+    .map((row) => ({
+      id: row.id,
+      workerId: row.workerId,
+      worker: row.worker || `워커-${row.workerId}`,
+      date: parseDate(row.excptDate),
+      addWork: row.addWorkYn,
+      cancelWork: row.cancelWorkYn
+    }))
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
 
-function buildSampleWeeks(now: Date): WeekAttendance[] {
-  const sampleWorkers = ['김정윤', '이지훈', '박서연', '최민수', '윤다혜', '정유나', '박도현'];
-  const anchor = startOfWeek(now);
-  const start = new Date(anchor);
-  start.setDate(anchor.getDate() - 14); // before 2 weeks
+  for (let i = 0; i < 6 * 7; i += 1) {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + i);
+    const key = formatDateKey(date);
+    const weekday = date.getDay();
 
-  return Array.from({ length: 6 }).map((_, weekIndex) => {
-    const weekStart = new Date(start);
-    weekStart.setDate(start.getDate() + weekIndex * 7);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
+    const baseWorkers = weeklyPatterns
+      .filter((row) => row.weekday === weekday)
+      .map((row) => ({ ...row, worker: row.worker || `워커-${row.workerId}` }));
+    const dailyExceptions = exceptionRows.filter((row) => formatDateKey(row.date) === key);
 
-    const days: DayAttendance[] = Array.from({ length: 7 }).map((__, dayIndex) => {
-      const day = new Date(weekStart);
-      day.setDate(weekStart.getDate() + dayIndex);
-      const workerSlice = ((weekIndex + 1) * (dayIndex + 2)) % sampleWorkers.length;
-      const workerCount = Math.max(2, workerSlice);
-      const workers = sampleWorkers.slice(0, workerCount);
-      const workYn = (weekIndex + dayIndex) % 3 === 0;
-      const cancelYn = (weekIndex + dayIndex + 1) % 6 === 0;
-      return { date: day, workers, workYn, cancelYn };
+    const workerNames = new Set(baseWorkers.map((row) => row.worker));
+
+    dailyExceptions
+      .filter((row) => row.addWork)
+      .forEach((row) => {
+        workerNames.add(row.worker);
+      });
+
+    dailyExceptions
+      .filter((row) => row.cancelWork)
+      .forEach((row) => {
+        workerNames.delete(row.worker);
+      });
+
+    days.push({
+      date,
+      workers: Array.from(workerNames).sort(),
+      workYn: workerNames.size > 0,
+      cancelYn: dailyExceptions.some((row) => row.cancelWork)
     });
 
-    const isCurrentWeek = now >= weekStart && now <= weekEnd;
+  const weeks: WeekAttendance[] = [];
+  for (let i = 0; i < 6; i += 1) {
+    const weekDays = days.slice(i * 7, (i + 1) * 7);
+    weeks.push({
+      start: weekDays[0]?.date ?? new Date(),
+      end: weekDays[6]?.date ?? new Date(),
+      days: weekDays,
+      isCurrentWeek:
+        todayKey >= formatDateKey(weekDays[0]?.date ?? new Date()) &&
+        todayKey <= formatDateKey(weekDays[6]?.date ?? new Date())
+    });
+  }
 
-    return { start: weekStart, end: weekEnd, days, isCurrentWeek };
-  });
+  return { weeks, exceptionRows };
 }
 
-function buildSampleExceptions(): WorkerScheduleException[] {
-  const base = startOfWeek(new Date());
-  const exceptions: WorkerScheduleException[] = [
-    { worker: '김정윤', date: new Date(base), addWork: true, cancelWork: false, note: '긴급 투입' },
-    { worker: '이지훈', date: new Date(base), addWork: false, cancelWork: true, note: '연차' },
-    { worker: '박서연', date: new Date(base.getTime() + 3 * 24 * 60 * 60 * 1000), addWork: true, cancelWork: false },
-    { worker: '최민수', date: new Date(base.getTime() - 5 * 24 * 60 * 60 * 1000), addWork: false, cancelWork: true, note: '병가' },
-    { worker: '윤다혜', date: new Date(base.getTime() + 9 * 24 * 60 * 60 * 1000), addWork: true, cancelWork: false, note: '현장 요청' },
-    { worker: '정유나', date: new Date(base.getTime() + 11 * 24 * 60 * 60 * 1000), addWork: false, cancelWork: true }
-  ];
-
-  return exceptions.sort((a, b) => a.date.getTime() - b.date.getTime());
-}
-
-export default function MonthlyWorkDashboard({ profile }: ProfileProps) {
-  const [weeks, setWeeks] = useState<WeekAttendance[]>(() => buildSampleWeeks(new Date()));
+export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps) {
+  const [weeks, setWeeks] = useState<WeekAttendance[]>([]);
   const [refreshedAt, setRefreshedAt] = useState<Date>(new Date());
-  const [exceptions, setExceptions] = useState<WorkerScheduleException[]>(() => buildSampleExceptions());
+  const [exceptions, setExceptions] = useState<WorkerScheduleException[]>([]);
+  const [dateRange, setDateRange] = useState<{ start: string; end: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const todayKey = formatDateKey(new Date());
 
-  useEffect(() =>
-    withDailyRefresh(() => {
-      setWeeks(buildSampleWeeks(new Date()));
-      setExceptions(buildSampleExceptions());
-      setRefreshedAt(new Date());
-    }),
-  []);
+  useEffect(() => {
+    async function load() {
+      try {
+        const response = await fetch('/api/admin/schedule/monthly-dashboard');
+        if (!response.ok) {
+          throw new Error('월간 데이터를 불러오지 못했습니다.');
+        }
+        const data: MonthlyApiResponse = await response.json();
+        const { weeks: mappedWeeks, exceptionRows } = buildWeeks(
+          data.startDate,
+          data.today,
+          data.weeklyPatterns,
+          data.exceptions
+        );
+        setWeeks(mappedWeeks);
+        setExceptions(exceptionRows);
+        setDateRange({ start: data.startDate, end: data.endDate });
+        setRefreshedAt(new Date());
+        setError(null);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : '월간 데이터를 불러오는 중 오류가 발생했습니다.';
+        setError(message);
+      }
+    }
+
+    load();
+  }, []);
 
   const summary = useMemo(
     () =>
@@ -155,27 +184,27 @@ export default function MonthlyWorkDashboard({ profile }: ProfileProps) {
   return (
     <div className={`${styles.weeklyShell} ${styles.monthlyShell}`}>
       <div className={`${styles.weeklyCanvas} ${styles.monthlyCanvas}`}>
-        <CommonHeader profile={profile} activeRole="admin" onRoleChange={() => {}} />
-
         <header className={styles.pageHeader}>
           <div>
             <p className={styles.pageTitle}>대시보드 - 월간업무</p>
             <p className={styles.pageSubtitle}>
-              주간업무 UI 톤앤매너를 그대로 적용한 6주 범위(이전 2주 + 이번 주 + 이후 3주) 달력입니다.
+              worker_weekly_pattern · worker_schedule_exception 데이터 기반으로 이번 주 중심 6주 달력을 노출합니다.
             </p>
           </div>
           <div className={styles.pageBadges}>
-            <span className={styles.refreshBadge}>16:30 자동 새로고침</span>
-            <span className={styles.pageMeta}>기준: 이번 주 중심</span>
+            {dateRange && <span className={styles.pageMeta}>{dateRange.start} ~ {dateRange.end}</span>}
+            <span className={styles.refreshBadge}>최신 기준 {formatDateKey(refreshedAt)}</span>
           </div>
         </header>
+
+        {error ? <div className={styles.errorBadge}>{error}</div> : null}
 
         <div className={styles.monthlyGrid}>
           <section className={`${styles.calendarCard} ${styles.monthlyCard}`}>
             <div className={styles.calendarHeader}>
               <div>
-                <p className={styles.cardTitle}>월간 출퇴근 현황(6주 라인)</p>
-                <p className={styles.cardMeta}>매일 16:30 새로고침 · {formatDateKey(refreshedAt)}</p>
+                <p className={styles.cardTitle}>월간 출퇴근 현황(6주)</p>
+                <p className={styles.cardMeta}>주간업무 톤앤매너 · 실데이터 캘린더</p>
               </div>
               <div className={styles.legend}>
                 <span className={styles.legendItem}>
@@ -190,55 +219,59 @@ export default function MonthlyWorkDashboard({ profile }: ProfileProps) {
             </div>
 
             <div className={styles.weekList}>
-              {weeks.map((week, idx) => (
-                <div
-                  key={formatDateKey(week.start)}
-                  className={`${styles.weekRow} ${week.isCurrentWeek ? styles.currentWeekRow : ''}`}
-                >
-                  <div className={styles.weekMeta}>
-                    <div>
-                      <p className={styles.weekLabel}>W{idx + 1} · {formatWeekLabel(week.start, week.end)}</p>
-                      <p className={styles.weekRange}>
-                        출근 합계 {summary[idx]?.totalWorkers ?? 0}명 · work_yn={summary[idx]?.workFlags.work ?? 0} · cancel_yn={
-                          summary[idx]?.workFlags.cancel ?? 0
-                        }
-                      </p>
-                    </div>
-                    {week.isCurrentWeek && <span className={styles.refreshBadge}>이번주</span>}
-                  </div>
-
-                  <div className={styles.weekGrid}>
-                    {['일', '월', '화', '수', '목', '금', '토'].map((label) => (
-                      <div key={`${formatDateKey(week.start)}-${label}-label`} className={styles.weekday}>
-                        {label}
+              {weeks.length === 0 ? (
+                <div className={styles.emptyState}>실제 달력 데이터를 준비하고 있습니다.</div>
+              ) : (
+                weeks.map((week, idx) => (
+                  <div
+                    key={formatDateKey(week.start)}
+                    className={`${styles.weekRow} ${week.isCurrentWeek ? styles.currentWeekRow : ''}`}
+                  >
+                    <div className={styles.weekMeta}>
+                      <div>
+                        <p className={styles.weekLabel}>W{idx + 1} · {formatWeekLabel(week.start, week.end)}</p>
+                        <p className={styles.weekRange}>
+                          출근 합계 {summary[idx]?.totalWorkers ?? 0}명 · work_yn={summary[idx]?.workFlags.work ?? 0} · cancel_yn={
+                            summary[idx]?.workFlags.cancel ?? 0
+                          }
+                        </p>
                       </div>
-                    ))}
-                    {week.days.map((day) => {
-                      const key = formatDateKey(day.date);
-                      const isToday = key === todayKey;
-                      return (
-                        <div
-                          key={key}
-                          className={`${styles.weekCell} ${day.workYn ? styles.workCell : ''} ${
-                            day.cancelYn ? styles.cancelCell : ''
-                          } ${isToday ? styles.todayCell : ''}`}
-                        >
-                          <div className={styles.weekCellHeader}>
-                            <span className={styles.dayNumber}>{day.date.getDate()}</span>
-                            {isToday && <span className={styles.todayPill}>오늘</span>}
-                          </div>
-                          <span className={styles.dayCounts}>출근 인원 {day.workers.length}명</span>
-                          <div className={styles.workerList}>
-                            {day.workers.map((worker) => (
-                              <span key={`${key}-${worker}`}>{worker}</span>
-                            ))}
-                          </div>
+                      {week.isCurrentWeek && <span className={styles.refreshBadge}>이번주</span>}
+                    </div>
+
+                    <div className={styles.weekGrid}>
+                      {['일', '월', '화', '수', '목', '금', '토'].map((label) => (
+                        <div key={`${formatDateKey(week.start)}-${label}-label`} className={styles.weekday}>
+                          {label}
                         </div>
-                      );
-                    })}
+                      ))}
+                      {week.days.map((day) => {
+                        const key = formatDateKey(day.date);
+                        const isToday = key === todayKey;
+                        return (
+                          <div
+                            key={key}
+                            className={`${styles.weekCell} ${day.workYn ? styles.workCell : ''} ${
+                              day.cancelYn ? styles.cancelCell : ''
+                            } ${isToday ? styles.todayCell : ''}`}
+                          >
+                            <div className={styles.weekCellHeader}>
+                              <span className={styles.dayNumber}>{day.date.getDate()}</span>
+                              {isToday && <span className={styles.todayPill}>오늘</span>}
+                            </div>
+                            <span className={styles.dayCounts}>출근 인원 {day.workers.length}명</span>
+                            <div className={styles.workerList}>
+                              {day.workers.map((worker) => (
+                                <span key={`${key}-${worker}`}>{worker}</span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </section>
 
@@ -248,34 +281,37 @@ export default function MonthlyWorkDashboard({ profile }: ProfileProps) {
                 <p className={styles.cardTitle}>worker_schedule_exception</p>
                 <p className={styles.cardMeta}>+{exceptionTotals.add} / -{exceptionTotals.cancel} · 6주 범위 사전 노출</p>
               </div>
-              <span className={styles.refreshBadge}>주간업무 톤앤매너</span>
+              <span className={styles.refreshBadge}>실데이터</span>
             </div>
 
             <div className={styles.exceptionList}>
-              {exceptions.map((item) => {
-                const key = formatDateKey(item.date);
-                return (
-                  <div key={`${item.worker}-${key}`} className={styles.exceptionRow}>
-                    <div className={styles.exceptionMeta}>
-                      <p className={styles.exceptionDate}>{key}</p>
-                      <p className={styles.exceptionWorker}>{item.worker}</p>
-                      {item.note && <p className={styles.exceptionNote}>{item.note}</p>}
+              {exceptions.length === 0 ? (
+                <div className={styles.emptyState}>예외 근무가 없습니다.</div>
+              ) : (
+                exceptions.map((item) => {
+                  const key = formatDateKey(item.date);
+                  return (
+                    <div key={`${item.id}-${key}`} className={styles.exceptionRow}>
+                      <div className={styles.exceptionMeta}>
+                        <p className={styles.exceptionDate}>{key}</p>
+                        <p className={styles.exceptionWorker}>{item.worker}</p>
+                      </div>
+                      <div className={styles.exceptionBadges}>
+                        {item.addWork && (
+                          <span className={`${styles.exceptionPill} ${styles.workPill} ${styles.inlineExceptionPill}`}>
+                            add_work_yn=1
+                          </span>
+                        )}
+                        {item.cancelWork && (
+                          <span className={`${styles.exceptionPill} ${styles.cancelPill} ${styles.inlineExceptionPill}`}>
+                            cancel_work_yn=1
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className={styles.exceptionBadges}>
-                      {item.addWork && (
-                        <span className={`${styles.exceptionPill} ${styles.workPill} ${styles.inlineExceptionPill}`}>
-                          add_work_yn=1
-                        </span>
-                      )}
-                      {item.cancelWork && (
-                        <span className={`${styles.exceptionPill} ${styles.cancelPill} ${styles.inlineExceptionPill}`}>
-                          cancel_work_yn=1
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </section>
         </div>
