@@ -334,7 +334,7 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
                       } ${day.isCurrentWeek ? styles.currentWeekCell : ''} ${
                         day.isCurrentMonth ? '' : styles.outsideMonth
                       }`}
-                    >
+                      >
                       <div className={styles.calendarCellHeader}>
                         <div className={styles.dayMeta}>
                           <span className={styles.dayNumber}>{dayNumber}</span>
