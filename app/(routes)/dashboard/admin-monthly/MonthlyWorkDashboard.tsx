@@ -103,7 +103,6 @@ function buildWeeks(
       workYn: workerNames.size > 0,
       cancelYn: dailyExceptions.some((row) => row.cancelWork)
     });
-  }
 
   const weeks: WeekAttendance[] = [];
   for (let i = 0; i < 6; i += 1) {
