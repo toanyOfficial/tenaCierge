@@ -117,7 +117,13 @@ function buildWeeks(
       ...activeBaseWorkers.map((name) => ({ name, status: 'base' as const })),
       ...addedWorkers.map((name) => ({ name, status: 'added' as const })),
       ...cancelWorkers.map((row) => ({ name: row.worker, status: 'canceled' as const }))
-    ].sort((a, b) => a.name.localeCompare(b.name));
+    ].sort((a, b) => {
+      const order = { base: 0, added: 1, canceled: 2 } as const;
+      if (order[a.status] !== order[b.status]) {
+        return order[a.status] - order[b.status];
+      }
+      return a.name.localeCompare(b.name);
+    });
 
     const effectiveWorkerCount = activeBaseWorkers.length + addedWorkers.length;
 
