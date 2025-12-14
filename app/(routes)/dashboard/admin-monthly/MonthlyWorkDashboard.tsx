@@ -55,6 +55,7 @@ type MonthlyApiResponse = {
     addWorkYn: boolean;
     cancelWorkYn: boolean;
   }[];
+  workCounts: { date: string; count: number }[];
 };
 
 function formatDateKey(date: Date) {
@@ -165,8 +166,7 @@ function chunkWorkers(workers: WorkerDisplay[], size: number) {
 function buildCumulativeCounts(
   startDate: Date,
   endDate: Date,
-  weeklyPatterns: MonthlyApiResponse['weeklyPatterns'],
-  exceptions: WorkerScheduleException[],
+  workCounts: MonthlyApiResponse['workCounts'],
   currentMonthIndex: number,
   currentYear: number
 ) {
@@ -181,38 +181,29 @@ function buildCumulativeCounts(
   let prevRunning = 0;
   let currentRunning = 0;
 
-  const exceptionMap = exceptions.reduce<Record<string, WorkerScheduleException[]>>((acc, row) => {
-    const key = formatDateKey(row.date);
-    acc[key] = acc[key] ? [...acc[key], row] : [row];
-    return acc;
-  }, {});
+  const prevDailyCounts = Array.from({ length: prevMonthDays + 1 }).fill(0) as number[];
+  const currentDailyCounts = Array.from({ length: currentMonthDays + 1 }).fill(0) as number[];
 
-  const computeEffectiveCount = (date: Date) => {
-    const key = formatDateKey(date);
-    const weekday = date.getDay();
-
-    const baseWorkers = weeklyPatterns
-      .filter((row) => row.weekday === weekday)
-      .map((row) => row.worker || `워커-${row.workerId}`);
-    const dailyExceptions = exceptionMap[key] ?? [];
-
-    const cancelWorkers = new Set(dailyExceptions.filter((row) => row.cancelWork).map((row) => row.worker));
-    const addedWorkers = dailyExceptions.filter((row) => row.addWork).map((row) => row.worker).filter(Boolean);
-
-    return baseWorkers.filter((name) => !cancelWorkers.has(name)).length + addedWorkers.length;
-  };
+  workCounts.forEach((row) => {
+    const date = parseDate(row.date);
+    const day = date.getDate();
+    if (date.getFullYear() === prevMonthYear && date.getMonth() === prevMonthIndex) {
+      prevDailyCounts[day] += row.count;
+    }
+    if (date.getFullYear() === currentYear && date.getMonth() === currentMonthIndex) {
+      currentDailyCounts[day] += row.count;
+    }
+  });
 
   const prevTotals: number[] = [];
   for (let day = 1; day <= prevMonthDays; day += 1) {
-    const date = new Date(prevMonthYear, prevMonthIndex, day);
-    prevRunning += computeEffectiveCount(date);
+    prevRunning += prevDailyCounts[day] ?? 0;
     prevTotals[day] = prevRunning;
   }
 
   const currentTotals: number[] = [];
   for (let day = 1; day <= currentMonthDays; day += 1) {
-    const date = new Date(currentYear, currentMonthIndex, day);
-    currentRunning += computeEffectiveCount(date);
+    currentRunning += currentDailyCounts[day] ?? 0;
     currentTotals[day] = currentRunning;
   }
 
@@ -276,8 +267,7 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
         const counts = buildCumulativeCounts(
           prevMonthStartDate,
           calendarEndDate,
-          data.weeklyPatterns,
-          exceptionRows,
+          data.workCounts,
           currentMonthStartDate.getMonth(),
           currentMonthStartDate.getFullYear()
         );
