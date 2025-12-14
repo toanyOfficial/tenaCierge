@@ -14,7 +14,7 @@ type DayAttendance = {
   cancelYn: boolean;
 };
 
-type DayCell = DayAttendance & { isCurrentWeek: boolean };
+type DayCell = DayAttendance & { isCurrentWeek: boolean; isCurrentMonth: boolean };
 
 type WeekAttendance = {
   start: Date;
@@ -128,9 +128,9 @@ function buildWeeks(
 
 export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps) {
   const [weeks, setWeeks] = useState<WeekAttendance[]>([]);
-  const [refreshedAt, setRefreshedAt] = useState<Date>(new Date());
+  const [currentMonthIndex, setCurrentMonthIndex] = useState<number>(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
   const [exceptions, setExceptions] = useState<WorkerScheduleException[]>([]);
-  const [dateRange, setDateRange] = useState<{ start: string; end: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const todayKey = formatDateKey(new Date());
@@ -143,6 +143,7 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
           throw new Error('월간 데이터를 불러오지 못했습니다.');
         }
         const data: MonthlyApiResponse = await response.json();
+        const todayDate = parseDate(data.today);
         const { weeks: mappedWeeks, exceptionRows } = buildWeeks(
           data.startDate,
           data.today,
@@ -151,8 +152,8 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
         );
         setWeeks(mappedWeeks);
         setExceptions(exceptionRows);
-        setDateRange({ start: data.startDate, end: data.endDate });
-        setRefreshedAt(new Date());
+        setCurrentMonthIndex(todayDate.getMonth());
+        setCurrentYear(todayDate.getFullYear());
         setError(null);
       } catch (err) {
         const message = err instanceof Error ? err.message : '월간 데이터를 불러오는 중 오류가 발생했습니다.';
@@ -168,18 +169,11 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
       weeks.flatMap((week) =>
         week.days.map((day) => ({
           ...day,
-          isCurrentWeek: week.isCurrentWeek
+          isCurrentWeek: week.isCurrentWeek,
+          isCurrentMonth: day.date.getMonth() === currentMonthIndex
         }))
       ),
-    [weeks]
-  );
-
-  const exceptionTotals = useMemo(
-    () => ({
-      add: exceptions.filter((item) => item.addWork).length,
-      cancel: exceptions.filter((item) => item.cancelWork).length
-    }),
-    [exceptions]
+    [weeks, currentMonthIndex]
   );
 
   return (
@@ -189,26 +183,10 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
 
         <div className={styles.monthlyGrid}>
           <section className={styles.calendarPanel}>
-            <div className={styles.calendarHeader}>
-              <div>
-                <p className={styles.cardTitle}>월간 출퇴근 캘린더</p>
-                <p className={styles.cardMeta}>이번주 기준 6주 구간 · 실데이터</p>
-              </div>
-              <div className={styles.pageBadges}>
-                {dateRange && <span className={styles.pageMeta}>{dateRange.start} ~ {dateRange.end}</span>}
-                <span className={styles.refreshBadge}>최신 {formatDateKey(refreshedAt)}</span>
-              </div>
-            </div>
-
-            <div className={styles.legend}>
-              <span className={styles.legendItem}>
-                <span className={styles.legendDot} style={{ background: '#60a5fa' }} />
-                work_yn=1
-              </span>
-              <span className={styles.legendItem}>
-                <span className={styles.legendDot} style={{ background: '#f87171' }} />
-                cancel_yn=1
-              </span>
+            <div className={styles.monthBanner}>
+              <p className={styles.monthLabel}>
+                {currentYear}년 {currentMonthIndex + 1}월
+              </p>
             </div>
 
             <div className={styles.calendarGrid}>
@@ -231,7 +209,9 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
                       key={key}
                       className={`${styles.calendarCell} ${day.workYn ? styles.workCell : ''} ${
                         day.cancelYn ? styles.cancelCell : ''
-                      } ${isToday ? styles.todayCell : ''} ${day.isCurrentWeek ? styles.currentWeekCell : ''}`}
+                      } ${isToday ? styles.todayCell : ''} ${day.isCurrentWeek ? styles.currentWeekCell : ''} ${
+                        day.isCurrentMonth ? '' : styles.outsideMonth
+                      }`}
                     >
                       <div className={styles.calendarCellHeader}>
                         <span className={styles.dayNumber}>{day.date.getDate()}</span>
@@ -252,14 +232,6 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
           </section>
 
           <section className={`${styles.summaryCardTall} ${styles.exceptionCard}`}>
-            <div className={styles.summaryHeader}>
-              <div>
-                <p className={styles.cardTitle}>worker_schedule_exception</p>
-                <p className={styles.cardMeta}>+{exceptionTotals.add} / -{exceptionTotals.cancel} · 6주 범위 사전 노출</p>
-              </div>
-              <span className={styles.refreshBadge}>실데이터</span>
-            </div>
-
             <div className={styles.exceptionList}>
               {exceptions.length === 0 ? (
                 <div className={styles.emptyState}>예외 근무가 없습니다.</div>

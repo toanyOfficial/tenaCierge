@@ -28,8 +28,8 @@ export async function GET() {
   }
 
   const today = nowKst();
-  const anchor = ensureStartOfWeekKst(today);
-  const start = anchor.minus({ days: 14 });
+  const monthStart = today.startOf('month');
+  const start = ensureStartOfWeekKst(monthStart);
   const end = start.plus({ days: 41 });
 
   try {
