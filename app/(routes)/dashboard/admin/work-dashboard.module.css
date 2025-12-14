@@ -1524,7 +1524,7 @@
 
 .exceptionRows {
   display: grid;
-  grid-template-rows: 4fr 1fr;
+  grid-template-rows: 3fr 2fr;
   grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   height: 100%;
