@@ -1522,14 +1522,15 @@
   overflow: hidden;
 }
 
-.exceptionColumns {
+.exceptionRows {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: 4fr 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   height: 100%;
 }
 
-.exceptionColumn {
+.exceptionRowBox {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1537,6 +1538,14 @@
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.03);
+}
+
+.exceptionRowPrimary {
+  min-height: 0;
+}
+
+.exceptionRowSecondary {
+  min-height: 0;
 }
 
 .exceptionTitle {

@@ -305,6 +305,16 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
     [weeks, currentMonthIndex]
   );
 
+  const displayedExceptions = useMemo(() => {
+    const rangeStart = new Date(currentYear, currentMonthIndex, 1);
+    const rangeEnd = new Date(currentYear, currentMonthIndex + 1, 7);
+
+    return exceptions.filter((item) => {
+      const time = item.date.getTime();
+      return time >= rangeStart.getTime() && time <= rangeEnd.getTime();
+    });
+  }, [currentMonthIndex, currentYear, exceptions]);
+
   return (
     <div className={`${styles.weeklyShell} ${styles.monthlyShell}`}>
       <div className={`${styles.weeklyCanvas} ${styles.monthlyCanvas}`}>
@@ -395,17 +405,17 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
               <p className={styles.sideMonth}>{`${currentYear}-${`${currentMonthIndex + 1}`.padStart(2, '0')}`}</p>
             </div>
             <div className={styles.exceptionList}>
-              {exceptions.length === 0 ? (
+              {displayedExceptions.length === 0 ? (
                 <div className={styles.emptyState}>예외 근무가 없습니다.</div>
               ) : (
-                <div className={styles.exceptionColumns}>
-                  <div className={styles.exceptionColumn}>
+                <div className={styles.exceptionRows}>
+                  <div className={`${styles.exceptionRowBox} ${styles.exceptionRowPrimary}`}>
                     <div className={`${styles.exceptionTitle} ${styles.cancelTitle}`}>근무-&gt;휴가</div>
                     <div className={styles.exceptionItems}>
-                      {exceptions.filter((item) => item.cancelWork).length === 0 ? (
+                      {displayedExceptions.filter((item) => item.cancelWork).length === 0 ? (
                         <p className={styles.exceptionEmpty}>없음</p>
                       ) : (
-                        exceptions
+                        displayedExceptions
                           .filter((item) => item.cancelWork)
                           .map((item) => {
                             const key = formatDateKey(item.date);
@@ -419,13 +429,13 @@ export default function MonthlyWorkDashboard({ profile: _profile }: ProfileProps
                       )}
                     </div>
                   </div>
-                  <div className={styles.exceptionColumn}>
+                  <div className={`${styles.exceptionRowBox} ${styles.exceptionRowSecondary}`}>
                     <div className={`${styles.exceptionTitle} ${styles.addTitle}`}>휴가-&gt;근무</div>
                     <div className={styles.exceptionItems}>
-                      {exceptions.filter((item) => item.addWork).length === 0 ? (
+                      {displayedExceptions.filter((item) => item.addWork).length === 0 ? (
                         <p className={styles.exceptionEmpty}>없음</p>
                       ) : (
-                        exceptions
+                        displayedExceptions
                           .filter((item) => item.addWork)
                           .map((item) => {
                             const key = formatDateKey(item.date);
