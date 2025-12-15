@@ -36,3 +36,11 @@
 ## 운영 모니터링 팁
 - API 로그에서 `[web-push] worker run complete` (발송됨) 또는 `worker idle`(처리 없음) 메시지 확인.
 - 실패 시 `[web-push] worker run failed` 로그 및 `notify_jobs.last_error`, `push_message_logs.status` 확인.
+
+## systemd 타이머 적용 (확정 실행 경로)
+- **Service**: `systemd/webpush-worker.service`
+  - `ExecStart`: `/usr/bin/env bash -lc '/srv/tenaCierge/scripts/push-worker-cron.sh'`
+  - `EnvironmentFile`: `/etc/default/webpush-worker`(선택) — `PUSH_WORKER_BASE_URL`, `PUSH_WORKER_TOKEN`, `PUSH_WORKER_BATCH_SIZE`, `PUSH_WORKER_ID` 설정.
+- **Timer**: `systemd/webpush-worker.timer`
+  - `OnCalendar=*-*-* *:*:00` (1분 주기), `Persistent=true`, `Unit=webpush-worker.service`.
+- **서버 적용 예시**: 배포 후 `sudo cp systemd/webpush-worker.* /etc/systemd/system/` → `sudo systemctl enable --now webpush-worker.timer`.
