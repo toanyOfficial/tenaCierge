@@ -1,0 +1,15 @@
+[Unit]
+Description=Web Push Worker trigger (outbox flush)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/tenaCierge
+EnvironmentFile=-/etc/default/webpush-worker
+ExecStart=/usr/bin/env bash -lc '/srv/tenaCierge/scripts/push-worker-cron.sh'
+# Ensures clean environment per run
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
