@@ -819,21 +819,21 @@ class BatchRunner:
             cur.execute("DELETE FROM work_fore_d1 WHERE run_dttm=%s", (self.run_date,))
             cur.execute("DELETE FROM work_fore_d7 WHERE run_dttm=%s", (self.run_date,))
 
-                if d1_rows:
-                    cur.executemany(
-                        "INSERT INTO work_fore_d1 "
+            if d1_rows:
+                cur.executemany(
+                    "INSERT INTO work_fore_d1 "
                     "(run_dttm, target_date, room_id, p_out, actual_out, correct, created_by, updated_by) "
                     "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                        d1_rows,
-                    )
+                    d1_rows,
+                )
 
-                if d7_rows:
-                    cur.executemany(
-                        "INSERT INTO work_fore_d7 "
+            if d7_rows:
+                cur.executemany(
+                    "INSERT INTO work_fore_d7 "
                     "(run_dttm, target_date, room_id, p_out, actual_out, correct, created_by, updated_by) "
                     "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                        d7_rows,
-                    )
+                    d7_rows,
+                )
 
         self.conn.commit()
 
