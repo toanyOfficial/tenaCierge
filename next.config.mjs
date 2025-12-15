@@ -5,14 +5,7 @@ const nextConfig = {
     instrumentationHook: true
   },
   poweredByHeader: false,
-  webpack: (config) => {
-    config.resolve.alias = {
-      ...(config.resolve.alias || {}),
-      'web-push': new URL('./vendor/web-push/index.js', import.meta.url).pathname
-    };
-
-    return config;
-  }
+  webpack: (config) => config
 };
 
 export default nextConfig;

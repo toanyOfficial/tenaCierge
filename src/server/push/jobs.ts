@@ -147,6 +147,7 @@ export async function processLockedJob(job: NotifyJobRow, deliver: DeliverFn) {
 
   let sent = 0;
   let failed = 0;
+  let firstFailureDetail: string | null = null;
 
   for (const subscription of subscriptions) {
     try {
@@ -156,6 +157,13 @@ export async function processLockedJob(job: NotifyJobRow, deliver: DeliverFn) {
         sent += 1;
       } else {
         failed += 1;
+        if (!firstFailureDetail) {
+          const parts = [] as string[];
+          if (result.httpStatus) parts.push(`status=${result.httpStatus}`);
+          if (result.errorMessage) parts.push(result.errorMessage);
+          parts.push(`endpoint=${subscription.endpoint}`);
+          firstFailureDetail = parts.join(' ');
+        }
       }
     } catch (error) {
       failed += 1;
@@ -165,13 +173,17 @@ export async function processLockedJob(job: NotifyJobRow, deliver: DeliverFn) {
         subscriptionId: subscription.id,
         result: { status: 'FAILED', errorMessage: message },
       });
+      if (!firstFailureDetail) {
+        firstFailureDetail = `error=${message} endpoint=${subscription.endpoint}`;
+      }
     }
   }
 
   if (failed === 0) {
     await markJobDone(job.id);
   } else {
-    await markJobFailed(job.id, `delivery failed (${failed}/${subscriptions.length})`);
+    const detail = firstFailureDetail ? `; first failure ${firstFailureDetail}` : '';
+    await markJobFailed(job.id, `delivery failed (${failed}/${subscriptions.length})${detail}`);
   }
 
   return { jobId: job.id, sent, failed, skipped: false } as const;
