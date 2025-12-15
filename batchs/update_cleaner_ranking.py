@@ -813,12 +813,14 @@ class CleanerRankingBatch:
                 cr.room_no,
                 b.building_short_name,
                 wr.contents1,
-                wr.contents2
+                wr.contents2,
+                wr4.contents2 AS supervising_comment
             FROM worker_evaluateHistory AS weh
             LEFT JOIN work_header AS wh ON wh.id = weh.work_id
             LEFT JOIN client_rooms AS cr ON wh.room_id = cr.id
             LEFT JOIN etc_buildings AS b ON cr.building_id = b.id
             LEFT JOIN work_reports AS wr ON wr.work_id = weh.work_id AND wr.type = 1
+            LEFT JOIN work_reports AS wr4 ON wr4.work_id = weh.work_id AND wr4.type = 4
             WHERE weh.evaluate_dttm >= %s AND weh.evaluate_dttm < %s
         """
         evaluations: Dict[int, List[Dict[str, object]]] = {}
@@ -853,6 +855,9 @@ class CleanerRankingBatch:
                     report_ids.extend(self._extract_checklist_ids_from_reports(parsed_contents))
                 all_ids = list({*list(checklist_ids), *report_ids})
                 deductions = [checklist_titles.get(i, f"{i}") for i in all_ids if i is not None]
+                supervising_comment = row.get("supervising_comment")
+                if supervising_comment is not None:
+                    supervising_comment = str(supervising_comment).strip()
                 room_label = "".join(
                     filter(None, [row.get("building_short_name") or "", row.get("room_no") or ""])
                 )
@@ -864,6 +869,7 @@ class CleanerRankingBatch:
                     room_name=room_label,
                     deductions=deductions,
                     comment_candidate=isinstance(parsed_checklists, list),
+                    supervising_comment=supervising_comment or None,
                 )
                 evaluations.setdefault(worker_id, []).append(entry)
         logging.info("%s 일자 평가 건수: %s명", self.target_date, len(evaluations))
@@ -970,6 +976,7 @@ class CleanerRankingBatch:
                             "room": e.get("room_name"),
                             "score": e.get("points"),
                             "deductions": e.get("deductions", []),
+                            "supervising_comment": e.get("supervising_comment"),
                             "evaluated_at": e.get("evaluate_dttm").isoformat()
                             if isinstance(e.get("evaluate_dttm"), dt.datetime)
                             else None,
@@ -998,6 +1005,7 @@ class CleanerRankingBatch:
             "같은 날짜 다른 사람들의 점수와 비교한 격려 멘트도 한 문장에 자연스럽게 섞어주세요. "
             "사람의 성격·태도에 대한 추측은 금지하며, 제공된 객실명, 감점 항목 title, 점수, 날짜별 추세 외 정보는 사용하지 마세요. "
             "필요한 경우 감점이 집중된 항목을 예시처럼 자연스럽게 녹여 주세요(욕실 청소, 침구 정리 등). "
+            "today 항목의 supervising_comment는 수퍼바이징(type=4) contents2에 기록된 클리너 전달용 키워드입니다. 코멘트 작성 시 참고만 하세요. "
             "응답 형식: {\"<worker_id>\": \"코멘트\", ...} JSON만 반환하세요."
         )
 
