@@ -1,3 +1,7 @@
+## 2025-12-16 스키마 변경 요약
+- 추가된 컬럼: notify_jobs.id, notify_jobs.rule_code, notify_jobs.user_type, notify_jobs.user_id, notify_jobs.scheduled_at 외 66건
+- 테이블 수: 50개, 컬럼 수: 588개
+
 ## 2025-12-15 스키마 변경 요약
 - 기존 스키마와의 차이가 없습니다.
 - 테이블 수: 45개, 컬럼 수: 517개
