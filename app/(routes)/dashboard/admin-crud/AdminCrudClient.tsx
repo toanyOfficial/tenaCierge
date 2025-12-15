@@ -1052,6 +1052,11 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     event.preventDefault();
     if (!selectedTable) return;
 
+    if (isScheduleException && !exceptionContext.checked) {
+      setFeedback({ message: '스케쥴 변동이 없습니다. 체크박스를 확인해주세요', variant: 'error' });
+      return;
+    }
+
     const payloadData: Record<string, unknown> = {};
     columns.forEach((column) => {
       if (isHiddenColumn(column.name) && !(hasBasecodePair && column.name === 'basecode_code')) return;
@@ -1194,11 +1199,28 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
             ? '출근날짜로 설정합니다.'
             : '근무자와 날짜를 먼저 선택해 주세요.';
 
+      const titleLabel =
+        exceptionContext.isWorkingDay === true
+          ? '출근 → 휴가'
+          : exceptionContext.isWorkingDay === false
+            ? '휴가 → 출근'
+            : '날짜 선택 필요';
+
+      const titleClassName =
+        exceptionContext.isWorkingDay === true
+          ? styles.vacationText
+          : exceptionContext.isWorkingDay === false
+            ? styles.workdayText
+            : '';
+
       return (
         <div className={styles.scheduleExceptionField}>
-          <p className={styles.scheduleExceptionMessage}>
-            {exceptionContext.message ?? DEFAULT_EXCEPTION_STATE.message}
-          </p>
+          <div className={styles.scheduleExceptionHeader}>
+            <span className={`${styles.scheduleExceptionTitle} ${titleClassName}`}>{titleLabel}</span>
+            <p className={styles.scheduleExceptionMessage}>
+              {exceptionContext.message ?? DEFAULT_EXCEPTION_STATE.message}
+            </p>
+          </div>
           <label className={styles.scheduleExceptionCheckbox}>
             <input
               type="checkbox"
@@ -1592,7 +1614,13 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       }
 
       if (helperTableName === 'worker_schedule_exception' && (key === 'add_work_yn' || key === 'cancel_work_yn')) {
-        rawValue = rawValue === '1' ? '예' : '아니오';
+        const isWorkday = key === 'add_work_yn';
+        const isActive = String(row[key] ?? rawValue) === '1';
+        if (isActive) {
+          rawValue = isWorkday ? '출근' : '휴가';
+        } else {
+          rawValue = '';
+        }
       }
     }
 
@@ -1605,9 +1633,17 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     }
 
     const display = rawValue.length > 20 ? `${rawValue.slice(0, 20)}...` : rawValue;
+    const cellClasses = [styles.cellText];
+
+    if (helperTableName === 'worker_schedule_exception' && (key === 'add_work_yn' || key === 'cancel_work_yn')) {
+      const isWorkday = key === 'add_work_yn';
+      if (rawValue) {
+        cellClasses.push(isWorkday ? styles.workdayText : styles.vacationText);
+      }
+    }
 
     return (
-      <span className={styles.cellText} title={rawValue}>
+      <span className={cellClasses.join(' ')} title={rawValue}>
         {display}
       </span>
     );

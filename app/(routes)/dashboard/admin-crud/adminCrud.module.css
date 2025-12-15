@@ -413,6 +413,17 @@
   gap: 6px;
 }
 
+.scheduleExceptionHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.scheduleExceptionTitle {
+  font-weight: 800;
+  font-size: 16px;
+}
+
 .scheduleExceptionMessage {
   font-size: 13px;
   color: #475467;
@@ -430,6 +441,14 @@
 .scheduleExceptionCheckbox input {
   width: 16px;
   height: 16px;
+}
+
+.workdayText {
+  color: #1d4ed8;
+}
+
+.vacationText {
+  color: #dc2626;
 }
 
 @media (max-width: 1080px) {
