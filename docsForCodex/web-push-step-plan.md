@@ -83,6 +83,17 @@
 3. push_message_logs 활용 방안: job_id + subscription_id 기준 기록, dedup_key 포함 시나리오.
 4. 구성/비밀키 관리: VAPID 키 저장 경로와 배포 시크릿 관리 절차 문서화.
 
+### 5-1. VAPID 환경 변수 네이밍(서버/클라이언트 공통 규칙)
+- 서버 사이드(발송 워커·API):
+  - `VAPID_PUBLIC_KEY`
+  - `VAPID_PRIVATE_KEY`
+  - `VAPID_SUBJECT` (예: `mailto:admin@example.com` 혹은 서비스 도메인 URL)
+- 클라이언트 사이드(Next.js 프런트·서비스워커에서 사용):
+  - `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (브라우저에서 PushManager.subscribe 시 전송)
+- 비고
+  - `.env.local` 등 런타임 환경에 위 키를 정의하고, 서버 코드는 `VAPID_*`를 사용하며, 브라우저 노출이 필요한 값은 `NEXT_PUBLIC_*` 프리픽스만 허용한다.
+  - “Public Key=@@@@@ / Private Key=@@@@@@” 같은 임의 키 이름은 사용하지 않고, 위 키 네이밍을 기준으로 코드와 문서를 통일한다.
+
 ## 6. 시나리오별 구현 단위
 1. **청소 일정 푸시 (db_forecasting.py)**
    - 조건: --refresh-dn 인자 시만 실행.
