@@ -13,9 +13,14 @@ type UserContext = 'CLIENT' | 'WORKER';
 
 type SubscribeRequest = {
   context: UserContext;
-  endpoint: string;
-  p256dh: string;
-  auth: string;
+  endpoint?: string;
+  p256dh?: string;
+  auth?: string;
+  subscription?: {
+    endpoint?: string;
+    keys?: { p256dh?: string; auth?: string } | null;
+    expirationTime?: number | null;
+  } | null;
   phone?: string | null;
   registerNo?: string | null;
   userAgent?: string | null;
@@ -32,6 +37,16 @@ function cleanString(value: string | null | undefined) {
 function normalizeRegister(registerRaw: string | null | undefined) {
   const trimmed = cleanString(registerRaw);
   return trimmed ? trimmed.toUpperCase() : '';
+}
+
+function extractSubscriptionKeys(body: SubscribeRequest) {
+  const subscription = body.subscription ?? null;
+
+  const endpoint = cleanString(body.endpoint || (subscription?.endpoint ?? ''));
+  const p256dh = cleanString(body.p256dh || (subscription?.keys?.p256dh ?? ''));
+  const auth = cleanString(body.auth || (subscription?.keys?.auth ?? ''));
+
+  return { endpoint, p256dh, auth };
 }
 
 function clamp(value: string | undefined, maxLength: number) {
@@ -126,14 +141,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ message }, { status });
     }
 
-    const endpoint = cleanString(body.endpoint);
-    const p256dh = cleanString(body.p256dh);
-    const auth = cleanString(body.auth);
+    const { endpoint, p256dh, auth } = extractSubscriptionKeys(body);
 
     if (!endpoint || !p256dh || !auth) {
       const status = 400;
       const message = 'endpoint, p256dh, auth는 필수입니다.';
-      await logSubscribeFailure({ status, message, context: { reason: 'missing_keys', endpoint: Boolean(endpoint) } });
+      await logSubscribeFailure({
+        status,
+        message,
+        context: { reason: 'missing_keys', endpoint: Boolean(endpoint), hasSubscription: Boolean(body.subscription) }
+      });
       return NextResponse.json({ message }, { status });
     }
 
@@ -232,13 +249,25 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ message: 'WORKER 구독이 저장되었습니다.', userId: worker.id });
   } catch (error) {
+    const sanitizedBody = body
+      ? {
+          ...body,
+          endpoint: undefined,
+          p256dh: undefined,
+          auth: undefined,
+          subscription: body.subscription
+            ? { endpoint: body.subscription.endpoint ?? undefined, keys: undefined, expirationTime: body.subscription.expirationTime }
+            : undefined,
+        }
+      : undefined;
+
     await logServerError({
       message: '푸시 구독 저장 실패',
       error,
       context: {
         context: 'subscribe',
         // Avoid persisting push keys in logs.
-        body: { ...(body ?? {}), endpoint: undefined, p256dh: undefined, auth: undefined },
+        body: sanitizedBody,
       },
     });
     return NextResponse.json({ message: '푸시 구독 처리 중 오류가 발생했습니다.' }, { status: 500 });

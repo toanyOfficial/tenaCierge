@@ -5,7 +5,14 @@ export type SubscriptionContext = {
 };
 
 export type RegisterResult =
-  | { status: 'success'; message?: string; successes: string[]; failures: string[]; skipped: string[] }
+  | {
+      status: 'success';
+      message?: string;
+      successes: string[];
+      failures: string[];
+      skipped: string[];
+      failureReasons?: Record<string, string>;
+    }
   | { status: 'skipped'; message: string }
   | { status: 'unsupported'; message: string }
   | { status: 'denied'; message: string }
@@ -22,16 +29,6 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   }
 
   return outputArray;
-}
-
-function bufferToBase64(buffer: ArrayBuffer | null): string {
-  if (!buffer) return '';
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i += 1) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
 }
 
 function buildBrowserLabel() {
@@ -62,9 +59,12 @@ async function persistSubscription(
   const successes: string[] = [];
   const failures: string[] = [];
   const skipped: string[] = [];
+  const failureReasons: Record<string, string> = {};
 
-  const p256dh = bufferToBase64(subscription.getKey('p256dh'));
-  const auth = bufferToBase64(subscription.getKey('auth'));
+  const subscriptionPayload = subscription.toJSON();
+  const { endpoint } = subscriptionPayload;
+  const p256dh = subscriptionPayload.keys?.p256dh;
+  const auth = subscriptionPayload.keys?.auth;
 
   if (!p256dh || !auth) {
     throw new Error('브라우저 구독 키를 읽을 수 없습니다. 권한을 다시 요청해 주세요.');
@@ -89,7 +89,8 @@ async function persistSubscription(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           context: ctx.type,
-          endpoint: subscription.endpoint,
+          subscription: subscriptionPayload,
+          endpoint,
           p256dh,
           auth,
           phone: ctx.phone ?? null,
@@ -104,15 +105,22 @@ async function persistSubscription(
 
       if (!response.ok) {
         failures.push(label);
+        const errorBody = await response.json().catch(() => null);
+        const message =
+          (errorBody && typeof errorBody === 'object' && 'message' in errorBody && typeof (errorBody as any).message === 'string'
+            ? (errorBody as any).message
+            : null) || response.statusText || '구독 저장 요청이 실패했습니다.';
+        failureReasons[label] = message;
       } else {
         successes.push(label);
       }
     } catch (error) {
       failures.push(label);
+      failureReasons[label] = error instanceof Error ? error.message : '알 수 없는 오류로 구독을 저장하지 못했습니다.';
     }
   }
 
-  return { successes, failures, skipped };
+  return { successes, failures, skipped, failureReasons };
 }
 
 export async function registerWebPush(contexts: SubscriptionContext[]): Promise<RegisterResult> {
@@ -156,19 +164,21 @@ export async function registerWebPush(contexts: SubscriptionContext[]): Promise<
   };
 
   try {
-    const { successes, failures, skipped } = await persistSubscription(readyContexts, subscription, metadata);
+    const { successes, failures, skipped, failureReasons } = await persistSubscription(readyContexts, subscription, metadata);
     const hasFailure = failures.length > 0;
     const hasSuccess = successes.length > 0;
 
     if (hasSuccess) {
       if (hasFailure) {
-        console.warn('일부 웹푸시 구독 저장 실패', { successes, failures, skipped });
+        console.warn('일부 웹푸시 구독 저장 실패', { successes, failures, skipped, reasons: failureReasons });
       }
-      return { status: 'success', message: '푸시 구독이 저장되었습니다.', successes, failures, skipped };
+      return { status: 'success', message: '푸시 구독이 저장되었습니다.', successes, failures, skipped, failureReasons };
     }
 
     if (hasFailure) {
-      return { status: 'error', message: '푸시 구독 저장에 실패했습니다. 다시 시도해 주세요.' };
+      const primaryLabel = failures[0];
+      const reason = primaryLabel ? failureReasons[primaryLabel] : null;
+      return { status: 'error', message: reason ?? '푸시 구독 저장에 실패했습니다. 다시 시도해 주세요.' };
     }
 
     return { status: 'skipped', message: '푸시 구독에 필요한 식별자가 없습니다.' };
