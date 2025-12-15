@@ -96,9 +96,13 @@ export default function LoginForm() {
         return;
       }
 
-      if (result.status === 'partial') {
+      if (result.status === 'success' && result.failures.length > 0) {
         // 이미 로그인은 성공했으므로 사용자 흐름을 막지 않고, 콘솔 로그로만 노출한다.
-        console.warn(result.message, { successes: result.successes, failures: result.failures, skipped: result.skipped });
+        console.warn('일부 웹푸시 구독 저장 실패', {
+          successes: result.successes,
+          failures: result.failures,
+          skipped: result.skipped,
+        });
       }
     } catch (error) {
       console.error('푸시 구독 처리 중 오류', error);

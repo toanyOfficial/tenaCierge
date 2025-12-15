@@ -3,7 +3,7 @@ import { and, eq, sql } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import { clientHeader, pushSubscriptions, workerHeader } from '@/src/db/schema';
-import { logServerError } from '@/src/server/errorLogger';
+import { logEtcError, logServerError } from '@/src/server/errorLogger';
 import { normalizePhone } from '@/src/utils/phone';
 
 export const dynamic = 'force-dynamic';
@@ -37,6 +37,23 @@ function normalizeRegister(registerRaw: string | null | undefined) {
 function clamp(value: string | undefined, maxLength: number) {
   if (!value) return undefined;
   return value.length > maxLength ? value.slice(0, maxLength) : value;
+}
+
+async function logSubscribeFailure({
+  status,
+  message,
+  context
+}: {
+  status: number;
+  message: string;
+  context: Record<string, unknown>;
+}) {
+  await logEtcError({
+    level: status >= 500 ? 1 : 3,
+    message: `웹푸시 구독 실패(${status})`,
+    context,
+    appName: 'web'
+  });
 }
 
 async function upsertSubscription(params: {
@@ -95,12 +112,18 @@ export async function POST(request: Request) {
   try {
     body = (await request.json().catch(() => null)) as SubscribeRequest | null;
     if (!body) {
-      return NextResponse.json({ message: '구독 정보가 필요합니다.' }, { status: 400 });
+      const status = 400;
+      const message = '구독 정보가 필요합니다.';
+      await logSubscribeFailure({ status, message, context: { reason: 'missing_body' } });
+      return NextResponse.json({ message }, { status });
     }
 
     const context = body.context;
     if (context !== 'CLIENT' && context !== 'WORKER') {
-      return NextResponse.json({ message: 'context는 CLIENT 또는 WORKER 여야 합니다.' }, { status: 400 });
+      const status = 400;
+      const message = 'context는 CLIENT 또는 WORKER 여야 합니다.';
+      await logSubscribeFailure({ status, message, context: { reason: 'invalid_context', context } });
+      return NextResponse.json({ message }, { status });
     }
 
     const endpoint = cleanString(body.endpoint);
@@ -108,7 +131,10 @@ export async function POST(request: Request) {
     const auth = cleanString(body.auth);
 
     if (!endpoint || !p256dh || !auth) {
-      return NextResponse.json({ message: 'endpoint, p256dh, auth는 필수입니다.' }, { status: 400 });
+      const status = 400;
+      const message = 'endpoint, p256dh, auth는 필수입니다.';
+      await logSubscribeFailure({ status, message, context: { reason: 'missing_keys', endpoint: Boolean(endpoint) } });
+      return NextResponse.json({ message }, { status });
     }
 
     const normalizedPhone = normalizePhone(body.phone);
@@ -116,7 +142,14 @@ export async function POST(request: Request) {
 
     if (context === 'CLIENT') {
       if (!normalizedPhone || !normalizedRegister) {
-        return NextResponse.json({ message: 'CLIENT 구독에는 phone과 registerNo가 모두 필요합니다.' }, { status: 400 });
+        const status = 400;
+        const message = 'CLIENT 구독에는 phone과 registerNo가 모두 필요합니다.';
+        await logSubscribeFailure({
+          status,
+          message,
+          context: { reason: 'client_missing_identifiers', hasPhone: Boolean(normalizedPhone), hasRegister: Boolean(normalizedRegister) }
+        });
+        return NextResponse.json({ message }, { status });
       }
 
       const [client] = await db
@@ -126,7 +159,14 @@ export async function POST(request: Request) {
         .limit(1);
 
       if (!client) {
-        return NextResponse.json({ message: '일치하는 CLIENT를 찾을 수 없습니다.' }, { status: 404 });
+        const status = 404;
+        const message = '일치하는 CLIENT를 찾을 수 없습니다.';
+        await logSubscribeFailure({
+          status,
+          message,
+          context: { reason: 'client_not_found', phone: normalizedPhone, register: normalizedRegister }
+        });
+        return NextResponse.json({ message }, { status });
       }
 
       await upsertSubscription({
@@ -146,10 +186,14 @@ export async function POST(request: Request) {
     }
 
     if (!normalizedPhone && !normalizedRegister) {
-      return NextResponse.json(
-        { message: 'WORKER 구독에는 phone 또는 registerNo 중 하나가 필요합니다.' },
-        { status: 400 }
-      );
+      const status = 400;
+      const message = 'WORKER 구독에는 phone 또는 registerNo 중 하나가 필요합니다.';
+      await logSubscribeFailure({
+        status,
+        message,
+        context: { reason: 'worker_missing_identifiers', hasPhone: Boolean(normalizedPhone), hasRegister: Boolean(normalizedRegister) }
+      });
+      return NextResponse.json({ message }, { status });
     }
 
     const [worker] = await db
@@ -163,7 +207,14 @@ export async function POST(request: Request) {
       .limit(1);
 
     if (!worker) {
-      return NextResponse.json({ message: '일치하는 WORKER를 찾을 수 없습니다.' }, { status: 404 });
+      const status = 404;
+      const message = '일치하는 WORKER를 찾을 수 없습니다.';
+      await logSubscribeFailure({
+        status,
+        message,
+        context: { reason: 'worker_not_found', phone: normalizedPhone ?? null, register: normalizedRegister }
+      });
+      return NextResponse.json({ message }, { status });
     }
 
     await upsertSubscription({
