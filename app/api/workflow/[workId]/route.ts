@@ -5,6 +5,7 @@ import { db } from '@/src/db/client';
 import { workHeader, workReports, workerHeader } from '@/src/db/schema';
 import { withInsertAuditFields, withUpdateAuditFields } from '@/src/server/audit';
 import { logServerError } from '@/src/server/errorLogger';
+import { queueWorkAssignedPush, queueWorkFinishingPush, queueWorkUnassignedPush } from '@/src/server/push/scenarios';
 import { findWorkerByProfile } from '@/src/server/workers';
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 import { getKstNow } from '@/src/utils/workWindow';
@@ -119,16 +120,17 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
           .where(eq(workHeader.id, workId));
       });
 
-      const refreshed = await db
-        .select({
-          id: workHeader.id,
-          supplyYn: workHeader.supplyYn,
-          cleaningFlag: workHeader.cleaningFlag,
-          supervisingYn: workHeader.supervisingYn,
-          supervisingEndTime: workHeader.supervisingEndTime,
-          cleanerId: workHeader.cleanerId,
-          cleanerName: workerHeader.name
-        })
+  const refreshed = await db
+    .select({
+      id: workHeader.id,
+      supplyYn: workHeader.supplyYn,
+      cleaningFlag: workHeader.cleaningFlag,
+      supervisingYn: workHeader.supervisingYn,
+      supervisingEndTime: workHeader.supervisingEndTime,
+      butlerId: workHeader.butlerId,
+      cleanerId: workHeader.cleanerId,
+      cleanerName: workerHeader.name
+    })
         .from(workHeader)
         .leftJoin(workerHeader, eq(workHeader.cleanerId, workerHeader.id))
         .where(eq(workHeader.id, workId))
@@ -259,6 +261,44 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
 
   const next = refreshed[0];
 
+  const pushEnqueueTasks: Promise<void>[] = [];
+  const previousCleanerId = current.cleanerId ?? null;
+  const nextCleanerId = next?.cleanerId ?? null;
+
+  if (previousCleanerId && previousCleanerId !== nextCleanerId) {
+    pushEnqueueTasks.push(
+      enqueueWorkPush('WORK_UNASSIGNED', () =>
+        queueWorkUnassignedPush({
+          workId,
+          workerId: previousCleanerId,
+          createdBy: 'api/workflow'
+        })
+      )
+    );
+  }
+
+  if (nextCleanerId && previousCleanerId !== nextCleanerId) {
+    pushEnqueueTasks.push(
+      enqueueWorkPush('WORK_ASSIGNED', () =>
+        queueWorkAssignedPush({ workId, workerId: nextCleanerId, createdBy: 'api/workflow' })
+      )
+    );
+  }
+
+  const movedToFinishing = current.cleaningFlag !== 3 && (next?.cleaningFlag ?? updates.cleaningFlag) === 3;
+  const finishingButlerId = next?.butlerId ?? current.butlerId ?? null;
+  if (movedToFinishing && finishingButlerId) {
+    pushEnqueueTasks.push(
+      enqueueWorkPush('WORK_FINISHING', () =>
+        queueWorkFinishingPush({ workId, butlerIds: [finishingButlerId], createdBy: 'api/workflow' })
+      )
+    );
+  }
+
+  if (pushEnqueueTasks.length) {
+    await Promise.all(pushEnqueueTasks);
+  }
+
   return NextResponse.json({
     work: {
       supplyYn: Boolean(next?.supplyYn),
@@ -272,6 +312,22 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
   } catch (error) {
     await logServerError({ appName: 'workflow', message: '워크플로우 업데이트 실패', error, context: { workId } });
     return NextResponse.json({ message: '작업 흐름 업데이트 중 오류가 발생했습니다.' }, { status: 500 });
+  }
+}
+
+async function enqueueWorkPush(
+  label: 'WORK_ASSIGNED' | 'WORK_UNASSIGNED' | 'WORK_FINISHING',
+  enqueue: () => Promise<{ created: number; attempted: number }>
+) {
+  try {
+    const result = await enqueue();
+    if (!result.created) {
+      console.info(`[web-push] ${label} dedup/skip`, { attempted: result.attempted });
+    } else {
+      console.info(`[web-push] ${label} enqueued`, { created: result.created, attempted: result.attempted });
+    }
+  } catch (error) {
+    console.error(`[web-push] ${label} enqueue 실패`, error);
   }
 }
 
