@@ -31,6 +31,14 @@ type Snapshot = {
   offset: number;
 };
 
+type RoomFilterState = {
+  buildings: Set<string>;
+  clients: Set<string>;
+  rcptFlags: Set<string>;
+  checkoutTimes: Set<string>;
+  openStates: Set<string>;
+};
+
 const DEFAULT_LIMIT = 20;
 const CLIENT_ADDITIONAL_PRICE_CONFIG = {
   hiddenColumns: new Set(['created_at', 'updated_at']),
@@ -102,6 +110,18 @@ const WEEKDAY_OPTIONS = [
   { value: '5', label: '5:금요일' },
   { value: '6', label: '6:토요일' }
 ];
+const RCPT_FLAG_LABELS: Record<string, string> = {
+  '1': '세금계산서',
+  '2': '현금영수증'
+};
+
+const createEmptyRoomFilters = (): RoomFilterState => ({
+  buildings: new Set<string>(),
+  clients: new Set<string>(),
+  rcptFlags: new Set<string>(),
+  checkoutTimes: new Set<string>(),
+  openStates: new Set<string>()
+});
 
 const DEFAULT_EXCEPTION_STATE = {
   loading: false,
@@ -143,6 +163,8 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   const [helperSnapshot, setHelperSnapshot] = useState<Snapshot | null>(null);
   const [helperLoading, setHelperLoading] = useState(false);
   const [helperFeedback, setHelperFeedback] = useState<string | null>(null);
+  const [roomFilters, setRoomFilters] = useState<RoomFilterState>(() => createEmptyRoomFilters());
+  const [roomSearch, setRoomSearch] = useState('');
   const [pendingClientEdit, setPendingClientEdit] = useState<Record<string, unknown> | null>(null);
   const [exceptionContext, setExceptionContext] = useState(DEFAULT_EXCEPTION_STATE);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -297,6 +319,14 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       : helperTableName === 'client_additional_price'
         ? '추가비용을 클릭하면 위 수정 양식으로 불러옵니다.'
         : '고객을 클릭하면 위 수정 양식으로 불러옵니다.';
+  const isRoomHelper = helperTableName === 'client_rooms';
+
+  useEffect(() => {
+    if (!isRoomHelper) {
+      setRoomFilters(createEmptyRoomFilters());
+      setRoomSearch('');
+    }
+  }, [isRoomHelper]);
 
   useEffect(() => {
     setReferenceOptions({});
@@ -374,6 +404,73 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
     return () => controller.abort();
   }, [helperColumns, helperRows, helperTableName, tables]);
+
+  const roomFilterOptions = useMemo(() => {
+    if (!isRoomHelper) return null;
+
+    const buildingSet = new Set<string>();
+    const clientSet = new Set<string>();
+    const rcptFlagSet = new Set<string>();
+    const checkoutSet = new Set<string>();
+    const openSet = new Set<string>();
+
+    helperRows.forEach((row) => {
+      const record = row as Record<string, unknown>;
+      const building = record.building_short_name === undefined || record.building_short_name === null
+        ? ''
+        : String(record.building_short_name);
+      const client = record.client_name === undefined || record.client_name === null ? '' : String(record.client_name);
+      const rcptFlag = record.rcpt_flag === undefined || record.rcpt_flag === null ? '' : String(record.rcpt_flag);
+      const checkout = record.checkout_time === undefined || record.checkout_time === null
+        ? ''
+        : String(record.checkout_time);
+      const openValue = record.open_yn === undefined || record.open_yn === null ? '' : String(record.open_yn);
+
+      buildingSet.add(building);
+      clientSet.add(client);
+      if (rcptFlag) rcptFlagSet.add(rcptFlag);
+      if (checkout) checkoutSet.add(checkout);
+      if (openValue) openSet.add(openValue);
+    });
+
+    const toSortedArray = (values: Set<string>, includeEmpty = false) => {
+      const items = Array.from(values).filter((value) => includeEmpty || value !== '');
+      return items.sort((a, b) => a.localeCompare(b));
+    };
+
+    return {
+      buildings: toSortedArray(buildingSet, true),
+      clients: toSortedArray(clientSet, true),
+      rcptFlags: toSortedArray(rcptFlagSet),
+      checkoutTimes: toSortedArray(checkoutSet),
+      openStates: toSortedArray(openSet)
+    };
+  }, [helperRows, isRoomHelper]);
+
+  useEffect(() => {
+    if (!isRoomHelper || !roomFilterOptions) return;
+
+    setRoomFilters((prev) => {
+      const next: RoomFilterState = {
+        buildings: new Set(Array.from(prev.buildings).filter((value) => roomFilterOptions.buildings.includes(value))),
+        clients: new Set(Array.from(prev.clients).filter((value) => roomFilterOptions.clients.includes(value))),
+        rcptFlags: new Set(Array.from(prev.rcptFlags).filter((value) => roomFilterOptions.rcptFlags.includes(value))),
+        checkoutTimes: new Set(
+          Array.from(prev.checkoutTimes).filter((value) => roomFilterOptions.checkoutTimes.includes(value))
+        ),
+        openStates: new Set(Array.from(prev.openStates).filter((value) => roomFilterOptions.openStates.includes(value)))
+      };
+
+      const unchanged =
+        prev.buildings.size === next.buildings.size &&
+        prev.clients.size === next.clients.size &&
+        prev.rcptFlags.size === next.rcptFlags.size &&
+        prev.checkoutTimes.size === next.checkoutTimes.size &&
+        prev.openStates.size === next.openStates.size;
+
+      return unchanged ? prev : next;
+    });
+  }, [isRoomHelper, roomFilterOptions]);
 
   useEffect(() => {
     setAdditionalPriceOptions([]);
@@ -567,6 +664,54 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       .map((tokens) => ({ value: tokens[0]?.trim() ?? '', label: (tokens[1] ?? tokens[0] ?? '').trim() }))
       .filter((option) => option.value);
   }
+
+  function toggleRoomFilter<K extends keyof RoomFilterState>(key: K, value: string) {
+    setRoomFilters((prev) => {
+      const nextSet = new Set(prev[key]);
+      if (nextSet.has(value)) {
+        nextSet.delete(value);
+      } else {
+        nextSet.add(value);
+      }
+
+      return { ...prev, [key]: nextSet };
+    });
+  }
+
+  const filteredHelperRows = useMemo(() => {
+    if (!isRoomHelper) return helperRows;
+
+    const searchValue = roomSearch.trim().toLowerCase();
+
+    return helperRows.filter((row) => {
+      const record = row as Record<string, unknown>;
+
+      const building = record.building_short_name === undefined || record.building_short_name === null
+        ? ''
+        : String(record.building_short_name);
+      const client = record.client_name === undefined || record.client_name === null ? '' : String(record.client_name);
+      const rcptFlag = record.rcpt_flag === undefined || record.rcpt_flag === null ? '' : String(record.rcpt_flag);
+      const checkout = record.checkout_time === undefined || record.checkout_time === null
+        ? ''
+        : String(record.checkout_time);
+      const openYn = record.open_yn === undefined || record.open_yn === null ? '' : String(record.open_yn);
+
+      if (roomFilters.buildings.size && !roomFilters.buildings.has(building)) return false;
+      if (roomFilters.clients.size && !roomFilters.clients.has(client)) return false;
+      if (roomFilters.rcptFlags.size && !roomFilters.rcptFlags.has(rcptFlag)) return false;
+      if (roomFilters.checkoutTimes.size && !roomFilters.checkoutTimes.has(checkout)) return false;
+      if (roomFilters.openStates.size && !roomFilters.openStates.has(openYn)) return false;
+
+      if (searchValue) {
+        const composite = `${building}${record.room_no ?? ''}`.toLowerCase();
+        if (!composite.includes(searchValue)) return false;
+      }
+
+      return true;
+    });
+  }, [helperRows, isRoomHelper, roomFilters, roomSearch]);
+
+  const displayedRows = isRoomHelper ? filteredHelperRows : helperRows;
 
   function handleInputChange(column: AdminColumnMeta, value: string | boolean) {
     if (NUMERIC_ONLY_FIELDS.has(column.name)) {
@@ -1420,6 +1565,18 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   function renderCellValue(row: Record<string, unknown>, key: string) {
     let rawValue = getClientField(row, key, '');
 
+    if (isRoomHelper) {
+      if (key === 'client_id') {
+        const clientName = typeof row.client_name === 'string' ? row.client_name : '';
+        rawValue = clientName || rawValue;
+      }
+
+      if (key === 'building_id') {
+        const buildingShort = typeof row.building_short_name === 'string' ? row.building_short_name : '';
+        rawValue = buildingShort || rawValue;
+      }
+    }
+
     if (helperTableName === 'worker_weekly_pattern' || helperTableName === 'worker_schedule_exception') {
       if (key === 'worker_id') {
         const workerId = row.worker_id;
@@ -1583,8 +1740,103 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
           <p className={`${styles.feedback} ${styles.feedbackError}`}>{helperFeedback}</p>
         ) : null}
 
+        {isRoomHelper && roomFilterOptions ? (
+          <div className={styles.filterPanel}>
+            <div className={styles.filterGroup}>
+              <p className={styles.filterTitle}>건물</p>
+              <div className={styles.filterOptions}>
+                {roomFilterOptions.buildings.map((name) => (
+                  <label key={`building-${name || 'none'}`}>
+                    <input
+                      type="checkbox"
+                      checked={roomFilters.buildings.has(name)}
+                      onChange={() => toggleRoomFilter('buildings', name)}
+                    />
+                    <span>{name || '미지정'}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.filterGroup}>
+              <p className={styles.filterTitle}>고객</p>
+              <div className={styles.filterOptions}>
+                {roomFilterOptions.clients.map((name) => (
+                  <label key={`client-${name || 'none'}`}>
+                    <input
+                      type="checkbox"
+                      checked={roomFilters.clients.has(name)}
+                      onChange={() => toggleRoomFilter('clients', name)}
+                    />
+                    <span>{name || '미지정'}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.filterGroup}>
+              <p className={styles.filterTitle}>영수증 유형</p>
+              <div className={styles.filterOptions}>
+                {roomFilterOptions.rcptFlags.map((flag) => (
+                  <label key={`rcpt-${flag || 'none'}`}>
+                    <input
+                      type="checkbox"
+                      checked={roomFilters.rcptFlags.has(flag)}
+                      onChange={() => toggleRoomFilter('rcptFlags', flag)}
+                    />
+                    <span>{RCPT_FLAG_LABELS[flag] ?? flag ?? '미지정'}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.filterGroup}>
+              <p className={styles.filterTitle}>체크아웃 시간</p>
+              <div className={styles.filterOptions}>
+                {roomFilterOptions.checkoutTimes.map((time) => (
+                  <label key={`checkout-${time || 'none'}`}>
+                    <input
+                      type="checkbox"
+                      checked={roomFilters.checkoutTimes.has(time)}
+                      onChange={() => toggleRoomFilter('checkoutTimes', time)}
+                    />
+                    <span>{time || '미지정'}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.filterGroup}>
+              <p className={styles.filterTitle}>공개 여부</p>
+              <div className={styles.filterOptions}>
+                {roomFilterOptions.openStates.map((state) => (
+                  <label key={`open-${state || 'none'}`}>
+                    <input
+                      type="checkbox"
+                      checked={roomFilters.openStates.has(state)}
+                      onChange={() => toggleRoomFilter('openStates', state)}
+                    />
+                    <span>{state === '1' ? 'Y' : state === '0' ? 'N' : '미지정'}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.filterSearch}>
+              <label htmlFor="room-search">건물 약칭 + 객실번호 검색</label>
+              <input
+                id="room-search"
+                type="search"
+                placeholder="예) A101"
+                value={roomSearch}
+                onChange={(event) => setRoomSearch(event.target.value)}
+              />
+            </div>
+          </div>
+        ) : null}
+
         <div className={styles.workerTableWrapper}>
-          {helperRows.length ? (
+          {displayedRows.length ? (
             <table className={styles.workerTable}>
               <thead>
                 <tr>
@@ -1594,17 +1846,27 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
                 </tr>
               </thead>
               <tbody>
-                {helperRows.map((row, index) => (
-                  <tr key={index} className={styles.workerRow} onClick={() => handleRowSelect(row)}>
-                    {helperColumnLabels.map((column) => (
-                      <td key={`${index}-${column.key}`}>{renderCellValue(row, column.key)}</td>
-                    ))}
-                  </tr>
-                ))}
+                {displayedRows.map((row, index) => {
+                  const isClosedRoom =
+                    isRoomHelper && (row.open_yn === 0 || row.open_yn === '0' || row.open_yn === false);
+                  return (
+                    <tr
+                      key={index}
+                      className={`${styles.workerRow} ${isClosedRoom ? styles.workerRowClosed : ''}`}
+                      onClick={() => handleRowSelect(row)}
+                    >
+                      {helperColumnLabels.map((column) => (
+                        <td key={`${index}-${column.key}`}>{renderCellValue(row, column.key)}</td>
+                      ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           ) : (
-            <div className={styles.workerEmpty}>{helperLoading ? '목록을 불러오는 중입니다.' : '등록된 데이터가 없습니다.'}</div>
+            <div className={styles.workerEmpty}>
+              {helperLoading ? '목록을 불러오는 중입니다.' : '등록된 데이터가 없습니다.'}
+            </div>
           )}
         </div>
       </section>
