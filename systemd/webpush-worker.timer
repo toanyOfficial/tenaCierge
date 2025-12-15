@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Web Push Worker every minute
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+Persistent=true
+Unit=webpush-worker.service
+
+[Install]
+WantedBy=timers.target

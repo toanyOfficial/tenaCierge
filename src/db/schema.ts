@@ -6,10 +6,12 @@ import {
   datetime,
   double,
   decimal,
+  index,
   smallint,
   int,
   json,
   mediumint,
+  mysqlEnum,
   mysqlTable,
   primaryKey,
   text,
@@ -562,3 +564,128 @@ export const workerWeeklyPattern = mysqlTable('worker_weekly_pattern', {
   createdBy: varchar('created_by', { length: 50 }),
   updatedBy: varchar('updated_by', { length: 50 })
 });
+
+export const notifyRules = mysqlTable(
+  'notify_rules',
+  {
+    id: bigintNumber('id', { unsigned: true }).autoincrement().notNull(),
+    ruleCode: varchar('rule_code', { length: 50 }).notNull(),
+    channel: mysqlEnum('channel', ['WEBPUSH']).default('WEBPUSH').notNull(),
+    templateCode: varchar('template_code', { length: 50 }).notNull(),
+    enabledYn: boolean('enabled_yn').default(true).notNull(),
+    scheduleCron: varchar('schedule_cron', { length: 50 }),
+    eventType: varchar('event_type', { length: 50 }),
+    description: varchar('description', { length: 255 }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+    createdBy: varchar('created_by', { length: 50 }),
+    updatedBy: varchar('updated_by', { length: 50 })
+  },
+  (table) => ({
+    notifyRuleCodeUniq: uniqueIndex('uq_notify_rules_rule_code').on(table.ruleCode),
+    notifyRulesEnabledIdx: index('idx_notify_rules_enabled').on(table.enabledYn),
+    notifyRulesTemplateIdx: index('idx_notify_rules_template').on(table.templateCode)
+  })
+);
+
+export const pushTemplates = mysqlTable(
+  'push_templates',
+  {
+    id: bigintNumber('id', { unsigned: true }).autoincrement().notNull(),
+    templateCode: varchar('template_code', { length: 50 }).notNull(),
+    title: varchar('title', { length: 100 }).notNull(),
+    body: text('body').notNull(),
+    iconUrl: varchar('icon_url', { length: 2083 }),
+    clickUrl: varchar('click_url', { length: 2083 }),
+    actionJson: json('action_json'),
+    ttlSec: int('ttl_sec', { unsigned: true }).default(3600).notNull(),
+    urgency: mysqlEnum('urgency', ['very-low', 'low', 'normal', 'high']).default('normal').notNull(),
+    useYn: boolean('use_yn').default(true).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+    createdBy: varchar('created_by', { length: 50 }),
+    updatedBy: varchar('updated_by', { length: 50 })
+  },
+  (table) => ({
+    pushTemplateCodeUniq: uniqueIndex('uq_push_template_code').on(table.templateCode),
+    pushTemplateUseIdx: index('idx_push_templates_use').on(table.useYn)
+  })
+);
+
+export const pushSubscriptions = mysqlTable(
+  'push_subscriptions',
+  {
+    id: bigintNumber('id', { unsigned: true }).autoincrement().notNull(),
+    userType: mysqlEnum('user_type', ['CLIENT', 'WORKER']).notNull(),
+    userId: int('user_id'),
+    endpoint: varchar('endpoint', { length: 2083 }).notNull(),
+    p256dh: varchar('p256dh', { length: 255 }).notNull(),
+    auth: varchar('auth', { length: 255 }).notNull(),
+    enabledYn: boolean('enabled_yn').default(true).notNull(),
+    lastSeenAt: datetime('last_seen_at'),
+    userAgent: varchar('user_agent', { length: 255 }),
+    platform: varchar('platform', { length: 50 }),
+    browser: varchar('browser', { length: 50 }),
+    deviceId: varchar('device_id', { length: 100 }),
+    locale: varchar('locale', { length: 10 }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+    createdBy: varchar('created_by', { length: 50 }),
+    updatedBy: varchar('updated_by', { length: 50 })
+  },
+  (table) => ({
+    webpushEndpointUniq: uniqueIndex('uq_webpush_endpoint').on(table.userType, table.endpoint, table.userId),
+    webpushLastSeenIdx: index('idx_webpush_last_seen').on(table.lastSeenAt)
+  })
+);
+
+export const notifyJobs = mysqlTable(
+  'notify_jobs',
+  {
+    id: bigintNumber('id', { unsigned: true }).autoincrement().notNull(),
+    ruleCode: varchar('rule_code', { length: 50 }).notNull(),
+    userType: mysqlEnum('user_type', ['CLIENT', 'WORKER']).notNull(),
+    userId: bigintNumber('user_id', { unsigned: true }).notNull(),
+    scheduledAt: datetime('scheduled_at').notNull(),
+    dedupKey: varchar('dedup_key', { length: 120 }).notNull(),
+    payloadJson: json('payload_json').notNull(),
+    status: mysqlEnum('status', ['READY', 'LOCKED', 'DONE', 'FAILED']).default('READY').notNull(),
+    tryCount: tinyint('try_count', { unsigned: true }).default(0).notNull(),
+    lastError: varchar('last_error', { length: 255 }),
+    lockedAt: datetime('locked_at'),
+    lockedBy: varchar('locked_by', { length: 50 }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+    createdBy: varchar('created_by', { length: 50 }),
+    updatedBy: varchar('updated_by', { length: 50 })
+  },
+  (table) => ({
+    notifyJobsDedupUniq: uniqueIndex('uq_notify_jobs_dedup').on(table.dedupKey),
+    notifyJobsPickIdx: index('idx_notify_jobs_pick').on(table.status, table.scheduledAt),
+    notifyJobsUserIdx: index('idx_notify_jobs_user').on(table.userType, table.userId, table.scheduledAt),
+    notifyJobsRuleIdx: index('idx_notify_jobs_rule').on(table.ruleCode, table.scheduledAt)
+  })
+);
+
+export const pushMessageLogs = mysqlTable(
+  'push_message_logs',
+  {
+    id: bigintNumber('id', { unsigned: true }).autoincrement().notNull(),
+    notifyJobId: bigintNumber('notify_job_id', { unsigned: true }).notNull(),
+    subscriptionId: bigintNumber('subscription_id', { unsigned: true }).notNull(),
+    status: mysqlEnum('status', ['QUEUED', 'SENT', 'FAILED', 'EXPIRED']).default('QUEUED').notNull(),
+    httpStatus: smallint('http_status', { unsigned: true }),
+    errorCode: varchar('error_code', { length: 50 }),
+    errorMessage: varchar('error_message', { length: 255 }),
+    sentAt: datetime('sent_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+    createdBy: varchar('created_by', { length: 50 }),
+    updatedBy: varchar('updated_by', { length: 50 })
+  },
+  (table) => ({
+    pushLogsJobIdx: index('idx_push_logs_job').on(table.notifyJobId),
+    pushLogsSubscriptionIdx: index('idx_push_logs_sub').on(table.subscriptionId),
+    pushLogsStatusIdx: index('idx_push_logs_status').on(table.status, table.sentAt)
+  })
+);
