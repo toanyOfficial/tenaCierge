@@ -226,6 +226,82 @@
   cursor: not-allowed;
 }
 
+.filterPanel {
+  border: 1px solid #e4e7ec;
+  border-radius: 10px;
+  padding: 12px;
+  background: #f8fafc;
+  display: grid;
+  gap: 12px;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filterGroupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.filterTitle {
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.filterOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.filterOptions label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.filterGroupHeader button {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.filterGroupHeader button:hover {
+  background: #f2f4f7;
+}
+
+.filterSearch {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filterSearch label {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.filterSearch input {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  color: #0f172a;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px #e5e7eb;
+}
+
 
 .workerTableWrapper {
   overflow: auto;
@@ -272,6 +348,14 @@
 
 .workerRow:hover {
   background: #f0fdf4;
+}
+
+.workerRowClosed {
+  color: #9ca3af;
+}
+
+.workerRowClosed td {
+  color: inherit;
 }
 
 .workerEmpty {
@@ -329,6 +413,17 @@
   gap: 6px;
 }
 
+.scheduleExceptionHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.scheduleExceptionTitle {
+  font-weight: 800;
+  font-size: 16px;
+}
+
 .scheduleExceptionMessage {
   font-size: 13px;
   color: #475467;
@@ -346,6 +441,14 @@
 .scheduleExceptionCheckbox input {
   width: 16px;
   height: 16px;
+}
+
+.workdayText {
+  color: #1d4ed8;
+}
+
+.vacationText {
+  color: #dc2626;
 }
 
 @media (max-width: 1080px) {
