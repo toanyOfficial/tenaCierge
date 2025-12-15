@@ -7,6 +7,7 @@ import { clientHeader, workApply, workerHeader } from '@/src/db/schema';
 import { logServerError } from '@/src/server/errorLogger';
 import { getSeoul1630Expiry, isSecureRequest } from '@/src/utils/cookie';
 import { formatDateKey, getKstNow } from '@/src/utils/workWindow';
+import { normalizePhone } from '@/src/utils/phone';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -37,7 +38,7 @@ function buildWorkerClause(identifier: SearchIdentifier) {
 }
 
 export async function POST(request: Request) {
-  let normalizedPhone = '';
+  let normalizedPhone: string | null = null;
   let normalizedRegister = '';
 
   try {
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
     const phoneRaw = typeof body?.phone === 'string' ? body.phone : '';
     const registerRaw = typeof body?.registerNo === 'string' ? body.registerNo : '';
 
-    normalizedPhone = phoneRaw.replace(/[^0-9]/g, '');
+    normalizedPhone = normalizePhone(phoneRaw);
     normalizedRegister = registerRaw.trim().toUpperCase();
 
     if (!normalizedPhone && !normalizedRegister) {
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
 
     const hasPhone = Boolean(normalizedPhone);
     const hasRegister = Boolean(normalizedRegister);
+    const phoneValue = normalizedPhone ?? '';
     const dates = (() => {
       const now = getKstNow();
       const today = formatDateKey(now);
@@ -80,7 +82,7 @@ export async function POST(request: Request) {
 
     if (hasPhone !== hasRegister) {
       const identifier: SearchIdentifier = hasPhone
-        ? { type: 'phone', value: normalizedPhone }
+        ? { type: 'phone', value: phoneValue }
         : { type: 'register', value: normalizedRegister };
 
       const [workerResult] = await db
@@ -128,7 +130,7 @@ export async function POST(request: Request) {
           tier: workerHeader.tier
         })
         .from(workerHeader)
-        .where(and(eq(workerHeader.phone, normalizedPhone), eq(workerHeader.registerCode, normalizedRegister)))
+        .where(and(eq(workerHeader.phone, phoneValue), eq(workerHeader.registerCode, normalizedRegister)))
         .limit(1);
 
       if (workerResult) {
@@ -160,7 +162,7 @@ export async function POST(request: Request) {
             registerNo: clientHeader.registerCode
           })
           .from(clientHeader)
-          .where(and(eq(clientHeader.phone, normalizedPhone), eq(clientHeader.registerCode, normalizedRegister)))
+          .where(and(eq(clientHeader.phone, phoneValue), eq(clientHeader.registerCode, normalizedRegister)))
           .limit(1);
 
         if (!clientResult) {
