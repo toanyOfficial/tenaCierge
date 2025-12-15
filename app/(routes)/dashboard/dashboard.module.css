@@ -262,6 +262,73 @@
   cursor: not-allowed;
 }
 
+.pushBanner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  background: linear-gradient(90deg, #f6f9ff, #eef3ff);
+  border: 1px solid #d9e2ff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 32, 96, 0.08);
+}
+
+.pushBannerTitle {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #163565;
+}
+
+.pushBannerBody {
+  margin: 0;
+  font-size: 13px;
+  color: #3b4a5a;
+  line-height: 1.5;
+}
+
+.pushBannerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pushBannerButton {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #1a73e8;
+  background: #1a73e8;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.pushBannerButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.pushBannerButton:not(:disabled):active {
+  transform: translateY(1px);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.pushBannerError {
+  margin: 6px 0 0;
+  color: #b42318;
+  font-weight: 600;
+}
+
+.pushBannerSuccess {
+  margin: 6px 0 0;
+  color: #0f5132;
+  font-weight: 600;
+}
+
 .roleStatus {
   font-weight: 600;
   color: #10b981;
