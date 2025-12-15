@@ -3,6 +3,7 @@ import { and, eq, sql } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import { clientHeader, pushSubscriptions, workerHeader } from '@/src/db/schema';
+import { logServerError } from '@/src/server/errorLogger';
 import { normalizePhone } from '@/src/utils/phone';
 
 export const dynamic = 'force-dynamic';
@@ -33,6 +34,11 @@ function normalizeRegister(registerRaw: string | null | undefined) {
   return trimmed ? trimmed.toUpperCase() : '';
 }
 
+function clamp(value: string | undefined, maxLength: number) {
+  if (!value) return undefined;
+  return value.length > maxLength ? value.slice(0, maxLength) : value;
+}
+
 async function upsertSubscription(params: {
   userType: UserContext;
   userId: number;
@@ -46,6 +52,11 @@ async function upsertSubscription(params: {
   locale?: string;
 }) {
   const now = new Date();
+  const userAgent = clamp(params.userAgent, 255);
+  const platform = clamp(params.platform, 50);
+  const browser = clamp(params.browser, 50);
+  const deviceId = clamp(params.deviceId, 100);
+  const locale = clamp(params.locale, 10);
   await db
     .insert(pushSubscriptions)
     .values({
@@ -56,11 +67,11 @@ async function upsertSubscription(params: {
       auth: params.auth,
       enabledYn: true,
       lastSeenAt: now,
-      userAgent: params.userAgent,
-      platform: params.platform,
-      browser: params.browser,
-      deviceId: params.deviceId,
-      locale: params.locale,
+      userAgent,
+      platform,
+      browser,
+      deviceId,
+      locale,
     })
     .onDuplicateKeyUpdate({
       set: {
@@ -68,19 +79,21 @@ async function upsertSubscription(params: {
         auth: params.auth,
         enabledYn: true,
         lastSeenAt: now,
-        userAgent: params.userAgent,
-        platform: params.platform,
-        browser: params.browser,
-        deviceId: params.deviceId,
-        locale: params.locale,
+        userAgent,
+        platform,
+        browser,
+        deviceId,
+        locale,
         updatedAt: sql`CURRENT_TIMESTAMP`,
       },
     });
 }
 
 export async function POST(request: Request) {
+  let body: SubscribeRequest | null = null;
+
   try {
-    const body = (await request.json().catch(() => null)) as SubscribeRequest | null;
+    body = (await request.json().catch(() => null)) as SubscribeRequest | null;
     if (!body) {
       return NextResponse.json({ message: '구독 정보가 필요합니다.' }, { status: 400 });
     }
@@ -168,7 +181,15 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ message: 'WORKER 구독이 저장되었습니다.', userId: worker.id });
   } catch (error) {
-    console.error(error);
+    await logServerError({
+      message: '푸시 구독 저장 실패',
+      error,
+      context: {
+        context: 'subscribe',
+        // Avoid persisting push keys in logs.
+        body: { ...(body ?? {}), endpoint: undefined, p256dh: undefined, auth: undefined },
+      },
+    });
     return NextResponse.json({ message: '푸시 구독 처리 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }
