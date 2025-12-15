@@ -96,8 +96,9 @@ export default function LoginForm() {
         return;
       }
 
-      if (result.status === 'success' && result.failures.length > 0) {
-        alert('일부 구독 저장에 실패했습니다. 다시 시도해 주세요.');
+      if (result.status === 'partial') {
+        // 이미 로그인은 성공했으므로 사용자 흐름을 막지 않고, 콘솔 로그로만 노출한다.
+        console.warn(result.message, { successes: result.successes, failures: result.failures, skipped: result.skipped });
       }
     } catch (error) {
       console.error('푸시 구독 처리 중 오류', error);

@@ -6,6 +6,7 @@ export type SubscriptionContext = {
 
 export type RegisterResult =
   | { status: 'success'; message?: string; successes: string[]; failures: string[]; skipped: string[] }
+  | { status: 'partial'; message: string; successes: string[]; failures: string[]; skipped: string[] }
   | { status: 'skipped'; message: string }
   | { status: 'unsupported'; message: string }
   | { status: 'denied'; message: string }
@@ -158,16 +159,23 @@ export async function registerWebPush(contexts: SubscriptionContext[]): Promise<
   try {
     const { successes, failures, skipped } = await persistSubscription(readyContexts, subscription, metadata);
     const hasFailure = failures.length > 0;
+    const hasSuccess = successes.length > 0;
 
-    return {
-      status: hasFailure && successes.length === 0 ? 'error' : 'success',
-      message: hasFailure
-        ? '일부 구독 저장에 실패했습니다. 다시 시도해 주세요.'
-        : '푸시 구독이 저장되었습니다.',
-      successes,
-      failures,
-      skipped
-    };
+    if (hasFailure && !hasSuccess) {
+      return { status: 'error', message: '푸시 구독 저장에 실패했습니다. 다시 시도해 주세요.' };
+    }
+
+    if (hasFailure && hasSuccess) {
+      return {
+        status: 'partial',
+        message: '일부 구독 저장에 실패했습니다. 다시 시도해 주세요.',
+        successes,
+        failures,
+        skipped
+      };
+    }
+
+    return { status: 'success', message: '푸시 구독이 저장되었습니다.', successes, failures, skipped };
   } catch (error) {
     return { status: 'error', message: error instanceof Error ? error.message : '푸시 구독 처리 중 오류가 발생했습니다.' };
   }
