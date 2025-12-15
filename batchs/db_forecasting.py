@@ -387,8 +387,8 @@ def log_batch_execution(
             cur.execute(
                 """
                 INSERT INTO etc_errorLogs_batch
-                    (app_name, start_dttm, end_dttm, end_flag, context_json, created_by, updated_by)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    (app_name, start_dttm, end_dttm, end_flag, context_json)
+                VALUES (%s, %s, %s, %s, %s)
                 """,
                 (
                     app_name,
@@ -396,8 +396,6 @@ def log_batch_execution(
                     end_dttm,
                     end_flag,
                     json.dumps(context or {}, ensure_ascii=False),
-                    "BATCH",
-                    "BATCH",
                 ),
             )
         log_conn.commit()
