@@ -1,0 +1,219 @@
+import { and, eq, inArray, lte, sql } from 'drizzle-orm';
+
+import { db } from '@/src/db/client';
+import { notifyJobs, pushMessageLogs, pushSubscriptions } from '@/src/db/schema';
+
+export type NotifyJobRow = typeof notifyJobs.$inferSelect;
+export type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect;
+
+export type NotifyJobPayload = {
+  templateId: number;
+  title: string;
+  body: string;
+  iconUrl?: string | null;
+  clickUrl?: string | null;
+  data?: Record<string, unknown>;
+  ttlSeconds?: number;
+  urgency?: 'very-low' | 'low' | 'normal' | 'high';
+};
+
+export type EnqueueNotifyJobParams = {
+  ruleCode: string;
+  userType: NotifyJobRow['userType'];
+  userId: number;
+  dedupKey: string;
+  payload: NotifyJobPayload;
+  scheduledAt?: Date;
+  createdBy?: string;
+};
+
+export async function enqueueNotifyJob(params: EnqueueNotifyJobParams) {
+  const scheduledAt = params.scheduledAt ?? new Date();
+
+  try {
+    const result = await db
+      .insert(notifyJobs)
+      .values({
+        ruleCode: params.ruleCode,
+        userType: params.userType,
+        userId: params.userId,
+        scheduledAt,
+        dedupKey: params.dedupKey,
+        payloadJson: params.payload,
+        createdBy: params.createdBy,
+      })
+      .execute();
+
+    const insertId = Array.isArray(result)
+      ? result[0]?.insertId
+      : (result as { insertId?: unknown }).insertId;
+
+    return { created: true, jobId: Number(insertId) } as const;
+  } catch (error) {
+    const isDup = typeof error === 'object' && error !== null && (error as { code?: string }).code === 'ER_DUP_ENTRY';
+    if (isDup) {
+      return { created: false } as const;
+    }
+    throw error;
+  }
+}
+
+export async function fetchReadyJobs(now = new Date(), limit = 50) {
+  return db
+    .select()
+    .from(notifyJobs)
+    .where(and(eq(notifyJobs.status, 'READY'), lte(notifyJobs.scheduledAt, now)))
+    .orderBy(notifyJobs.scheduledAt)
+    .limit(limit);
+}
+
+export async function lockJobs(jobIds: number[], lockedBy: string) {
+  if (jobIds.length === 0) return 0;
+
+  const result = await db
+    .update(notifyJobs)
+    .set({
+      status: 'LOCKED',
+      lockedBy,
+      lockedAt: new Date(),
+      tryCount: sql`try_count + 1`,
+    })
+    .where(and(inArray(notifyJobs.id, jobIds), eq(notifyJobs.status, 'READY')))
+    .execute();
+
+  return Number(result[0]?.affectedRows ?? 0);
+}
+
+export async function markJobDone(jobId: number) {
+  await db
+    .update(notifyJobs)
+    .set({ status: 'DONE', lastError: null, lockedAt: null, lockedBy: null })
+    .where(eq(notifyJobs.id, jobId));
+}
+
+export async function markJobFailed(jobId: number, errorMessage: string) {
+  const trimmed = errorMessage.slice(0, 255);
+  await db
+    .update(notifyJobs)
+    .set({ status: 'FAILED', lastError: trimmed })
+    .where(eq(notifyJobs.id, jobId));
+}
+
+export async function fetchEnabledSubscriptions(userType: PushSubscriptionRow['userType'], userId: number) {
+  return db
+    .select()
+    .from(pushSubscriptions)
+    .where(and(eq(pushSubscriptions.userType, userType), eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.enabledYn, true)));
+}
+
+export type DeliverResult = {
+  status: 'SENT' | 'FAILED' | 'EXPIRED';
+  httpStatus?: number;
+  errorCode?: string;
+  errorMessage?: string;
+  sentAt?: Date;
+};
+
+export type DeliverFn = (
+  subscription: PushSubscriptionRow,
+  payload: NotifyJobPayload,
+  job: NotifyJobRow
+) => Promise<DeliverResult>;
+
+export async function logPushAttempt(params: {
+  jobId: number;
+  subscriptionId: number;
+  result: DeliverResult;
+}) {
+  await db.insert(pushMessageLogs).values({
+    notifyJobId: params.jobId,
+    subscriptionId: params.subscriptionId,
+    status: params.result.status,
+    httpStatus: params.result.httpStatus,
+    errorCode: params.result.errorCode,
+    errorMessage: params.result.errorMessage,
+    sentAt: params.result.sentAt,
+  });
+}
+
+export async function processLockedJob(job: NotifyJobRow, deliver: DeliverFn) {
+  const payload = job.payloadJson as NotifyJobPayload;
+  const subscriptions = await fetchEnabledSubscriptions(job.userType, job.userId);
+
+  if (!subscriptions.length) {
+    await markJobDone(job.id);
+    return { jobId: job.id, sent: 0, failed: 0, skipped: true } as const;
+  }
+
+  let sent = 0;
+  let failed = 0;
+  let firstFailureDetail: string | null = null;
+
+  for (const subscription of subscriptions) {
+    try {
+      const result = await deliver(subscription, payload, job);
+      await logPushAttempt({ jobId: job.id, subscriptionId: subscription.id, result });
+      if (result.status === 'SENT') {
+        sent += 1;
+      } else {
+        failed += 1;
+        if (!firstFailureDetail) {
+          const parts = [] as string[];
+          if (result.httpStatus) parts.push(`status=${result.httpStatus}`);
+          if (result.errorMessage) parts.push(result.errorMessage);
+          parts.push(`endpoint=${subscription.endpoint}`);
+          firstFailureDetail = parts.join(' ');
+        }
+      }
+    } catch (error) {
+      failed += 1;
+      const message = error instanceof Error ? error.message : 'unexpected delivery error';
+      await logPushAttempt({
+        jobId: job.id,
+        subscriptionId: subscription.id,
+        result: { status: 'FAILED', errorMessage: message },
+      });
+      if (!firstFailureDetail) {
+        firstFailureDetail = `error=${message} endpoint=${subscription.endpoint}`;
+      }
+    }
+  }
+
+  if (failed === 0) {
+    await markJobDone(job.id);
+  } else {
+    const detail = firstFailureDetail ? `; first failure ${firstFailureDetail}` : '';
+    await markJobFailed(job.id, `delivery failed (${failed}/${subscriptions.length})${detail}`);
+  }
+
+  return { jobId: job.id, sent, failed, skipped: false } as const;
+}
+
+export async function runDueJobs(deliver: DeliverFn, options?: { now?: Date; limit?: number; lockedBy?: string }) {
+  const now = options?.now ?? new Date();
+  const limit = options?.limit ?? 50;
+  const lockedBy = options?.lockedBy ?? 'webpush-worker';
+
+  const ready = await fetchReadyJobs(now, limit);
+  if (!ready.length) {
+    return [] as Array<{ jobId: number; sent: number; failed: number; skipped: boolean }>;
+  }
+
+  const lockedCount = await lockJobs(ready.map((job) => job.id), lockedBy);
+  if (lockedCount === 0) {
+    return [] as Array<{ jobId: number; sent: number; failed: number; skipped: boolean }>;
+  }
+
+  const lockedJobs = await db
+    .select()
+    .from(notifyJobs)
+    .where(and(eq(notifyJobs.status, 'LOCKED'), inArray(notifyJobs.id, ready.map((job) => job.id))));
+
+  const results: Array<{ jobId: number; sent: number; failed: number; skipped: boolean }> = [];
+  for (const job of lockedJobs) {
+    const result = await processLockedJob(job, deliver);
+    results.push(result);
+  }
+
+  return results;
+}
