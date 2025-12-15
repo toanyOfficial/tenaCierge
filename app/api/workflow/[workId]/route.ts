@@ -251,6 +251,7 @@ export async function PATCH(request: Request, { params }: { params: { workId: st
       cleaningFlag: workHeader.cleaningFlag,
       supervisingYn: workHeader.supervisingYn,
       supervisingEndTime: workHeader.supervisingEndTime,
+      butlerId: workHeader.butlerId,
       cleanerId: workHeader.cleanerId,
       cleanerName: workerHeader.name
     })

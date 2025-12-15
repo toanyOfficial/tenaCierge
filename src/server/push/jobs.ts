@@ -31,7 +31,7 @@ export async function enqueueNotifyJob(params: EnqueueNotifyJobParams) {
   const scheduledAt = params.scheduledAt ?? new Date();
 
   try {
-    const [result] = await db
+    const result = await db
       .insert(notifyJobs)
       .values({
         ruleCode: params.ruleCode,
@@ -42,9 +42,13 @@ export async function enqueueNotifyJob(params: EnqueueNotifyJobParams) {
         payloadJson: params.payload,
         createdBy: params.createdBy,
       })
-      .returning({ id: notifyJobs.id });
+      .execute();
 
-    return { created: true, jobId: result.id } as const;
+    const insertId = Array.isArray(result)
+      ? result[0]?.insertId
+      : (result as { insertId?: unknown }).insertId;
+
+    return { created: true, jobId: Number(insertId) } as const;
   } catch (error) {
     const isDup = typeof error === 'object' && error !== null && (error as { code?: string }).code === 'ER_DUP_ENTRY';
     if (isDup) {

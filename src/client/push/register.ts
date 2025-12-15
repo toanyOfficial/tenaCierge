@@ -11,7 +11,7 @@ export type RegisterResult =
   | { status: 'denied'; message: string }
   | { status: 'error'; message: string };
 
-function urlBase64ToUint8Array(base64String: string) {
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = atob(base64);
@@ -41,7 +41,7 @@ function buildBrowserLabel() {
   return brands.map((entry) => `${entry.brand}/${entry.version}`).join(', ');
 }
 
-async function getSubscription(applicationServerKey: Uint8Array) {
+async function getSubscription(applicationServerKey: ArrayBuffer) {
   const registration = await navigator.serviceWorker.register('/push-sw.js');
   const existing = await registration.pushManager.getSubscription();
   if (existing) {
@@ -146,7 +146,7 @@ export async function registerWebPush(contexts: SubscriptionContext[]): Promise<
     return { status: 'denied', message: '알림 권한이 허용되지 않았습니다.' };
   }
 
-  const subscription = await getSubscription(urlBase64ToUint8Array(vapidKey));
+  const subscription = await getSubscription(urlBase64ToUint8Array(vapidKey).buffer as ArrayBuffer);
   const metadata = {
     userAgent: navigator.userAgent,
     platform: (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform || navigator.platform,
