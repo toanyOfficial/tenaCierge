@@ -49,6 +49,10 @@ BASE_DIR = Path(__file__).resolve().parent
 ICS_BASE = BASE_DIR / "ics"
 SEOUL = tz.gettz("Asia/Seoul")
 
+WEB_PUSH_SCENARIO_URL = os.environ.get(
+    "WEB_PUSH_SCENARIO_ENDPOINT", "http://localhost:3000/api/push/scenario"
+)
+
 WEEKDAY_BASE = {0: 0.6, 1: 0.45, 2: 0.45, 3: 0.5, 4: 0.8, 5: 1.0, 6: 0.9}
 WEEKDAY_FACTOR = {0: 0.95, 1: 0.90, 2: 0.90, 3: 0.95, 4: 1.00, 5: 1.05, 6: 1.00}
 
@@ -164,6 +168,38 @@ def configure_logging() -> None:
         format="%(asctime)s [%(levelname)s] %(message)s",
         handlers=handlers,
     )
+
+
+def enqueue_web_push_scenario(payload: Dict[str, object], *, label: str) -> None:
+    """배치 결과를 웹푸시 시나리오 큐로 전달한다."""
+
+    try:
+        resp = requests.post(WEB_PUSH_SCENARIO_URL, json=payload, timeout=5)
+    except Exception as exc:  # pylint: disable=broad-except
+        logging.warning("웹푸시 enqueue 실패(%s): %s", label, exc)
+        return
+
+    if resp.status_code >= 400:
+        logging.warning(
+            "웹푸시 enqueue 응답 오류(%s): status=%s body=%s",
+            label,
+            resp.status_code,
+            resp.text,
+        )
+        return
+
+    try:
+        data = resp.json()
+    except Exception:  # pylint: disable=broad-except
+        logging.info("웹푸시 enqueue 완료(%s) - JSON 파싱 실패", label)
+        return
+
+    created = data.get("created")
+    attempted = data.get("attempted")
+    if not created:
+        logging.info("웹푸시 enqueue dedup/스킵(%s): attempted=%s", label, attempted)
+    else:
+        logging.info("웹푸시 enqueue 완료(%s): created=%s attempted=%s", label, created, attempted)
 
 
 def seoul_today() -> dt.date:
@@ -1396,6 +1432,25 @@ def main() -> None:
             refresh_dn=args.refresh_dn,
         )
         runner.run()
+        if args.refresh_dn is not None:
+            enqueue_web_push_scenario(
+                {
+                    "scenario": "CLEAN_SCHEDULE",
+                    "runDate": str(run_date),
+                    "offsetDays": args.refresh_dn,
+                    "createdBy": "db_forecasting",
+                },
+                label=f"CLEAN_SCHEDULE D+{args.refresh_dn}",
+            )
+        else:
+            enqueue_web_push_scenario(
+                {
+                    "scenario": "WORK_APPLY_OPEN",
+                    "today": str(run_date),
+                    "createdBy": "db_forecasting",
+                },
+                label="WORK_APPLY_OPEN",
+            )
         logging.info("배치 정상 종료")
     except Exception as exc:
         end_flag = 2
