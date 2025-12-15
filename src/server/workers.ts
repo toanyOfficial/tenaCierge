@@ -3,6 +3,7 @@ import { asc, desc, eq, like, or } from 'drizzle-orm';
 import { db } from '@/src/db/client';
 import { workerHeader } from '@/src/db/schema';
 import type { ProfileSummary } from '@/src/utils/profile';
+import { normalizePhone } from '@/src/utils/phone';
 import { getTierLabel } from '@/src/utils/tier';
 
 export type WorkerRecord = {
@@ -96,15 +97,6 @@ export async function searchWorkersByTerm(term: string, limit = 10) {
     ...row,
     tierLabel: getTierLabel(row.tier)
   }));
-}
-
-function normalizePhone(value: string | undefined) {
-  if (!value) {
-    return '';
-  }
-
-  const digits = value.replace(/\D/g, '');
-  return digits.slice(0, 11);
 }
 
 function normalizeIdentifier(value: string | undefined) {
