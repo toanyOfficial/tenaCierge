@@ -25,6 +25,9 @@ KST = dt.timezone(dt.timedelta(hours=9))
 MAX_OPENAI_CALLS_PER_RUN = 3
 COMMENT_DB_LIMIT = 240
 SCHEMA_CSV_PATH = Path(__file__).resolve().parent.parent / "docsForCodex" / "schema.csv"
+WEB_PUSH_SCENARIO_URL = os.environ.get(
+    "WEB_PUSH_SCENARIO_ENDPOINT", "http://localhost:3000/api/push/scenario"
+)
 
 
 def configure_logging() -> None:
@@ -40,6 +43,35 @@ def configure_logging() -> None:
         format="%(asctime)s [%(levelname)s] %(message)s",
         handlers=handlers,
     )
+
+
+def enqueue_web_push_scenario(payload: Dict[str, object], *, label: str) -> None:
+    """웹푸시 시나리오 큐에 작업을 추가한다."""
+
+    try:
+        resp = requests.post(WEB_PUSH_SCENARIO_URL, json=payload, timeout=5)
+    except Exception as exc:  # pylint: disable=broad-except
+        logging.warning("웹푸시 enqueue 실패(%s): %s", label, exc)
+        return
+
+    if resp.status_code >= 400:
+        logging.warning(
+            "웹푸시 enqueue 응답 오류(%s): status=%s body=%s", label, resp.status_code, resp.text
+        )
+        return
+
+    try:
+        data = resp.json()
+    except Exception:  # pylint: disable=broad-except
+        logging.info("웹푸시 enqueue 완료(%s) - JSON 파싱 실패", label)
+        return
+
+    created = data.get("created")
+    attempted = data.get("attempted")
+    if not created:
+        logging.info("웹푸시 enqueue dedup/스킵(%s): attempted=%s", label, attempted)
+    else:
+        logging.info("웹푸시 enqueue 완료(%s): created=%s attempted=%s", label, created, attempted)
 
 
 def parse_args() -> argparse.Namespace:
@@ -1542,6 +1574,14 @@ def main() -> None:
         )
         batch.run()
         _persist_client_supplements(conn, args.target_date)
+        enqueue_web_push_scenario(
+            {
+                "scenario": "SUPPLEMENTS_PENDING",
+                "today": str(args.target_date),
+                "createdBy": "update_cleaner_ranking",
+            },
+            label="SUPPLEMENTS_PENDING",
+        )
         logging.info("클리너 랭킹 배치 정상 종료")
     except Exception as exc:
         end_flag = 2

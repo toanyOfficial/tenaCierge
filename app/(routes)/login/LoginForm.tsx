@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { registerWebPush, type SubscriptionContext } from '@/src/client/push/register';
+import { normalizePhone } from '@/src/utils/phone';
 import styles from './login.module.css';
 
 type FormValues = {
@@ -16,6 +18,11 @@ const phoneRegExp = /^01[0-9]{8,9}$/;
 const initialValues: FormValues = {
   phone: '',
   registerNo: ''
+};
+
+type LoginSuccess = {
+  profile: { name: string; phone: string | null; registerNo: string | null };
+  roleArrange: string[];
 };
 
 function validate(values: FormValues): FormErrors {
@@ -34,12 +41,73 @@ function validate(values: FormValues): FormErrors {
   return errors;
 }
 
+function buildPushContexts(profile: LoginSuccess['profile'], roleArrange: string[]): SubscriptionContext[] {
+  const contexts: SubscriptionContext[] = [];
+  const normalizedPhone = profile.phone ? normalizePhone(profile.phone) : null;
+  const normalizedRegister = profile.registerNo?.trim().toUpperCase() || null;
+
+  if (roleArrange.includes('host')) {
+    contexts.push({ type: 'CLIENT', phone: normalizedPhone, registerNo: normalizedRegister });
+  }
+
+  if (roleArrange.some((role) => role === 'cleaner' || role === 'butler')) {
+    contexts.push({ type: 'WORKER', phone: normalizedPhone, registerNo: normalizedRegister });
+  }
+
+  return contexts;
+}
+
 export default function LoginForm() {
   const router = useRouter();
   const [values, setValues] = useState<FormValues>(initialValues);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+
+  async function syncWebPushConsent(loginResult: LoginSuccess) {
+    if (typeof window === 'undefined' || typeof Notification === 'undefined') return;
+
+    const contexts = buildPushContexts(loginResult.profile, loginResult.roleArrange ?? []);
+    if (contexts.length === 0) return;
+
+    try {
+      if (Notification.permission === 'granted') {
+        await registerWebPush(contexts);
+        return;
+      }
+
+      const proceed = window.confirm(
+        '청소목록 등 필수요소는 물론 업무 진행 상 유리하게 작용할 수 있는 여러가지 정보를 푸시알람으로 보내드리오니 꼭 허용하기 부탁 드립니다. 광고나 스팸성 푸시는 일절 전송되지 않습니다. 동의하시겠습니까?'
+      );
+
+      if (!proceed) {
+        return;
+      }
+
+      const result = await registerWebPush(contexts);
+
+      if (result.status === 'denied') {
+        alert('알림 권한이 거부되어 푸시를 등록할 수 없습니다. 브라우저 설정을 확인해 주세요.');
+        return;
+      }
+
+      if (result.status === 'unsupported' || result.status === 'error') {
+        alert(result.message ?? '푸시 구독 처리 중 문제가 발생했습니다.');
+        return;
+      }
+
+      if (result.status === 'success' && result.failures.length > 0) {
+        // 이미 로그인은 성공했으므로 사용자 흐름을 막지 않고, 콘솔 로그로만 노출한다.
+        console.warn('일부 웹푸시 구독 저장 실패', {
+          successes: result.successes,
+          failures: result.failures,
+          skipped: result.skipped,
+        });
+      }
+    } catch (error) {
+      console.error('푸시 구독 처리 중 오류', error);
+    }
+  }
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -106,6 +174,8 @@ export default function LoginForm() {
         return;
       }
 
+      const data: LoginSuccess = await response.json();
+
       setValues(initialValues);
       setErrors({});
 
@@ -117,6 +187,8 @@ export default function LoginForm() {
       } else {
         window.localStorage.removeItem('login_saved');
       }
+
+      await syncWebPushConsent(data);
 
       router.push('/dashboard');
     } catch (error) {

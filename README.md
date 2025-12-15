@@ -9,6 +9,14 @@ Next.js 13 App Router 기반의 내부 운영 대시보드 초기 베이스라�
 - `bun run start`
 - `bun run lint`
 
+## 운영 실행/재시작 가이드
+- **웹서버 기동은 반드시 `/srv/tenaCierge/scripts/start-web.sh`로 실행**합니다. 이 스크립트가 `.env`를 export 후 `bun run start -H 0.0.0.0`를 `nohup`으로 띄우고 로그를 `/srv/tenaCierge/logs/webserver.log`에 남깁니다.
+  - 실행 예시: `sudo -u appuser -H bash -lc '/srv/tenaCierge/scripts/start-web.sh'`
+- **환경 변수 확인**은 `/srv/tenaCierge/scripts/check-env.sh`를 사용합니다. `.env`를 로드한 뒤 `DB_HOST/DB_USER/DB_NAME/VAPID_PUBLIC_KEY/NEXT_PUBLIC_VAPID_PUBLIC_KEY`만 출력합니다.
+- (선택) 기존 `bun run start` 프로세스가 떠 있다면 중복 기동을 피하기 위해 종료 후 실행하세요.
+  - 확인: `ps -fu appuser | grep 'bun run start' | grep -v grep`
+  - 종료: `sudo -u appuser -H pkill -f 'bun run start'`
+
 ## 디렉터리 구조
 ```
 app/              # App Router 엔트리, API Route 포함
