@@ -940,6 +940,10 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
       const payload = (await response.json()) as Snapshot;
       setSnapshot(payload);
+
+      if (!usingSharedGrid) {
+        await fetchHelperSnapshot();
+      }
       startCreate();
       setFeedback({ message: '저장되었습니다.', variant: 'success' });
     } catch (error) {
