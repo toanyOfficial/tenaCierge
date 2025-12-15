@@ -19,6 +19,13 @@ const deliver: DeliverFn = async (subscription, payload, job) => {
 };
 ```
 
+## 실제 웹푸시 송신기 (src/server/push/webPush.ts)
+- `createWebPushDeliver` : VAPID 설정을 로드/주입한 뒤 `web-push` 모듈을 동적 로딩하여 위 계약을 충족하는 deliver 함수를 반환.
+- `runWebPushWorker` : `runDueJobs`에 Web Push deliver를 결합해 워커 1회 실행(락→발송→로그→상태 업데이트) 흐름을 제공.
+- send payload 구조: `{ templateId, title, body, iconUrl, clickUrl, data, dedupKey }` 를 JSON 직렬화하여 `web-push.sendNotification`에 전달하며 TTL/urgency 옵션을 매핑.
+- 오류 처리: HTTP 404/410은 `EXPIRED`, 그 외는 `FAILED` 상태로 변환하여 로그에 적재.
+- 의존성: `web-push` 패키지가 필요하며 실행 전 `npm install web-push`로 설치되어야 한다(현재 코드에서는 미설치 시 친절한 예외 메시지 출력).
+
 ## 상태 전이 규칙
 1. READY → LOCKED (`lockJobs`)
 2. LOCKED → DONE: 모든 구독 발송 성공 또는 대상 구독 없음
@@ -30,5 +37,6 @@ const deliver: DeliverFn = async (subscription, payload, job) => {
 3. 모니터링은 `push_message_logs` 상태/HTTP 코드, `notify_jobs.last_error` 기반으로 구성
 
 ## 남은 TODO
-- 실제 web push 발송 구현(web-push 라이브러리) 및 템플릿/아웃바운드 메시지 매핑
 - 재시도/백오프 정책 세분화, 실패 코드별 enabled_yn 업데이트 정책 정의
+- 구독 만료(410 등) 발생 시 enabled_yn off 처리 및 클린업 배치 정의
+- 크론/큐 러너에 `runWebPushWorker` 연결 및 알람/메트릭 수집 배선
