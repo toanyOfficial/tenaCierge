@@ -51,7 +51,7 @@ const CLIENT_ADDITIONAL_PRICE_CONFIG = {
 const CLIENT_HEADER_HIDDEN_COLUMNS = new Set(['created_at', 'updated_at']);
 const WORKER_HIDDEN_COLUMNS = new Set(['created_at', 'updated_at']);
 const CLIENT_ROOMS_HIDDEN_COLUMNS = new Set(['created_at', 'updated_at']);
-const GLOBAL_HIDDEN_COLUMNS = new Set(['created_at', 'updated_at']);
+const GLOBAL_HIDDEN_COLUMNS = new Set(['created_at', 'updated_at', 'created_by', 'updated_by']);
 const PROTECTED_TABLES = new Set(['worker_header', 'client_header', 'client_rooms', 'client_additional_price']);
 const NO_SEARCH_REFERENCE_COLUMNS = new Set(['images_set_id', 'checklist_set_id']);
 const TABLE_LABEL_OVERRIDES: Record<string, Record<string, string>> = {
@@ -92,6 +92,7 @@ const CLIENT_SETTLE_OPTIONS = [
   { value: '3', label: '커스텀' },
   { value: '4', label: '기타' }
 ];
+const NUMERIC_ONLY_FIELDS = new Set(['phone', 'reg_no', 'account_no']);
 const WEEKDAY_OPTIONS = [
   { value: '0', label: '0:일요일' },
   { value: '1', label: '1:월요일' },
@@ -568,6 +569,12 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   }
 
   function handleInputChange(column: AdminColumnMeta, value: string | boolean) {
+    if (NUMERIC_ONLY_FIELDS.has(column.name)) {
+      const sanitized = typeof value === 'string' ? value.replace(/[^0-9]/g, '') : String(value).replace(/[^0-9]/g, '');
+      setFormValues((prev) => ({ ...prev, [column.name]: sanitized }));
+      return;
+    }
+
     if (isClientAdditionalPrice && mode === 'create' && (column.name === 'room_id' || column.name === 'date')) {
       const nextValues = { ...formValues, [column.name]: String(value) };
       setFormValues(nextValues);
@@ -611,7 +618,7 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     const selectedOption = options.find((option) => String(option.value) === optionValue);
     setFormValues((prev) => ({
       ...prev,
-      basecode_bank: String(selectedOption?.meta?.codeGroup ?? ''),
+      basecode_bank: optionValue,
       basecode_code: String(selectedOption?.meta?.code ?? optionValue)
     }));
   }
@@ -732,6 +739,7 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
   function formatValueForForm(column: AdminColumnMeta, value: unknown) {
     if (value === null || value === undefined) return undefined;
+    if (NUMERIC_ONLY_FIELDS.has(column.name)) return String(value).replace(/[^0-9]/g, '');
     if (column.dataType === 'date') return toDateString(value);
     if (column.dataType === 'datetime' || column.dataType === 'timestamp') return toDateTimeLocal(value);
     if (column.dataType === 'time') return toTimeString(value);
