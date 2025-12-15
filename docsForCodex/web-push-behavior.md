@@ -1,0 +1,8 @@
+# Mobile Web Push Delivery Notes
+
+- **Consent trigger:** Showing a "푸시 수신하기" button is a good UX pattern, but the browser-level permission prompt and subscription creation only happen after the user explicitly allows notifications. Without consent, no push token (subscription) exists and nothing can be sent.
+- **Target identity:** Web push targets a **PushSubscription** (endpoint + keys) issued by the browser for your origin, not a universal device ID. If the user clears site data, changes browsers/profiles, or reinstalls the PWA, a new subscription is issued and the old one stops working.
+- **Delivery when the site/app is closed:** Once a valid subscription exists and permissions remain granted, the Service Worker can receive and display pushes even if the site is not open. Browser/OS policies still apply (battery saver, global notification block, expired subscription TTL, etc.).
+- **Delivery when the browser is closed:** Modern mobile browsers typically queue pushes via the OS and show them when possible, but behavior varies by browser/OS. iOS Safari supports this for PWA installs on 16.4+; desktop and Android Chromium browsers generally deliver after restart if queued.
+- **Session/cookie independence:** Push delivery itself does not require an active login or cookies, but your server-side targeting logic should validate that the subscription still maps to the right account before sending.
+- **Lifecycle hygiene:** Handle unsubscribe/expiration responses (e.g., HTTP 404/410 from the push service) by removing stale subscriptions and prompting the user to re-enable notifications when needed.
