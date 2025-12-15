@@ -814,8 +814,14 @@ class BatchRunner:
                 d7_rows.append(payload)
 
         with self.conn.cursor() as cur:
-            cur.execute("DELETE FROM work_fore_d1 WHERE run_dttm=%s", (self.run_date,))
-            cur.execute("DELETE FROM work_fore_d7 WHERE run_dttm=%s", (self.run_date,))
+            cur.execute(
+                "DELETE FROM work_fore_d1 WHERE run_dttm=%s",
+                (self.run_date,),
+            )
+            cur.execute(
+                "DELETE FROM work_fore_d7 WHERE run_dttm=%s",
+                (self.run_date,),
+            )
 
             if d1_rows:
                 cur.executemany(
