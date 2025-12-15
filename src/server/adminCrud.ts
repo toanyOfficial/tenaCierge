@@ -243,7 +243,7 @@ export async function fetchTableSnapshot(table: string, offset = 0, limit = 20):
   if (table === 'client_rooms') {
     const orderColumnExpr = orderColumn ? `r.${orderColumn}` : 'r.id';
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT r.*, COALESCE(ch.name, ch.person, '') AS client_name, ch.rcpt_flag, b.building_short_name
+      `SELECT r.*, COALESCE(ch.name, ch.person, '') AS client_name, b.building_short_name
        FROM client_rooms r
        LEFT JOIN client_header ch ON r.client_id = ch.id
        LEFT JOIN etc_buildings b ON r.building_id = b.id

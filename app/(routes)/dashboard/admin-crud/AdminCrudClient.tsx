@@ -34,10 +34,11 @@ type Snapshot = {
 type RoomFilterState = {
   buildings: Set<string>;
   clients: Set<string>;
-  rcptFlags: Set<string>;
   checkoutTimes: Set<string>;
   openStates: Set<string>;
 };
+
+type RoomFilterKey = keyof RoomFilterState;
 
 const DEFAULT_LIMIT = 20;
 const CLIENT_ADDITIONAL_PRICE_CONFIG = {
@@ -110,15 +111,9 @@ const WEEKDAY_OPTIONS = [
   { value: '5', label: '5:금요일' },
   { value: '6', label: '6:토요일' }
 ];
-const RCPT_FLAG_LABELS: Record<string, string> = {
-  '1': '세금계산서',
-  '2': '현금영수증'
-};
-
 const createEmptyRoomFilters = (): RoomFilterState => ({
   buildings: new Set<string>(),
   clients: new Set<string>(),
-  rcptFlags: new Set<string>(),
   checkoutTimes: new Set<string>(),
   openStates: new Set<string>()
 });
@@ -164,6 +159,12 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   const [helperLoading, setHelperLoading] = useState(false);
   const [helperFeedback, setHelperFeedback] = useState<string | null>(null);
   const [roomFilters, setRoomFilters] = useState<RoomFilterState>(() => createEmptyRoomFilters());
+  const [collapsedFilters, setCollapsedFilters] = useState<Record<RoomFilterKey, boolean>>({
+    buildings: false,
+    clients: false,
+    checkoutTimes: false,
+    openStates: false
+  });
   const [roomSearch, setRoomSearch] = useState('');
   const [pendingClientEdit, setPendingClientEdit] = useState<Record<string, unknown> | null>(null);
   const [exceptionContext, setExceptionContext] = useState(DEFAULT_EXCEPTION_STATE);
@@ -324,6 +325,7 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   useEffect(() => {
     if (!isRoomHelper) {
       setRoomFilters(createEmptyRoomFilters());
+      setCollapsedFilters({ buildings: false, clients: false, checkoutTimes: false, openStates: false });
       setRoomSearch('');
     }
   }, [isRoomHelper]);
@@ -410,7 +412,6 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
     const buildingSet = new Set<string>();
     const clientSet = new Set<string>();
-    const rcptFlagSet = new Set<string>();
     const checkoutSet = new Set<string>();
     const openSet = new Set<string>();
 
@@ -420,7 +421,6 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
         ? ''
         : String(record.building_short_name);
       const client = record.client_name === undefined || record.client_name === null ? '' : String(record.client_name);
-      const rcptFlag = record.rcpt_flag === undefined || record.rcpt_flag === null ? '' : String(record.rcpt_flag);
       const checkout = record.checkout_time === undefined || record.checkout_time === null
         ? ''
         : String(record.checkout_time);
@@ -428,7 +428,6 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
       buildingSet.add(building);
       clientSet.add(client);
-      if (rcptFlag) rcptFlagSet.add(rcptFlag);
       if (checkout) checkoutSet.add(checkout);
       if (openValue) openSet.add(openValue);
     });
@@ -441,7 +440,6 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     return {
       buildings: toSortedArray(buildingSet, true),
       clients: toSortedArray(clientSet, true),
-      rcptFlags: toSortedArray(rcptFlagSet),
       checkoutTimes: toSortedArray(checkoutSet),
       openStates: toSortedArray(openSet)
     };
@@ -454,7 +452,6 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       const next: RoomFilterState = {
         buildings: new Set(Array.from(prev.buildings).filter((value) => roomFilterOptions.buildings.includes(value))),
         clients: new Set(Array.from(prev.clients).filter((value) => roomFilterOptions.clients.includes(value))),
-        rcptFlags: new Set(Array.from(prev.rcptFlags).filter((value) => roomFilterOptions.rcptFlags.includes(value))),
         checkoutTimes: new Set(
           Array.from(prev.checkoutTimes).filter((value) => roomFilterOptions.checkoutTimes.includes(value))
         ),
@@ -464,7 +461,6 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       const unchanged =
         prev.buildings.size === next.buildings.size &&
         prev.clients.size === next.clients.size &&
-        prev.rcptFlags.size === next.rcptFlags.size &&
         prev.checkoutTimes.size === next.checkoutTimes.size &&
         prev.openStates.size === next.openStates.size;
 
@@ -678,10 +674,14 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     });
   }
 
+  function toggleFilterCollapse(key: RoomFilterKey) {
+    setCollapsedFilters((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
   const filteredHelperRows = useMemo(() => {
     if (!isRoomHelper) return helperRows;
 
-    const searchValue = roomSearch.trim().toLowerCase();
+    const searchValue = roomSearch.replace(/\s+/g, '').toLowerCase();
 
     return helperRows.filter((row) => {
       const record = row as Record<string, unknown>;
@@ -690,7 +690,6 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
         ? ''
         : String(record.building_short_name);
       const client = record.client_name === undefined || record.client_name === null ? '' : String(record.client_name);
-      const rcptFlag = record.rcpt_flag === undefined || record.rcpt_flag === null ? '' : String(record.rcpt_flag);
       const checkout = record.checkout_time === undefined || record.checkout_time === null
         ? ''
         : String(record.checkout_time);
@@ -698,12 +697,11 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
       if (roomFilters.buildings.size && !roomFilters.buildings.has(building)) return false;
       if (roomFilters.clients.size && !roomFilters.clients.has(client)) return false;
-      if (roomFilters.rcptFlags.size && !roomFilters.rcptFlags.has(rcptFlag)) return false;
       if (roomFilters.checkoutTimes.size && !roomFilters.checkoutTimes.has(checkout)) return false;
       if (roomFilters.openStates.size && !roomFilters.openStates.has(openYn)) return false;
 
       if (searchValue) {
-        const composite = `${building}${record.room_no ?? ''}`.toLowerCase();
+        const composite = `${building}${record.room_no ?? ''}`.replace(/\s+/g, '').toLowerCase();
         if (!composite.includes(searchValue)) return false;
       }
 
@@ -1743,83 +1741,95 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
         {isRoomHelper && roomFilterOptions ? (
           <div className={styles.filterPanel}>
             <div className={styles.filterGroup}>
-              <p className={styles.filterTitle}>건물</p>
-              <div className={styles.filterOptions}>
-                {roomFilterOptions.buildings.map((name) => (
-                  <label key={`building-${name || 'none'}`}>
-                    <input
-                      type="checkbox"
-                      checked={roomFilters.buildings.has(name)}
-                      onChange={() => toggleRoomFilter('buildings', name)}
-                    />
-                    <span>{name || '미지정'}</span>
-                  </label>
-                ))}
+              <div className={styles.filterGroupHeader}>
+                <p className={styles.filterTitle}>건물</p>
+                <button type="button" onClick={() => toggleFilterCollapse('buildings')}>
+                  {collapsedFilters.buildings ? '펼치기' : '접기'}
+                </button>
               </div>
+              {!collapsedFilters.buildings ? (
+                <div className={styles.filterOptions}>
+                  {roomFilterOptions.buildings.map((name) => (
+                    <label key={`building-${name || 'none'}`}>
+                      <input
+                        type="checkbox"
+                        checked={roomFilters.buildings.has(name)}
+                        onChange={() => toggleRoomFilter('buildings', name)}
+                      />
+                      <span>{name || '미지정'}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <div className={styles.filterGroup}>
-              <p className={styles.filterTitle}>고객</p>
-              <div className={styles.filterOptions}>
-                {roomFilterOptions.clients.map((name) => (
-                  <label key={`client-${name || 'none'}`}>
-                    <input
-                      type="checkbox"
-                      checked={roomFilters.clients.has(name)}
-                      onChange={() => toggleRoomFilter('clients', name)}
-                    />
-                    <span>{name || '미지정'}</span>
-                  </label>
-                ))}
+              <div className={styles.filterGroupHeader}>
+                <p className={styles.filterTitle}>고객</p>
+                <button type="button" onClick={() => toggleFilterCollapse('clients')}>
+                  {collapsedFilters.clients ? '펼치기' : '접기'}
+                </button>
               </div>
+              {!collapsedFilters.clients ? (
+                <div className={styles.filterOptions}>
+                  {roomFilterOptions.clients.map((name) => (
+                    <label key={`client-${name || 'none'}`}>
+                      <input
+                        type="checkbox"
+                        checked={roomFilters.clients.has(name)}
+                        onChange={() => toggleRoomFilter('clients', name)}
+                      />
+                      <span>{name || '미지정'}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <div className={styles.filterGroup}>
-              <p className={styles.filterTitle}>영수증 유형</p>
-              <div className={styles.filterOptions}>
-                {roomFilterOptions.rcptFlags.map((flag) => (
-                  <label key={`rcpt-${flag || 'none'}`}>
-                    <input
-                      type="checkbox"
-                      checked={roomFilters.rcptFlags.has(flag)}
-                      onChange={() => toggleRoomFilter('rcptFlags', flag)}
-                    />
-                    <span>{RCPT_FLAG_LABELS[flag] ?? flag ?? '미지정'}</span>
-                  </label>
-                ))}
+              <div className={styles.filterGroupHeader}>
+                <p className={styles.filterTitle}>체크아웃 시간</p>
+                <button type="button" onClick={() => toggleFilterCollapse('checkoutTimes')}>
+                  {collapsedFilters.checkoutTimes ? '펼치기' : '접기'}
+                </button>
               </div>
+              {!collapsedFilters.checkoutTimes ? (
+                <div className={styles.filterOptions}>
+                  {roomFilterOptions.checkoutTimes.map((time) => (
+                    <label key={`checkout-${time || 'none'}`}>
+                      <input
+                        type="checkbox"
+                        checked={roomFilters.checkoutTimes.has(time)}
+                        onChange={() => toggleRoomFilter('checkoutTimes', time)}
+                      />
+                      <span>{time || '미지정'}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <div className={styles.filterGroup}>
-              <p className={styles.filterTitle}>체크아웃 시간</p>
-              <div className={styles.filterOptions}>
-                {roomFilterOptions.checkoutTimes.map((time) => (
-                  <label key={`checkout-${time || 'none'}`}>
-                    <input
-                      type="checkbox"
-                      checked={roomFilters.checkoutTimes.has(time)}
-                      onChange={() => toggleRoomFilter('checkoutTimes', time)}
-                    />
-                    <span>{time || '미지정'}</span>
-                  </label>
-                ))}
+              <div className={styles.filterGroupHeader}>
+                <p className={styles.filterTitle}>운영 여부</p>
+                <button type="button" onClick={() => toggleFilterCollapse('openStates')}>
+                  {collapsedFilters.openStates ? '펼치기' : '접기'}
+                </button>
               </div>
-            </div>
-
-            <div className={styles.filterGroup}>
-              <p className={styles.filterTitle}>공개 여부</p>
-              <div className={styles.filterOptions}>
-                {roomFilterOptions.openStates.map((state) => (
-                  <label key={`open-${state || 'none'}`}>
-                    <input
-                      type="checkbox"
-                      checked={roomFilters.openStates.has(state)}
-                      onChange={() => toggleRoomFilter('openStates', state)}
-                    />
-                    <span>{state === '1' ? 'Y' : state === '0' ? 'N' : '미지정'}</span>
-                  </label>
-                ))}
-              </div>
+              {!collapsedFilters.openStates ? (
+                <div className={styles.filterOptions}>
+                  {roomFilterOptions.openStates.map((state) => (
+                    <label key={`open-${state || 'none'}`}>
+                      <input
+                        type="checkbox"
+                        checked={roomFilters.openStates.has(state)}
+                        onChange={() => toggleRoomFilter('openStates', state)}
+                      />
+                      <span>{state === '1' ? '운영중' : state === '0' ? '운영종료' : '미지정'}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <div className={styles.filterSearch}>

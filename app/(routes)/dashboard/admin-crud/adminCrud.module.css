@@ -241,6 +241,13 @@
   gap: 6px;
 }
 
+.filterGroupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .filterTitle {
   font-weight: 700;
   color: #0f172a;
@@ -259,6 +266,19 @@
   gap: 6px;
   font-weight: 600;
   color: #0f172a;
+}
+
+.filterGroupHeader button {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.filterGroupHeader button:hover {
+  background: #f2f4f7;
 }
 
 .filterSearch {
