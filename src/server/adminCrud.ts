@@ -291,13 +291,15 @@ export async function fetchReferenceOptions(
     const whereClauses = ["code_group = 'BANK'"];
     const params: unknown[] = [];
 
+    const searchField = 'value';
+
     if (keyword) {
-      whereClauses.push('(code LIKE ? OR value LIKE ?)');
+      whereClauses.push(`${searchField} LIKE ?`);
       const like = `%${keyword}%`;
-      params.push(like, like);
+      params.push(like);
     }
 
-    const sql = `SELECT code_group, code, value, CONCAT(code, ' - ', value) AS label FROM etc_baseCode WHERE ${whereClauses.join(
+    const sql = `SELECT code_group, code, value, CONCAT(value, ' - ', code) AS label FROM etc_baseCode WHERE ${whereClauses.join(
       ' AND '
     )} ORDER BY value DESC LIMIT ?`;
     params.push(limit);

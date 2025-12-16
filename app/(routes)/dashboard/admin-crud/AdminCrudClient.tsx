@@ -848,10 +848,11 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   function handleWorkerBankChange(optionValue: string) {
     const options = referenceOptions.basecode_bank ?? [];
     const selectedOption = options.find((option) => String(option.value) === optionValue);
+    const codeValue = selectedOption?.meta?.code ? String(selectedOption.meta.code) : optionValue;
     setFormValues((prev) => ({
       ...prev,
-      basecode_bank: optionValue,
-      basecode_code: String(selectedOption?.meta?.code ?? optionValue)
+      basecode_bank: 'BANK',
+      basecode_code: codeValue
     }));
   }
 
@@ -1006,6 +1007,13 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     (snapshot?.primaryKey ?? []).forEach((pk) => {
       key[pk] = row[pk];
     });
+
+    if (isWorkerTable) {
+      const codeValue = row.basecode_code;
+      if (codeValue !== undefined && codeValue !== null) {
+        defaults.basecode_bank = String(codeValue);
+      }
+    }
 
     if (isClientAdditionalPrice) {
       if (!('minus_yn' in defaults)) defaults.minus_yn = '0';
@@ -1168,6 +1176,16 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       if (!(column.name in formValues)) return;
       payloadData[column.name] = parseValue(column, formValues[column.name]);
     });
+
+    if (isWorkerTable) {
+      payloadData.basecode_bank = 'BANK';
+      if ('basecode_code' in formValues && payloadData.basecode_code === undefined) {
+        const basecodeColumn = columns.find((column) => column.name === 'basecode_code');
+        if (basecodeColumn) {
+          payloadData.basecode_code = parseValue(basecodeColumn, formValues.basecode_code);
+        }
+      }
+    }
 
     setLoading(true);
     setFeedback(null);
@@ -1573,11 +1591,12 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     if (isWorkerTable && column.name === 'basecode_bank') {
       const options = referenceOptions[column.name] ?? [];
       const refLoading = referenceLoading[column.name] ?? false;
+      const selectedCode = formValues.basecode_code ?? value;
 
       return (
         <select
           id={column.name}
-          value={value}
+          value={selectedCode}
           onChange={(event) => handleWorkerBankChange(event.target.value)}
           disabled={loading || refLoading}
         >
@@ -1702,6 +1721,13 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     let isNegativeAmount = false;
 
     const isMinusAmount = row.minus_yn === 1 || row.minus_yn === '1' || row.minus_yn === true;
+
+    if (helperTableName === 'worker_header' && (key === 'basecode_bank' || key === 'basecode_code')) {
+      const bankCode = row.basecode_code ?? rawValue;
+      const bankOptions = referenceOptions.basecode_bank ?? [];
+      const matchedBank = bankOptions.find((option) => String(option.codeValue ?? option.value) === String(bankCode));
+      rawValue = (matchedBank?.meta?.displayValue ?? matchedBank?.label ?? bankCode ?? '').toString();
+    }
 
     if (isRoomHelper) {
       if (key === 'client_id') {
