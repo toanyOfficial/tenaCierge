@@ -5,6 +5,7 @@ import { clientRooms, clientSupplements, etcBuildings, workApply, workHeader, wo
 import { DedupPrefix, buildDedupKey } from '@/src/server/push/dedup';
 import { enqueueNotifyJob } from '@/src/server/push/jobs';
 import { formatDateKey } from '@/src/utils/workWindow';
+import { pushSubscriptions } from '@/src/db/schema';
 
 type RuleCode =
   | 'CLEAN_SCHEDULE'
@@ -75,18 +76,40 @@ export async function queueCleanSchedulePush(params: {
     .where(eq(workHeader.date, targetKey))
     .groupBy(clientRooms.clientId);
 
-  let created = 0;
+  const workCountByClient = new Map<number, number>();
   for (const row of rows) {
-    const dedupKey = buildDedupKey(DedupPrefix.CleanSchedule, row.clientId, targetKey);
+    if (row.clientId != null) {
+      workCountByClient.set(row.clientId, row.workCount);
+    }
+  }
+
+  const subscribedClients = (
+    await db
+      .selectDistinct({ clientId: pushSubscriptions.userId })
+      .from(pushSubscriptions)
+      .where(
+        and(
+          eq(pushSubscriptions.userType, 'CLIENT'),
+          eq(pushSubscriptions.enabledYn, true),
+          sql`user_id IS NOT NULL`
+        )
+      )
+  )
+    .map((row) => row.clientId)
+    .filter((clientId): clientId is number => clientId != null);
+
+  let created = 0;
+  for (const clientId of subscribedClients) {
+    const dedupKey = buildDedupKey(DedupPrefix.CleanSchedule, clientId, targetKey);
     const result = await enqueueNotifyJob({
       ruleCode: RULE_CODE.CLEAN_SCHEDULE,
       userType: 'CLIENT',
-      userId: row.clientId,
+      userId: clientId,
       dedupKey,
       payload: {
         templateId: TEMPLATE_ID.CLEAN_SCHEDULE,
         title: '청소 일정 안내',
-        body: `${targetKey} 청소일정 : ${row.workCount}건`
+        body: `${targetKey} 청소일정 : ${workCountByClient.get(clientId) ?? 0}건`
       },
       createdBy: params.createdBy,
       scheduledAt: params.runDate
@@ -95,7 +118,7 @@ export async function queueCleanSchedulePush(params: {
     if (result.created) created += 1;
   }
 
-  return { created, attempted: rows.length, targetDate: targetKey };
+  return { created, attempted: subscribedClients.length, targetDate: targetKey };
 }
 
 export async function queueWorkAssignedPush(params: {
@@ -190,33 +213,86 @@ export async function queueSupplementsPendingPush(params: { today?: Date; create
   const today = params.today ?? new Date();
   const todayKey = formatDateKey(today);
 
-  const rows = await db
+  const pendingRows = await db
     .select({ clientId: clientRooms.clientId, pendingCount: sql<number>`COUNT(*)` })
     .from(clientSupplements)
     .innerJoin(clientRooms, eq(clientSupplements.roomId, clientRooms.id))
     .where(eq(clientSupplements.buyYn, false))
     .groupBy(clientRooms.clientId);
 
-  let created = 0;
-  for (const row of rows) {
-    const dedupKey = buildDedupKey(DedupPrefix.SupplementsPending, row.clientId, todayKey);
-    const result = await enqueueNotifyJob({
-      ruleCode: RULE_CODE.SUPPLEMENTS_PENDING,
-      userType: 'CLIENT',
-      userId: row.clientId,
-      dedupKey,
-      payload: {
-        templateId: TEMPLATE_ID.SUPPLEMENTS_PENDING,
-        title: '소모품 안내',
-        body: `총 ${row.pendingCount}개의 소모품을 구매 해야 합니다. 빠른 구매 부탁드립니다`
-      },
-      createdBy: params.createdBy
-    });
-
-    if (result.created) created += 1;
+  if (!pendingRows.length) {
+    console.info('[web-push] SUPPLEMENTS_PENDING 미구매 소모품 없음', { today: todayKey });
+    return { created: 0, attempted: 0 };
   }
 
-  return { created, attempted: rows.length };
+  const subscribedClients = new Set(
+    (
+      await db
+        .selectDistinct({ clientId: pushSubscriptions.userId })
+        .from(pushSubscriptions)
+        .where(
+          and(
+            eq(pushSubscriptions.userType, 'CLIENT'),
+            eq(pushSubscriptions.enabledYn, true),
+            sql`user_id IS NOT NULL`
+          )
+        )
+    )
+      .map((row) => row.clientId)
+      .filter((clientId): clientId is number => clientId != null)
+  );
+
+  console.info('[web-push] SUPPLEMENTS_PENDING 대상 집계', {
+    today: todayKey,
+    clientCount: subscribedClients.size
+  });
+
+  let created = 0;
+  let attempted = 0;
+  for (const row of pendingRows) {
+    if (!subscribedClients.has(row.clientId)) continue;
+
+    attempted += 1;
+    const dedupKey = buildDedupKey(DedupPrefix.SupplementsPending, row.clientId, todayKey);
+    try {
+      const result = await enqueueNotifyJob({
+        ruleCode: RULE_CODE.SUPPLEMENTS_PENDING,
+        userType: 'CLIENT',
+        userId: row.clientId,
+        dedupKey,
+        payload: {
+          templateId: TEMPLATE_ID.SUPPLEMENTS_PENDING,
+          title: '소모품 안내',
+          body: `총 ${row.pendingCount}개의 소모품을 구매 해야 합니다. 빠른 구매 부탁드립니다`
+        },
+        createdBy: params.createdBy
+      });
+
+      if (result.created) {
+        created += 1;
+        console.info('[web-push] SUPPLEMENTS_PENDING enqueue 성공', {
+          clientId: row.clientId,
+          pendingCount: row.pendingCount,
+          dedupKey
+        });
+      } else {
+        console.info('[web-push] SUPPLEMENTS_PENDING dedup/스킵', {
+          clientId: row.clientId,
+          pendingCount: row.pendingCount,
+          dedupKey
+        });
+      }
+    } catch (error) {
+      console.error('[web-push] SUPPLEMENTS_PENDING enqueue 실패', {
+        clientId: row.clientId,
+        pendingCount: row.pendingCount,
+        dedupKey,
+        error
+      });
+    }
+  }
+
+  return { created, attempted };
 }
 
 export async function queueWorkApplyOpenPush(params: {
@@ -245,9 +321,17 @@ export async function queueWorkApplyOpenPush(params: {
   tierRules.forEach((rule) => tierRuleMap.set(rule.tier, rule.applyStartTime));
 
   const workers = await db
-    .select({ id: workerHeader.id, tier: workerHeader.tier })
-    .from(workerHeader)
-    .where(ne(workerHeader.tier, 1));
+    .selectDistinct({ id: workerHeader.id, tier: workerHeader.tier })
+    .from(pushSubscriptions)
+    .innerJoin(workerHeader, eq(pushSubscriptions.userId, workerHeader.id))
+    .where(
+      and(
+        eq(pushSubscriptions.userType, 'WORKER'),
+        eq(pushSubscriptions.enabledYn, true),
+        ne(workerHeader.tier, 1),
+        sql`push_subscriptions.user_id IS NOT NULL`
+      )
+    );
 
   let created = 0;
   for (const worker of workers) {
