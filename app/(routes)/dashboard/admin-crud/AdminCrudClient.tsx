@@ -42,7 +42,7 @@ type RoomFilterKey = keyof RoomFilterState;
 
 const DEFAULT_LIMIT = 20;
 const CLIENT_ADDITIONAL_PRICE_CONFIG = {
-  hiddenColumns: new Set(['created_at', 'updated_at']),
+  hiddenColumns: new Set(['created_at', 'updated_at', 'seq']),
   booleanColumns: new Set(['minus_yn', 'ratio_yn']),
   koreanLabels: {
     id: '아이디',
@@ -1584,6 +1584,7 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
   function renderCellValue(row: Record<string, unknown>, key: string) {
     let rawValue = getClientField(row, key, '');
+    let isNegativeAmount = false;
 
     if (isRoomHelper) {
       if (key === 'client_id') {
@@ -1594,6 +1595,28 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       if (key === 'building_id') {
         const buildingShort = typeof row.building_short_name === 'string' ? row.building_short_name : '';
         rawValue = buildingShort || rawValue;
+      }
+    }
+
+    if (helperTableName === 'client_additional_price') {
+      if (key === 'room_id') {
+        const buildingShort = typeof row.building_short_name === 'string' ? row.building_short_name : '';
+        const roomNo = typeof row.room_no === 'string' || typeof row.room_no === 'number' ? String(row.room_no) : '';
+        const composite = `${buildingShort}${roomNo}`.trim();
+        rawValue = composite || rawValue;
+      }
+
+      if (key === 'date') {
+        rawValue = toDateString(rawValue);
+      }
+
+      if (key === 'amount') {
+        const isMinus = row.minus_yn === 1 || row.minus_yn === '1' || row.minus_yn === true;
+        if (isMinus && rawValue) {
+          const normalized = String(rawValue).replace(/^[-]+/, '');
+          rawValue = `-${normalized}`;
+          isNegativeAmount = true;
+        }
       }
     }
 
@@ -1634,6 +1657,10 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
     const display = rawValue.length > 20 ? `${rawValue.slice(0, 20)}...` : rawValue;
     const cellClasses = [styles.cellText];
+
+    if (isNegativeAmount) {
+      cellClasses.push(styles.negativeAmount);
+    }
 
     if (helperTableName === 'worker_schedule_exception' && (key === 'add_work_yn' || key === 'cancel_work_yn')) {
       const isWorkday = key === 'add_work_yn';
