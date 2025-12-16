@@ -1584,6 +1584,7 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
   function renderCellValue(row: Record<string, unknown>, key: string) {
     let rawValue = getClientField(row, key, '');
+    let isNegativeAmount = false;
 
     if (isRoomHelper) {
       if (key === 'client_id') {
@@ -1607,6 +1608,15 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
       if (key === 'date') {
         rawValue = toDateString(rawValue);
+      }
+
+      if (key === 'amount') {
+        const isMinus = row.minus_yn === 1 || row.minus_yn === '1' || row.minus_yn === true;
+        if (isMinus && rawValue) {
+          const normalized = String(rawValue).replace(/^[-]+/, '');
+          rawValue = `-${normalized}`;
+          isNegativeAmount = true;
+        }
       }
     }
 
@@ -1647,6 +1657,10 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
     const display = rawValue.length > 20 ? `${rawValue.slice(0, 20)}...` : rawValue;
     const cellClasses = [styles.cellText];
+
+    if (isNegativeAmount) {
+      cellClasses.push(styles.negativeAmount);
+    }
 
     if (helperTableName === 'worker_schedule_exception' && (key === 'add_work_yn' || key === 'cancel_work_yn')) {
       const isWorkday = key === 'add_work_yn';
