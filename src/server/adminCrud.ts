@@ -255,6 +255,21 @@ export async function fetchTableSnapshot(table: string, offset = 0, limit = 20):
     return { table, columns, primaryKey, rows, limit, offset };
   }
 
+  if (table === 'client_additional_price') {
+    const orderColumnExpr = orderColumn ? `cap.${orderColumn}` : 'cap.id';
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT cap.*, b.building_short_name, r.room_no
+       FROM client_additional_price cap
+       LEFT JOIN client_rooms r ON cap.room_id = r.id
+       LEFT JOIN etc_buildings b ON r.building_id = b.id
+       ORDER BY ${orderColumnExpr} DESC
+       LIMIT ? OFFSET ?`,
+      [limit, offset]
+    );
+
+    return { table, columns, primaryKey, rows, limit, offset };
+  }
+
   const [rows] = await pool.query<RowDataPacket[]>(
     'SELECT * FROM ?? ORDER BY ?? DESC LIMIT ? OFFSET ?',
     [table, orderColumn ?? 'id', limit, offset]
@@ -273,16 +288,18 @@ export async function fetchReferenceOptions(
   const sourceConfig = getTableConfig(table);
   if (table === 'worker_header' && (column === 'basecode_bank' || column === 'basecode_code')) {
     const pool = getPool();
-    const whereClauses = ["code_group = 'bank'"];
+    const whereClauses = ["code_group = 'BANK'"];
     const params: unknown[] = [];
 
+    const searchField = 'value';
+
     if (keyword) {
-      whereClauses.push('(code LIKE ? OR value LIKE ?)');
+      whereClauses.push(`${searchField} LIKE ?`);
       const like = `%${keyword}%`;
-      params.push(like, like);
+      params.push(like);
     }
 
-    const sql = `SELECT code_group, code, value, CONCAT(code, ' - ', value) AS label FROM etc_baseCode WHERE ${whereClauses.join(
+    const sql = `SELECT code_group, code, value, CONCAT(value, ' - ', code) AS label FROM etc_baseCode WHERE ${whereClauses.join(
       ' AND '
     )} ORDER BY value ASC LIMIT ?`;
     params.push(limit);
@@ -292,7 +309,7 @@ export async function fetchReferenceOptions(
       value: row.code,
       label: row.label ?? String(row.value ?? row.code ?? ''),
       codeValue: String(row.code ?? ''),
-      meta: { codeGroup: row.code_group ?? 'bank', code: row.code, displayValue: row.value }
+      meta: { codeGroup: row.code_group ?? 'BANK', code: row.code, displayValue: row.value }
     }));
   }
 
@@ -524,20 +541,28 @@ export async function fetchReferenceLabels(
     const whereClauses: string[] = [];
     const params: unknown[] = [];
 
-    if (basecodeGroup) {
+    if (column === 'basecode_bank') {
+      whereClauses.push("code_group = 'BANK'");
+      whereClauses.push(`value IN (${values.map(() => '?').join(', ')})`);
+      params.push(...values);
+    } else if (basecodeGroup) {
       whereClauses.push('code_group = ?');
       params.push(basecodeGroup);
     }
 
-    if (values.length) {
+    if (values.length && column !== 'basecode_bank') {
       whereClauses.push(`code IN (${values.map(() => '?').join(', ')})`);
       params.push(...values);
     }
 
     if (!whereClauses.length) return {};
 
+    const selectExpr =
+      column === 'basecode_bank'
+        ? 'SELECT value AS value, CONCAT(code, \' - \' , value) AS label'
+        : 'SELECT code AS value, CONCAT(code, \' - \' , value) AS label';
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT code AS value, CONCAT(code, ' - ', value) AS label FROM etc_baseCode WHERE ${whereClauses.join(' AND ')}`,
+      `${selectExpr} FROM etc_baseCode WHERE ${whereClauses.join(' AND ')}`,
       params
     );
 

@@ -42,7 +42,7 @@ type RoomFilterKey = keyof RoomFilterState;
 
 const DEFAULT_LIMIT = 20;
 const CLIENT_ADDITIONAL_PRICE_CONFIG = {
-  hiddenColumns: new Set(['created_at', 'updated_at']),
+  hiddenColumns: new Set(['created_at', 'updated_at', 'seq']),
   booleanColumns: new Set(['minus_yn', 'ratio_yn']),
   koreanLabels: {
     id: '아이디',
@@ -102,6 +102,8 @@ const CLIENT_SETTLE_OPTIONS = [
   { value: '4', label: '기타' }
 ];
 const NUMERIC_ONLY_FIELDS = new Set(['phone', 'reg_no', 'account_no']);
+const CLIENT_POSITIVE_INTEGER_FIELDS = new Set(['room_count']);
+const CLIENT_POSITIVE_DECIMAL_FIELDS = new Set(['amount', 'amount_per_cleaning', 'amount_per_month']);
 const WEEKDAY_OPTIONS = [
   { value: '0', label: '0:일요일' },
   { value: '1', label: '1:월요일' },
@@ -166,12 +168,14 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     openStates: false
   });
   const [roomSearch, setRoomSearch] = useState('');
+  const [workerSearch, setWorkerSearch] = useState('');
   const [pendingClientEdit, setPendingClientEdit] = useState<Record<string, unknown> | null>(null);
   const [exceptionContext, setExceptionContext] = useState(DEFAULT_EXCEPTION_STATE);
   const formRef = useRef<HTMLFormElement | null>(null);
 
   const isClientAdditionalPrice = selectedTable === 'client_additional_price';
   const isClientHeader = selectedTable === 'client_header';
+  const isClientManagementTable = selectedTable.startsWith('client_');
   const isClientRooms = selectedTable === 'client_rooms';
   const isWorkerTable = selectedTable === 'worker_header';
   const isScheduleException = selectedTable === 'worker_schedule_exception';
@@ -308,10 +312,23 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
         : (helperSnapshot?.columns ?? []).filter((column) => !helperHiddenColumns.has(column.name)),
     [helperHiddenColumns, helperSnapshot?.columns, usingSharedGrid, visibleColumns]
   );
-  const helperColumnLabels = helperColumns.map((column) => ({
-    key: column.name,
-    label: helperLabelOverrides[column.name] ?? column.name
-  }));
+  const helperColumnLabels = useMemo(() => {
+    const baseColumns = helperColumns.map((column) => ({
+      key: column.name,
+      label: helperLabelOverrides[column.name] ?? column.name
+    }));
+
+    if (!usingSharedGrid && helperTableName === 'client_additional_price') {
+      const totalColumn = { key: 'line_total', label: '총액' };
+      const amountIndex = baseColumns.findIndex((column) => column.key === 'amount');
+      if (amountIndex >= 0) {
+        return [...baseColumns.slice(0, amountIndex + 1), totalColumn, ...baseColumns.slice(amountIndex + 1)];
+      }
+      return [...baseColumns, totalColumn];
+    }
+
+    return baseColumns;
+  }, [helperColumns, helperLabelOverrides, helperTableName, usingSharedGrid]);
   const helperTitle = `${helperTableName ?? '데이터'} 목록`;
   const helperSubtitle = usingSharedGrid
     ? '행을 클릭하면 위 수정 양식으로 불러옵니다.'
@@ -329,6 +346,12 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       setRoomSearch('');
     }
   }, [isRoomHelper]);
+
+  useEffect(() => {
+    if (helperTableName !== 'worker_header') {
+      setWorkerSearch('');
+    }
+  }, [helperTableName]);
 
   useEffect(() => {
     setReferenceOptions({});
@@ -709,11 +732,77 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     });
   }, [helperRows, isRoomHelper, roomFilters, roomSearch]);
 
-  const displayedRows = isRoomHelper ? filteredHelperRows : helperRows;
+  const workerFilteredRows = useMemo(() => {
+    if (helperTableName !== 'worker_header') return helperRows;
+
+    const keyword = workerSearch.replace(/\s+/g, '').toLowerCase();
+    const numericKeyword = workerSearch.replace(/\D+/g, '');
+    if (!keyword) return helperRows;
+
+    return helperRows.filter((row) => {
+      const normalizedName = String((row as Record<string, unknown>).name ?? '')
+        .replace(/\s+/g, '')
+        .toLowerCase();
+      const normalizedPhone = String((row as Record<string, unknown>).phone ?? '').replace(/\D+/g, '');
+
+      if (numericKeyword) {
+        return normalizedPhone.includes(numericKeyword);
+      }
+
+      return normalizedName.includes(keyword) || normalizedPhone.includes(keyword);
+    });
+  }, [helperRows, helperTableName, workerSearch]);
+
+  const displayedRows = isRoomHelper ? filteredHelperRows : workerFilteredRows;
+
+  function sanitizePositiveInteger(value: string | boolean) {
+    const raw = typeof value === 'string' ? value : String(value);
+    const digitsOnly = raw.replace(/[^0-9]/g, '');
+    if (!digitsOnly) return '';
+
+    const numeric = Math.trunc(Number(digitsOnly));
+    if (!Number.isFinite(numeric) || numeric <= 0) return '';
+
+    return String(numeric);
+  }
+
+  function sanitizePositiveDecimal(value: string | boolean) {
+    const raw = typeof value === 'string' ? value : String(value);
+    const stripped = raw.replace(/[^0-9.]/g, '');
+    if (!stripped) return '';
+
+    const [intPart, ...rest] = stripped.split('.');
+    const normalizedInt = intPart.replace(/^0+(\d)/, '$1');
+    const decimalPart = rest.join('');
+    const rebuilt = decimalPart ? `${normalizedInt}.${decimalPart}` : normalizedInt;
+    const numeric = Number(rebuilt);
+
+    if (!Number.isFinite(numeric) || numeric <= 0) return '';
+
+    return rebuilt;
+  }
 
   function handleInputChange(column: AdminColumnMeta, value: string | boolean) {
     if (NUMERIC_ONLY_FIELDS.has(column.name)) {
       const sanitized = typeof value === 'string' ? value.replace(/[^0-9]/g, '') : String(value).replace(/[^0-9]/g, '');
+      setFormValues((prev) => ({ ...prev, [column.name]: sanitized }));
+      return;
+    }
+
+    if (isClientAdditionalPrice && (column.name === 'qty' || column.name === 'amount')) {
+      const sanitized = sanitizePositiveInteger(value);
+      setFormValues((prev) => ({ ...prev, [column.name]: sanitized }));
+      return;
+    }
+
+    if (isClientManagementTable && CLIENT_POSITIVE_INTEGER_FIELDS.has(column.name)) {
+      const sanitized = sanitizePositiveInteger(value);
+      setFormValues((prev) => ({ ...prev, [column.name]: sanitized }));
+      return;
+    }
+
+    if (isClientManagementTable && CLIENT_POSITIVE_DECIMAL_FIELDS.has(column.name)) {
+      const sanitized = sanitizePositiveDecimal(value);
       setFormValues((prev) => ({ ...prev, [column.name]: sanitized }));
       return;
     }
@@ -759,10 +848,11 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   function handleWorkerBankChange(optionValue: string) {
     const options = referenceOptions.basecode_bank ?? [];
     const selectedOption = options.find((option) => String(option.value) === optionValue);
+    const codeValue = selectedOption?.meta?.code ? String(selectedOption.meta.code) : optionValue;
     setFormValues((prev) => ({
       ...prev,
-      basecode_bank: optionValue,
-      basecode_code: String(selectedOption?.meta?.code ?? optionValue)
+      basecode_bank: 'BANK',
+      basecode_code: codeValue
     }));
   }
 
@@ -918,6 +1008,13 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       key[pk] = row[pk];
     });
 
+    if (isWorkerTable) {
+      const codeValue = row.basecode_code;
+      if (codeValue !== undefined && codeValue !== null) {
+        defaults.basecode_bank = String(codeValue);
+      }
+    }
+
     if (isClientAdditionalPrice) {
       if (!('minus_yn' in defaults)) defaults.minus_yn = '0';
       if (!('ratio_yn' in defaults)) defaults.ratio_yn = '0';
@@ -1057,6 +1154,21 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       return;
     }
 
+    if (isClientAdditionalPrice) {
+      const quantity = Number(formValues.qty);
+      const unitAmount = Number(formValues.amount);
+
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        setFeedback({ message: '수량은 0보다 큰 값을 입력해주세요.', variant: 'error' });
+        return;
+      }
+
+      if (!Number.isFinite(unitAmount) || unitAmount <= 0) {
+        setFeedback({ message: '금액은 0보다 큰 값을 입력해주세요.', variant: 'error' });
+        return;
+      }
+    }
+
     const payloadData: Record<string, unknown> = {};
     columns.forEach((column) => {
       if (isHiddenColumn(column.name) && !(hasBasecodePair && column.name === 'basecode_code')) return;
@@ -1064,6 +1176,16 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       if (!(column.name in formValues)) return;
       payloadData[column.name] = parseValue(column, formValues[column.name]);
     });
+
+    if (isWorkerTable) {
+      payloadData.basecode_bank = 'BANK';
+      if ('basecode_code' in formValues && payloadData.basecode_code === undefined) {
+        const basecodeColumn = columns.find((column) => column.name === 'basecode_code');
+        if (basecodeColumn) {
+          payloadData.basecode_code = parseValue(basecodeColumn, formValues.basecode_code);
+        }
+      }
+    }
 
     setLoading(true);
     setFeedback(null);
@@ -1105,6 +1227,8 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
   function renderInput(column: AdminColumnMeta) {
     const type = toInputType(column);
+    const isClientPositiveIntegerField = isClientManagementTable && CLIENT_POSITIVE_INTEGER_FIELDS.has(column.name);
+    const isClientPositiveDecimalField = isClientManagementTable && CLIENT_POSITIVE_DECIMAL_FIELDS.has(column.name);
     const value = formValues[column.name] ?? '';
     const isCheckbox = type === 'checkbox';
 
@@ -1467,11 +1591,12 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     if (isWorkerTable && column.name === 'basecode_bank') {
       const options = referenceOptions[column.name] ?? [];
       const refLoading = referenceLoading[column.name] ?? false;
+      const selectedCode = formValues.basecode_code ?? value;
 
       return (
         <select
           id={column.name}
-          value={value}
+          value={selectedCode}
           onChange={(event) => handleWorkerBankChange(event.target.value)}
           disabled={loading || refLoading}
         >
@@ -1571,6 +1696,9 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
         onChange={(event) => handleInputChange(column, event.target.value)}
         placeholder={placeholder}
         disabled={column.autoIncrement && mode === 'create'}
+        min={isClientPositiveIntegerField || isClientPositiveDecimalField ? 1 : undefined}
+        step={isClientPositiveDecimalField ? 'any' : undefined}
+        inputMode={type === 'number' ? 'numeric' : undefined}
       />
     );
   }
@@ -1582,8 +1710,24 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     return String(value);
   }
 
+  function toTruncatedNumber(value: unknown): number | null {
+    const numeric = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(numeric)) return null;
+    return Math.trunc(numeric);
+  }
+
   function renderCellValue(row: Record<string, unknown>, key: string) {
     let rawValue = getClientField(row, key, '');
+    let isNegativeAmount = false;
+
+    const isMinusAmount = row.minus_yn === 1 || row.minus_yn === '1' || row.minus_yn === true;
+
+    if (helperTableName === 'worker_header' && (key === 'basecode_bank' || key === 'basecode_code')) {
+      const bankCode = row.basecode_code ?? rawValue;
+      const bankOptions = referenceOptions.basecode_bank ?? [];
+      const matchedBank = bankOptions.find((option) => String(option.codeValue ?? option.value) === String(bankCode));
+      rawValue = (matchedBank?.meta?.displayValue ?? matchedBank?.label ?? bankCode ?? '').toString();
+    }
 
     if (isRoomHelper) {
       if (key === 'client_id') {
@@ -1594,6 +1738,45 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       if (key === 'building_id') {
         const buildingShort = typeof row.building_short_name === 'string' ? row.building_short_name : '';
         rawValue = buildingShort || rawValue;
+      }
+    }
+
+    if (helperTableName === 'client_additional_price') {
+      if (key === 'room_id') {
+        const buildingShort = typeof row.building_short_name === 'string' ? row.building_short_name : '';
+        const roomNo = typeof row.room_no === 'string' || typeof row.room_no === 'number' ? String(row.room_no) : '';
+        const composite = `${buildingShort} ${roomNo}`.trim();
+        rawValue = composite || rawValue;
+      }
+
+      if (key === 'date') {
+        rawValue = toDateString(rawValue);
+      }
+
+      if (key === 'amount') {
+        const truncatedAmount = toTruncatedNumber(row.amount ?? rawValue);
+        if (truncatedAmount !== null) {
+          const signedAmount = isMinusAmount ? -Math.abs(truncatedAmount) : truncatedAmount;
+          rawValue = String(signedAmount);
+          if (signedAmount < 0) {
+            isNegativeAmount = true;
+          }
+        } else if (isMinusAmount && rawValue) {
+          const normalized = String(rawValue).replace(/^[-]+/, '');
+          rawValue = `-${normalized}`;
+          isNegativeAmount = true;
+        }
+      }
+
+      if (key === 'line_total') {
+        const truncatedAmount = toTruncatedNumber(row.amount ?? rawValue) ?? 0;
+        const signedAmount = isMinusAmount ? -Math.abs(truncatedAmount) : truncatedAmount;
+        const quantity = (toTruncatedNumber(row.qty ?? 1) ?? Number(row.qty ?? 1)) || 0;
+        const total = Math.trunc(signedAmount * quantity);
+        rawValue = String(total);
+        if (total < 0) {
+          isNegativeAmount = true;
+        }
       }
     }
 
@@ -1624,9 +1807,11 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       }
     }
 
-    const labelMatch = referenceLabels[helperTableName ?? '']?.[key]?.[String(rawValue)];
-    if (labelMatch) {
-      rawValue = labelMatch;
+    if (!(helperTableName === 'client_additional_price' && key === 'room_id')) {
+      const labelMatch = referenceLabels[helperTableName ?? '']?.[key]?.[String(rawValue)];
+      if (labelMatch) {
+        rawValue = labelMatch;
+      }
     }
     if (!rawValue) {
       return <span className={styles.cellText}>-</span>;
@@ -1634,6 +1819,10 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
     const display = rawValue.length > 20 ? `${rawValue.slice(0, 20)}...` : rawValue;
     const cellClasses = [styles.cellText];
+
+    if (isNegativeAmount) {
+      cellClasses.push(styles.negativeAmount);
+    }
 
     if (helperTableName === 'worker_schedule_exception' && (key === 'add_work_yn' || key === 'cancel_work_yn')) {
       const isWorkday = key === 'add_work_yn';
@@ -1772,6 +1961,19 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
         {helperFeedback ? (
           <p className={`${styles.feedback} ${styles.feedbackError}`}>{helperFeedback}</p>
+        ) : null}
+
+        {helperTableName === 'worker_header' ? (
+          <div className={styles.helperSearchRow}>
+            <label htmlFor="worker-search">이름 또는 연락처 검색</label>
+            <input
+              id="worker-search"
+              type="search"
+              placeholder="예) 홍길동, 01012345678"
+              value={workerSearch}
+              onChange={(event) => setWorkerSearch(event.target.value)}
+            />
+          </div>
         ) : null}
 
         {isRoomHelper && roomFilterOptions ? (

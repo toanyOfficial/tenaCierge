@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   const table = url.searchParams.get('table');
   const column = url.searchParams.get('column');
   const keyword = url.searchParams.get('q') ?? '';
-  const limit = Math.min(Number(url.searchParams.get('limit') ?? '20') || 20, 50);
+  const limit = Math.min(Number(url.searchParams.get('limit') ?? '200') || 200, 500);
   const basecodeGroup = url.searchParams.get('basecodeGroup') ?? undefined;
   const valuesParam = url.searchParams.get('values');
   const values = valuesParam

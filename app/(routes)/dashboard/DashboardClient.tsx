@@ -10,7 +10,6 @@ import ButlerPanel from './ButlerPanel';
 import HostPanel from './HostPanel';
 import AdminPanel from './AdminPanel';
 import styles from './dashboard.module.css';
-import WebPushEnrollment from './WebPushEnrollment';
 
 type Props = {
   profile: ProfileSummary;
@@ -94,7 +93,6 @@ export default function DashboardClient({ profile, cleanerSnapshot, butlerSnapsh
 
   return (
     <div className={styles.dashboardStack}>
-      <WebPushEnrollment profile={profile} />
       <CommonHeader
         profile={profile}
         activeRole={activeRole}
