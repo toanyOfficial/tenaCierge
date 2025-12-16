@@ -220,7 +220,7 @@ export default function SettlementClient({ snapshot, isAdmin, profile }: Props) 
                     perWork: [] as typeof statement.lines,
                     discounts: [] as typeof statement.lines
                   };
-                if (line.minusYn) {
+                if (line.ratioYn) {
                   entry.discounts.push(line);
                 } else if (line.category === 'monthly') {
                   entry.monthly.push(line);

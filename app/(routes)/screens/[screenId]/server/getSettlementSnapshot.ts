@@ -867,9 +867,9 @@ export async function getSettlementSnapshot(
     const baseByRoom = new Map<number, number>();
 
     for (const line of statement.lines) {
-      if (line.minusYn || line.ratioYn) continue;
+      if (line.ratioYn) continue;
       const prev = baseByRoom.get(line.roomId) ?? 0;
-      baseByRoom.set(line.roomId, prev + line.rawTotal);
+      baseByRoom.set(line.roomId, prev + line.total);
     }
 
     for (const line of statement.lines) {
