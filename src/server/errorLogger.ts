@@ -3,6 +3,17 @@ import { etcErrorLogs } from '@/src/db/schema';
 import { resolveWebActor, withInsertAuditFields } from '@/src/server/audit';
 import { logError as fileLogError } from '@/src/server/logger';
 
+function resolveActor(actor?: string) {
+  if (actor) return actor;
+
+  try {
+    return resolveWebActor();
+  } catch (error) {
+    console.error('errorLogs actor resolve 실패', error);
+    return '-';
+  }
+}
+
 function sanitizeContext(context: Record<string, unknown> | null): Record<string, unknown> | null {
   if (!context) {
     return null;
@@ -47,8 +58,9 @@ export async function logEtcError({
   userId = null,
   requestId = null,
   appName = 'web'
-}: LogPayload, actor = resolveWebActor()): Promise<void> {
+}: LogPayload, actor?: string): Promise<void> {
   const contextJson = sanitizeContext(context);
+  const resolvedActor = resolveActor(actor);
 
   try {
     await db.insert(etcErrorLogs).values(
@@ -63,7 +75,7 @@ export async function logEtcError({
           userId: userId ?? null,
           contextJson
         },
-        actor
+        resolvedActor
       )
     );
   } catch (error) {

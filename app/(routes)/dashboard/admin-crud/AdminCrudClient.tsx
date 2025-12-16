@@ -1649,7 +1649,7 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       if (key === 'line_total') {
         const truncatedAmount = toTruncatedNumber(row.amount ?? rawValue) ?? 0;
         const signedAmount = isMinusAmount ? -Math.abs(truncatedAmount) : truncatedAmount;
-        const quantity = toTruncatedNumber(row.qty ?? 1) ?? Number(row.qty ?? 1) || 0;
+        const quantity = (toTruncatedNumber(row.qty ?? 1) ?? Number(row.qty ?? 1)) || 0;
         const total = Math.trunc(signedAmount * quantity);
         rawValue = String(total);
         if (total < 0) {
