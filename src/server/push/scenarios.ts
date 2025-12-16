@@ -220,23 +220,50 @@ export async function queueSupplementsPendingPush(params: { today?: Date; create
     .where(eq(clientSupplements.buyYn, false))
     .groupBy(clientRooms.clientId);
 
+  console.info('[web-push] SUPPLEMENTS_PENDING 대상 집계', {
+    today: todayKey,
+    clientCount: rows.length
+  });
+
   let created = 0;
   for (const row of rows) {
     const dedupKey = buildDedupKey(DedupPrefix.SupplementsPending, row.clientId, todayKey);
-    const result = await enqueueNotifyJob({
-      ruleCode: RULE_CODE.SUPPLEMENTS_PENDING,
-      userType: 'CLIENT',
-      userId: row.clientId,
-      dedupKey,
-      payload: {
-        templateId: TEMPLATE_ID.SUPPLEMENTS_PENDING,
-        title: '소모품 안내',
-        body: `총 ${row.pendingCount}개의 소모품을 구매 해야 합니다. 빠른 구매 부탁드립니다`
-      },
-      createdBy: params.createdBy
-    });
+    try {
+      const result = await enqueueNotifyJob({
+        ruleCode: RULE_CODE.SUPPLEMENTS_PENDING,
+        userType: 'CLIENT',
+        userId: row.clientId,
+        dedupKey,
+        payload: {
+          templateId: TEMPLATE_ID.SUPPLEMENTS_PENDING,
+          title: '소모품 안내',
+          body: `총 ${row.pendingCount}개의 소모품을 구매 해야 합니다. 빠른 구매 부탁드립니다`
+        },
+        createdBy: params.createdBy
+      });
 
-    if (result.created) created += 1;
+      if (result.created) {
+        created += 1;
+        console.info('[web-push] SUPPLEMENTS_PENDING enqueue 성공', {
+          clientId: row.clientId,
+          pendingCount: row.pendingCount,
+          dedupKey
+        });
+      } else {
+        console.info('[web-push] SUPPLEMENTS_PENDING dedup/스킵', {
+          clientId: row.clientId,
+          pendingCount: row.pendingCount,
+          dedupKey
+        });
+      }
+    } catch (error) {
+      console.error('[web-push] SUPPLEMENTS_PENDING enqueue 실패', {
+        clientId: row.clientId,
+        pendingCount: row.pendingCount,
+        dedupKey,
+        error
+      });
+    }
   }
 
   return { created, attempted: rows.length };
