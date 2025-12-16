@@ -549,6 +549,7 @@ export async function getSettlementSnapshot(
       : null;
     const additionalPriceColumn = additionalPriceMeta?.amountColumn ?? null;
     const hasAdditionalQty = !!additionalPriceMeta?.columns?.includes('qty');
+    const hasAdditionalMinus = !!additionalPriceMeta?.columns?.includes('minus_yn');
 
     const additionalRows = roomIds.length && additionalPriceColumn
       ? await db
@@ -558,6 +559,7 @@ export async function getSettlementSnapshot(
             date: clientAdditionalPrice.date,
             title: clientAdditionalPrice.title,
             qty: hasAdditionalQty ? sql.raw('client_additional_price.qty') : sql`1`,
+            minusYn: hasAdditionalMinus ? sql.raw('client_additional_price.minus_yn') : sql`0`,
             price:
               additionalPriceColumn === 'price'
                 ? sql`CAST(${clientAdditionalPrice.price} AS DECIMAL(20,4))`
@@ -846,7 +848,8 @@ export async function getSettlementSnapshot(
     const room = roomMap.get(extra.roomId);
     if (!hostStatement || !room) continue;
     const date = extra.date.toISOString().slice(0, 10);
-    const price = Number(extra.price ?? 0);
+    const price = Math.abs(Number(extra.price ?? 0));
+    const minusYn = hasAdditionalMinus ? Boolean(extra.minusYn) : false;
 
     const quantity = hasAdditionalQty ? Number(extra.qty ?? 1) : 1;
 
@@ -855,7 +858,8 @@ export async function getSettlementSnapshot(
       item: `${room.label} ${extra.title}`,
       amount: price,
       quantity,
-      category: 'misc'
+      category: 'misc',
+      minusYn
     });
   }
 
