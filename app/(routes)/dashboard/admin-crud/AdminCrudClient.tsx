@@ -166,6 +166,7 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     openStates: false
   });
   const [roomSearch, setRoomSearch] = useState('');
+  const [workerSearch, setWorkerSearch] = useState('');
   const [pendingClientEdit, setPendingClientEdit] = useState<Record<string, unknown> | null>(null);
   const [exceptionContext, setExceptionContext] = useState(DEFAULT_EXCEPTION_STATE);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -342,6 +343,12 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       setRoomSearch('');
     }
   }, [isRoomHelper]);
+
+  useEffect(() => {
+    if (helperTableName !== 'worker_header') {
+      setWorkerSearch('');
+    }
+  }, [helperTableName]);
 
   useEffect(() => {
     setReferenceOptions({});
@@ -722,7 +729,39 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     });
   }, [helperRows, isRoomHelper, roomFilters, roomSearch]);
 
-  const displayedRows = isRoomHelper ? filteredHelperRows : helperRows;
+  const workerFilteredRows = useMemo(() => {
+    if (helperTableName !== 'worker_header') return helperRows;
+
+    const keyword = workerSearch.replace(/\s+/g, '').toLowerCase();
+    const numericKeyword = workerSearch.replace(/\D+/g, '');
+    if (!keyword) return helperRows;
+
+    return helperRows.filter((row) => {
+      const normalizedName = String((row as Record<string, unknown>).name ?? '')
+        .replace(/\s+/g, '')
+        .toLowerCase();
+      const normalizedPhone = String((row as Record<string, unknown>).phone ?? '').replace(/\D+/g, '');
+
+      if (numericKeyword) {
+        return normalizedPhone.includes(numericKeyword);
+      }
+
+      return normalizedName.includes(keyword) || normalizedPhone.includes(keyword);
+    });
+  }, [helperRows, helperTableName, workerSearch]);
+
+  const displayedRows = isRoomHelper ? filteredHelperRows : workerFilteredRows;
+
+  function sanitizePositiveInteger(value: string | boolean) {
+    const raw = typeof value === 'string' ? value : String(value);
+    const digitsOnly = raw.replace(/[^0-9]/g, '');
+    if (!digitsOnly) return '';
+
+    const numeric = Math.trunc(Number(digitsOnly));
+    if (!Number.isFinite(numeric) || numeric <= 0) return '';
+
+    return String(numeric);
+  }
 
   function sanitizePositiveInteger(value: string | boolean) {
     const raw = typeof value === 'string' ? value : String(value);
@@ -1871,6 +1910,19 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
         {helperFeedback ? (
           <p className={`${styles.feedback} ${styles.feedbackError}`}>{helperFeedback}</p>
+        ) : null}
+
+        {helperTableName === 'worker_header' ? (
+          <div className={styles.helperSearchRow}>
+            <label htmlFor="worker-search">이름 또는 연락처 검색</label>
+            <input
+              id="worker-search"
+              type="search"
+              placeholder="예) 홍길동, 01012345678"
+              value={workerSearch}
+              onChange={(event) => setWorkerSearch(event.target.value)}
+            />
+          </div>
         ) : null}
 
         {isRoomHelper && roomFilterOptions ? (
