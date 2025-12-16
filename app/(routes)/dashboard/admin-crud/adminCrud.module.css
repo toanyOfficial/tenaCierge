@@ -341,6 +341,10 @@
   text-overflow: ellipsis;
 }
 
+.negativeAmount {
+  color: #dc2626;
+}
+
 .workerRow {
   cursor: pointer;
   transition: background-color 0.15s ease;
