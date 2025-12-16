@@ -724,9 +724,26 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
   const displayedRows = isRoomHelper ? filteredHelperRows : helperRows;
 
+  function sanitizePositiveInteger(value: string | boolean) {
+    const raw = typeof value === 'string' ? value : String(value);
+    const digitsOnly = raw.replace(/[^0-9]/g, '');
+    if (!digitsOnly) return '';
+
+    const numeric = Math.trunc(Number(digitsOnly));
+    if (!Number.isFinite(numeric) || numeric <= 0) return '';
+
+    return String(numeric);
+  }
+
   function handleInputChange(column: AdminColumnMeta, value: string | boolean) {
     if (NUMERIC_ONLY_FIELDS.has(column.name)) {
       const sanitized = typeof value === 'string' ? value.replace(/[^0-9]/g, '') : String(value).replace(/[^0-9]/g, '');
+      setFormValues((prev) => ({ ...prev, [column.name]: sanitized }));
+      return;
+    }
+
+    if (isClientAdditionalPrice && (column.name === 'qty' || column.name === 'amount')) {
+      const sanitized = sanitizePositiveInteger(value);
       setFormValues((prev) => ({ ...prev, [column.name]: sanitized }));
       return;
     }
@@ -1068,6 +1085,21 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     if (isScheduleException && !exceptionContext.checked) {
       setFeedback({ message: '스케쥴 변동이 없습니다. 체크박스를 확인해주세요', variant: 'error' });
       return;
+    }
+
+    if (isClientAdditionalPrice) {
+      const quantity = Number(formValues.qty);
+      const unitAmount = Number(formValues.amount);
+
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        setFeedback({ message: '수량은 0보다 큰 값을 입력해주세요.', variant: 'error' });
+        return;
+      }
+
+      if (!Number.isFinite(unitAmount) || unitAmount <= 0) {
+        setFeedback({ message: '금액은 0보다 큰 값을 입력해주세요.', variant: 'error' });
+        return;
+      }
     }
 
     const payloadData: Record<string, unknown> = {};
