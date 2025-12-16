@@ -1602,7 +1602,7 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       if (key === 'room_id') {
         const buildingShort = typeof row.building_short_name === 'string' ? row.building_short_name : '';
         const roomNo = typeof row.room_no === 'string' || typeof row.room_no === 'number' ? String(row.room_no) : '';
-        const composite = `${buildingShort}${roomNo}`.trim();
+        const composite = `${buildingShort} ${roomNo}`.trim();
         rawValue = composite || rawValue;
       }
 
@@ -1647,9 +1647,11 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       }
     }
 
-    const labelMatch = referenceLabels[helperTableName ?? '']?.[key]?.[String(rawValue)];
-    if (labelMatch) {
-      rawValue = labelMatch;
+    if (!(helperTableName === 'client_additional_price' && key === 'room_id')) {
+      const labelMatch = referenceLabels[helperTableName ?? '']?.[key]?.[String(rawValue)];
+      if (labelMatch) {
+        rawValue = labelMatch;
+      }
     }
     if (!rawValue) {
       return <span className={styles.cellText}>-</span>;
