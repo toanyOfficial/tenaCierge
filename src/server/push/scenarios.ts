@@ -213,16 +213,6 @@ export async function queueSupplementsPendingPush(params: { today?: Date; create
   const today = params.today ?? new Date();
   const todayKey = formatDateKey(today);
 
-  const subscribedClients = await db
-    .selectDistinct({ clientId: pushSubscriptions.userId })
-    .from(pushSubscriptions)
-    .where(and(eq(pushSubscriptions.userType, 'CLIENT'), eq(pushSubscriptions.enabledYn, true)));
-
-  if (!subscribedClients.length) {
-    console.info('[web-push] SUPPLEMENTS_PENDING 구독 중인 클라이언트 없음', { today: todayKey });
-    return { created: 0, attempted: 0 };
-  }
-
   const pendingRows = await db
     .select({ clientId: clientRooms.clientId, pendingCount: sql<number>`COUNT(*)` })
     .from(clientSupplements)
@@ -230,30 +220,50 @@ export async function queueSupplementsPendingPush(params: { today?: Date; create
     .where(eq(clientSupplements.buyYn, false))
     .groupBy(clientRooms.clientId);
 
-  const pendingCountMap = new Map<number, number>();
-  for (const row of pendingRows) {
-    pendingCountMap.set(row.clientId, row.pendingCount);
+  if (!pendingRows.length) {
+    console.info('[web-push] SUPPLEMENTS_PENDING 미구매 소모품 없음', { today: todayKey });
+    return { created: 0, attempted: 0 };
   }
+
+  const subscribedClients = new Set(
+    (
+      await db
+        .selectDistinct({ clientId: pushSubscriptions.userId })
+        .from(pushSubscriptions)
+        .where(
+          and(
+            eq(pushSubscriptions.userType, 'CLIENT'),
+            eq(pushSubscriptions.enabledYn, true),
+            sql`user_id IS NOT NULL`
+          )
+        )
+    )
+      .map((row) => row.clientId)
+      .filter((clientId): clientId is number => clientId != null)
+  );
 
   console.info('[web-push] SUPPLEMENTS_PENDING 대상 집계', {
     today: todayKey,
-    clientCount: subscribedClients.length
+    clientCount: subscribedClients.size
   });
 
   let created = 0;
-  for (const { clientId } of subscribedClients) {
-    const pendingCount = pendingCountMap.get(clientId) ?? 0;
-    const dedupKey = buildDedupKey(DedupPrefix.SupplementsPending, clientId, todayKey);
+  let attempted = 0;
+  for (const row of pendingRows) {
+    if (!subscribedClients.has(row.clientId)) continue;
+
+    attempted += 1;
+    const dedupKey = buildDedupKey(DedupPrefix.SupplementsPending, row.clientId, todayKey);
     try {
       const result = await enqueueNotifyJob({
         ruleCode: RULE_CODE.SUPPLEMENTS_PENDING,
         userType: 'CLIENT',
-        userId: clientId,
+        userId: row.clientId,
         dedupKey,
         payload: {
           templateId: TEMPLATE_ID.SUPPLEMENTS_PENDING,
           title: '소모품 안내',
-          body: `총 ${pendingCount}개의 소모품을 구매 해야 합니다. 빠른 구매 부탁드립니다`
+          body: `총 ${row.pendingCount}개의 소모품을 구매 해야 합니다. 빠른 구매 부탁드립니다`
         },
         createdBy: params.createdBy
       });
@@ -261,28 +271,28 @@ export async function queueSupplementsPendingPush(params: { today?: Date; create
       if (result.created) {
         created += 1;
         console.info('[web-push] SUPPLEMENTS_PENDING enqueue 성공', {
-          clientId,
-          pendingCount,
+          clientId: row.clientId,
+          pendingCount: row.pendingCount,
           dedupKey
         });
       } else {
         console.info('[web-push] SUPPLEMENTS_PENDING dedup/스킵', {
-          clientId,
-          pendingCount,
+          clientId: row.clientId,
+          pendingCount: row.pendingCount,
           dedupKey
         });
       }
     } catch (error) {
       console.error('[web-push] SUPPLEMENTS_PENDING enqueue 실패', {
-        clientId,
-        pendingCount,
+        clientId: row.clientId,
+        pendingCount: row.pendingCount,
         dedupKey,
         error
       });
     }
   }
 
-  return { created, attempted: subscribedClients.length };
+  return { created, attempted };
 }
 
 export async function queueWorkApplyOpenPush(params: {
