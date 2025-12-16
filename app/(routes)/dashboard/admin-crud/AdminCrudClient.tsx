@@ -42,7 +42,7 @@ type RoomFilterKey = keyof RoomFilterState;
 
 const DEFAULT_LIMIT = 20;
 const CLIENT_ADDITIONAL_PRICE_CONFIG = {
-  hiddenColumns: new Set(['created_at', 'updated_at']),
+  hiddenColumns: new Set(['created_at', 'updated_at', 'seq']),
   booleanColumns: new Set(['minus_yn', 'ratio_yn']),
   koreanLabels: {
     id: '아이디',
@@ -1594,6 +1594,19 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       if (key === 'building_id') {
         const buildingShort = typeof row.building_short_name === 'string' ? row.building_short_name : '';
         rawValue = buildingShort || rawValue;
+      }
+    }
+
+    if (helperTableName === 'client_additional_price') {
+      if (key === 'room_id') {
+        const buildingShort = typeof row.building_short_name === 'string' ? row.building_short_name : '';
+        const roomNo = typeof row.room_no === 'string' || typeof row.room_no === 'number' ? String(row.room_no) : '';
+        const composite = `${buildingShort}${roomNo}`.trim();
+        rawValue = composite || rawValue;
+      }
+
+      if (key === 'date') {
+        rawValue = toDateString(rawValue);
       }
     }
 
