@@ -301,12 +301,12 @@ export async function fetchReferenceOptions(
 
     const sql = `SELECT code_group, code, value, CONCAT(value, ' - ', code) AS label FROM etc_baseCode WHERE ${whereClauses.join(
       ' AND '
-    )} ORDER BY value ASC LIMIT ?`;
+    )} ORDER BY value DESC LIMIT ?`;
     params.push(limit);
 
     const [rows] = await pool.query<RowDataPacket[]>(sql, params);
     return rows.map((row) => ({
-      value: row.code,
+      value: row.value,
       label: row.label ?? String(row.value ?? row.code ?? ''),
       codeValue: String(row.code ?? ''),
       meta: { codeGroup: row.code_group ?? 'BANK', code: row.code, displayValue: row.value }
