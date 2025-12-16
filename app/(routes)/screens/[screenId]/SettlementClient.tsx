@@ -48,8 +48,28 @@ export default function SettlementClient({ snapshot, isAdmin, profile }: Props) 
   };
 
   const business = settlementBusinessInfo;
+  const accountInfo = {
+    bank: '우리은행',
+    holder: '(주)테너시티즈',
+    number: '1005-304-353457'
+  };
+  const accountLabel = `${accountInfo.bank} ${accountInfo.holder} ${accountInfo.number}`;
+
+  const handleCopyAccount = () => {
+    if (!window?.navigator?.clipboard) {
+      window.alert('복사 기능을 지원하지 않습니다. 계좌번호를 직접 확인해 주세요.');
+      return;
+    }
+
+    window.navigator.clipboard
+      .writeText(accountInfo.number)
+      .then(() => window.alert('계좌번호를 복사했습니다.'))
+      .catch(() => window.alert('복사에 실패했습니다. 다시 시도해 주세요.'));
+  };
 
   const renderAmount = (line: SettlementSnapshot['statements'][number]['lines'][number]) => {
+    const signedAmount = line.minusYn ? -Math.abs(line.amount) : line.amount;
+
     if (line.ratioYn) {
       const percent = line.ratioValue ?? line.amount;
       const applied = formatCurrency(Math.abs(line.total));
@@ -57,7 +77,7 @@ export default function SettlementClient({ snapshot, isAdmin, profile }: Props) 
       return `${percent}% / ${sign}${applied}`;
     }
 
-    return formatCurrency(line.amount);
+    return formatCurrency(signedAmount);
   };
 
   const renderRatioLineText = (line: SettlementSnapshot['statements'][number]['lines'][number]) => {
@@ -200,7 +220,7 @@ export default function SettlementClient({ snapshot, isAdmin, profile }: Props) 
                     perWork: [] as typeof statement.lines,
                     discounts: [] as typeof statement.lines
                   };
-                if (line.minusYn) {
+                if (line.ratioYn) {
                   entry.discounts.push(line);
                 } else if (line.category === 'monthly') {
                   entry.monthly.push(line);
@@ -311,9 +331,13 @@ export default function SettlementClient({ snapshot, isAdmin, profile }: Props) 
                             <div className={`${styles.lineCell} ${line.ratioYn ? styles.ratioText : ''}`}>
                               {renderRatioLineText(line)}
                             </div>
-                            <div className={styles.lineCell}>{renderAmount(line)}</div>
+                            <div className={`${styles.lineCell} ${line.minusYn ? styles.negative : ''}`}>
+                              {renderAmount(line)}
+                            </div>
                             <div className={styles.lineCell}>{line.quantity}</div>
-                            <div className={styles.lineCell}>{formatCurrency(line.total)}</div>
+                            <div className={`${styles.lineCell} ${line.minusYn ? styles.negative : ''}`}>
+                              {formatCurrency(line.total)}
+                            </div>
                           </div>
                         ))}
 
@@ -350,9 +374,11 @@ export default function SettlementClient({ snapshot, isAdmin, profile }: Props) 
                               <div className={`${styles.lineCell} ${line.ratioYn ? styles.ratioText : ''}`}>
                                 {renderRatioLineText(line)}
                               </div>
-                              <div className={styles.lineCell}>{renderAmount(line)}</div>
+                              <div className={`${styles.lineCell} ${line.minusYn ? styles.negative : ''}`}>
+                                {renderAmount(line)}
+                              </div>
                               <div className={styles.lineCell}>{line.quantity}</div>
-                              <div className={styles.lineCell}>
+                              <div className={`${styles.lineCell} ${line.minusYn ? styles.negative : ''}`}>
                                 {formatCurrency(line.total)}
                               </div>
                             </div>
@@ -391,6 +417,18 @@ export default function SettlementClient({ snapshot, isAdmin, profile }: Props) 
               </span>
               <span className={styles.businessInfoItem}>대표자명: {business.ceo}</span>
               <span className={styles.businessInfoItem}>사업장주소: {business.address}</span>
+            </div>
+            <div className={styles.accountInfo}>
+              <span className={styles.accountLabel}>계좌정보</span>
+              <button type="button" className={styles.accountButton} onClick={handleCopyAccount}>
+                <span className={styles.accountText}>{accountLabel}</span>
+                <span className={styles.copyIcon} aria-hidden>
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="8" y="8" width="12" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                    <rect x="4" y="2" width="12" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                  </svg>
+                </span>
+              </button>
             </div>
           </div>
         ))}
