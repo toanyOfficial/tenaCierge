@@ -321,9 +321,17 @@ export async function queueWorkApplyOpenPush(params: {
   tierRules.forEach((rule) => tierRuleMap.set(rule.tier, rule.applyStartTime));
 
   const workers = await db
-    .select({ id: workerHeader.id, tier: workerHeader.tier })
-    .from(workerHeader)
-    .where(ne(workerHeader.tier, 1));
+    .selectDistinct({ id: workerHeader.id, tier: workerHeader.tier })
+    .from(pushSubscriptions)
+    .innerJoin(workerHeader, eq(pushSubscriptions.userId, workerHeader.id))
+    .where(
+      and(
+        eq(pushSubscriptions.userType, 'WORKER'),
+        eq(pushSubscriptions.enabledYn, true),
+        ne(workerHeader.tier, 1),
+        sql`push_subscriptions.user_id IS NOT NULL`
+      )
+    );
 
   let created = 0;
   for (const worker of workers) {
