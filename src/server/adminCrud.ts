@@ -255,6 +255,21 @@ export async function fetchTableSnapshot(table: string, offset = 0, limit = 20):
     return { table, columns, primaryKey, rows, limit, offset };
   }
 
+  if (table === 'client_additional_price') {
+    const orderColumnExpr = orderColumn ? `cap.${orderColumn}` : 'cap.id';
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT cap.*, b.building_short_name, r.room_no
+       FROM client_additional_price cap
+       LEFT JOIN client_rooms r ON cap.room_id = r.id
+       LEFT JOIN etc_buildings b ON r.building_id = b.id
+       ORDER BY ${orderColumnExpr} DESC
+       LIMIT ? OFFSET ?`,
+      [limit, offset]
+    );
+
+    return { table, columns, primaryKey, rows, limit, offset };
+  }
+
   const [rows] = await pool.query<RowDataPacket[]>(
     'SELECT * FROM ?? ORDER BY ?? DESC LIMIT ? OFFSET ?',
     [table, orderColumn ?? 'id', limit, offset]

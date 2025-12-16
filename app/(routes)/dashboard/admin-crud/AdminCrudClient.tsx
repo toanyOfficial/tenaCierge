@@ -308,10 +308,23 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
         : (helperSnapshot?.columns ?? []).filter((column) => !helperHiddenColumns.has(column.name)),
     [helperHiddenColumns, helperSnapshot?.columns, usingSharedGrid, visibleColumns]
   );
-  const helperColumnLabels = helperColumns.map((column) => ({
-    key: column.name,
-    label: helperLabelOverrides[column.name] ?? column.name
-  }));
+  const helperColumnLabels = useMemo(() => {
+    const baseColumns = helperColumns.map((column) => ({
+      key: column.name,
+      label: helperLabelOverrides[column.name] ?? column.name
+    }));
+
+    if (!usingSharedGrid && helperTableName === 'client_additional_price') {
+      const totalColumn = { key: 'line_total', label: '총액' };
+      const amountIndex = baseColumns.findIndex((column) => column.key === 'amount');
+      if (amountIndex >= 0) {
+        return [...baseColumns.slice(0, amountIndex + 1), totalColumn, ...baseColumns.slice(amountIndex + 1)];
+      }
+      return [...baseColumns, totalColumn];
+    }
+
+    return baseColumns;
+  }, [helperColumns, helperLabelOverrides, helperTableName, usingSharedGrid]);
   const helperTitle = `${helperTableName ?? '데이터'} 목록`;
   const helperSubtitle = usingSharedGrid
     ? '행을 클릭하면 위 수정 양식으로 불러옵니다.'
@@ -1582,9 +1595,17 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     return String(value);
   }
 
+  function toTruncatedNumber(value: unknown): number | null {
+    const numeric = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(numeric)) return null;
+    return Math.trunc(numeric);
+  }
+
   function renderCellValue(row: Record<string, unknown>, key: string) {
     let rawValue = getClientField(row, key, '');
     let isNegativeAmount = false;
+
+    const isMinusAmount = row.minus_yn === 1 || row.minus_yn === '1' || row.minus_yn === true;
 
     if (isRoomHelper) {
       if (key === 'client_id') {
@@ -1611,10 +1632,27 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
       }
 
       if (key === 'amount') {
-        const isMinus = row.minus_yn === 1 || row.minus_yn === '1' || row.minus_yn === true;
-        if (isMinus && rawValue) {
+        const truncatedAmount = toTruncatedNumber(row.amount ?? rawValue);
+        if (truncatedAmount !== null) {
+          const signedAmount = isMinusAmount ? -Math.abs(truncatedAmount) : truncatedAmount;
+          rawValue = String(signedAmount);
+          if (signedAmount < 0) {
+            isNegativeAmount = true;
+          }
+        } else if (isMinusAmount && rawValue) {
           const normalized = String(rawValue).replace(/^[-]+/, '');
           rawValue = `-${normalized}`;
+          isNegativeAmount = true;
+        }
+      }
+
+      if (key === 'line_total') {
+        const truncatedAmount = toTruncatedNumber(row.amount ?? rawValue) ?? 0;
+        const signedAmount = isMinusAmount ? -Math.abs(truncatedAmount) : truncatedAmount;
+        const quantity = toTruncatedNumber(row.qty ?? 1) ?? Number(row.qty ?? 1) || 0;
+        const total = Math.trunc(signedAmount * quantity);
+        rawValue = String(total);
+        if (total < 0) {
           isNegativeAmount = true;
         }
       }
