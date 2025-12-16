@@ -102,6 +102,8 @@ const CLIENT_SETTLE_OPTIONS = [
   { value: '4', label: '기타' }
 ];
 const NUMERIC_ONLY_FIELDS = new Set(['phone', 'reg_no', 'account_no']);
+const CLIENT_POSITIVE_INTEGER_FIELDS = new Set(['room_count']);
+const CLIENT_POSITIVE_DECIMAL_FIELDS = new Set(['amount', 'amount_per_cleaning', 'amount_per_month']);
 const WEEKDAY_OPTIONS = [
   { value: '0', label: '0:일요일' },
   { value: '1', label: '1:월요일' },
@@ -173,6 +175,7 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
   const isClientAdditionalPrice = selectedTable === 'client_additional_price';
   const isClientHeader = selectedTable === 'client_header';
+  const isClientManagementTable = selectedTable.startsWith('client_');
   const isClientRooms = selectedTable === 'client_rooms';
   const isWorkerTable = selectedTable === 'worker_header';
   const isScheduleException = selectedTable === 'worker_schedule_exception';
@@ -763,15 +766,20 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     return String(numeric);
   }
 
-  function sanitizePositiveInteger(value: string | boolean) {
+  function sanitizePositiveDecimal(value: string | boolean) {
     const raw = typeof value === 'string' ? value : String(value);
-    const digitsOnly = raw.replace(/[^0-9]/g, '');
-    if (!digitsOnly) return '';
+    const stripped = raw.replace(/[^0-9.]/g, '');
+    if (!stripped) return '';
 
-    const numeric = Math.trunc(Number(digitsOnly));
+    const [intPart, ...rest] = stripped.split('.');
+    const normalizedInt = intPart.replace(/^0+(\d)/, '$1');
+    const decimalPart = rest.join('');
+    const rebuilt = decimalPart ? `${normalizedInt}.${decimalPart}` : normalizedInt;
+    const numeric = Number(rebuilt);
+
     if (!Number.isFinite(numeric) || numeric <= 0) return '';
 
-    return String(numeric);
+    return rebuilt;
   }
 
   function handleInputChange(column: AdminColumnMeta, value: string | boolean) {
@@ -783,6 +791,18 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
     if (isClientAdditionalPrice && (column.name === 'qty' || column.name === 'amount')) {
       const sanitized = sanitizePositiveInteger(value);
+      setFormValues((prev) => ({ ...prev, [column.name]: sanitized }));
+      return;
+    }
+
+    if (isClientManagementTable && CLIENT_POSITIVE_INTEGER_FIELDS.has(column.name)) {
+      const sanitized = sanitizePositiveInteger(value);
+      setFormValues((prev) => ({ ...prev, [column.name]: sanitized }));
+      return;
+    }
+
+    if (isClientManagementTable && CLIENT_POSITIVE_DECIMAL_FIELDS.has(column.name)) {
+      const sanitized = sanitizePositiveDecimal(value);
       setFormValues((prev) => ({ ...prev, [column.name]: sanitized }));
       return;
     }
@@ -1189,6 +1209,8 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
 
   function renderInput(column: AdminColumnMeta) {
     const type = toInputType(column);
+    const isClientPositiveIntegerField = isClientManagementTable && CLIENT_POSITIVE_INTEGER_FIELDS.has(column.name);
+    const isClientPositiveDecimalField = isClientManagementTable && CLIENT_POSITIVE_DECIMAL_FIELDS.has(column.name);
     const value = formValues[column.name] ?? '';
     const isCheckbox = type === 'checkbox';
 
@@ -1655,6 +1677,9 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
         onChange={(event) => handleInputChange(column, event.target.value)}
         placeholder={placeholder}
         disabled={column.autoIncrement && mode === 'create'}
+        min={isClientPositiveIntegerField || isClientPositiveDecimalField ? 1 : undefined}
+        step={isClientPositiveDecimalField ? 'any' : undefined}
+        inputMode={type === 'number' ? 'numeric' : undefined}
       />
     );
   }
