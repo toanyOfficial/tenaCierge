@@ -4,18 +4,16 @@ import { db } from '@/src/db/client';
 
 export type MonthlyAveragePoint = {
   label: string;
-  perOrderCount: number;
-  subscriptionCount: number;
+  roomAverageCount: number;
+  totalCount: number;
 };
 
 type MonthlyPlanRow = {
   month: string;
-  settleFlag: number;
   totalCount: number;
 };
 
-type PlanRoomRow = {
-  settleFlag: number;
+type RoomCountRow = {
   roomCount: number;
 };
 
@@ -64,69 +62,44 @@ export async function fetchMonthlyAverages(): Promise<MonthlyAveragePoint[]> {
   const endCursor = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + 1, 1));
   const endDate = formatMonthKey(endCursor);
 
+  if (!startDate) {
+    return [];
+  }
+
   const [rows] = await db.execute<MonthlyPlanRow>(sql`
     SELECT
       DATE_FORMAT(wh.date, '%Y-%m-01') AS month,
-      ch.settle_flag AS settleFlag,
       COUNT(*) AS totalCount
     FROM work_header wh
-      INNER JOIN client_rooms cr ON wh.room_id = cr.id
-      INNER JOIN client_header ch ON cr.client_id = ch.id
     WHERE wh.cleaning_yn = 1
       AND wh.cancel_yn = 0
-      AND ch.settle_flag IN (1, 2)
       AND wh.date >= ${startDate}
       AND wh.date < ${endDate}
-    GROUP BY month, ch.settle_flag
+    GROUP BY month
   `);
 
-  const [planRooms] = await db.execute<PlanRoomRow>(sql`
-    SELECT
-      ch.settle_flag AS settleFlag,
-      COUNT(*) AS roomCount
-    FROM client_rooms cr
-      INNER JOIN client_header ch ON cr.client_id = ch.id
-    WHERE cr.open_yn = 1
-      AND ch.settle_flag IN (1, 2)
-    GROUP BY ch.settle_flag
-  `);
-
-  const planRoomCounts = planRooms.reduce(
-    (acc, row) => {
-      if (row.settleFlag === 1) {
-        acc.perOrder = Number(row.roomCount ?? 0);
-      }
-      if (row.settleFlag === 2) {
-        acc.subscription = Number(row.roomCount ?? 0);
-      }
-      return acc;
-    },
-    { perOrder: 0, subscription: 0 }
-  );
-
-  const groupedTotals = new Map<string, { perOrder: number; subscription: number }>();
-  rows.forEach((row) => {
-    const monthTotals = groupedTotals.get(row.month) ?? { perOrder: 0, subscription: 0 };
-    if (row.settleFlag === 1) {
-      monthTotals.perOrder = Number(row.totalCount ?? 0);
-    }
-    if (row.settleFlag === 2) {
-      monthTotals.subscription = Number(row.totalCount ?? 0);
-    }
-    groupedTotals.set(row.month, monthTotals);
+  const planRows = Array.isArray(rows) ? rows : [];
+  const groupedTotals = new Map<string, { totalCount: number }>();
+  planRows.forEach((row) => {
+    groupedTotals.set(row.month, { totalCount: Number(row.totalCount ?? 0) });
   });
 
+  const [roomRows] = await db.execute<RoomCountRow>(sql`
+    SELECT COUNT(*) AS roomCount
+    FROM client_rooms cr
+    WHERE cr.open_yn = 1
+  `);
+
+  const openRoomCount = Array.isArray(roomRows) ? Number(roomRows[0]?.roomCount ?? 0) : 0;
+
   return months.map(({ key, label }) => {
-    const totals = groupedTotals.get(key) ?? { perOrder: 0, subscription: 0 };
-    const perOrderRoomCount = planRoomCounts.perOrder || 0;
-    const subscriptionRoomCount = planRoomCounts.subscription || 0;
-    const perOrderAverage = perOrderRoomCount ? totals.perOrder / perOrderRoomCount : 0;
-    const subscriptionAverage = subscriptionRoomCount ? totals.subscription / subscriptionRoomCount : 0;
+    const totals = groupedTotals.get(key) ?? { totalCount: 0 };
+    const roomAverageCount = openRoomCount ? totals.totalCount / openRoomCount : 0;
 
     return {
       label,
-      perOrderCount: perOrderAverage,
-      subscriptionCount: subscriptionAverage
+      roomAverageCount,
+      totalCount: totals.totalCount
     };
   });
 }
