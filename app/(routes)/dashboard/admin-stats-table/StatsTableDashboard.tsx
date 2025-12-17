@@ -55,6 +55,9 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
     1
   );
 
+  const monthlyBarSeries = snapshot.monthlySeries.filter((series) => series.plan === '건별제');
+  const monthlyLineSeries = snapshot.monthlySeries.filter((series) => series.plan === '정액제');
+
   const compositeRoomSeries = snapshot.monthlyComposite.map((row) => row.roomAverage);
   const compositeBuildingSeries = snapshot.monthlyComposite.map((row) => row.buildingAverage);
   const compositeTotalSeries = snapshot.monthlyComposite.map((row) => row.total);
@@ -74,49 +77,98 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
               <div className={styles.overlayMeta}>
                 월별 {snapshot.monthRange.start} ~ {snapshot.monthRange.end} · 기준 {referenceLabel} · 16:30 매일 갱신
               </div>
-              <div className={styles.overlayLegend}>
-                {snapshot.monthlySeries.map((series) => (
-                  <span
-                    key={series.key}
-                    className={styles.legendChip}
-                    style={{ backgroundColor: resolveColor(series.key, legendColors) }}
-                  >
-                    {series.building}·{series.plan}
-                  </span>
-                ))}
-              </div>
             </div>
 
-            <div className={styles.monthChart}>
+              <div className={styles.monthChart}>
+              <div className={styles.monthChartArea}>
+                {monthLabels.flatMap((month, monthIdx) => {
+                  const columnWidth = 100 / monthLabels.length;
+                  const barGroupWidth = columnWidth * 0.7;
+                  const barWidth = monthlyBarSeries.length > 0 ? barGroupWidth / monthlyBarSeries.length : 0;
+                  const startOffset = columnWidth * monthIdx + (columnWidth - barGroupWidth) / 2;
+
+                  return monthlyBarSeries.map((series, barIdx) => {
+                    const value = series.values[monthIdx];
+                    const barHeight = (value.averagePerDay / maxMonthlyAverage) * 100;
+                    const left = startOffset + barWidth * barIdx;
+
+                    return (
+                      <div
+                        key={`${series.key}-${month.key}`}
+                        className={styles.barDatum}
+                        style={{
+                          left: `${left}%`,
+                          width: `${barWidth}%`,
+                          height: `${barHeight}%`,
+                          backgroundColor: resolveColor(series.key, legendColors)
+                        }}
+                      />
+                    );
+                  });
+                })}
+
+                {monthlyBarSeries.map((series) => {
+                  const lastIdx = series.values.length - 1;
+                  const columnWidth = 100 / monthLabels.length;
+                  const barGroupWidth = columnWidth * 0.7;
+                  const barWidth = monthlyBarSeries.length > 0 ? barGroupWidth / monthlyBarSeries.length : 0;
+                  const startOffset = columnWidth * lastIdx + (columnWidth - barGroupWidth) / 2;
+                  const value = series.values[lastIdx];
+                  const barHeight = (value.averagePerDay / maxMonthlyAverage) * 100;
+                  const left = startOffset + barWidth * monthlyBarSeries.indexOf(series) + barWidth / 2;
+                  const bottom = Math.max(barHeight, 2);
+
+                  return (
+                    <div
+                      key={`${series.key}-legend`}
+                      className={styles.barLegendChip}
+                      style={{
+                        left: `${left}%`,
+                        bottom: `${bottom + 4}%`,
+                        backgroundColor: resolveColor(series.key, legendColors)
+                      }}
+                    >
+                      {series.building}·{series.plan}
+                    </div>
+                  );
+                })}
+
+                <svg className={styles.lineChart} viewBox={`0 0 100 ${Math.max(maxMonthlyAverage, 1)}`} preserveAspectRatio="none">
+                  {monthlyLineSeries.map((series) => {
+                    const color = resolveColor(series.key, legendColors);
+                    const points = series.values
+                      .map((value, idx) => {
+                        const x = (100 / Math.max(series.values.length - 1, 1)) * idx;
+                        const y = Math.max(maxMonthlyAverage - value.averagePerDay, 0);
+                        return `${x},${y}`;
+                      })
+                      .join(' ');
+
+                    return <polyline key={series.key} points={points} fill="none" stroke={color} strokeWidth="1.6" />;
+                  })}
+                </svg>
+
+                {monthlyLineSeries.map((series) => {
+                  const lastIdx = series.values.length - 1;
+                  const x = (100 / Math.max(series.values.length - 1, 1)) * lastIdx;
+                  const y = Math.max(maxMonthlyAverage - series.values[lastIdx]?.averagePerDay, 0);
+
+                  return (
+                    <div
+                      key={`${series.key}-line-legend`}
+                      className={styles.lineLegendChip}
+                      style={{ left: `${x}%`, top: `${(y / Math.max(maxMonthlyAverage, 1)) * 100}%`, color: '#0b1222' }}
+                    >
+                      {series.building}·{series.plan}
+                    </div>
+                  );
+                })}
+              </div>
+
               <div className={styles.monthAxis}>
                 {monthLabels.map((month) => (
                   <div key={month.key} className={styles.monthTick}>
                     {month.label}
-                  </div>
-                ))}
-              </div>
-
-              <div className={styles.seriesStack}>
-                {snapshot.monthlySeries.map((series) => (
-                  <div key={series.key} className={styles.seriesRow}>
-                    <div className={styles.seriesLabel}>{series.building}·{series.plan}</div>
-                    <div className={styles.seriesBars}>
-                      {series.values.map((value) => {
-                        const height = `${(value.averagePerDay / maxMonthlyAverage) * 100}%`;
-                        return (
-                          <div key={`${series.key}-${value.month}`} className={styles.barCell}>
-                            <div
-                              className={styles.bar}
-                              style={{
-                                height,
-                                backgroundColor: resolveColor(series.key, legendColors)
-                              }}
-                            />
-                            <span className={styles.barLabel}>{value.averagePerDay.toFixed(1)}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
                   </div>
                 ))}
               </div>
