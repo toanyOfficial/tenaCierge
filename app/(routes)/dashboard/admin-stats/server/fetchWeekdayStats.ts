@@ -19,25 +19,17 @@ type WeekdayCountRow = {
   totalCount: number;
 };
 
+type WeekdayOccurrenceRow = {
+  weekday: number;
+  occurrences: number;
+};
+
 type BuildingNameRow = {
   buildingId: number;
   shortName: string | null;
 };
 
 const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
-
-function countWeekdayOccurrences(start: Date, end: Date) {
-  const counts = Array(7).fill(0);
-  const cursor = new Date(start);
-
-  while (cursor < end) {
-    const dayIndex = cursor.getUTCDay();
-    counts[dayIndex] += 1;
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-
-  return counts;
-}
 
 function makeBuildingKey(buildingId: number) {
   return `building_${buildingId}`;
@@ -52,7 +44,7 @@ export async function fetchWeekdayStats(): Promise<{
   const startDate = new Date(endDate);
   startDate.setUTCDate(startDate.getUTCDate() - 365);
 
-  const [[workRows]] = await Promise.all([
+  const [[workRows], [occurrenceRows]] = await Promise.all([
     db.execute<WeekdayCountRow>(sql`
       SELECT DAYOFWEEK(wh.date) AS weekday, cr.building_id AS buildingId, COUNT(*) AS totalCount
       FROM work_header wh
@@ -62,6 +54,17 @@ export async function fetchWeekdayStats(): Promise<{
         AND wh.date >= ${startDate}
         AND wh.date < ${endDate}
       GROUP BY cr.building_id, weekday
+    `),
+    db.execute<WeekdayOccurrenceRow>(sql`
+      WITH RECURSIVE dates AS (
+        SELECT CAST(${startDate} AS DATE) AS d
+        UNION ALL
+        SELECT DATE_ADD(d, INTERVAL 1 DAY) FROM dates WHERE d < ${endDate}
+      )
+      SELECT DAYOFWEEK(d) AS weekday, COUNT(*) AS occurrences
+      FROM dates
+      WHERE d < ${endDate}
+      GROUP BY weekday
     `)
   ]);
 
@@ -101,7 +104,14 @@ export async function fetchWeekdayStats(): Promise<{
     return { key: makeBuildingKey(id), label };
   });
 
-  const occurrences = countWeekdayOccurrences(startDate, endDate);
+  const occurrenceMap = new Map<number, number>();
+  occurrenceRows.forEach((row) => {
+    occurrenceMap.set(Number(row.weekday), Number(row.occurrences ?? 0));
+  });
+
+  const formatAverage = (value: number) => {
+    return Math.round(value * 100) / 100;
+  };
 
   const formatAverage = (value: number) => {
     return Math.round(value * 100) / 100;
@@ -109,7 +119,7 @@ export async function fetchWeekdayStats(): Promise<{
 
   const points: WeekdayStatsPoint[] = weekdayLabels.map((label, index) => {
     const mysqlWeekday = index === 0 ? 1 : index + 1; // DAYOFWEEK: 1=Sunday
-    const occurrencesCount = occurrences[index] ?? 0;
+    const occurrencesCount = occurrenceMap.get(mysqlWeekday) ?? 0;
     const totalCount = totalPerWeekday.get(mysqlWeekday) ?? 0;
     const totalAverage = occurrencesCount ? totalCount / occurrencesCount : 0;
 
