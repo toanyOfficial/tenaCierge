@@ -85,6 +85,12 @@ const shortcuts: Shortcut[] = [
     label: '대시보드-월간업무',
     href: '/dashboard/admin-monthly',
     description: '출퇴근 캘린더와 월별 누적 청소 현황을 조회합니다.'
+  },
+  {
+    id: 'stats-table',
+    label: '대시보드-통계표',
+    href: '/dashboard/admin-stats-table',
+    description: '월별/요일별 청소량을 건물·요금제 단위로 비교합니다.'
   }
 ];
 
