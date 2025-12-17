@@ -55,14 +55,16 @@ export async function fetchWeekdayStats(): Promise<{
   const baselineStart = new Date(endDate);
   baselineStart.setUTCDate(baselineStart.getUTCDate() - 365);
 
-  const [minDateRows] = await db.execute<{ minDate: Date | null }>(sql`
+  const [minDateRows] = await db.execute(sql`
     SELECT MIN(date) AS minDate
     FROM work_header
     WHERE cleaning_yn = 1
       AND cancel_yn = 0
   `);
 
-  const firstWorkDate = minDateRows?.[0]?.minDate ? new Date(minDateRows[0].minDate) : null;
+  const typedMinDateRows = minDateRows as unknown as { minDate: Date | null }[];
+
+  const firstWorkDate = typedMinDateRows?.[0]?.minDate ? new Date(typedMinDateRows[0].minDate) : null;
 
   if (firstWorkDate) {
     firstWorkDate.setUTCHours(0, 0, 0, 0);
@@ -73,7 +75,7 @@ export async function fetchWeekdayStats(): Promise<{
   );
 
   const [[workRows], [occurrenceRows]] = await Promise.all([
-    db.execute<WeekdayCountRow>(sql`
+    db.execute(sql`
       SELECT DAYOFWEEK(wh.date) AS weekday, cr.building_id AS buildingId, COUNT(*) AS totalCount
       FROM work_header wh
       JOIN client_rooms cr ON cr.id = wh.room_id
@@ -83,7 +85,7 @@ export async function fetchWeekdayStats(): Promise<{
         AND wh.date < ${rangeEnd}
       GROUP BY cr.building_id, weekday
     `),
-    db.execute<WeekdayOccurrenceRow>(sql`
+    db.execute(sql`
       WITH RECURSIVE dates AS (
         SELECT CAST(${startDate} AS DATE) AS d
         UNION ALL
@@ -96,11 +98,14 @@ export async function fetchWeekdayStats(): Promise<{
     `)
   ]);
 
+  const weekdayCountRows = workRows as unknown as WeekdayCountRow[];
+  const occurrenceRowsTyped = occurrenceRows as unknown as WeekdayOccurrenceRow[];
+
   const buildingTotals = new Map<number, Map<number, number>>();
   const totalPerWeekday = new Map<number, number>();
   const buildingTotalCounts = new Map<number, number>();
 
-  workRows.forEach((row) => {
+  weekdayCountRows.forEach((row) => {
     const buildingId = Number(row.buildingId);
     const weekday = Number(row.weekday);
     const totalCount = Number(row.totalCount ?? 0);
@@ -120,7 +125,7 @@ export async function fetchWeekdayStats(): Promise<{
 
   let buildingNames: BuildingNameRow[] = [];
   if (buildingIds.length > 0) {
-    [buildingNames] = await db.execute<BuildingNameRow>(sql`
+    const [buildingNameRows] = await db.execute(sql`
       SELECT
         eb.id AS buildingId,
         eb.building_short_name AS shortName,
@@ -129,9 +134,11 @@ export async function fetchWeekdayStats(): Promise<{
       LEFT JOIN etc_baseCode bc ON bc.code = eb.basecode_code
       WHERE eb.id IN (${sql.join(buildingIds, sql`,`)})
     `);
+
+    buildingNames = buildingNameRows as unknown as BuildingNameRow[];
   }
 
-  const totalOccurrencesCount = occurrenceRows.reduce(
+  const totalOccurrencesCount = occurrenceRowsTyped.reduce(
     (sum, row) => sum + Number(row.occurrences ?? 0),
     0
   );
@@ -153,7 +160,7 @@ export async function fetchWeekdayStats(): Promise<{
   });
 
   const occurrenceMap = new Map<number, number>();
-  occurrenceRows.forEach((row) => {
+  occurrenceRowsTyped.forEach((row) => {
     occurrenceMap.set(Number(row.weekday), Number(row.occurrences ?? 0));
   });
 
