@@ -115,27 +115,35 @@ export default function StatsDashboard({
   }, [overviewRightMax]);
 
   const weekdayColorMap = useMemo(() => {
-    const sectorPalette = ['#38bdf8', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#0ea5e9', '#f472b6'];
-    const shadeSteps = [0, -0.12, 0.12, -0.2, 0.2, -0.28, 0.28];
+    const sectorBaseColors: Record<string, string> = {
+      '1': '#38bdf8',
+      '2': '#f59e0b',
+      '3': '#22c55e'
+    };
 
-    const sectorBase = new Map<string, string>();
-    const sectorCounts = new Map<string, number>();
+    const groupedBySector = weekdayStats.buildings.reduce((acc, meta) => {
+      const sectorKey = meta.sectorCode ?? '__unknown__';
+      const group = acc.get(sectorKey) ?? [];
+      group.push(meta);
+      acc.set(sectorKey, group);
+      return acc;
+    }, new Map<string, WeekdaySeriesMeta[]>());
+
     const buildingColors = new Map<string, string>();
-    let paletteIndex = 0;
+    const brightRatio = 0.32;
+    const darkRatio = -0.32;
 
-    weekdayStats.buildings.forEach((meta) => {
-      const sectorKey = meta.sectorCode || '__unknown__';
-      if (!sectorBase.has(sectorKey)) {
-        const base = sectorPalette[paletteIndex % sectorPalette.length];
-        sectorBase.set(sectorKey, base);
-        paletteIndex += 1;
-      }
-      const baseColor = sectorBase.get(sectorKey)!;
-      const useCount = sectorCounts.get(sectorKey) ?? 0;
-      const shadeRatio = shadeSteps[useCount % shadeSteps.length];
-      const color = shadeHexColor(baseColor, shadeRatio);
-      sectorCounts.set(sectorKey, useCount + 1);
-      buildingColors.set(meta.key, color);
+    groupedBySector.forEach((buildings, sectorKey) => {
+      const base = sectorBaseColors[sectorKey] ?? '#38bdf8';
+      const sortedByVolume = [...buildings].sort((a, b) => (b.totalCount ?? 0) - (a.totalCount ?? 0));
+
+      sortedByVolume.forEach((meta, index) => {
+        const ratio =
+          sortedByVolume.length === 1
+            ? 0
+            : brightRatio - ((brightRatio - darkRatio) * index) / (sortedByVolume.length - 1);
+        buildingColors.set(meta.key, shadeHexColor(base, ratio));
+      });
     });
 
     return buildingColors;
