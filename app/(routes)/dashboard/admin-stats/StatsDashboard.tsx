@@ -47,6 +47,10 @@ const graphCards: GraphCard[] = [
 
 const yTickRatios = [0.25, 0.5, 0.75, 1];
 
+function formatValue(value: number) {
+  return Number.isInteger(value) ? `${value}` : value.toFixed(1);
+}
+
 type Props = { profile: ProfileSummary; monthlyAverages: MonthlyAveragePoint[] };
 
 export default function StatsDashboard({ monthlyAverages }: Props) {
@@ -71,26 +75,20 @@ export default function StatsDashboard({ monthlyAverages }: Props) {
         </header>
 
         <div className={styles.graphGrid}>
-          <section className={styles.graphCard} aria-label="1번 그래프">
+          <section className={styles.graphCard} aria-label="요금제별 통계">
             <div className={styles.graphHeading}>
-              <p className={styles.graphTitle}>1번 그래프</p>
-              <p className={styles.graphDescription}>
-                월별 시계열 평균 건수를 재정의했습니다. 작년 해당 월부터 올해 해당 월까지 13개월 구간을 1920 x 1080 캔버스에 고정하고, 건별제와 정액제 평균을 월별·호실별 work_header 기준으로 비교합니다.
-              </p>
+              <p className={styles.graphTitle}>요금제별 통계</p>
             </div>
 
             <div className={styles.graphSurface} aria-hidden="true">
               <div className={styles.monthlyLegend}>
                 <span className={styles.legendItem}>
-                  <span className={styles.legendSwatchPerOrder} />건별제 (client_header.settle_flag=1)
+                  <span className={styles.legendSwatchPerOrder} />건별제
                 </span>
                 <span className={styles.legendItem}>
-                  <span className={styles.legendSwatchSubscription} />정액제 (client_header.settle_flag=2)
+                  <span className={styles.legendSwatchSubscription} />정액제
                 </span>
               </div>
-
-              <div className={styles.axisLabelY}>평균 건수</div>
-              <div className={styles.axisLabelX}>월 (MM)</div>
 
               <div className={styles.monthlyGridLines}>
                 {yTicks.map((tick) => (
@@ -100,24 +98,59 @@ export default function StatsDashboard({ monthlyAverages }: Props) {
                 ))}
               </div>
 
+              <svg
+                className={styles.perOrderLine}
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <defs>
+                  <linearGradient id="perOrderGradient" x1="0%" x2="100%" y1="0%" y2="0%">
+                    <stop offset="0%" stopColor="#38bdf8" />
+                    <stop offset="100%" stopColor="#6366f1" />
+                  </linearGradient>
+                </defs>
+
+                <path
+                  className={styles.perOrderPath}
+                  d={`M ${monthlyAverages
+                    .map((row, index) => {
+                      const x = (index / (monthlyAverages.length - 1)) * 100;
+                      const y = 100 - Math.min(100, (row.perOrder / monthlyMax) * 100);
+                      return `${x.toFixed(3)} ${y.toFixed(3)}`;
+                    })
+                    .join(' L ')}`}
+                />
+
+                {monthlyAverages.map((row, index) => {
+                  const x = (index / (monthlyAverages.length - 1)) * 100;
+                  const y = 100 - Math.min(100, (row.perOrder / monthlyMax) * 100);
+                  const labelY = Math.max(6, y - 4);
+
+                  return (
+                    <g key={`perorder-${row.label}-${index}`}>
+                      <circle className={styles.perOrderDot} cx={x} cy={y} r={1.6} />
+                      <text className={styles.perOrderValue} x={x} y={labelY}>
+                        {formatValue(row.perOrder)}
+                      </text>
+                    </g>
+                  );
+                })}
+              </svg>
+
               <div className={styles.monthlyBarArea}>
                 {monthlyAverages.map((row, index) => {
-                  const perOrderHeight = (row.perOrder / monthlyMax) * 100;
                   const subscriptionHeight = (row.subscription / monthlyMax) * 100;
 
                   return (
                     <div key={`${row.label}-${index}`} className={styles.monthlyColumn}>
-                      <div className={styles.monthlyBars}>
-                        <div
-                          className={styles.perOrderBar}
-                          style={{ height: `${perOrderHeight}%` }}
-                          aria-label={`건별제 ${row.label}월 평균 ${row.perOrder}`}
-                        />
+                      <div className={styles.subscriptionBarWrapper}>
                         <div
                           className={styles.subscriptionBar}
                           style={{ height: `${subscriptionHeight}%` }}
                           aria-label={`정액제 ${row.label}월 평균 ${row.subscription}`}
                         />
+                        <span className={styles.barValueLabel}>{formatValue(row.subscription)}</span>
                       </div>
                       <span className={styles.monthLabel}>{row.label}</span>
                     </div>

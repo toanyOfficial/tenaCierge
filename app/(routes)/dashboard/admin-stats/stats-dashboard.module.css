@@ -250,28 +250,6 @@
   background: linear-gradient(135deg, #22c55e, #16a34a);
 }
 
-.axisLabelY {
-  position: absolute;
-  left: 0;
-  top: 32px;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  font-weight: 800;
-  color: #cbd5e1;
-  letter-spacing: 0.04em;
-  padding: 0 8px;
-}
-
-.axisLabelX {
-  position: absolute;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-weight: 800;
-  color: #cbd5e1;
-  letter-spacing: 0.04em;
-}
-
 .monthlyGridLines {
   position: absolute;
   inset: 24px 18px 54px 46px;
@@ -311,28 +289,62 @@
   gap: 10px;
 }
 
-.monthlyBars {
+
+.subscriptionBarWrapper {
+  position: relative;
   width: 100%;
-  height: 180px;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 4px;
-  align-items: end;
+  height: 190px;
+  display: flex;
+  align-items: flex-end;
 }
 
-.perOrderBar,
 .subscriptionBar {
   width: 100%;
-  border-radius: 6px 6px 0 0;
+  border-radius: 8px 8px 0 0;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
-}
-
-.perOrderBar {
-  background: linear-gradient(180deg, #38bdf8 0%, #6366f1 100%);
-}
-
-.subscriptionBar {
   background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+}
+
+.barValueLabel {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -12px);
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-weight: 800;
+  color: #e2e8f0;
+  white-space: nowrap;
+}
+
+
+.perOrderLine {
+  position: absolute;
+  inset: 24px 18px 54px 46px;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.perOrderPath {
+  fill: none;
+  stroke: url(#perOrderGradient);
+  stroke-width: 1.2;
+}
+
+.perOrderDot {
+  fill: #60a5fa;
+  stroke: rgba(248, 250, 252, 0.7);
+  stroke-width: 0.35;
+  filter: drop-shadow(0 0 6px rgba(96, 165, 250, 0.8));
+}
+
+.perOrderValue {
+  fill: #e2e8f0;
+  font-size: 3px;
+  font-weight: 800;
+  text-anchor: middle;
 }
 
 .monthLabel {
