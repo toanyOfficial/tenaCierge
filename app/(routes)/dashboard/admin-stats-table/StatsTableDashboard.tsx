@@ -57,6 +57,7 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
 
   const monthlyBarSeries = snapshot.monthlySeries.filter((series) => series.plan === '건별제');
   const monthlyLineSeries = snapshot.monthlySeries.filter((series) => series.plan === '정액제');
+  const monthYAxisTicks = Array.from({ length: 5 }, (_, idx) => (maxMonthlyAverage / 4) * idx);
 
   const compositeRoomSeries = snapshot.monthlyComposite.map((row) => row.roomAverage);
   const compositeBuildingSeries = snapshot.monthlyComposite.map((row) => row.buildingAverage);
@@ -81,6 +82,18 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
 
               <div className={styles.monthChart}>
               <div className={styles.monthChartArea}>
+                <div className={styles.monthGrid}>
+                  {monthYAxisTicks.map((tick) => (
+                    <div
+                      key={`tick-${tick}`}
+                      className={styles.monthGridLine}
+                      style={{ bottom: `${(tick / Math.max(maxMonthlyAverage, 1)) * 100}%` }}
+                    >
+                      <span className={styles.monthGridLabel}>{formatNumber(tick)}</span>
+                    </div>
+                  ))}
+                </div>
+
                 {monthLabels.flatMap((month, monthIdx) => {
                   const columnWidth = 100 / monthLabels.length;
                   const barGroupWidth = columnWidth * 0.7;
