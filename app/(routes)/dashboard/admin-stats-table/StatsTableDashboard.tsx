@@ -66,21 +66,12 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
 
   const weekdayMax = Math.max(...snapshot.weekdayStats.map((item) => item.averageTotal), 1);
 
-  const referenceLabel = DateTime.fromISO(snapshot.referenceDate).toFormat('yyyy-LL-dd HH:mm');
-
   return (
     <div className={styles.shell}>
       <div className={styles.canvas}>
         <div className={styles.grid}>
           <section className={styles.quadrant}>
-            <div className={styles.overlay}>
-              <div className={styles.overlayTitle}>월별 평균 시계열</div>
-              <div className={styles.overlayMeta}>
-                월별 {snapshot.monthRange.start} ~ {snapshot.monthRange.end} · 기준 {referenceLabel} · 16:30 매일 갱신
-              </div>
-            </div>
-
-              <div className={styles.monthChart}>
+            <div className={styles.monthChart}>
               <div className={styles.monthChartArea}>
                 <div className={styles.monthGrid}>
                   {monthYAxisTicks.map((tick) => (
@@ -189,19 +180,13 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
           </section>
 
           <section className={styles.quadrant}>
-            <div className={styles.overlay}>
-              <div className={styles.overlayTitle}>월별 통계값</div>
-              <div className={styles.overlayMeta}>
-                월별 {snapshot.monthRange.start} ~ {snapshot.monthRange.end} · 기준 {referenceLabel}
-              </div>
-              <div className={styles.overlayLegendCompact}>
+            <div className={styles.compositeChart}>
+              <div className={styles.inlineLegend}>
                 <span className={styles.legendChip} style={{ backgroundColor: '#60a5fa' }}>호실평균</span>
                 <span className={styles.legendChip} style={{ backgroundColor: '#fbbf24' }}>건물평균</span>
                 <span className={styles.legendChip} style={{ backgroundColor: '#34d399' }}>총량</span>
               </div>
-            </div>
 
-            <div className={styles.compositeChart}>
               <div className={styles.compositeAxis}>
                 {monthLabels.map((month) => (
                   <div key={month.key} className={styles.compositeTick}>
@@ -238,13 +223,6 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
           </section>
 
           <section className={styles.quadrant}>
-            <div className={styles.overlay}>
-              <div className={styles.overlayTitle}>요일별 통계값</div>
-              <div className={styles.overlayMeta}>
-                요일별 {snapshot.weekdayRange.start} ~ {snapshot.weekdayRange.end} · 기준 {referenceLabel} · 16:30 매일 갱신
-              </div>
-            </div>
-
             <div className={styles.weekdayGrid}>
               {snapshot.weekdayStats.map((stat) => {
                 const denom = Math.max(weekdayMax, 1);
@@ -279,10 +257,6 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
           </section>
 
           <section className={styles.quadrant}>
-            <div className={styles.overlay}>
-              <div className={styles.overlayTitle}>박수기준 통계값</div>
-              <div className={styles.overlayMeta}>매일 16:30 갱신 · 기준 {referenceLabel}</div>
-            </div>
             <div className={styles.placeholder}>준비중입니다.</div>
           </section>
         </div>
