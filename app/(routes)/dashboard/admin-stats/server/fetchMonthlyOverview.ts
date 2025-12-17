@@ -59,8 +59,8 @@ export async function fetchMonthlyOverview(): Promise<MonthlyOverviewPoint[]> {
     db.execute<MonthlyAggregateRow>(sql`
       SELECT
         month,
-        SUM(room_count) AS totalCount,
-        AVG(room_count) AS roomAverage
+        CAST(SUM(room_count) AS DECIMAL(10, 2)) AS totalCount,
+        CAST(AVG(room_count) AS DECIMAL(10, 4)) AS roomAverage
       FROM (
         SELECT
           DATE_FORMAT(wh.date, '%Y-%m-01') AS month,
@@ -87,8 +87,8 @@ export async function fetchMonthlyOverview(): Promise<MonthlyOverviewPoint[]> {
 
   return months.map(({ key, label }) => {
     const stats = aggregates.get(key);
-    const totalCount = stats?.totalCount ?? 0;
-    const roomAverage = stats?.roomAverage ?? 0;
+    const totalCount = Number(stats?.totalCount ?? 0);
+    const roomAverage = Number(stats?.roomAverage ?? 0);
     return { label, totalCount, roomAverage };
   });
 }
