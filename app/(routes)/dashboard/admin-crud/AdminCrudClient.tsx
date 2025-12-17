@@ -263,33 +263,6 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     }
   }, [selectedTable]);
 
-  useEffect(() => {
-    setHelperOffset(0);
-    setHelperHasMore(false);
-    if (isProtectedTable) {
-      void fetchHelperSnapshot(0, false);
-    } else {
-      setHelperSnapshot(snapshot);
-      setHelperFeedback(null);
-    }
-  }, [fetchHelperSnapshot, isProtectedTable, selectedTable, snapshot]);
-
-  useEffect(() => {
-    if (!isProtectedTable && snapshot) {
-      setHelperSnapshot(snapshot);
-      setHelperOffset(snapshot.offset + (snapshot.rows?.length ?? 0));
-      setHelperHasMore(false);
-    }
-  }, [isProtectedTable, snapshot]);
-
-  useEffect(() => {
-    const pendingTable = (pendingClientEdit as { __table?: string } | null)?.__table;
-    if (pendingClientEdit && pendingTable && selectedTable === pendingTable && snapshot?.table === selectedTable) {
-      startEdit(pendingClientEdit);
-      setPendingClientEdit(null);
-    }
-  }, [pendingClientEdit, selectedTable, snapshot]);
-
   const columns = snapshot?.columns ?? [];
   const helperRows = usingSharedGrid ? snapshot?.rows ?? [] : helperSnapshot?.rows ?? [];
   const helperTableName = usingSharedGrid ? snapshot?.table ?? selectedTable : helperSnapshot?.table ?? selectedTable;
@@ -678,6 +651,33 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     },
     [isProtectedTable, selectedTable, snapshot]
   );
+
+  useEffect(() => {
+    setHelperOffset(0);
+    setHelperHasMore(false);
+    if (isProtectedTable) {
+      void fetchHelperSnapshot(0, false);
+    } else {
+      setHelperSnapshot(snapshot);
+      setHelperFeedback(null);
+    }
+  }, [fetchHelperSnapshot, isProtectedTable, selectedTable, snapshot]);
+
+  useEffect(() => {
+    if (!isProtectedTable && snapshot) {
+      setHelperSnapshot(snapshot);
+      setHelperOffset(snapshot.offset + (snapshot.rows?.length ?? 0));
+      setHelperHasMore(false);
+    }
+  }, [isProtectedTable, snapshot]);
+
+  useEffect(() => {
+    const pendingTable = (pendingClientEdit as { __table?: string } | null)?.__table;
+    if (pendingClientEdit && pendingTable && selectedTable === pendingTable && snapshot?.table === selectedTable) {
+      startEdit(pendingClientEdit);
+      setPendingClientEdit(null);
+    }
+  }, [pendingClientEdit, selectedTable, snapshot]);
 
   function toInputType(column: AdminColumnMeta) {
     if (column.dataType.includes('int') || column.dataType.includes('decimal')) return 'number';
