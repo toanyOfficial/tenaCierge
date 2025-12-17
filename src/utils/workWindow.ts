@@ -10,6 +10,7 @@ export type WorkWindowMeta = {
   targetDateLabel: string;
   hostCanEdit: boolean;
   hostCanAdd: boolean;
+  hostAddMinOffset: number;
 };
 
 export function getKstNow() {
@@ -23,6 +24,7 @@ export function resolveWorkWindow(baseDate?: Date, forcedDate?: string): WorkWin
   const targetKey = formatDateKey(targetDate);
   const todayKey = formatDateKey(now);
   const diffDays = calculateDiffDays(todayKey, targetKey);
+  const hostAddMinOffset = minutes >= 16 * 60 ? 2 : 1;
 
   let hostCanEdit = false;
   let hostCanAdd = false;
@@ -44,7 +46,8 @@ export function resolveWorkWindow(baseDate?: Date, forcedDate?: string): WorkWin
     targetDate: targetKey,
     targetDateLabel: formatFullDateLabel(targetDate),
     hostCanEdit,
-    hostCanAdd
+    hostCanAdd,
+    hostAddMinOffset
   };
 }
 

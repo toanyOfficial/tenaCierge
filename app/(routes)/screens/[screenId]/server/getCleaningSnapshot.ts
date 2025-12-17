@@ -40,6 +40,7 @@ export type CleaningSnapshot = {
   dateOptions: { value: string; label: string; tag: WorkWindowMeta['targetTag'] }[];
   hostCanEdit: boolean;
   hostCanAdd: boolean;
+  hostAddMinOffset: number;
   works: CleaningWork[];
   hostRoomOptions: RoomOption[];
   adminRoomOptions: RoomOption[];
@@ -76,11 +77,15 @@ export async function getCleaningSnapshot(profile: ProfileSummary, targetDate?: 
     window: meta.window,
     hostCanEdit: meta.hostCanEdit,
     hostCanAdd: meta.hostCanAdd,
+    hostAddMinOffset: meta.hostAddMinOffset,
     works: sortedWorks,
     hostRoomOptions: hostRooms,
     adminRoomOptions: adminRooms,
     hostRoomIds: hostRooms.map((room) => room.roomId),
-    message: '호스트 수정/추가는 D0 불가 · D+1은 전날 16:00까지 · D+2 이후 상시 가능합니다.',
+    message:
+      meta.hostAddMinOffset === 1
+        ? '호스트 수정/추가는 D0 불가 · D+1은 전날 16:00까지 · D+2 이후 상시 가능합니다.'
+        : '호스트 수정/추가는 D0 불가 · 16:00 이후에는 D+2 이후 일정만 추가/수정 가능합니다.',
     currentWorkerId: worker?.id ?? null
   };
 }
