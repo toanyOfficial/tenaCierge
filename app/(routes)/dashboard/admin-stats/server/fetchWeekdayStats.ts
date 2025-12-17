@@ -35,6 +35,10 @@ function makeBuildingKey(buildingId: number) {
   return `building_${buildingId}`;
 }
 
+function formatAverage(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
 export async function fetchWeekdayStats(): Promise<{
   points: WeekdayStatsPoint[];
   buildings: WeekdaySeriesMeta[];
@@ -112,10 +116,6 @@ export async function fetchWeekdayStats(): Promise<{
   occurrenceRows.forEach((row) => {
     occurrenceMap.set(Number(row.weekday), Number(row.occurrences ?? 0));
   });
-
-  const formatAverage = (value: number) => {
-    return Math.round(value * 100) / 100;
-  };
 
   const points: WeekdayStatsPoint[] = weekdayLabels.map((label, index) => {
     const mysqlWeekday = index === 0 ? 1 : index + 1; // DAYOFWEEK: 1=Sunday
