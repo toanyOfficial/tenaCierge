@@ -1,0 +1,386 @@
+.shell {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 12% 18%, rgba(59, 130, 246, 0.2), transparent 32%),
+    radial-gradient(circle at 86% 14%, rgba(14, 165, 233, 0.2), transparent 30%),
+    linear-gradient(135deg, #0b1222 0%, #0b1222 36%, #0f172a 100%);
+  overflow: hidden;
+}
+
+.canvas {
+  width: 1920px;
+  height: 1080px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 26px;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.03) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  color: #e2e8f0;
+  box-shadow: 0 18px 32px rgba(0, 0, 0, 0.32);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pageLabel {
+  margin: 0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  color: #cbd5f5;
+}
+
+.pageSubtitle {
+  margin: 6px 0 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.roleBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: linear-gradient(120deg, #3b82f6 0%, #8b5cf6 100%);
+  color: #ffffff;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.deviceNote {
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.graphGrid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 16px;
+  min-height: 0;
+}
+
+.graphCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 18px 26px rgba(0, 0, 0, 0.26);
+  min-height: 0;
+}
+
+.graphHeading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.graphTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.graphDescription {
+  margin: 0;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.graphSurface {
+  position: relative;
+  flex: 1;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: radial-gradient(circle at 20% 30%, rgba(59, 130, 246, 0.08), transparent 36%),
+    radial-gradient(circle at 80% 20%, rgba(16, 185, 129, 0.08), transparent 30%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 14, 28, 0.95) 100%);
+  overflow: hidden;
+  padding: 16px;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.mixedChart {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.chartPlaceholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.06), transparent 40%),
+    radial-gradient(circle at 70% 40%, rgba(255, 255, 255, 0.05), transparent 42%),
+    rgba(255, 255, 255, 0.03);
+}
+
+.gridLines {
+  position: absolute;
+  inset: 14px 14px 46px;
+  display: grid;
+  grid-template-rows: repeat(5, 1fr);
+  pointer-events: none;
+}
+
+.gridLine {
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.trendLine {
+  position: absolute;
+  inset: 14px 14px 46px;
+  pointer-events: none;
+}
+
+.trendDot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f8fafc, #3b82f6);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.8);
+  transform: translate(-50%, 50%);
+}
+
+.barGroup {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 16px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.barColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.barLabel {
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.barTrack {
+  position: relative;
+  width: 100%;
+  height: 140px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+}
+
+.barBaseline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.04));
+}
+
+.barValue {
+  position: relative;
+  width: 100%;
+  background: linear-gradient(180deg, #38bdf8 0%, #6366f1 100%);
+  border-radius: 10px 10px 0 0;
+  box-shadow: 0 12px 18px rgba(59, 130, 246, 0.32);
+}
+
+
+.chartLegend {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  font-weight: 700;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legendBarSwatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  display: inline-block;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.35);
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+
+.legendLineSwatch {
+  width: 22px;
+  height: 2px;
+  border-radius: 2px;
+  display: inline-block;
+  background: linear-gradient(90deg, #38bdf8, #6366f1);
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.35);
+}
+
+.barLabelText,
+.lineLabelText {
+  fill: #e2e8f0;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.monthlyGridLines {
+  position: absolute;
+  inset: 24px 18px 54px 46px;
+  display: grid;
+  grid-template-rows: repeat(4, 1fr);
+  gap: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.monthlyGridLine {
+  position: relative;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.monthlyGridLine em {
+  position: absolute;
+  left: -38px;
+  top: -10px;
+  font-style: normal;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.monthlyBarArea {
+  position: absolute;
+  inset: 24px 18px 54px 46px;
+  display: grid;
+  grid-template-columns: repeat(13, minmax(0, 1fr));
+  align-items: end;
+  gap: 10px;
+  z-index: 1;
+}
+
+.monthlyColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+
+.subscriptionBarWrapper {
+  position: relative;
+  width: 100%;
+  height: 190px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.subscriptionBar {
+  width: 100%;
+  border-radius: 8px 8px 0 0;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+  background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+}
+
+.barValueLabel {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -12px);
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-weight: 800;
+  color: #e2e8f0;
+  white-space: nowrap;
+}
+
+
+.perOrderLine {
+  position: absolute;
+  inset: 24px 18px 54px 46px;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  z-index: 2;
+}
+
+.perOrderPath {
+  fill: none;
+  stroke: url(#perOrderGradient);
+  stroke-width: 0.8;
+}
+
+.perOrderDot {
+  fill: #60a5fa;
+  stroke: rgba(248, 250, 252, 0.7);
+  stroke-width: 0.25;
+  filter: drop-shadow(0 0 4px rgba(96, 165, 250, 0.7));
+}
+
+.perOrderValue {
+  fill: #e2e8f0;
+  font-size: 3px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+
+.monthLabel {
+  font-weight: 700;
+  color: #cbd5e1;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 1919px) {
+  .canvas {
+    transform: scale(0.9);
+    transform-origin: top left;
+  }
+}
