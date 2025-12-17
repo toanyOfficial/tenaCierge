@@ -16,7 +16,7 @@ function resolveColor(key: string, map: LegendColorMap) {
 }
 
 function formatMonthLabel(monthKey: string) {
-  return DateTime.fromFormat(monthKey, 'yyyy-LL').toFormat('yy.MM');
+  return DateTime.fromFormat(monthKey, 'yyyy-LL').toFormat('LL');
 }
 
 function formatNumber(value: number) {
@@ -51,7 +51,7 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
   }));
 
   const maxMonthlyAverage = Math.max(
-    ...snapshot.monthlySeries.flatMap((series) => series.values.map((value) => value.averagePerDay)),
+    ...snapshot.monthlySeries.flatMap((series) => series.values.map((value) => value.averagePerRoom)),
     1
   );
 
@@ -93,7 +93,7 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
 
                   return monthlyBarSeries.map((series, barIdx) => {
                     const value = series.values[monthIdx];
-                    const barHeight = (value.averagePerDay / maxMonthlyAverage) * 100;
+                    const barHeight = (value.averagePerRoom / maxMonthlyAverage) * 100;
                     const left = startOffset + barWidth * barIdx;
 
                     return (
@@ -118,7 +118,7 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
                   const barWidth = monthlyBarSeries.length > 0 ? barGroupWidth / monthlyBarSeries.length : 0;
                   const startOffset = columnWidth * lastIdx + (columnWidth - barGroupWidth) / 2;
                   const value = series.values[lastIdx];
-                  const barHeight = (value.averagePerDay / maxMonthlyAverage) * 100;
+                  const barHeight = (value.averagePerRoom / maxMonthlyAverage) * 100;
                   const left = startOffset + barWidth * monthlyBarSeries.indexOf(series) + barWidth / 2;
                   const bottom = Math.max(barHeight, 2);
 
@@ -128,11 +128,11 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
                       className={styles.barLegendChip}
                       style={{
                         left: `${left}%`,
-                        bottom: `${bottom + 4}%`,
-                        backgroundColor: resolveColor(series.key, legendColors)
+                        bottom: `${bottom + 4}%`
                       }}
                     >
-                      {series.building}·{series.plan}
+                      <span className={styles.legendSquare} style={{ backgroundColor: resolveColor(series.key, legendColors) }} />
+                      <span className={styles.legendText}>{series.plan}</span>
                     </div>
                   );
                 })}
@@ -143,7 +143,7 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
                     const points = series.values
                       .map((value, idx) => {
                         const x = (100 / Math.max(series.values.length - 1, 1)) * idx;
-                        const y = Math.max(maxMonthlyAverage - value.averagePerDay, 0);
+                        const y = Math.max(maxMonthlyAverage - value.averagePerRoom, 0);
                         return `${x},${y}`;
                       })
                       .join(' ');
@@ -155,7 +155,7 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
                 {monthlyLineSeries.map((series) => {
                   const lastIdx = series.values.length - 1;
                   const x = (100 / Math.max(series.values.length - 1, 1)) * lastIdx;
-                  const y = Math.max(maxMonthlyAverage - series.values[lastIdx]?.averagePerDay, 0);
+                  const y = Math.max(maxMonthlyAverage - series.values[lastIdx]?.averagePerRoom, 0);
 
                   return (
                     <div
@@ -163,7 +163,8 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
                       className={styles.lineLegendChip}
                       style={{ left: `${x}%`, top: `${(y / Math.max(maxMonthlyAverage, 1)) * 100}%`, color: '#0b1222' }}
                     >
-                      {series.building}·{series.plan}
+                      <span className={styles.legendSquare} style={{ backgroundColor: resolveColor(series.key, legendColors) }} />
+                      <span className={styles.legendText}>{series.plan}</span>
                     </div>
                   );
                 })}

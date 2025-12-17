@@ -9,9 +9,8 @@ export type MonthBucket = { key: string; label: string; daysInMonth: number };
 
 export type MonthlyComboSeries = {
   key: string;
-  building: string;
   plan: string;
-  values: { month: string; total: number; averagePerDay: number }[];
+  values: { month: string; total: number; averagePerRoom: number }[];
 };
 
 export type MonthlyCompositeRow = {
@@ -101,7 +100,7 @@ export async function fetchStatsTableSnapshot(referenceDate?: DateTime): Promise
   const monthTotals = new Map<string, number>();
   const monthRoomMap = new Map<string, Map<number, number>>();
   const monthBuildingMap = new Map<string, Map<string, number>>();
-  const comboCounts = new Map<string, { building: string; plan: string; counts: Map<string, number> }>();
+  const planCounts = new Map<string, { counts: Map<string, number>; rooms: Map<string, Set<number>> }>();
 
   const weekdayDenominators = Array(7).fill(0);
   const weekdayTotals = Array(7).fill(0);
@@ -121,11 +120,14 @@ export async function fetchStatsTableSnapshot(referenceDate?: DateTime): Promise
 
     const building = row.buildingShortName || '미지정';
     const plan = resolvePlanLabel(row.settleFlag);
-    const comboKey = `${building}::${plan}`;
+    if (plan === '미지정') return;
 
-    const comboEntry = comboCounts.get(comboKey) || { building, plan, counts: new Map<string, number>() };
-    comboEntry.counts.set(monthKey, (comboEntry.counts.get(monthKey) ?? 0) + 1);
-    comboCounts.set(comboKey, comboEntry);
+    const planEntry = planCounts.get(plan) || { counts: new Map<string, number>(), rooms: new Map<string, Set<number>>() };
+    planEntry.counts.set(monthKey, (planEntry.counts.get(monthKey) ?? 0) + 1);
+    const monthRooms = planEntry.rooms.get(monthKey) ?? new Set<number>();
+    monthRooms.add(row.roomId);
+    planEntry.rooms.set(monthKey, monthRooms);
+    planCounts.set(plan, planEntry);
 
     monthTotals.set(monthKey, (monthTotals.get(monthKey) ?? 0) + 1);
 
@@ -145,19 +147,22 @@ export async function fetchStatsTableSnapshot(referenceDate?: DateTime): Promise
     }
   });
 
-  const monthlySeries: MonthlyComboSeries[] = Array.from(comboCounts.entries()).map(([key, entry]) => ({
-    key,
-    building: entry.building,
-    plan: entry.plan,
-    values: months.map((month) => {
-      const total = entry.counts.get(month.key) ?? 0;
-      return {
-        month: month.key,
-        total,
-        averagePerDay: month.daysInMonth > 0 ? total / month.daysInMonth : 0
-      };
-    })
-  }));
+  const monthlySeries: MonthlyComboSeries[] = ['건별제', '정액제'].map((planLabel) => {
+    const entry = planCounts.get(planLabel);
+    return {
+      key: planLabel,
+      plan: planLabel,
+      values: months.map((month) => {
+        const total = entry?.counts.get(month.key) ?? 0;
+        const roomCount = entry?.rooms.get(month.key)?.size ?? 0;
+        return {
+          month: month.key,
+          total,
+          averagePerRoom: roomCount > 0 ? total / roomCount : 0
+        };
+      })
+    };
+  });
 
   const monthlyComposite: MonthlyCompositeRow[] = months.map((month) => {
     const totals = monthTotals.get(month.key) ?? 0;

@@ -115,12 +115,16 @@
   position: absolute;
   transform: translate(-50%, 50%);
   padding: 6px 10px;
-  border-radius: 999px;
+  border-radius: 12px;
   color: #0b1222;
   font-weight: 800;
   font-size: 0.9rem;
   white-space: nowrap;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.92);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .lineChart {
@@ -135,11 +139,27 @@
   transform: translate(-30%, -50%);
   background: rgba(255, 255, 255, 0.92);
   padding: 6px 10px;
-  border-radius: 999px;
+  border-radius: 12px;
   font-weight: 800;
   font-size: 0.9rem;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legendSquare {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.legendText {
+  font-weight: 800;
+  color: #0b1222;
 }
 
 .monthAxis {
