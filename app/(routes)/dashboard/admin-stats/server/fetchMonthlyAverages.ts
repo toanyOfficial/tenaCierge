@@ -4,12 +4,13 @@ import { db } from '@/src/db/client';
 
 export type MonthlyAveragePoint = {
   label: string;
-  totalCount: number;
-  averagePerRoom: number;
+  perOrderCount: number;
+  subscriptionCount: number;
 };
 
-type MonthlyTotalRow = {
+type MonthlyPlanRow = {
   month: string;
+  settleFlag: number;
   totalCount: number;
 };
 
@@ -45,37 +46,41 @@ export async function fetchMonthlyAverages(): Promise<MonthlyAveragePoint[]> {
   const endCursor = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + 1, 1));
   const endDate = formatMonthKey(endCursor);
 
-  const [[openRoomRow]] = await db.execute<{ openRooms: number }>(sql`
-    SELECT COUNT(*) AS openRooms
-    FROM client_rooms
-    WHERE open_yn = 1
-  `);
-
-  const openRooms = Number(openRoomRow?.openRooms ?? 0);
-
-  const [rows] = await db.execute<MonthlyTotalRow>(sql`
-    SELECT DATE_FORMAT(wh.date, '%Y-%m-01') AS month, COUNT(*) AS totalCount
+  const [rows] = await db.execute<MonthlyPlanRow>(sql`
+    SELECT
+      DATE_FORMAT(wh.date, '%Y-%m-01') AS month,
+      ch.settle_flag AS settleFlag,
+      COUNT(*) AS totalCount
     FROM work_header wh
+      INNER JOIN client_rooms cr ON wh.room_id = cr.id
+      INNER JOIN client_header ch ON cr.client_id = ch.id
     WHERE wh.cleaning_yn = 1
       AND wh.cancel_yn = 0
+      AND ch.settle_flag IN (1, 2)
       AND wh.date >= ${startDate}
       AND wh.date < ${endDate}
-    GROUP BY month
+    GROUP BY month, ch.settle_flag
   `);
 
-  const groupedTotals = new Map<string, number>();
+  const groupedTotals = new Map<string, { perOrder: number; subscription: number }>();
   rows.forEach((row) => {
-    groupedTotals.set(row.month, Number(row.totalCount ?? 0));
+    const monthTotals = groupedTotals.get(row.month) ?? { perOrder: 0, subscription: 0 };
+    if (row.settleFlag === 1) {
+      monthTotals.perOrder = Number(row.totalCount ?? 0);
+    }
+    if (row.settleFlag === 2) {
+      monthTotals.subscription = Number(row.totalCount ?? 0);
+    }
+    groupedTotals.set(row.month, monthTotals);
   });
 
   return months.map(({ key, label }) => {
-    const totalCount = groupedTotals.get(key) ?? 0;
-    const averagePerRoom = openRooms > 0 ? totalCount / openRooms : 0;
+    const totals = groupedTotals.get(key) ?? { perOrder: 0, subscription: 0 };
 
     return {
       label,
-      totalCount,
-      averagePerRoom: Number(averagePerRoom.toFixed(1))
+      perOrderCount: totals.perOrder,
+      subscriptionCount: totals.subscription
     };
   });
 }

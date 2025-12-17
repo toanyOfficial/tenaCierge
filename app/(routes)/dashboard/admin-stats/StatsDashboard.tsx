@@ -68,23 +68,16 @@ function formatValue(value: number) {
 
 type Props = { profile: ProfileSummary; monthlyAverages: MonthlyAveragePoint[] };
 
-export default function StatsDashboard({ monthlyAverages }: Props) {
+export default function StatsDashboard({ profile: _profile, monthlyAverages }: Props) {
   const leftMax = useMemo(
-    () => Math.max(100, ...monthlyAverages.map((row) => row.totalCount), 0),
-    [monthlyAverages]
-  );
-  const rightMax = useMemo(
-    () => Math.max(31, ...monthlyAverages.map((row) => row.averagePerRoom), 0),
+    () =>
+      Math.max(100, ...monthlyAverages.map((row) => Math.max(row.subscriptionCount, row.perOrderCount)), 0),
     [monthlyAverages]
   );
 
   const leftTicks = useMemo(
     () => yTickRatios.map((ratio) => Math.ceil(leftMax * ratio)),
     [leftMax]
-  );
-  const rightTicks = useMemo(
-    () => yTickRatios.map((ratio) => Number((rightMax * ratio).toFixed(0))),
-    [rightMax]
   );
 
   const BarValueLabel = useMemo(
@@ -122,10 +115,10 @@ export default function StatsDashboard({ monthlyAverages }: Props) {
         return (
           <div className={styles.chartLegend} aria-label="범례">
             <span className={styles.legendItem}>
-              <span className={styles.legendBarSwatch} />총 건수
+              <span className={styles.legendBarSwatch} />정액제
             </span>
             <span className={styles.legendItem}>
-              <span className={styles.legendLineSwatch} />호실 평균 건수
+              <span className={styles.legendLineSwatch} />건별제
             </span>
           </div>
         );
@@ -152,30 +145,21 @@ export default function StatsDashboard({ monthlyAverages }: Props) {
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
             domain={[0, leftMax]}
             ticks={leftTicks}
-          />
-          <YAxis
-            yAxisId="right"
-            orientation="right"
-            tickLine={false}
-            axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
-            tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-            domain={[0, rightMax]}
-            ticks={rightTicks}
             allowDecimals={false}
           />
           <Legend verticalAlign="top" align="right" content={<ChartLegend />} />
           <Bar
-            dataKey="totalCount"
+            dataKey="subscriptionCount"
             yAxisId="left"
             fill="url(#totalBarGradient)"
             barSize={18}
             radius={[6, 6, 0, 0]}
           >
-            <LabelList dataKey="totalCount" position="top" content={<BarValueLabel />} />
+            <LabelList dataKey="subscriptionCount" position="top" content={<BarValueLabel />} />
           </Bar>
           <Line
-            dataKey="averagePerRoom"
-            yAxisId="right"
+            dataKey="perOrderCount"
+            yAxisId="left"
             type="monotone"
             stroke="#38bdf8"
             strokeWidth={1}
@@ -183,7 +167,7 @@ export default function StatsDashboard({ monthlyAverages }: Props) {
             activeDot={false}
             connectNulls
           >
-            <LabelList dataKey="averagePerRoom" position="top" content={<LineValueLabel />} />
+            <LabelList dataKey="perOrderCount" position="top" content={<LineValueLabel />} />
           </Line>
           <defs>
             <linearGradient id="totalBarGradient" x1="0" y1="0" x2="0" y2="1">
@@ -194,7 +178,7 @@ export default function StatsDashboard({ monthlyAverages }: Props) {
         </ComposedChart>
       </ResponsiveContainer>
     ),
-    [BarValueLabel, ChartLegend, LineValueLabel, leftMax, leftTicks, monthlyAverages, rightMax, rightTicks]
+    [BarValueLabel, ChartLegend, LineValueLabel, leftMax, leftTicks, monthlyAverages]
   );
 
   return (
