@@ -1,6 +1,5 @@
-'use client';
-
 import styles from './stats-dashboard.module.css';
+import type { MonthlyAveragePoint } from './server/fetchMonthlyAverages';
 import type { ProfileSummary } from '@/src/utils/profile';
 
 type GraphCard = {
@@ -46,51 +45,17 @@ const graphCards: GraphCard[] = [
   }
 ];
 
-type MonthlyAverage = {
-  label: string;
-  perOrder: number;
-  subscription: number;
-};
+const yTickRatios = [0.25, 0.5, 0.75, 1];
 
-function getTrailingMonths(): string[] {
-  const now = new Date();
-  const months: string[] = [];
+type Props = { profile: ProfileSummary; monthlyAverages: MonthlyAveragePoint[] };
 
-  for (let offset = 12; offset >= 0; offset -= 1) {
-    const cursor = new Date(now);
-    cursor.setDate(1);
-    cursor.setMonth(now.getMonth() - offset);
-    const mm = `${cursor.getMonth() + 1}`.padStart(2, '0');
-    months.push(mm);
-  }
+export default function StatsDashboard({ monthlyAverages }: Props) {
+  const monthlyMax = Math.max(
+    1,
+    ...monthlyAverages.map((row) => Math.max(row.perOrder, row.subscription, 0))
+  );
+  const yTicks = yTickRatios.map((ratio) => Math.ceil(monthlyMax * ratio));
 
-  return months;
-}
-
-const monthlyAverages: MonthlyAverage[] = getTrailingMonths().map((label, index) => {
-  const perOrderSeries = [
-    4, 5, 6, 7, 6, 5, 8, 9, 11, 10, 12, 14, 15
-  ];
-  const subscriptionSeries = [
-    13, 14, 15, 13, 12, 11, 12, 15, 16, 18, 17, 19, 20
-  ];
-
-  return {
-    label,
-    perOrder: perOrderSeries[index] ?? 0,
-    subscription: subscriptionSeries[index] ?? 0
-  };
-});
-
-const monthlyMax = Math.max(
-  ...monthlyAverages.map((row) => Math.max(row.perOrder, row.subscription, 1))
-);
-
-const yTicks = [0.25, 0.5, 0.75, 1].map((ratio) => Math.ceil(monthlyMax * ratio));
-
-type Props = { profile: ProfileSummary };
-
-export default function StatsDashboard(_: Props) {
   return (
     <div className={styles.shell}>
       <div className={styles.canvas}>

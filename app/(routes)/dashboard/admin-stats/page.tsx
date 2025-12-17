@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 
 import StatsDashboard from './StatsDashboard';
+import { fetchMonthlyAverages } from './server/fetchMonthlyAverages';
 
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 
@@ -14,5 +15,7 @@ export default async function AdminStatsDashboardPage() {
     redirect('/dashboard');
   }
 
-  return <StatsDashboard profile={profile} />;
+  const monthlyAverages = await fetchMonthlyAverages();
+
+  return <StatsDashboard profile={profile} monthlyAverages={monthlyAverages} />;
 }
