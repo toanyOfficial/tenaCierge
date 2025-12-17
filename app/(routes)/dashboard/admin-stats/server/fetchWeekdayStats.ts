@@ -5,6 +5,7 @@ import { db } from '@/src/db/client';
 export type WeekdaySeriesMeta = {
   key: string;
   label: string;
+  sectorCode: string | null;
 };
 
 export type WeekdayStatsPoint = {
@@ -27,6 +28,7 @@ type WeekdayOccurrenceRow = {
 type BuildingNameRow = {
   buildingId: number;
   shortName: string | null;
+  sectorCode: string | null;
 };
 
 const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
@@ -115,7 +117,7 @@ export async function fetchWeekdayStats(): Promise<{
   let buildingNames: BuildingNameRow[] = [];
   if (buildingIds.length > 0) {
     [buildingNames] = await db.execute<BuildingNameRow>(sql`
-      SELECT id AS buildingId, building_short_name AS shortName
+      SELECT id AS buildingId, building_short_name AS shortName, basecode_sector AS sectorCode
       FROM etc_buildings
       WHERE id IN (${sql.join(buildingIds, sql`,`)})
     `);
@@ -126,7 +128,7 @@ export async function fetchWeekdayStats(): Promise<{
     const fallbackLabel = `건물${id}`;
     const trimmed = (match?.shortName || fallbackLabel).slice(0, 2);
     const label = trimmed || fallbackLabel;
-    return { key: makeBuildingKey(id), label };
+    return { key: makeBuildingKey(id), label, sectorCode: match?.sectorCode ?? null };
   });
 
   const occurrenceMap = new Map<number, number>();

@@ -258,6 +258,16 @@
   font-size: 12px;
 }
 
+.weekdayLegend {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+  gap: 12px 18px;
+  padding: 10px 16px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
 .legendItem {
   display: inline-flex;
   align-items: center;

@@ -23,6 +23,32 @@ function formatValue(value: number) {
   return Number.isInteger(value) ? `${value}` : value.toFixed(1);
 }
 
+function hexChannel(value: number) {
+  return Math.min(255, Math.max(0, Math.round(value)));
+}
+
+function shadeHexColor(hex: string, ratio: number) {
+  const normalized = hex.startsWith('#') ? hex.slice(1) : hex;
+  const bigint = parseInt(normalized, 16);
+  const r = bigint >> 16;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+
+  const shift = (channel: number) => hexChannel(channel + (255 - channel) * ratio);
+  const newR = shadeDirection(r, ratio, shift);
+  const newG = shadeDirection(g, ratio, shift);
+  const newB = shadeDirection(b, ratio, shift);
+  return `#${newR.toString(16).padStart(2, '0')}${newG
+    .toString(16)
+    .padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
+}
+
+function shadeDirection(channel: number, ratio: number, lighten: (channel: number) => number) {
+  if (ratio === 0) return hexChannel(channel);
+  if (ratio > 0) return hexChannel(lighten(channel));
+  return hexChannel(channel * (1 + ratio));
+}
+
 type Props = {
   profile: ProfileSummary;
   monthlyAverages: MonthlyAveragePoint[];
@@ -88,10 +114,32 @@ export default function StatsDashboard({
     return ratios.map((ratio) => Math.ceil(overviewRightMax * ratio));
   }, [overviewRightMax]);
 
-  const weekdayBarColors = useMemo(
-    () => ['#38bdf8', '#f59e0b', '#ef4444', '#a855f7', '#ec4899', '#22c55e', '#eab308'],
-    []
-  );
+  const weekdayColorMap = useMemo(() => {
+    const sectorPalette = ['#38bdf8', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#0ea5e9', '#f472b6'];
+    const shadeSteps = [0, -0.12, 0.12, -0.2, 0.2, -0.28, 0.28];
+
+    const sectorBase = new Map<string, string>();
+    const sectorCounts = new Map<string, number>();
+    const buildingColors = new Map<string, string>();
+    let paletteIndex = 0;
+
+    weekdayStats.buildings.forEach((meta) => {
+      const sectorKey = meta.sectorCode || '__unknown__';
+      if (!sectorBase.has(sectorKey)) {
+        const base = sectorPalette[paletteIndex % sectorPalette.length];
+        sectorBase.set(sectorKey, base);
+        paletteIndex += 1;
+      }
+      const baseColor = sectorBase.get(sectorKey)!;
+      const useCount = sectorCounts.get(sectorKey) ?? 0;
+      const shadeRatio = shadeSteps[useCount % shadeSteps.length];
+      const color = shadeHexColor(baseColor, shadeRatio);
+      sectorCounts.set(sectorKey, useCount + 1);
+      buildingColors.set(meta.key, color);
+    });
+
+    return buildingColors;
+  }, [weekdayStats.buildings]);
 
   const weekdayMax = useMemo(() => {
     const peak = Math.max(...weekdayStats.points.map((row) => row.totalCount), 0);
@@ -201,9 +249,9 @@ export default function StatsDashboard({
     () =>
       function LegendContent() {
         return (
-          <div className={styles.chartLegend} aria-label="범례">
+          <div className={`${styles.chartLegend} ${styles.weekdayLegend}`} aria-label="범례">
             {weekdayStats.buildings.map((meta, index) => {
-              const color = weekdayBarColors[index % weekdayBarColors.length];
+              const color = weekdayColorMap.get(meta.key) ?? '#38bdf8';
               return (
                 <span key={meta.key} className={styles.legendItem}>
                   <span className={styles.legendBarSwatchDynamic} style={{ backgroundColor: color }} />
@@ -214,7 +262,7 @@ export default function StatsDashboard({
           </div>
       );
     },
-    [weekdayBarColors, weekdayStats.buildings]
+    [weekdayColorMap, weekdayStats.buildings]
   );
 
   const legendTopLeft = useMemo(() => ({ top: 6, left: 12 }), []);
@@ -391,7 +439,7 @@ export default function StatsDashboard({
             content={<WeekdayLegend />}
           />
           {weekdayStats.buildings.map((meta, index) => {
-            const color = weekdayBarColors[index % weekdayBarColors.length];
+            const color = weekdayColorMap.get(meta.key) ?? '#38bdf8';
             const isTopStack = index === weekdayStats.buildings.length - 1;
             const labelSide = index % 2 === 0 ? 'right' : 'left';
             const BuildingLabel = makeBuildingLabel(labelSide);
@@ -420,7 +468,7 @@ export default function StatsDashboard({
       WeekdayLegend,
       legendTopLeft,
       makeBuildingLabel,
-      weekdayBarColors,
+      weekdayColorMap,
       weekdayMax,
       weekdayStats.buildings,
       weekdayStats.points,
