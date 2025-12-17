@@ -18,6 +18,7 @@
 ## 다중 디바이스 발송 여부
 - 워커/클라이언트별 job 1건에 대해, 해당 `user_id`의 **활성 구독 전부를 조회**해 루프를 돌며 각각 전송합니다. 구독이 여러 개면 job 1건으로 여러 디바이스에 발송됩니다.
 - 각 구독별 성공/실패는 `push_message_logs`에 기록됩니다. 일부 디바이스가 만료되어 실패해도 다른 구독은 계속 시도합니다.
+- 2025-12 추가 로그: `processLockedJob`에서 job 처리 시 대상 구독 개수를 info 로그로 남겨 동일 사용자 다중 디바이스 시 `subscriptionCount`로 확인할 수 있습니다.
 
 ## 점검 포인트
 - 특정 디바이스로만 안 간다면: `push_subscriptions`에 해당 endpoint가 `enabled_yn=true`인지, user_type/user_id가 맞는지 확인합니다.
