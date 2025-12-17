@@ -73,3 +73,57 @@
 - **6번**은 미배정 카운트의 기간 제한(기본 7일)이 문서와 다르므로 장기 미배정 건이 집계되지 않을 수 있습니다.
 
 위 차이를 고려해 요구사항과 실제 동작 간 갭을 확인하시고, 필요 시 후속 수정/테스트를 진행하시길 권장드립니다.
+
+## 추가 분석: `notify_jobs`에 WORK_ASSIGNED/WORK_UNASSIGNED만 생성된 상황
+사용자 리포트에 따라, 동일한 하루 동안 `notify_jobs` 테이블에 `WORK_ASSIGNED`와 `WORK_UNASSIGNED`만 생성되고 나머지 4개 시나리오가 전혀 enqueue되지 않은 경우를 재점검했습니다. 디듀프 키와 데이터 유무는 문제가 없었다고 하셨으므로, **트리거 조건 미충족** 또는 **발송 대상 부재** 가능성을 중심으로 원인을 정리하고, 각 시나리오별 확인 포인트와 후속 조치를 제안합니다.
+
+### 1) CLEAN_SCHEDULE 미생성 가능성
+- **트리거 의존**: `db_forecasting.py` 실행 시 `--refresh-dn` 인자가 **존재할 때만** `CLEAN_SCHEDULE`이 enqueue됩니다. 인자가 없으면 해당 일자/오프셋 여부와 관계없이 시나리오 자체를 생성하지 않습니다.【F:batchs/db_forecasting.py†L1413-L1453】
+- **발송 대상 필터**: `push_subscriptions.userType='CLIENT' && enabledYn=true && user_id IS NOT NULL` 구독자 목록을 돌면서 고객별 dedup 키를 생성합니다. 구독이 전혀 없거나 모두 비활성화되어 있으면 `attempted=0` 상태로 종료되며 `notify_jobs`가 남지 않습니다.【F:src/server/push/scenarios.ts†L86-L122】
+- **확인/조치**
+  - 해당 날 배치를 실행할 때 `--refresh-dn`을 지정했는지, 그리고 오프셋 값이 기대와 맞는지 배치 로그를 확인합니다.
+  - `push_subscriptions`에 CLIENT 구독이 실제로 활성화되어 있는지, `user_id`가 NULL이 아닌지 점검합니다.
+  - 만약 특정 고객에게만 보내려는 의도였다면, 고객 구독이 없어서 enqueue 건수(`created`)가 0이 되었을 수 있으므로 대상 고객의 구독 등록을 재확인합니다.
+
+### 2) WORK_ASSIGNED / WORK_UNASSIGNED만 생성된 이유
+- 워크플로우 업데이트 API는 **클리너 배정 변경**을 감지하면 두 시나리오를 enqueue합니다. 다른 시나리오들은 다음과 같은 별도 조건을 만족해야 합니다.【F:app/api/workflow/[workId]/route.ts†L269-L297】
+  - `WORK_FINISHING`: `cleaningFlag`가 **3으로 전환**되고 `butlerId`가 존재해야만 enqueue.【F:app/api/workflow/[workId]/route.ts†L289-L297】
+  - `CLEAN_SCHEDULE`/`WORK_APPLY_OPEN`: 워크플로우 API가 아니라 `db_forecasting.py` 배치에 의해 결정됩니다.【F:batchs/db_forecasting.py†L1413-L1453】
+  - `SUPPLEMENTS_PENDING`: `update_cleaner_ranking.py` 배치 실행 시에만 enqueue.【F:batchs/update_cleaner_ranking.py†L1560-L1584】
+- 따라서 워크플로우 API만 호출되는 운영 시나리오라면 **배치 기반 시나리오 3종은 아예 큐에 쌓이지 않습니다**.
+- **확인/조치**
+  - 당일에 `db_forecasting.py`와 `update_cleaner_ranking.py` 배치가 실제 실행되었는지, 실행 시간과 로그를 점검합니다.
+  - 배치가 실행되었더라도 API 서버에서 `/api/push/scenario`로의 호출 실패 여부(네트워크/권한/에러 로그)를 확인합니다.
+
+### 3) WORK_FINISHING 미생성 가능성
+- **전환 감지형 트리거**: `cleaningFlag`가 기존 값에서 3으로 **변경**될 때만 동작합니다. 이미 3인 레코드를 다시 저장해도 enqueue되지 않습니다.【F:app/api/workflow/[workId]/route.ts†L289-L297】
+- **필수 필드**: `butlerId`가 NULL이면 조건을 만족해도 큐잉하지 않습니다. 요구사항과 달리 `work_apply` 기반 다중 버틀러 조회가 없으므로, `work_header.butlerId`가 비어 있으면 대상이 없어집니다.【F:src/server/push/scenarios.ts†L176-L209】
+- **확인/조치**
+  - 해당 작업의 상태 변경 이력이 “2→3” 같은 전환을 거쳤는지, 단순 재저장인지 작업 로그로 확인합니다.
+  - `butlerId` 값이 채워져 있는지, 워크플로우 API 호출 시 `butlerId`가 전달되었는지 체크합니다.
+  - 실제로 요구사항대로 `work_apply` 기반으로 butler를 조회해야 한다면 구현 갭을 해소해야 하며, 그 전까지는 `butlerId` 미지정 시 푸시가 생성되지 않는 것이 정상 동작입니다.
+
+### 4) SUPPLEMENTS_PENDING 미생성 가능성
+- **배치 의존**: `update_cleaner_ranking.py`가 실행되어 `_persist_client_supplements` 이후 `enqueue_web_push_scenario`가 호출될 때만 큐잉이 일어납니다.【F:batchs/update_cleaner_ranking.py†L1560-L1584】
+- **대상 필터**: 미구매 건수가 0이면 `pendingRows`가 비어 `enqueueNotifyJob` 호출 자체가 발생하지 않습니다. 또한 CLIENT 구독이 없거나 비활성화된 경우 `attempted`가 0이 되어 `notify_jobs`가 남지 않습니다.【F:src/server/push/scenarios.ts†L211-L296】
+- **확인/조치**
+  - 배치 실행 여부와 실행일자 파라미터(`target_date`)가 기대와 맞는지 확인합니다.
+  - `client_supplements`에 `buyYn=0`이 실제 존재하는지, 해당 고객이 `push_subscriptions`에 활성 구독을 갖는지 점검합니다.
+
+### 5) WORK_APPLY_OPEN 미생성 가능성
+- **배치 분기**: `db_forecasting.py`가 `--refresh-dn`을 포함해 실행되면 `WORK_APPLY_OPEN`이 **건너뛰어지고** `CLEAN_SCHEDULE`만 enqueue됩니다.【F:batchs/db_forecasting.py†L1413-L1453】
+- **집계 범위**: 기본으로 `today ~ today+7` 범위의 `work_apply.worker_id IS NULL`만 카운트하며, 건수가 0이면 즉시 `{created:0}`으로 반환해 job을 남기지 않습니다.【F:src/server/push/scenarios.ts†L298-L358】
+- **대상 필터**: `WORKER` 구독 + `enabledYn=true` + `tier != 1` 조건을 모두 충족하는 워커가 없으면 `attempted=0` 상태로 종료됩니다.【F:src/server/push/scenarios.ts†L323-L358】
+- **확인/조치**
+  - 배치를 `--refresh-dn` 없이 돌려 `WORK_APPLY_OPEN` 분기를 타게 했는지 확인합니다.
+  - 7일 범위 밖의 미배정 건만 존재하는지, 또는 미배정 건수가 0이었는지 raw 쿼리와 비교합니다.
+  - 워커 구독 상태와 티어 조건을 점검합니다.
+
+### 6) 운영자가 추가로 파악해 주시면 좋은 정보
+- 당일 `db_forecasting.py`, `update_cleaner_ranking.py` 실행 여부와 실행 파라미터(`--refresh-dn`, `target_date`) 로그
+- `/api/push/scenario` 요청/응답 로그 (배치에서 enqueue 호출이 실패했는지 확인)
+- `push_subscriptions` 활성 구독 현황 (CLIENT/WORKER 각각)
+- 문제 발생 시점에 `work_header.cleaning_flag` 및 `butlerId` 변경 이력 (3으로의 전환 여부)
+- `work_apply` 미배정 건수의 날짜 분포(7일 범위 내 존재 여부)
+
+위 항목을 확인하면 “데이터는 있는데 job이 생성되지 않는” 상황을 대부분 좁힐 수 있습니다. 추가 정보가 확보되면 어느 단계(트리거 분기·대상 필터·집계 범위)에서 스킵되었는지 더 정확히 식별할 수 있습니다.
