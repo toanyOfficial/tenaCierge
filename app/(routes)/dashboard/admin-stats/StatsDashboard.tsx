@@ -50,11 +50,7 @@ export default function StatsDashboard({
     return ratios.map((ratio) => Math.ceil(planMax * ratio));
   }, [planMax]);
 
-  const overviewLeftMax = useMemo(() => {
-    const peak = Math.max(...monthlyOverview.map((row) => row.roomAverage), 0);
-    if (peak === 0) return 1;
-    return Math.max(31, Math.ceil(peak * 1.2));
-  }, [monthlyOverview]);
+  const overviewLeftMax = 31;
 
   const overviewRightMax = useMemo(() => {
     const peak = Math.max(...monthlyOverview.map((row) => row.totalCount), 0);
@@ -62,10 +58,7 @@ export default function StatsDashboard({
     return Math.max(400, Math.ceil(peak * 1.15));
   }, [monthlyOverview]);
 
-  const overviewLeftTicks = useMemo(() => {
-    const ratios = [0.25, 0.5, 0.75, 1];
-    return ratios.map((ratio) => Math.ceil(overviewLeftMax * ratio));
-  }, [overviewLeftMax]);
+  const overviewLeftTicks = useMemo(() => [0, 8, 16, 24, 31], []);
 
   const overviewRightTicks = useMemo(() => {
     const ratios = [0.25, 0.5, 0.75, 1];
