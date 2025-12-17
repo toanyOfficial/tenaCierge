@@ -1,0 +1,243 @@
+import { DateTime } from 'luxon';
+
+import styles from './stats-table.module.css';
+
+import type { StatsTableSnapshot } from '@/src/server/dashboardStatsTable';
+
+const COLOR_POOL = ['#60a5fa', '#a78bfa', '#f472b6', '#f59e0b', '#22d3ee', '#34d399', '#c084fc', '#fca5a5'];
+
+type LegendColorMap = Map<string, string>;
+
+function resolveColor(key: string, map: LegendColorMap) {
+  if (!map.has(key)) {
+    map.set(key, COLOR_POOL[map.size % COLOR_POOL.length]);
+  }
+  return map.get(key) as string;
+}
+
+function formatMonthLabel(monthKey: string) {
+  return DateTime.fromFormat(monthKey, 'yyyy-LL').toFormat('yy.MM');
+}
+
+function formatNumber(value: number) {
+  return value.toLocaleString('ko-KR', { maximumFractionDigits: 1, minimumFractionDigits: 0 });
+}
+
+function Sparkline({ values, color, maxValue }: { values: number[]; color: string; maxValue?: number }) {
+  const width = 1120;
+  const height = 180;
+  const max = Math.max(...values, maxValue ?? 1);
+  const points = values
+    .map((value, idx) => {
+      const x = (width / Math.max(values.length - 1, 1)) * idx;
+      const y = height - (height * value) / max;
+      return `${x},${y}`;
+    })
+    .join(' ');
+
+  return (
+    <svg className={styles.sparkline} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+      <polyline points={points} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTableSnapshot }) {
+  const legendColors: LegendColorMap = new Map();
+
+  const monthLabels = snapshot.months.map((month) => ({
+    key: month.key,
+    label: formatMonthLabel(month.key)
+  }));
+
+  const maxMonthlyAverage = Math.max(
+    ...snapshot.monthlySeries.flatMap((series) => series.values.map((value) => value.averagePerDay)),
+    1
+  );
+
+  const compositeRoomSeries = snapshot.monthlyComposite.map((row) => row.roomAverage);
+  const compositeBuildingSeries = snapshot.monthlyComposite.map((row) => row.buildingAverage);
+  const compositeTotalSeries = snapshot.monthlyComposite.map((row) => row.total);
+  const compositeMax = Math.max(...compositeRoomSeries, ...compositeBuildingSeries, ...compositeTotalSeries, 1);
+
+  const weekdayMax = Math.max(...snapshot.weekdayStats.map((item) => item.averageTotal), 1);
+
+  return (
+    <div className={styles.shell}>
+      <div className={styles.canvas}>
+        <header className={styles.header}>대시보드-통계표</header>
+        <div className={styles.metaRow}>
+          <div className={styles.metaPill}>
+            월별 집계 범위 : {snapshot.monthRange.start} ~ {snapshot.monthRange.end}
+          </div>
+          <div className={styles.metaPill}>
+            요일별 집계 범위 : {snapshot.weekdayRange.start} ~ {snapshot.weekdayRange.end}
+          </div>
+          <div className={styles.metaPill}>기준일시 : {DateTime.fromISO(snapshot.referenceDate).toFormat('yyyy-LL-dd HH:mm')}</div>
+        </div>
+
+        <div className={styles.grid}>
+          <section className={styles.cardLarge}>
+            <div className={styles.cardHeader}>
+              <div>
+                <p className={styles.cardTitle}>월별 평균 시계열</p>
+                <p className={styles.cardSubtitle}>
+                  최근 13개월(현재 달 포함) 건수/일 기준. 건물 · 요금제별로 세분화된 평균치를 표시합니다.
+                </p>
+              </div>
+              <div className={styles.legendRow}>
+                {snapshot.monthlySeries.map((series) => (
+                  <span
+                    key={series.key}
+                    className={styles.legendChip}
+                    style={{ backgroundColor: resolveColor(series.key, legendColors) }}
+                  >
+                    {series.building} · {series.plan}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.monthChart}>
+              <div className={styles.monthAxis}>
+                {monthLabels.map((month) => (
+                  <div key={month.key} className={styles.monthTick}>
+                    {month.label}
+                  </div>
+                ))}
+              </div>
+
+              <div className={styles.seriesStack}>
+                {snapshot.monthlySeries.map((series) => (
+                  <div key={series.key} className={styles.seriesRow}>
+                    <div className={styles.seriesLabel}>{series.building} · {series.plan}</div>
+                    <div className={styles.seriesBars}>
+                      {series.values.map((value) => {
+                        const height = `${(value.averagePerDay / maxMonthlyAverage) * 100}%`;
+                        return (
+                          <div key={`${series.key}-${value.month}`} className={styles.barCell}>
+                            <div
+                              className={styles.bar}
+                              style={{
+                                height,
+                                backgroundColor: resolveColor(series.key, legendColors)
+                              }}
+                            />
+                            <span className={styles.barLabel}>{value.averagePerDay.toFixed(1)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className={styles.cardLarge}>
+            <div className={styles.cardHeader}>
+              <div>
+                <p className={styles.cardTitle}>월별 통계값</p>
+                <p className={styles.cardSubtitle}>호실평균 · 건물평균 · 총량을 하나의 그래프로 겹쳐서 비교합니다.</p>
+              </div>
+              <div className={styles.legendRow}>
+                <span className={styles.legendChip} style={{ backgroundColor: '#60a5fa' }}>
+                  호실별 평균
+                </span>
+                <span className={styles.legendChip} style={{ backgroundColor: '#fbbf24' }}>
+                  건물별 평균
+                </span>
+                <span className={styles.legendChip} style={{ backgroundColor: '#34d399' }}>
+                  총 청소 건수
+                </span>
+              </div>
+            </div>
+
+            <div className={styles.compositeChart}>
+              <div className={styles.compositeAxis}>
+                {monthLabels.map((month) => (
+                  <div key={month.key} className={styles.compositeTick}>
+                    {month.label}
+                  </div>
+                ))}
+              </div>
+
+              <div className={styles.compositeLines}>
+                <Sparkline values={compositeRoomSeries} color="#60a5fa" maxValue={compositeMax} />
+                <Sparkline values={compositeBuildingSeries} color="#fbbf24" maxValue={compositeMax} />
+                <Sparkline values={compositeTotalSeries} color="#34d399" maxValue={compositeMax} />
+              </div>
+
+              <div className={styles.compositeValues}>
+                {snapshot.monthlyComposite.map((row) => (
+                  <div key={row.month} className={styles.compositeCell}>
+                    <div className={styles.valueRow}>
+                      <span>호실평균</span>
+                      <strong>{row.roomAverage.toFixed(1)}</strong>
+                    </div>
+                    <div className={styles.valueRow}>
+                      <span>건물평균</span>
+                      <strong>{row.buildingAverage.toFixed(1)}</strong>
+                    </div>
+                    <div className={styles.valueRow}>
+                      <span>총량</span>
+                      <strong>{formatNumber(row.total)}</strong>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className={styles.cardWide}>
+            <div className={styles.cardHeader}>
+              <div>
+                <p className={styles.cardTitle}>요일별 통계값</p>
+                <p className={styles.cardSubtitle}>최근 1년간 요일별 평균과 건물별 평균을 하나의 보드로 보여줍니다.</p>
+              </div>
+            </div>
+
+            <div className={styles.weekdayGrid}>
+              {snapshot.weekdayStats.map((stat) => {
+                const denom = Math.max(weekdayMax, 1);
+                return (
+                  <div key={stat.weekday} className={styles.weekdayCell}>
+                    <div className={styles.weekdayLabel}>{stat.weekday}</div>
+                    <div className={styles.weekdayBarShell}>
+                      <div
+                        className={styles.weekdayTotalBar}
+                        style={{ height: `${(stat.averageTotal / denom) * 100}%` }}
+                        title={`평균 ${stat.averageTotal.toFixed(2)}건`}
+                      />
+                      <div className={styles.weekdayBuildings}>
+                        {stat.buildings.map((building) => (
+                          <div
+                            key={`${stat.weekday}-${building.building}`}
+                            className={styles.weekdayBuildingBar}
+                            style={{
+                              width: `${(building.average / Math.max(stat.averageTotal, 1)) * 100}%`,
+                              backgroundColor: resolveColor(building.building, legendColors)
+                            }}
+                            title={`${building.building}: ${building.average.toFixed(2)}건`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <div className={styles.weekdayValue}>{stat.averageTotal.toFixed(2)}건/일</div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className={styles.cardSmall}>
+            <div className={styles.cardHeader}>
+              <p className={styles.cardTitle}>박수기준 통계값</p>
+            </div>
+            <div className={styles.placeholder}>준비중입니다.</div>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
