@@ -6,6 +6,7 @@ export type WeekdaySeriesMeta = {
   key: string;
   label: string;
   sectorCode: string | null;
+  totalCount: number;
 };
 
 export type WeekdayStatsPoint = {
@@ -97,6 +98,7 @@ export async function fetchWeekdayStats(): Promise<{
 
   const buildingTotals = new Map<number, Map<number, number>>();
   const totalPerWeekday = new Map<number, number>();
+  const buildingTotalCounts = new Map<number, number>();
 
   workRows.forEach((row) => {
     const buildingId = Number(row.buildingId);
@@ -108,6 +110,8 @@ export async function fetchWeekdayStats(): Promise<{
     }
     const inner = buildingTotals.get(buildingId)!;
     inner.set(weekday, totalCount);
+
+    buildingTotalCounts.set(buildingId, (buildingTotalCounts.get(buildingId) ?? 0) + totalCount);
 
     totalPerWeekday.set(weekday, (totalPerWeekday.get(weekday) ?? 0) + totalCount);
   });
@@ -128,7 +132,12 @@ export async function fetchWeekdayStats(): Promise<{
     const fallbackLabel = `건물${id}`;
     const trimmed = (match?.shortName || fallbackLabel).slice(0, 2);
     const label = trimmed || fallbackLabel;
-    return { key: makeBuildingKey(id), label, sectorCode: match?.sectorCode ?? null };
+    return {
+      key: makeBuildingKey(id),
+      label,
+      sectorCode: match?.sectorCode ?? null,
+      totalCount: buildingTotalCounts.get(id) ?? 0
+    };
   });
 
   const occurrenceMap = new Map<number, number>();
