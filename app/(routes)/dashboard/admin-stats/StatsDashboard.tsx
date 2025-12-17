@@ -1,7 +1,8 @@
 "use client";
 
 import Script from 'next/script';
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import ReactDOM from 'react-dom';
 
 import styles from './stats-dashboard.module.css';
 import type { MonthlyAveragePoint } from './server/fetchMonthlyAverages';
@@ -82,6 +83,15 @@ const rechartsCdn =
 
 export default function StatsDashboard({ monthlyAverages }: Props) {
   const [rechartsReady, setRechartsReady] = useState(false);
+  const [rechartsError, setRechartsError] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Recharts UMD expects React/ReactDOM on window. Make them available before the CDN loads.
+      (window as any).React = (window as any).React ?? React;
+      (window as any).ReactDOM = (window as any).ReactDOM ?? ReactDOM;
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.Recharts) {
@@ -154,6 +164,14 @@ export default function StatsDashboard({ monthlyAverages }: Props) {
   );
 
   const monthlyChart = useMemo(() => {
+    if (rechartsError) {
+      return (
+        <div className={styles.chartError} role="status" aria-live="polite">
+          Recharts CDN 로드에 실패했습니다. 네트워크 또는 CSP 설정을 확인해 주세요.
+        </div>
+      );
+    }
+
     if (typeof window === 'undefined' || !rechartsReady || !window.Recharts) {
       return <div className={styles.chartPlaceholder} aria-hidden />;
     }
@@ -225,7 +243,12 @@ export default function StatsDashboard({ monthlyAverages }: Props) {
 
   return (
     <div className={styles.shell}>
-      <Script src={rechartsCdn} strategy="beforeInteractive" onLoad={() => setRechartsReady(true)} />
+      <Script
+        src={rechartsCdn}
+        strategy="afterInteractive"
+        onLoad={() => setRechartsReady(true)}
+        onError={() => setRechartsError(true)}
+      />
       <div className={styles.canvas}>
         <header className={styles.header}>
           <div>
