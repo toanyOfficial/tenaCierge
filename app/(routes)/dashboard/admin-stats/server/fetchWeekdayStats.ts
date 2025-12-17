@@ -2,19 +2,31 @@ import { sql } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 
+export type WeekdaySeriesMeta = {
+  key: string;
+  label: string;
+};
+
 export type WeekdayStatsPoint = {
   label: string;
   totalCount: number;
-  buildingAverage: number;
+  [buildingKey: string]: string | number;
 };
 
 type WeekdayCountRow = {
   weekday: number;
+  buildingId: number;
   totalCount: number;
 };
 
 type OpenRoomRow = {
+  buildingId: number;
   openRooms: number;
+};
+
+type BuildingNameRow = {
+  buildingId: number;
+  shortName: string | null;
 };
 
 const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
@@ -32,39 +44,97 @@ function countWeekdayOccurrences(start: Date, end: Date) {
   return counts;
 }
 
-export async function fetchWeekdayStats(): Promise<WeekdayStatsPoint[]> {
+function makeBuildingKey(buildingId: number) {
+  return `building_${buildingId}`;
+}
+
+export async function fetchWeekdayStats(): Promise<{
+  points: WeekdayStatsPoint[];
+  buildings: WeekdaySeriesMeta[];
+}> {
   const endDate = new Date();
   endDate.setUTCHours(0, 0, 0, 0);
   const startDate = new Date(endDate);
   startDate.setUTCDate(startDate.getUTCDate() - 365);
 
-  const [[roomRow], [rows]] = await Promise.all([
-    db.execute<OpenRoomRow>(sql`SELECT COUNT(*) AS openRooms FROM client_rooms WHERE open_yn = 1`),
+  const [[openRoomRows], [workRows]] = await Promise.all([
+    db.execute<OpenRoomRow>(sql`
+      SELECT building_id AS buildingId, COUNT(*) AS openRooms
+      FROM client_rooms
+      WHERE open_yn = 1
+      GROUP BY building_id
+    `),
     db.execute<WeekdayCountRow>(sql`
-      SELECT DAYOFWEEK(wh.date) AS weekday, COUNT(*) AS totalCount
+      SELECT DAYOFWEEK(wh.date) AS weekday, cr.building_id AS buildingId, COUNT(*) AS totalCount
       FROM work_header wh
+      JOIN client_rooms cr ON cr.id = wh.room_id
       WHERE wh.cleaning_yn = 1
         AND wh.cancel_yn = 0
         AND wh.date >= ${startDate}
         AND wh.date < ${endDate}
-      GROUP BY weekday
+      GROUP BY cr.building_id, weekday
     `)
   ]);
 
-  const openRooms = Number(roomRow?.openRooms ?? 0);
-  const weekdayTotals = new Map<number, number>();
-  rows.forEach((row) => {
-    weekdayTotals.set(row.weekday, Number(row.totalCount ?? 0));
+  const openRoomsByBuilding = new Map<number, number>();
+  openRoomRows.forEach((row) => {
+    openRoomsByBuilding.set(Number(row.buildingId), Number(row.openRooms ?? 0));
+  });
+
+  const buildingTotals = new Map<number, Map<number, number>>();
+  const totalPerWeekday = new Map<number, number>();
+
+  workRows.forEach((row) => {
+    const buildingId = Number(row.buildingId);
+    const weekday = Number(row.weekday);
+    const totalCount = Number(row.totalCount ?? 0);
+
+    if (!buildingTotals.has(buildingId)) {
+      buildingTotals.set(buildingId, new Map<number, number>());
+    }
+    const inner = buildingTotals.get(buildingId)!;
+    inner.set(weekday, totalCount);
+
+    totalPerWeekday.set(weekday, (totalPerWeekday.get(weekday) ?? 0) + totalCount);
+  });
+
+  const buildingIds = Array.from(buildingTotals.keys());
+
+  let buildingNames: BuildingNameRow[] = [];
+  if (buildingIds.length > 0) {
+    [buildingNames] = await db.execute<BuildingNameRow>(sql`
+      SELECT id AS buildingId, building_short_name AS shortName
+      FROM etc_buildings
+      WHERE id IN (${sql.join(buildingIds, sql`,`)})
+    `);
+  }
+
+  const buildingMeta: WeekdaySeriesMeta[] = buildingIds.map((id) => {
+    const match = buildingNames.find((row) => Number(row.buildingId) === id);
+    const label = match?.shortName || `건물 ${id}`;
+    return { key: makeBuildingKey(id), label };
   });
 
   const occurrences = countWeekdayOccurrences(startDate, endDate);
 
-  return weekdayLabels.map((label, index) => {
+  const points: WeekdayStatsPoint[] = weekdayLabels.map((label, index) => {
     const mysqlWeekday = index === 0 ? 1 : index + 1; // DAYOFWEEK: 1=Sunday
-    const totalCount = weekdayTotals.get(mysqlWeekday) ?? 0;
-    const average = occurrences[index] ? totalCount / occurrences[index] : 0;
-    const buildingAverage = openRooms ? average / openRooms : 0;
+    const totalCount = totalPerWeekday.get(mysqlWeekday) ?? 0;
 
-    return { label, totalCount, buildingAverage };
+    const base: WeekdayStatsPoint = { label, totalCount };
+
+    buildingMeta.forEach(({ key }, metaIndex) => {
+      const buildingId = buildingIds[metaIndex];
+      const openRooms = openRoomsByBuilding.get(buildingId) ?? 0;
+      const buildingCount = buildingTotals.get(buildingId)?.get(mysqlWeekday) ?? 0;
+      const average = occurrences[index] ? buildingCount / occurrences[index] : 0;
+      const buildingAverage = openRooms ? average / openRooms : 0;
+
+      base[key] = buildingAverage;
+    });
+
+    return base;
   });
+
+  return { points, buildings: buildingMeta };
 }

@@ -16,7 +16,7 @@ import {
 import styles from './stats-dashboard.module.css';
 import type { MonthlyAveragePoint } from './server/fetchMonthlyAverages';
 import type { MonthlyOverviewPoint } from './server/fetchMonthlyOverview';
-import type { WeekdayStatsPoint } from './server/fetchWeekdayStats';
+import type { WeekdaySeriesMeta, WeekdayStatsPoint } from './server/fetchWeekdayStats';
 import type { ProfileSummary } from '@/src/utils/profile';
 
 function formatValue(value: number) {
@@ -27,7 +27,7 @@ type Props = {
   profile: ProfileSummary;
   monthlyAverages: MonthlyAveragePoint[];
   monthlyOverview: MonthlyOverviewPoint[];
-  weekdayStats: WeekdayStatsPoint[];
+  weekdayStats: { points: WeekdayStatsPoint[]; buildings: WeekdaySeriesMeta[] };
 };
 
 export default function StatsDashboard({
@@ -65,14 +65,23 @@ export default function StatsDashboard({
     return ratios.map((ratio) => Math.ceil(overviewRightMax * ratio));
   }, [overviewRightMax]);
 
+  const weekdayLineColors = useMemo(
+    () => ['#38bdf8', '#f59e0b', '#ef4444', '#a855f7', '#ec4899', '#22c55e', '#eab308'],
+    []
+  );
+
   const weekdayLeftMax = useMemo(() => {
-    const peak = Math.max(...weekdayStats.map((row) => row.buildingAverage), 0);
+    const peaks = weekdayStats.points.map((row) => {
+      const seriesValues = weekdayStats.buildings.map((meta) => Number(row[meta.key] ?? 0));
+      return Math.max(...seriesValues, 0);
+    });
+    const peak = peaks.length ? Math.max(...peaks, 0) : 0;
     if (peak === 0) return 1;
     return Math.max(14, Math.ceil(peak * 1.2));
   }, [weekdayStats]);
 
   const weekdayRightMax = useMemo(() => {
-    const peak = Math.max(...weekdayStats.map((row) => row.totalCount), 0);
+    const peak = Math.max(...weekdayStats.points.map((row) => row.totalCount), 0);
     if (peak === 0) return 4;
     return Math.max(30, Math.ceil(peak * 1.15));
   }, [weekdayStats]);
@@ -158,13 +167,19 @@ export default function StatsDashboard({
             <span className={styles.legendItem}>
               <span className={styles.legendBarSwatchAlt} />요일별 총 건수
             </span>
-            <span className={styles.legendItem}>
-              <span className={styles.legendLineSwatchAlt} />건물별 요일별 평균 건수
-            </span>
+            {weekdayStats.buildings.map((meta, index) => {
+              const color = weekdayLineColors[index % weekdayLineColors.length];
+              return (
+                <span key={meta.key} className={styles.legendItem}>
+                  <span className={styles.legendLineSwatchDynamic} style={{ backgroundColor: color }} />
+                  {meta.label}
+                </span>
+              );
+            })}
           </div>
         );
       },
-    []
+    [weekdayLineColors, weekdayStats.buildings]
   );
 
   const planChart = useMemo(
@@ -290,7 +305,7 @@ export default function StatsDashboard({
   const weekdayChart = useMemo(
     () => (
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={weekdayStats} margin={{ top: 18, right: 18, bottom: 24, left: 18 }}>
+        <ComposedChart data={weekdayStats.points} margin={{ top: 18, right: 18, bottom: 24, left: 18 }}>
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
           <XAxis
             dataKey="label"
@@ -328,18 +343,24 @@ export default function StatsDashboard({
           >
             <LabelList dataKey="totalCount" position="top" content={<BarValueLabel />} />
           </Bar>
-          <Line
-            dataKey="buildingAverage"
-            yAxisId="left"
-            type="monotone"
-            stroke="#38bdf8"
-            strokeWidth={1}
-            dot={{ stroke: '#38bdf8', fill: '#38bdf8', r: 3 }}
-            activeDot={false}
-            connectNulls
-          >
-            <LabelList dataKey="buildingAverage" position="top" content={<LineValueLabel />} />
-          </Line>
+          {weekdayStats.buildings.map((meta, index) => {
+            const color = weekdayLineColors[index % weekdayLineColors.length];
+            return (
+              <Line
+                key={meta.key}
+                dataKey={meta.key}
+                yAxisId="left"
+                type="monotone"
+                stroke={color}
+                strokeWidth={1}
+                dot={{ stroke: color, fill: color, r: 3 }}
+                activeDot={false}
+                connectNulls
+              >
+                <LabelList dataKey={meta.key} position="top" content={<LineValueLabel />} />
+              </Line>
+            );
+          })}
           <defs>
             <linearGradient id="weekdayTotalGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#34d399" stopOpacity="0.95" />

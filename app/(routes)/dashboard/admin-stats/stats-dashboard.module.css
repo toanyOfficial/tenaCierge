@@ -299,6 +299,14 @@
   box-shadow: 0 0 8px rgba(14, 165, 233, 0.35);
 }
 
+.legendLineSwatchDynamic {
+  width: 22px;
+  height: 2px;
+  border-radius: 2px;
+  display: inline-block;
+  box-shadow: 0 0 8px rgba(148, 163, 184, 0.35);
+}
+
 .barLabelText,
 .lineLabelText {
   fill: #e2e8f0;
