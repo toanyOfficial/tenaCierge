@@ -41,6 +41,10 @@ export async function fetchWeekdayStats(): Promise<{
 }> {
   const endDate = new Date();
   endDate.setUTCHours(0, 0, 0, 0);
+
+  const rangeEnd = new Date(endDate);
+  rangeEnd.setUTCDate(rangeEnd.getUTCDate() + 1);
+
   const startDate = new Date(endDate);
   startDate.setUTCDate(startDate.getUTCDate() - 365);
 
@@ -52,18 +56,18 @@ export async function fetchWeekdayStats(): Promise<{
       WHERE wh.cleaning_yn = 1
         AND wh.cancel_yn = 0
         AND wh.date >= ${startDate}
-        AND wh.date < ${endDate}
+        AND wh.date < ${rangeEnd}
       GROUP BY cr.building_id, weekday
     `),
     db.execute<WeekdayOccurrenceRow>(sql`
       WITH RECURSIVE dates AS (
         SELECT CAST(${startDate} AS DATE) AS d
         UNION ALL
-        SELECT DATE_ADD(d, INTERVAL 1 DAY) FROM dates WHERE d < ${endDate}
+        SELECT DATE_ADD(d, INTERVAL 1 DAY) FROM dates WHERE d < ${rangeEnd}
       )
       SELECT DAYOFWEEK(d) AS weekday, COUNT(*) AS occurrences
       FROM dates
-      WHERE d < ${endDate}
+      WHERE d < ${rangeEnd}
       GROUP BY weekday
     `)
   ]);
@@ -108,10 +112,6 @@ export async function fetchWeekdayStats(): Promise<{
   occurrenceRows.forEach((row) => {
     occurrenceMap.set(Number(row.weekday), Number(row.occurrences ?? 0));
   });
-
-  const formatAverage = (value: number) => {
-    return Math.round(value * 100) / 100;
-  };
 
   const formatAverage = (value: number) => {
     return Math.round(value * 100) / 100;
