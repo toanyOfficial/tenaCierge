@@ -88,36 +88,21 @@ export default function StatsDashboard({
     return ratios.map((ratio) => Math.ceil(overviewRightMax * ratio));
   }, [overviewRightMax]);
 
-  const weekdayLineColors = useMemo(
+  const weekdayBarColors = useMemo(
     () => ['#38bdf8', '#f59e0b', '#ef4444', '#a855f7', '#ec4899', '#22c55e', '#eab308'],
     []
   );
 
-  const weekdayLeftMax = useMemo(() => {
-    const peaks = weekdayStats.points.map((row) => {
-      const seriesValues = weekdayStats.buildings.map((meta) => Number(row[meta.key] ?? 0));
-      return Math.max(...seriesValues, 0);
-    });
-    const peak = peaks.length ? Math.max(...peaks, 0) : 0;
-    if (peak === 0) return 1;
+  const weekdayMax = useMemo(() => {
+    const peak = Math.max(...weekdayStats.points.map((row) => row.totalCount), 0);
+    if (peak === 0) return 4;
     return Math.max(14, Math.ceil(peak * 1.2));
   }, [weekdayStats]);
 
-  const weekdayRightMax = useMemo(() => {
-    const peak = Math.max(...weekdayStats.points.map((row) => row.totalCount), 0);
-    if (peak === 0) return 4;
-    return Math.max(30, Math.ceil(peak * 1.15));
-  }, [weekdayStats]);
-
-  const weekdayLeftTicks = useMemo(() => {
+  const weekdayTicks = useMemo(() => {
     const ratios = [0.25, 0.5, 0.75, 1];
-    return ratios.map((ratio) => Math.ceil(weekdayLeftMax * ratio));
-  }, [weekdayLeftMax]);
-
-  const weekdayRightTicks = useMemo(() => {
-    const ratios = [0.25, 0.5, 0.75, 1];
-    return ratios.map((ratio) => Math.ceil(weekdayRightMax * ratio));
-  }, [weekdayRightMax]);
+    return ratios.map((ratio) => Math.ceil(weekdayMax * ratio));
+  }, [weekdayMax]);
 
   const BarValueLabel = useMemo(
     () =>
@@ -187,22 +172,19 @@ export default function StatsDashboard({
       function LegendContent() {
         return (
           <div className={styles.chartLegend} aria-label="범례">
-            <span className={styles.legendItem}>
-              <span className={styles.legendBarSwatchAlt} />요일별 총 건수
-            </span>
             {weekdayStats.buildings.map((meta, index) => {
-              const color = weekdayLineColors[index % weekdayLineColors.length];
+              const color = weekdayBarColors[index % weekdayBarColors.length];
               return (
                 <span key={meta.key} className={styles.legendItem}>
-                  <span className={styles.legendLineSwatchDynamic} style={{ backgroundColor: color }} />
+                  <span className={styles.legendBarSwatchDynamic} style={{ backgroundColor: color }} />
                   {meta.label}
                 </span>
               );
             })}
           </div>
-        );
-      },
-    [weekdayLineColors, weekdayStats.buildings]
+      );
+    },
+    [weekdayBarColors, weekdayStats.buildings]
   );
 
   const planChart = useMemo(
@@ -349,63 +331,37 @@ export default function StatsDashboard({
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
           />
           <YAxis
-            yAxisId="left"
-            orientation="left"
             tickLine={false}
             axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-            domain={[0, weekdayLeftMax]}
-            ticks={weekdayLeftTicks}
-            allowDecimals={false}
-          />
-          <YAxis
-            yAxisId="right"
-            orientation="right"
-            tickLine={false}
-            axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
-            tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-            domain={[0, weekdayRightMax]}
-            ticks={weekdayRightTicks}
+            domain={[0, weekdayMax]}
+            ticks={weekdayTicks}
             allowDecimals={false}
           />
           <Legend verticalAlign="top" align="right" content={<WeekdayLegend />} />
-          <Bar
-            dataKey="totalCount"
-            yAxisId="right"
-            fill="url(#weekdayTotalGradient)"
-            barSize={20}
-            radius={[6, 6, 0, 0]}
-          >
-            <LabelList dataKey="totalCount" position="top" content={<BarValueLabel />} />
-          </Bar>
           {weekdayStats.buildings.map((meta, index) => {
-            const color = weekdayLineColors[index % weekdayLineColors.length];
+            const color = weekdayBarColors[index % weekdayBarColors.length];
+            const isTopStack = index === weekdayStats.buildings.length - 1;
             return (
-              <Line
+              <Bar
                 key={meta.key}
                 dataKey={meta.key}
-                yAxisId="left"
-                type="monotone"
-                stroke={color}
-                strokeWidth={1}
-                dot={{ stroke: color, fill: color, r: 3 }}
-                activeDot={false}
-                connectNulls
+                stackId="weekday"
+                fill={color}
+                barSize={20}
+                radius={isTopStack ? [6, 6, 0, 0] : [0, 0, 0, 0]}
+                isAnimationActive={false}
               >
-                <LabelList dataKey={meta.key} position="top" content={<LineValueLabel />} />
-              </Line>
+                {isTopStack ? (
+                  <LabelList dataKey="totalCount" position="top" content={<BarValueLabel />} />
+                ) : null}
+              </Bar>
             );
           })}
-          <defs>
-            <linearGradient id="weekdayTotalGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#34d399" stopOpacity="0.95" />
-              <stop offset="100%" stopColor="#10b981" stopOpacity="0.95" />
-            </linearGradient>
-          </defs>
         </ComposedChart>
       </ResponsiveContainer>
     ),
-    [BarValueLabel, LineValueLabel, WeekdayLegend, weekdayLeftMax, weekdayLeftTicks, weekdayRightMax, weekdayRightTicks, weekdayStats]
+    [BarValueLabel, WeekdayLegend, weekdayBarColors, weekdayMax, weekdayStats.buildings, weekdayStats.points, weekdayTicks]
   );
 
   return (
