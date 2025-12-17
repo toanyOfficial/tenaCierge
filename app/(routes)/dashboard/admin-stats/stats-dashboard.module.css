@@ -281,6 +281,24 @@
   box-shadow: 0 0 8px rgba(99, 102, 241, 0.35);
 }
 
+.legendBarSwatchAlt {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  display: inline-block;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.35);
+  background: linear-gradient(135deg, #818cf8, #6366f1);
+}
+
+.legendLineSwatchAlt {
+  width: 22px;
+  height: 2px;
+  border-radius: 2px;
+  display: inline-block;
+  background: linear-gradient(90deg, #38bdf8, #0ea5e9);
+  box-shadow: 0 0 8px rgba(14, 165, 233, 0.35);
+}
+
 .barLabelText,
 .lineLabelText {
   fill: #e2e8f0;
@@ -386,6 +404,17 @@
   font-size: 3px;
   font-weight: 800;
   text-anchor: middle;
+}
+
+.placeholderMessage {
+  margin: auto;
+  padding: 18px 20px;
+  border-radius: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
 .monthLabel {

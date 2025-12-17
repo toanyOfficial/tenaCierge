@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation';
 
 import StatsDashboard from './StatsDashboard';
 import { fetchMonthlyAverages } from './server/fetchMonthlyAverages';
+import { fetchMonthlyOverview } from './server/fetchMonthlyOverview';
+import { fetchWeekdayStats } from './server/fetchWeekdayStats';
 
 import { getProfileWithDynamicRoles } from '@/src/server/profile';
 
@@ -15,7 +17,18 @@ export default async function AdminStatsDashboardPage() {
     redirect('/dashboard');
   }
 
-  const monthlyAverages = await fetchMonthlyAverages();
+  const [monthlyAverages, monthlyOverview, weekdayStats] = await Promise.all([
+    fetchMonthlyAverages(),
+    fetchMonthlyOverview(),
+    fetchWeekdayStats()
+  ]);
 
-  return <StatsDashboard profile={profile} monthlyAverages={monthlyAverages} />;
+  return (
+    <StatsDashboard
+      profile={profile}
+      monthlyAverages={monthlyAverages}
+      monthlyOverview={monthlyOverview}
+      weekdayStats={weekdayStats}
+    />
+  );
 }

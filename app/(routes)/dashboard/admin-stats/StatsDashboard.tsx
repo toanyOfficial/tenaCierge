@@ -15,61 +15,28 @@ import {
 
 import styles from './stats-dashboard.module.css';
 import type { MonthlyAveragePoint } from './server/fetchMonthlyAverages';
+import type { MonthlyOverviewPoint } from './server/fetchMonthlyOverview';
+import type { WeekdayStatsPoint } from './server/fetchWeekdayStats';
 import type { ProfileSummary } from '@/src/utils/profile';
-
-type GraphCard = {
-  title: string;
-  description: string;
-  bars: { label: string; value: number; baseline?: number }[];
-  trend: number[];
-};
-
-const graphCards: GraphCard[] = [
-  {
-    title: '2번 그래프',
-    description: '서비스 성과를 세그먼트별로 나누어 비교합니다. 모든 요소는 입력 없이 자동 정렬됩니다.',
-    bars: [
-      { label: 'North', value: 64, baseline: 50 },
-      { label: 'East', value: 58, baseline: 52 },
-      { label: 'West', value: 73, baseline: 60 },
-      { label: 'South', value: 49, baseline: 44 }
-    ],
-    trend: [18, 34, 30, 46, 52, 60, 66]
-  },
-  {
-    title: '3번 그래프',
-    description: '운영 안정성을 가늠할 수 있는 누적형 그래프입니다. 스크롤 없이 정적인 상태를 유지합니다.',
-    bars: [
-      { label: 'Queue', value: 82, baseline: 70 },
-      { label: 'Flow', value: 77, baseline: 65 },
-      { label: 'Sync', value: 69, baseline: 60 },
-      { label: 'Load', value: 58, baseline: 55 }
-    ],
-    trend: [30, 44, 40, 52, 60, 72, 80]
-  },
-  {
-    title: '4번 그래프',
-    description: '품질 검증 단계를 순차적으로 표현합니다. 모든 구성은 가로·세로 스크롤 없이 고정됩니다.',
-    bars: [
-      { label: 'Prep', value: 71, baseline: 58 },
-      { label: 'Stage', value: 66, baseline: 55 },
-      { label: 'QA', value: 84, baseline: 68 },
-      { label: 'Release', value: 62, baseline: 57 }
-    ],
-    trend: [26, 42, 58, 54, 70, 78, 90]
-  }
-];
-
-const yTickRatios = [0.25, 0.5, 0.75, 1];
 
 function formatValue(value: number) {
   return Number.isInteger(value) ? `${value}` : value.toFixed(1);
 }
 
-type Props = { profile: ProfileSummary; monthlyAverages: MonthlyAveragePoint[] };
+type Props = {
+  profile: ProfileSummary;
+  monthlyAverages: MonthlyAveragePoint[];
+  monthlyOverview: MonthlyOverviewPoint[];
+  weekdayStats: WeekdayStatsPoint[];
+};
 
-export default function StatsDashboard({ profile: _profile, monthlyAverages }: Props) {
-  const leftMax = useMemo(() => {
+export default function StatsDashboard({
+  profile: _profile,
+  monthlyAverages,
+  monthlyOverview,
+  weekdayStats
+}: Props) {
+  const planMax = useMemo(() => {
     const peak = Math.max(
       ...monthlyAverages.map((row) => Math.max(row.subscriptionCount, row.perOrderCount)),
       0
@@ -78,10 +45,54 @@ export default function StatsDashboard({ profile: _profile, monthlyAverages }: P
     return Math.ceil(peak * 1.1);
   }, [monthlyAverages]);
 
-  const leftTicks = useMemo(
-    () => yTickRatios.map((ratio) => Math.ceil(leftMax * ratio)),
-    [leftMax]
-  );
+  const planTicks = useMemo(() => {
+    const ratios = [0.25, 0.5, 0.75, 1];
+    return ratios.map((ratio) => Math.ceil(planMax * ratio));
+  }, [planMax]);
+
+  const overviewLeftMax = useMemo(() => {
+    const peak = Math.max(...monthlyOverview.map((row) => row.roomAverage), 0);
+    if (peak === 0) return 1;
+    return Math.max(31, Math.ceil(peak * 1.2));
+  }, [monthlyOverview]);
+
+  const overviewRightMax = useMemo(() => {
+    const peak = Math.max(...monthlyOverview.map((row) => row.totalCount), 0);
+    if (peak === 0) return 100;
+    return Math.max(400, Math.ceil(peak * 1.15));
+  }, [monthlyOverview]);
+
+  const overviewLeftTicks = useMemo(() => {
+    const ratios = [0.25, 0.5, 0.75, 1];
+    return ratios.map((ratio) => Math.ceil(overviewLeftMax * ratio));
+  }, [overviewLeftMax]);
+
+  const overviewRightTicks = useMemo(() => {
+    const ratios = [0.25, 0.5, 0.75, 1];
+    return ratios.map((ratio) => Math.ceil(overviewRightMax * ratio));
+  }, [overviewRightMax]);
+
+  const weekdayLeftMax = useMemo(() => {
+    const peak = Math.max(...weekdayStats.map((row) => row.buildingAverage), 0);
+    if (peak === 0) return 1;
+    return Math.max(14, Math.ceil(peak * 1.2));
+  }, [weekdayStats]);
+
+  const weekdayRightMax = useMemo(() => {
+    const peak = Math.max(...weekdayStats.map((row) => row.totalCount), 0);
+    if (peak === 0) return 4;
+    return Math.max(30, Math.ceil(peak * 1.15));
+  }, [weekdayStats]);
+
+  const weekdayLeftTicks = useMemo(() => {
+    const ratios = [0.25, 0.5, 0.75, 1];
+    return ratios.map((ratio) => Math.ceil(weekdayLeftMax * ratio));
+  }, [weekdayLeftMax]);
+
+  const weekdayRightTicks = useMemo(() => {
+    const ratios = [0.25, 0.5, 0.75, 1];
+    return ratios.map((ratio) => Math.ceil(weekdayRightMax * ratio));
+  }, [weekdayRightMax]);
 
   const BarValueLabel = useMemo(
     () =>
@@ -112,7 +123,7 @@ export default function StatsDashboard({ profile: _profile, monthlyAverages }: P
     []
   );
 
-  const ChartLegend = useMemo(
+  const PlanLegend = useMemo(
     () =>
       function LegendContent() {
         return (
@@ -129,7 +140,41 @@ export default function StatsDashboard({ profile: _profile, monthlyAverages }: P
     []
   );
 
-  const monthlyChart = useMemo(
+  const MonthlyLegend = useMemo(
+    () =>
+      function LegendContent() {
+        return (
+          <div className={styles.chartLegend} aria-label="범례">
+            <span className={styles.legendItem}>
+              <span className={styles.legendBarSwatchAlt} />총 건수
+            </span>
+            <span className={styles.legendItem}>
+              <span className={styles.legendLineSwatchAlt} />호실 평균 건수
+            </span>
+          </div>
+        );
+      },
+    []
+  );
+
+  const WeekdayLegend = useMemo(
+    () =>
+      function LegendContent() {
+        return (
+          <div className={styles.chartLegend} aria-label="범례">
+            <span className={styles.legendItem}>
+              <span className={styles.legendBarSwatchAlt} />요일별 총 건수
+            </span>
+            <span className={styles.legendItem}>
+              <span className={styles.legendLineSwatchAlt} />건물별 요일별 평균 건수
+            </span>
+          </div>
+        );
+      },
+    []
+  );
+
+  const planChart = useMemo(
     () => (
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={monthlyAverages} margin={{ top: 18, right: 18, bottom: 24, left: 18 }}>
@@ -146,15 +191,15 @@ export default function StatsDashboard({ profile: _profile, monthlyAverages }: P
             tickLine={false}
             axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-            domain={[0, leftMax]}
-            ticks={leftTicks}
+            domain={[0, planMax]}
+            ticks={planTicks}
             allowDecimals={false}
           />
-          <Legend verticalAlign="top" align="right" content={<ChartLegend />} />
+          <Legend verticalAlign="top" align="right" content={<PlanLegend />} />
           <Bar
             dataKey="subscriptionCount"
             yAxisId="left"
-            fill="url(#totalBarGradient)"
+            fill="url(#planBarGradient)"
             barSize={18}
             radius={[6, 6, 0, 0]}
           >
@@ -173,7 +218,7 @@ export default function StatsDashboard({ profile: _profile, monthlyAverages }: P
             <LabelList dataKey="perOrderCount" position="top" content={<LineValueLabel />} />
           </Line>
           <defs>
-            <linearGradient id="totalBarGradient" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id="planBarGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#22c55e" stopOpacity="0.9" />
               <stop offset="100%" stopColor="#16a34a" stopOpacity="0.9" />
             </linearGradient>
@@ -181,7 +226,137 @@ export default function StatsDashboard({ profile: _profile, monthlyAverages }: P
         </ComposedChart>
       </ResponsiveContainer>
     ),
-    [BarValueLabel, ChartLegend, LineValueLabel, leftMax, leftTicks, monthlyAverages]
+    [BarValueLabel, LineValueLabel, PlanLegend, monthlyAverages, planMax, planTicks]
+  );
+
+  const monthlyTotalsChart = useMemo(
+    () => (
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={monthlyOverview} margin={{ top: 18, right: 18, bottom: 24, left: 18 }}>
+          <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
+          <XAxis
+            dataKey="label"
+            tickLine={false}
+            axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+            tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+          />
+          <YAxis
+            yAxisId="left"
+            orientation="left"
+            tickLine={false}
+            axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+            tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+            domain={[0, overviewLeftMax]}
+            ticks={overviewLeftTicks}
+            allowDecimals={false}
+          />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            tickLine={false}
+            axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+            tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+            domain={[0, overviewRightMax]}
+            ticks={overviewRightTicks}
+            allowDecimals={false}
+          />
+          <Legend verticalAlign="top" align="right" content={<MonthlyLegend />} />
+          <Bar
+            dataKey="totalCount"
+            yAxisId="right"
+            fill="url(#totalCountGradient)"
+            barSize={18}
+            radius={[6, 6, 0, 0]}
+          >
+            <LabelList dataKey="totalCount" position="top" content={<BarValueLabel />} />
+          </Bar>
+          <Line
+            dataKey="roomAverage"
+            yAxisId="left"
+            type="monotone"
+            stroke="#7dd3fc"
+            strokeWidth={1}
+            dot={{ stroke: '#0ea5e9', fill: '#0ea5e9', r: 3 }}
+            activeDot={false}
+            connectNulls
+          >
+            <LabelList dataKey="roomAverage" position="top" content={<LineValueLabel />} />
+          </Line>
+          <defs>
+            <linearGradient id="totalCountGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#818cf8" stopOpacity="0.95" />
+              <stop offset="100%" stopColor="#6366f1" stopOpacity="0.95" />
+            </linearGradient>
+          </defs>
+        </ComposedChart>
+      </ResponsiveContainer>
+    ),
+    [BarValueLabel, LineValueLabel, MonthlyLegend, monthlyOverview, overviewLeftMax, overviewLeftTicks, overviewRightMax, overviewRightTicks]
+  );
+
+  const weekdayChart = useMemo(
+    () => (
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={weekdayStats} margin={{ top: 18, right: 18, bottom: 24, left: 18 }}>
+          <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
+          <XAxis
+            dataKey="label"
+            tickLine={false}
+            axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+            tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+          />
+          <YAxis
+            yAxisId="left"
+            orientation="left"
+            tickLine={false}
+            axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+            tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+            domain={[0, weekdayLeftMax]}
+            ticks={weekdayLeftTicks}
+            allowDecimals={false}
+          />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            tickLine={false}
+            axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+            tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+            domain={[0, weekdayRightMax]}
+            ticks={weekdayRightTicks}
+            allowDecimals={false}
+          />
+          <Legend verticalAlign="top" align="right" content={<WeekdayLegend />} />
+          <Bar
+            dataKey="totalCount"
+            yAxisId="right"
+            fill="url(#weekdayTotalGradient)"
+            barSize={20}
+            radius={[6, 6, 0, 0]}
+          >
+            <LabelList dataKey="totalCount" position="top" content={<BarValueLabel />} />
+          </Bar>
+          <Line
+            dataKey="buildingAverage"
+            yAxisId="left"
+            type="monotone"
+            stroke="#38bdf8"
+            strokeWidth={1}
+            dot={{ stroke: '#38bdf8', fill: '#38bdf8', r: 3 }}
+            activeDot={false}
+            connectNulls
+          >
+            <LabelList dataKey="buildingAverage" position="top" content={<LineValueLabel />} />
+          </Line>
+          <defs>
+            <linearGradient id="weekdayTotalGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#34d399" stopOpacity="0.95" />
+              <stop offset="100%" stopColor="#10b981" stopOpacity="0.95" />
+            </linearGradient>
+          </defs>
+        </ComposedChart>
+      </ResponsiveContainer>
+    ),
+    [BarValueLabel, LineValueLabel, WeekdayLegend, weekdayLeftMax, weekdayLeftTicks, weekdayRightMax, weekdayRightTicks, weekdayStats]
   );
 
   return (
@@ -203,53 +378,37 @@ export default function StatsDashboard({ profile: _profile, monthlyAverages }: P
             <div className={styles.graphHeading}>
               <p className={styles.graphTitle}>요금제별 통계</p>
             </div>
-
             <div className={styles.graphSurface} aria-hidden="true">
-              <div className={styles.mixedChart}>{monthlyChart}</div>
+              <div className={styles.mixedChart}>{planChart}</div>
             </div>
           </section>
 
-          {graphCards.map((card) => (
-            <section key={card.title} className={styles.graphCard} aria-label={card.title}>
-              <div className={styles.graphHeading}>
-                <p className={styles.graphTitle}>{card.title}</p>
-                <p className={styles.graphDescription}>{card.description}</p>
-              </div>
+          <section className={styles.graphCard} aria-label="월별 통계값">
+            <div className={styles.graphHeading}>
+              <p className={styles.graphTitle}>월별 통계값</p>
+            </div>
+            <div className={styles.graphSurface} aria-hidden="true">
+              <div className={styles.mixedChart}>{monthlyTotalsChart}</div>
+            </div>
+          </section>
 
-              <div className={styles.graphSurface} aria-hidden="true">
-                <div className={styles.gridLines}>
-                  {Array.from({ length: 5 }).map((_, index) => (
-                    <span key={index} className={styles.gridLine} />
-                  ))}
-                </div>
+          <section className={styles.graphCard} aria-label="요일별 통계값">
+            <div className={styles.graphHeading}>
+              <p className={styles.graphTitle}>요일별 통계값</p>
+            </div>
+            <div className={styles.graphSurface} aria-hidden="true">
+              <div className={styles.mixedChart}>{weekdayChart}</div>
+            </div>
+          </section>
 
-                <div className={styles.trendLine}>
-                  {card.trend.map((point, index) => (
-                    <span
-                      key={`${card.title}-trend-${index}`}
-                      className={styles.trendDot}
-                      style={{
-                        left: `${(index / (card.trend.length - 1)) * 100}%`,
-                        bottom: `${point}%`
-                      }}
-                    />
-                  ))}
-                </div>
-
-                <div className={styles.barGroup}>
-                  {card.bars.map((bar) => (
-                    <div key={bar.label} className={styles.barColumn}>
-                      <span className={styles.barLabel}>{bar.label}</span>
-                      <div className={styles.barTrack}>
-                        <div className={styles.barBaseline} style={{ height: `${bar.baseline ?? 0}%` }} />
-                        <div className={styles.barValue} style={{ height: `${bar.value}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-          ))}
+          <section className={styles.graphCard} aria-label="숙박일수별 통계값">
+            <div className={styles.graphHeading}>
+              <p className={styles.graphTitle}>숙박일수별 통계값</p>
+            </div>
+            <div className={styles.graphSurface} aria-hidden="true">
+              <div className={styles.placeholderMessage}>준비중입니다.</div>
+            </div>
+          </section>
         </div>
       </div>
     </div>
