@@ -91,7 +91,6 @@ export async function fetchMonthlyOverview(): Promise<MonthlyOverviewPoint[]> {
   `);
 
   const aggregatesByKey = new Map<string, { totalCount: number; roomAverage: number }>();
-  const aggregatesByLabel = new Map<string, { totalCount: number; roomAverage: number }>();
 
   rows.forEach((row) => {
     const normalized = normalizeMonthKey(row.month);
@@ -103,11 +102,10 @@ export async function fetchMonthlyOverview(): Promise<MonthlyOverviewPoint[]> {
     };
 
     aggregatesByKey.set(normalized.key, snapshot);
-    aggregatesByLabel.set(normalized.label, snapshot);
   });
 
   return months.map(({ key, label }) => {
-    const stats = aggregatesByKey.get(key) ?? aggregatesByLabel.get(label);
+    const stats = aggregatesByKey.get(key);
     const totalCount = Number(stats?.totalCount ?? 0);
     const roomAverage = Number(stats?.roomAverage ?? 0);
     return { label, totalCount, roomAverage };
