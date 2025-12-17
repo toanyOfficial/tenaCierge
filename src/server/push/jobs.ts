@@ -149,6 +149,13 @@ export async function processLockedJob(job: NotifyJobRow, deliver: DeliverFn) {
   let failed = 0;
   let firstFailureDetail: string | null = null;
 
+  console.info('[web-push] delivery targets', {
+    jobId: job.id,
+    userType: job.userType,
+    userId: job.userId,
+    subscriptionCount: subscriptions.length,
+  });
+
   for (const subscription of subscriptions) {
     try {
       const result = await deliver(subscription, payload, job);
