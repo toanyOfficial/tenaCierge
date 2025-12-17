@@ -135,7 +135,9 @@ export default function StatsDashboard({
 
     groupedBySector.forEach((buildings, sectorKey) => {
       const base = sectorBaseColors[sectorKey] ?? '#38bdf8';
-      const sortedByVolume = [...buildings].sort((a, b) => (b.totalCount ?? 0) - (a.totalCount ?? 0));
+      const sortedByVolume = [...buildings].sort(
+        (a, b) => (b.averageCount ?? 0) - (a.averageCount ?? 0)
+      );
 
       sortedByVolume.forEach((meta, index) => {
         const ratio =

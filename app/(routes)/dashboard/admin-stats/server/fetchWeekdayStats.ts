@@ -6,7 +6,7 @@ export type WeekdaySeriesMeta = {
   key: string;
   label: string;
   sectorCode: string | null;
-  totalCount: number;
+  averageCount: number;
 };
 
 export type WeekdayStatsPoint = {
@@ -121,11 +121,20 @@ export async function fetchWeekdayStats(): Promise<{
   let buildingNames: BuildingNameRow[] = [];
   if (buildingIds.length > 0) {
     [buildingNames] = await db.execute<BuildingNameRow>(sql`
-      SELECT id AS buildingId, building_short_name AS shortName, basecode_sector AS sectorCode
-      FROM etc_buildings
-      WHERE id IN (${sql.join(buildingIds, sql`,`)})
+      SELECT
+        eb.id AS buildingId,
+        eb.building_short_name AS shortName,
+        bc.code AS sectorCode
+      FROM etc_buildings eb
+      LEFT JOIN etc_baseCode bc ON bc.code = eb.basecode_code
+      WHERE eb.id IN (${sql.join(buildingIds, sql`,`)})
     `);
   }
+
+  const totalOccurrencesCount = occurrenceRows.reduce(
+    (sum, row) => sum + Number(row.occurrences ?? 0),
+    0
+  );
 
   const buildingMeta: WeekdaySeriesMeta[] = buildingIds.map((id) => {
     const match = buildingNames.find((row) => Number(row.buildingId) === id);
@@ -136,7 +145,10 @@ export async function fetchWeekdayStats(): Promise<{
       key: makeBuildingKey(id),
       label,
       sectorCode: match?.sectorCode ?? null,
-      totalCount: buildingTotalCounts.get(id) ?? 0
+      averageCount:
+        totalOccurrencesCount > 0
+          ? (buildingTotalCounts.get(id) ?? 0) / totalOccurrencesCount
+          : 0
     };
   });
 
