@@ -257,6 +257,7 @@
   grid-template-rows: repeat(4, 1fr);
   gap: 0;
   pointer-events: none;
+  z-index: 0;
 }
 
 .monthlyGridLine {
@@ -280,6 +281,7 @@
   grid-template-columns: repeat(13, minmax(0, 1fr));
   align-items: end;
   gap: 10px;
+  z-index: 1;
 }
 
 .monthlyColumn {
@@ -325,19 +327,20 @@
   width: 100%;
   height: 100%;
   overflow: visible;
+  z-index: 2;
 }
 
 .perOrderPath {
   fill: none;
   stroke: url(#perOrderGradient);
-  stroke-width: 1.2;
+  stroke-width: 0.8;
 }
 
 .perOrderDot {
   fill: #60a5fa;
   stroke: rgba(248, 250, 252, 0.7);
-  stroke-width: 0.35;
-  filter: drop-shadow(0 0 6px rgba(96, 165, 250, 0.8));
+  stroke-width: 0.25;
+  filter: drop-shadow(0 0 4px rgba(96, 165, 250, 0.7));
 }
 
 .perOrderValue {

@@ -129,10 +129,12 @@ export default function StatsDashboard({ monthlyAverages }: Props) {
 
                   return (
                     <g key={`perorder-${row.label}-${index}`}>
-                      <circle className={styles.perOrderDot} cx={x} cy={y} r={1.6} />
-                      <text className={styles.perOrderValue} x={x} y={labelY}>
-                        {formatValue(row.perOrder)}
-                      </text>
+                      <circle className={styles.perOrderDot} cx={x} cy={y} r={1} />
+                      {row.perOrder !== 0 && (
+                        <text className={styles.perOrderValue} x={x} y={labelY}>
+                          {formatValue(row.perOrder)}
+                        </text>
+                      )}
                     </g>
                   );
                 })}
@@ -150,7 +152,9 @@ export default function StatsDashboard({ monthlyAverages }: Props) {
                           style={{ height: `${subscriptionHeight}%` }}
                           aria-label={`정액제 ${row.label}월 평균 ${row.subscription}`}
                         />
-                        <span className={styles.barValueLabel}>{formatValue(row.subscription)}</span>
+                        {row.subscription !== 0 && (
+                          <span className={styles.barValueLabel}>{formatValue(row.subscription)}</span>
+                        )}
                       </div>
                       <span className={styles.monthLabel}>{row.label}</span>
                     </div>
