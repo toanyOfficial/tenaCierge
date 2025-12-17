@@ -85,6 +85,12 @@ const shortcuts: Shortcut[] = [
     label: '대시보드-월간업무',
     href: '/dashboard/admin-monthly',
     description: '출퇴근 캘린더와 월별 누적 청소 현황을 조회합니다.'
+  },
+  {
+    id: 'stat-board',
+    label: '대시보드-통계표',
+    href: '/dashboard/admin-stats',
+    description: '1920x1080 해상도 전용으로 구성한 4분할 그래프 보드입니다.'
   }
 ];
 
