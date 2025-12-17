@@ -25,14 +25,29 @@ function formatMonthKey(date: Date) {
   return `${year}-${month}-01`;
 }
 
-function getTrailingMonths() {
-  const now = new Date();
-  now.setUTCDate(1);
+async function resolveAnchorMonth() {
+  const [rows] = await db.execute<{ lastMonth: string | null }>(sql`
+    SELECT DATE_FORMAT(MAX(wh.date), '%Y-%m-01') AS lastMonth
+    FROM work_header wh
+    WHERE wh.cleaning_yn = 1
+      AND wh.cancel_yn = 0
+  `);
 
+  const lastMonth = rows[0]?.lastMonth;
+  if (lastMonth) {
+    return new Date(`${lastMonth}T00:00:00.000Z`);
+  }
+
+  const fallback = new Date();
+  fallback.setUTCDate(1);
+  return fallback;
+}
+
+function getTrailingMonths(anchor: Date) {
   const months: { key: string; label: string }[] = [];
 
   for (let offset = 12; offset >= 0; offset -= 1) {
-    const cursor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - offset, 1));
+    const cursor = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() - offset, 1));
     months.push({
       key: formatMonthKey(cursor),
       label: `${cursor.getUTCMonth() + 1}`.padStart(2, '0')
@@ -43,10 +58,8 @@ function getTrailingMonths() {
 }
 
 export async function fetchMonthlyAverages(): Promise<MonthlyAveragePoint[]> {
-  const anchor = new Date();
-  anchor.setUTCDate(1);
-
-  const months = getTrailingMonths();
+  const anchor = await resolveAnchorMonth();
+  const months = getTrailingMonths(anchor);
   const startDate = months[0]?.key;
   const endCursor = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + 1, 1));
   const endDate = formatMonthKey(endCursor);
