@@ -14,6 +14,11 @@ type MonthlyPlanRow = {
   totalCount: number;
 };
 
+type PlanRoomRow = {
+  settleFlag: number;
+  roomCount: number;
+};
+
 function formatMonthKey(date: Date) {
   const year = date.getUTCFullYear();
   const month = `${date.getUTCMonth() + 1}`.padStart(2, '0');
@@ -62,6 +67,30 @@ export async function fetchMonthlyAverages(): Promise<MonthlyAveragePoint[]> {
     GROUP BY month, ch.settle_flag
   `);
 
+  const [planRooms] = await db.execute<PlanRoomRow>(sql`
+    SELECT
+      ch.settle_flag AS settleFlag,
+      COUNT(*) AS roomCount
+    FROM client_rooms cr
+      INNER JOIN client_header ch ON cr.client_id = ch.id
+    WHERE cr.open_yn = 1
+      AND ch.settle_flag IN (1, 2)
+    GROUP BY ch.settle_flag
+  `);
+
+  const planRoomCounts = planRooms.reduce(
+    (acc, row) => {
+      if (row.settleFlag === 1) {
+        acc.perOrder = Number(row.roomCount ?? 0);
+      }
+      if (row.settleFlag === 2) {
+        acc.subscription = Number(row.roomCount ?? 0);
+      }
+      return acc;
+    },
+    { perOrder: 0, subscription: 0 }
+  );
+
   const groupedTotals = new Map<string, { perOrder: number; subscription: number }>();
   rows.forEach((row) => {
     const monthTotals = groupedTotals.get(row.month) ?? { perOrder: 0, subscription: 0 };
@@ -76,11 +105,15 @@ export async function fetchMonthlyAverages(): Promise<MonthlyAveragePoint[]> {
 
   return months.map(({ key, label }) => {
     const totals = groupedTotals.get(key) ?? { perOrder: 0, subscription: 0 };
+    const perOrderRoomCount = planRoomCounts.perOrder || 0;
+    const subscriptionRoomCount = planRoomCounts.subscription || 0;
+    const perOrderAverage = perOrderRoomCount ? totals.perOrder / perOrderRoomCount : 0;
+    const subscriptionAverage = subscriptionRoomCount ? totals.subscription / subscriptionRoomCount : 0;
 
     return {
       label,
-      perOrderCount: totals.perOrder,
-      subscriptionCount: totals.subscription
+      perOrderCount: perOrderAverage,
+      subscriptionCount: subscriptionAverage
     };
   });
 }

@@ -69,11 +69,14 @@ function formatValue(value: number) {
 type Props = { profile: ProfileSummary; monthlyAverages: MonthlyAveragePoint[] };
 
 export default function StatsDashboard({ profile: _profile, monthlyAverages }: Props) {
-  const leftMax = useMemo(
-    () =>
-      Math.max(100, ...monthlyAverages.map((row) => Math.max(row.subscriptionCount, row.perOrderCount)), 0),
-    [monthlyAverages]
-  );
+  const leftMax = useMemo(() => {
+    const peak = Math.max(
+      ...monthlyAverages.map((row) => Math.max(row.subscriptionCount, row.perOrderCount)),
+      0
+    );
+    if (peak === 0) return 1;
+    return Math.ceil(peak * 1.1);
+  }, [monthlyAverages]);
 
   const leftTicks = useMemo(
     () => yTickRatios.map((ratio) => Math.ceil(leftMax * ratio)),
