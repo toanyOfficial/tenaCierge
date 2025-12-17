@@ -119,6 +119,35 @@ export default function StatsDashboard({
     []
   );
 
+  const makeBuildingLabel = useMemo(
+    () =>
+      (side: 'left' | 'right') =>
+        function BuildingLabel({ x, y, width, height, value }: any) {
+          if (value === 0 || value === undefined || value === null) return null;
+
+          const centerY = (y ?? 0) + (height ?? 0) / 2;
+          const offset = 8;
+          const labelX =
+            side === 'left'
+              ? (x ?? 0) - offset
+              : (x ?? 0) + (width ?? 0) + offset;
+          const anchor = side === 'left' ? 'end' : 'start';
+
+          return (
+            <text
+              x={labelX}
+              y={centerY}
+              dominantBaseline="middle"
+              textAnchor={anchor}
+              className={styles.buildingLabelText}
+            >
+              {formatValue(value)}
+            </text>
+          );
+        },
+    []
+  );
+
   const LineValueLabel = useMemo(
     () =>
       function LineLabel({ x, y, value }: any) {
@@ -322,7 +351,7 @@ export default function StatsDashboard({
   const weekdayChart = useMemo(
     () => (
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={weekdayStats.points} margin={{ top: 18, right: 18, bottom: 24, left: 18 }}>
+        <ComposedChart data={weekdayStats.points} margin={{ top: 18, right: 40, bottom: 24, left: 40 }}>
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
           <XAxis
             dataKey="label"
@@ -342,6 +371,8 @@ export default function StatsDashboard({
           {weekdayStats.buildings.map((meta, index) => {
             const color = weekdayBarColors[index % weekdayBarColors.length];
             const isTopStack = index === weekdayStats.buildings.length - 1;
+            const labelSide = index % 2 === 0 ? 'right' : 'left';
+            const BuildingLabel = makeBuildingLabel(labelSide);
             return (
               <Bar
                 key={meta.key}
@@ -352,6 +383,7 @@ export default function StatsDashboard({
                 radius={isTopStack ? [6, 6, 0, 0] : [0, 0, 0, 0]}
                 isAnimationActive={false}
               >
+                <LabelList dataKey={meta.key} content={<BuildingLabel />} />
                 {isTopStack ? (
                   <LabelList dataKey="totalCount" position="top" content={<BarValueLabel />} />
                 ) : null}
@@ -361,7 +393,16 @@ export default function StatsDashboard({
         </ComposedChart>
       </ResponsiveContainer>
     ),
-    [BarValueLabel, WeekdayLegend, weekdayBarColors, weekdayMax, weekdayStats.buildings, weekdayStats.points, weekdayTicks]
+    [
+      BarValueLabel,
+      WeekdayLegend,
+      makeBuildingLabel,
+      weekdayBarColors,
+      weekdayMax,
+      weekdayStats.buildings,
+      weekdayStats.points,
+      weekdayTicks,
+    ]
   );
 
   return (

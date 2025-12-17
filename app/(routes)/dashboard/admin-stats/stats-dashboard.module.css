@@ -323,6 +323,12 @@
   font-size: 12px;
 }
 
+.buildingLabelText {
+  fill: #e2e8f0;
+  font-weight: 800;
+  font-size: 11px;
+}
+
 .monthlyGridLines {
   position: absolute;
   inset: 24px 18px 54px 46px;
