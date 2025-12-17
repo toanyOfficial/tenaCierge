@@ -216,10 +216,12 @@ export default function StatsDashboard({
     [weekdayBarColors, weekdayStats.buildings]
   );
 
+  const legendTopLeft = useMemo(() => ({ top: 6, left: 12 }), []);
+
   const planChart = useMemo(
     () => (
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={monthlyAverages} margin={{ top: 18, right: 18, bottom: 24, left: 18 }}>
+        <ComposedChart data={monthlyAverages} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
           <XAxis
             dataKey="label"
@@ -237,7 +239,12 @@ export default function StatsDashboard({
             ticks={planTicks}
             allowDecimals={false}
           />
-          <Legend verticalAlign="top" align="right" content={<PlanLegend />} />
+          <Legend
+            verticalAlign="top"
+            align="left"
+            wrapperStyle={legendTopLeft}
+            content={<PlanLegend />}
+          />
           <Bar
             dataKey="subscriptionCount"
             yAxisId="left"
@@ -268,7 +275,7 @@ export default function StatsDashboard({
         </ComposedChart>
       </ResponsiveContainer>
     ),
-    [BarValueLabel, LineValueLabel, PlanLegend, monthlyAverages, planMax, planTicks]
+    [BarValueLabel, LineValueLabel, PlanLegend, legendTopLeft, monthlyAverages, planMax, planTicks]
   );
 
   const monthlyTotalsChart = useMemo(
@@ -276,7 +283,7 @@ export default function StatsDashboard({
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
           data={normalizedMonthlyOverview}
-          margin={{ top: 18, right: 18, bottom: 24, left: 18 }}
+          margin={{ top: 54, right: 18, bottom: 24, left: 18 }}
         >
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
           <XAxis
@@ -305,7 +312,12 @@ export default function StatsDashboard({
             ticks={overviewRightTicks}
             allowDecimals={false}
           />
-          <Legend verticalAlign="top" align="right" content={<MonthlyLegend />} />
+          <Legend
+            verticalAlign="top"
+            align="left"
+            wrapperStyle={legendTopLeft}
+            content={<MonthlyLegend />}
+          />
           <Bar
             dataKey="totalCount"
             yAxisId="right"
@@ -340,6 +352,7 @@ export default function StatsDashboard({
       BarValueLabel,
       LineValueLabel,
       MonthlyLegend,
+      legendTopLeft,
       normalizedMonthlyOverview,
       overviewLeftMax,
       overviewLeftTicks,
@@ -351,7 +364,10 @@ export default function StatsDashboard({
   const weekdayChart = useMemo(
     () => (
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={weekdayStats.points} margin={{ top: 18, right: 40, bottom: 24, left: 40 }}>
+        <ComposedChart
+          data={weekdayStats.points}
+          margin={{ top: 60, right: 40, bottom: 24, left: 40 }}
+        >
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
           <XAxis
             dataKey="label"
@@ -367,7 +383,12 @@ export default function StatsDashboard({
             ticks={weekdayTicks}
             allowDecimals={false}
           />
-          <Legend verticalAlign="top" align="right" content={<WeekdayLegend />} />
+          <Legend
+            verticalAlign="top"
+            align="left"
+            wrapperStyle={legendTopLeft}
+            content={<WeekdayLegend />}
+          />
           {weekdayStats.buildings.map((meta, index) => {
             const color = weekdayBarColors[index % weekdayBarColors.length];
             const isTopStack = index === weekdayStats.buildings.length - 1;
@@ -396,6 +417,7 @@ export default function StatsDashboard({
     [
       BarValueLabel,
       WeekdayLegend,
+      legendTopLeft,
       makeBuildingLabel,
       weekdayBarColors,
       weekdayMax,

@@ -247,9 +247,9 @@
 .chartLegend {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 10px;
-  padding: 6px 10px;
+  padding: 6px 12px;
   border-radius: 10px;
   background: rgba(15, 23, 42, 0.78);
   border: 1px solid rgba(255, 255, 255, 0.08);
