@@ -8,16 +8,22 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "clsx": "file:vendor/clsx",
     "drizzle-orm": "^0.30.10",
+    "eventemitter3": "file:vendor/eventemitter3",
+    "lodash": "file:vendor/lodash",
     "recharts": "^2.12.7",
+    "recharts-scale": "file:vendor/recharts-scale",
     "sharp": "^0.33.4",
     "luxon": "^3.4.4",
     "mysql2": "^3.9.7",
     "next": "^14.2.5",
-    "recharts": "^2.12.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "web-push": "^3.6.7",
+    "react-smooth": "file:vendor/react-smooth",
+    "tiny-invariant": "file:vendor/tiny-invariant",
+    "victory-vendor": "file:vendor/victory-vendor",
+    "web-push": "file:vendor/web-push",
     "zod": "^3.23.8"
   },
   "devDependencies": {
