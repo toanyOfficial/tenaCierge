@@ -1,0 +1,108 @@
+import { sql } from 'drizzle-orm';
+
+import { db } from '@/src/db/client';
+
+export type MonthlyOverviewPoint = {
+  label: string;
+  totalCount: number;
+  roomAverage: number;
+};
+
+type MonthlyAggregateRow = {
+  month: string | Date;
+  totalCount: number;
+  roomAverage: number;
+};
+
+function formatMonthKey(date: Date) {
+  const year = date.getUTCFullYear();
+  const month = `${date.getUTCMonth() + 1}`.padStart(2, '0');
+  return `${year}-${month}-01`;
+}
+
+async function resolveAnchorMonth() {
+  const [rows] = await db.execute<{ lastMonth: string | null }>(sql`
+    SELECT DATE_FORMAT(MAX(wh.date), '%Y-%m-01') AS lastMonth
+    FROM work_header wh
+    WHERE wh.cleaning_yn = 1
+      AND wh.cancel_yn = 0
+  `);
+
+  const lastMonth = rows[0]?.lastMonth;
+  if (lastMonth) {
+    return new Date(`${lastMonth}T00:00:00.000Z`);
+  }
+
+  const fallback = new Date();
+  fallback.setUTCDate(1);
+  return fallback;
+}
+
+function getTrailingMonths(anchor: Date) {
+  const months: { key: string; label: string }[] = [];
+  for (let offset = 12; offset >= 0; offset -= 1) {
+    const cursor = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() - offset, 1));
+    months.push({ key: formatMonthKey(cursor), label: `${cursor.getUTCMonth() + 1}`.padStart(2, '0') });
+  }
+
+  return months;
+}
+
+export async function fetchMonthlyOverview(): Promise<MonthlyOverviewPoint[]> {
+  const anchor = await resolveAnchorMonth();
+  const months = getTrailingMonths(anchor);
+  const startDate = months[0]?.key;
+  const endCursor = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + 1, 1));
+  const endDate = formatMonthKey(endCursor);
+
+  const [rows] = await Promise.all([
+    db.execute<MonthlyAggregateRow>(sql`
+      SELECT
+        month,
+        CAST(SUM(room_count) AS DECIMAL(10, 2)) AS totalCount,
+        CAST(AVG(room_count) AS DECIMAL(10, 4)) AS roomAverage
+      FROM (
+        SELECT
+          DATE_FORMAT(wh.date, '%Y-%m-01') AS month,
+          wh.room_id AS roomId,
+          COUNT(*) AS room_count
+        FROM work_header wh
+        WHERE wh.cleaning_yn = 1
+          AND wh.cancel_yn = 0
+          AND wh.date >= ${startDate}
+          AND wh.date < ${endDate}
+        GROUP BY month, roomId
+      ) per_room
+      GROUP BY month
+    `)
+  ]);
+
+  const aggregates = new Map<string, { totalCount: number; roomAverage: number }>();
+  rows.forEach((row) => {
+    const monthKey = (() => {
+      if (row.month instanceof Date) {
+        return formatMonthKey(row.month);
+      }
+
+      const str = `${row.month}`;
+      const parsed = new Date(str);
+      if (!Number.isNaN(parsed.getTime())) {
+        return formatMonthKey(parsed);
+      }
+
+      return str;
+    })();
+
+    aggregates.set(monthKey, {
+      totalCount: Number(row.totalCount ?? 0),
+      roomAverage: Number(row.roomAverage ?? 0)
+    });
+  });
+
+  return months.map(({ key, label }) => {
+    const stats = aggregates.get(key);
+    const totalCount = Number(stats?.totalCount ?? 0);
+    const roomAverage = Number(stats?.roomAverage ?? 0);
+    return { label, totalCount, roomAverage };
+  });
+}
