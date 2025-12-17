@@ -123,7 +123,8 @@ export default function StatsDashboard({
     () =>
       (side: 'left' | 'right') =>
         function BuildingLabel({ x, y, width, height, value }: any) {
-          if (value === 0 || value === undefined || value === null) return null;
+          if (value === undefined || value === null) return null;
+          if (value < 1) return null;
 
           const centerY = (y ?? 0) + (height ?? 0) / 2;
           const offset = 8;
@@ -451,27 +452,27 @@ export default function StatsDashboard({
             </div>
           </section>
 
-          <section className={styles.graphCard} aria-label="월별 통계값">
+          <section className={styles.graphCard} aria-label="월별 통계">
             <div className={styles.graphHeading}>
-              <p className={styles.graphTitle}>월별 통계값</p>
+              <p className={styles.graphTitle}>월별 통계</p>
             </div>
             <div className={styles.graphSurface} aria-hidden="true">
               <div className={styles.mixedChart}>{monthlyTotalsChart}</div>
             </div>
           </section>
 
-          <section className={styles.graphCard} aria-label="요일별 통계값">
+          <section className={styles.graphCard} aria-label="요일별 통계">
             <div className={styles.graphHeading}>
-              <p className={styles.graphTitle}>요일별 통계값</p>
+              <p className={styles.graphTitle}>요일별 통계</p>
             </div>
             <div className={styles.graphSurface} aria-hidden="true">
               <div className={styles.mixedChart}>{weekdayChart}</div>
             </div>
           </section>
 
-          <section className={styles.graphCard} aria-label="숙박일수별 통계값">
+          <section className={styles.graphCard} aria-label="숙박일수별 통계">
             <div className={styles.graphHeading}>
-              <p className={styles.graphTitle}>숙박일수별 통계값</p>
+              <p className={styles.graphTitle}>숙박일수별 통계</p>
             </div>
             <div className={styles.graphSurface} aria-hidden="true">
               <div className={styles.placeholderMessage}>준비중입니다.</div>
