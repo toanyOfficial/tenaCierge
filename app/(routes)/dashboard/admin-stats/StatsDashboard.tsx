@@ -12,17 +12,6 @@ type GraphCard = {
 
 const graphCards: GraphCard[] = [
   {
-    title: '1번 그래프',
-    description: '핵심 지표를 압축하여 한눈에 보여주는 영역입니다. 1920 x 1080 해상도에 맞춰 비율을 고정했습니다.',
-    bars: [
-      { label: 'Alpha', value: 78, baseline: 60 },
-      { label: 'Beta', value: 54, baseline: 45 },
-      { label: 'Gamma', value: 68, baseline: 50 },
-      { label: 'Delta', value: 92, baseline: 70 }
-    ],
-    trend: [22, 40, 56, 48, 62, 74, 88]
-  },
-  {
     title: '2번 그래프',
     description: '서비스 성과를 세그먼트별로 나누어 비교합니다. 모든 요소는 입력 없이 자동 정렬됩니다.',
     bars: [
@@ -57,6 +46,48 @@ const graphCards: GraphCard[] = [
   }
 ];
 
+type MonthlyAverage = {
+  label: string;
+  perOrder: number;
+  subscription: number;
+};
+
+function getTrailingMonths(): string[] {
+  const now = new Date();
+  const months: string[] = [];
+
+  for (let offset = 12; offset >= 0; offset -= 1) {
+    const cursor = new Date(now);
+    cursor.setDate(1);
+    cursor.setMonth(now.getMonth() - offset);
+    const mm = `${cursor.getMonth() + 1}`.padStart(2, '0');
+    months.push(mm);
+  }
+
+  return months;
+}
+
+const monthlyAverages: MonthlyAverage[] = getTrailingMonths().map((label, index) => {
+  const perOrderSeries = [
+    4, 5, 6, 7, 6, 5, 8, 9, 11, 10, 12, 14, 15
+  ];
+  const subscriptionSeries = [
+    13, 14, 15, 13, 12, 11, 12, 15, 16, 18, 17, 19, 20
+  ];
+
+  return {
+    label,
+    perOrder: perOrderSeries[index] ?? 0,
+    subscription: subscriptionSeries[index] ?? 0
+  };
+});
+
+const monthlyMax = Math.max(
+  ...monthlyAverages.map((row) => Math.max(row.perOrder, row.subscription, 1))
+);
+
+const yTicks = [0.25, 0.5, 0.75, 1].map((ratio) => Math.ceil(monthlyMax * ratio));
+
 type Props = { profile: ProfileSummary };
 
 export default function StatsDashboard(_: Props) {
@@ -75,6 +106,62 @@ export default function StatsDashboard(_: Props) {
         </header>
 
         <div className={styles.graphGrid}>
+          <section className={styles.graphCard} aria-label="1번 그래프">
+            <div className={styles.graphHeading}>
+              <p className={styles.graphTitle}>1번 그래프</p>
+              <p className={styles.graphDescription}>
+                월별 시계열 평균 건수를 재정의했습니다. 작년 해당 월부터 올해 해당 월까지 13개월 구간을 1920 x 1080 캔버스에 고정하고, 건별제와 정액제 평균을 월별·호실별 work_header 기준으로 비교합니다.
+              </p>
+            </div>
+
+            <div className={styles.graphSurface} aria-hidden="true">
+              <div className={styles.monthlyLegend}>
+                <span className={styles.legendItem}>
+                  <span className={styles.legendSwatchPerOrder} />건별제 (client_header.settle_flag=1)
+                </span>
+                <span className={styles.legendItem}>
+                  <span className={styles.legendSwatchSubscription} />정액제 (client_header.settle_flag=2)
+                </span>
+              </div>
+
+              <div className={styles.axisLabelY}>평균 건수</div>
+              <div className={styles.axisLabelX}>월 (MM)</div>
+
+              <div className={styles.monthlyGridLines}>
+                {yTicks.map((tick) => (
+                  <span key={`tick-${tick}`} className={styles.monthlyGridLine}>
+                    <em>{tick}</em>
+                  </span>
+                ))}
+              </div>
+
+              <div className={styles.monthlyBarArea}>
+                {monthlyAverages.map((row, index) => {
+                  const perOrderHeight = (row.perOrder / monthlyMax) * 100;
+                  const subscriptionHeight = (row.subscription / monthlyMax) * 100;
+
+                  return (
+                    <div key={`${row.label}-${index}`} className={styles.monthlyColumn}>
+                      <div className={styles.monthlyBars}>
+                        <div
+                          className={styles.perOrderBar}
+                          style={{ height: `${perOrderHeight}%` }}
+                          aria-label={`건별제 ${row.label}월 평균 ${row.perOrder}`}
+                        />
+                        <div
+                          className={styles.subscriptionBar}
+                          style={{ height: `${subscriptionHeight}%` }}
+                          aria-label={`정액제 ${row.label}월 평균 ${row.subscription}`}
+                        />
+                      </div>
+                      <span className={styles.monthLabel}>{row.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+
           {graphCards.map((card) => (
             <section key={card.title} className={styles.graphCard} aria-label={card.title}>
               <div className={styles.graphHeading}>
