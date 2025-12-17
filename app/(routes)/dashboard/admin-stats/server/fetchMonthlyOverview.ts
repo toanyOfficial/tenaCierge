@@ -9,7 +9,7 @@ export type MonthlyOverviewPoint = {
 };
 
 type MonthlyAggregateRow = {
-  month: string;
+  month: string | Date;
   totalCount: number;
   roomAverage: number;
 };
@@ -79,7 +79,21 @@ export async function fetchMonthlyOverview(): Promise<MonthlyOverviewPoint[]> {
 
   const aggregates = new Map<string, { totalCount: number; roomAverage: number }>();
   rows.forEach((row) => {
-    aggregates.set(row.month, {
+    const monthKey = (() => {
+      if (row.month instanceof Date) {
+        return formatMonthKey(row.month);
+      }
+
+      const str = `${row.month}`;
+      const parsed = new Date(str);
+      if (!Number.isNaN(parsed.getTime())) {
+        return formatMonthKey(parsed);
+      }
+
+      return str;
+    })();
+
+    aggregates.set(monthKey, {
       totalCount: Number(row.totalCount ?? 0),
       roomAverage: Number(row.roomAverage ?? 0)
     });
