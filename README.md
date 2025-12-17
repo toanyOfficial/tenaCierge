@@ -39,6 +39,10 @@ batchs/           # 기존 배치 스크립트(참고용)
 
 > 현재 화면들은 모두 mock 데이터를 사용하므로 `.env`나 실제 DB 연결 없이도 바로 렌더링됩니다. 이후 API/DB 연동 시에는 `DATABASE_URL`을 `.env.local` 등에 추가하면 됩니다.
 
+## 차트 라이브러리 안내
+- `/dashboard/admin-stats` 화면의 혼합형 차트는 **Recharts**를 CDN(unpkg)으로 로드합니다.
+- 현재 레지스트리 접근이 제한되어 있어 `package.json` dependencies로 설치하지 않습니다. 레지스트리 이슈가 해소되면 `recharts@^2.12.7`을 dependencies에 추가한 뒤 `npm/bun install`로 실제 패키지를 반영할 수 있습니다.
+
 ## 환경 변수
 - `DATABASE_URL` – mysql2 커넥션 문자열
 - `PUPPETEER_EXECUTABLE_PATH` – PDF 출력 시 사용(향후 기능)
