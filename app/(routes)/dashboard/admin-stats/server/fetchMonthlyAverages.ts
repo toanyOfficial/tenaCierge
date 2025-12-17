@@ -78,7 +78,9 @@ export async function fetchMonthlyAverages(): Promise<MonthlyAveragePoint[]> {
     GROUP BY ch.settle_flag
   `);
 
-  const planRoomCounts = planRooms.reduce(
+  const planRoomRows = Array.isArray(planRooms) ? planRooms : [];
+
+  const planRoomCounts = planRoomRows.reduce(
     (acc, row) => {
       if (row.settleFlag === 1) {
         acc.perOrder = Number(row.roomCount ?? 0);
@@ -91,8 +93,9 @@ export async function fetchMonthlyAverages(): Promise<MonthlyAveragePoint[]> {
     { perOrder: 0, subscription: 0 }
   );
 
+  const planRows = Array.isArray(rows) ? rows : [];
   const groupedTotals = new Map<string, { perOrder: number; subscription: number }>();
-  rows.forEach((row) => {
+  planRows.forEach((row) => {
     const monthTotals = groupedTotals.get(row.month) ?? { perOrder: 0, subscription: 0 };
     if (row.settleFlag === 1) {
       monthTotals.perOrder = Number(row.totalCount ?? 0);
