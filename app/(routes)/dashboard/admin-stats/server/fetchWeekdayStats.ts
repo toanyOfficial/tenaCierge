@@ -6,6 +6,7 @@ export type WeekdaySeriesMeta = {
   key: string;
   label: string;
   sectorCode: string | null;
+  averageCount: number;
 };
 
 export type WeekdayStatsPoint = {
@@ -97,6 +98,7 @@ export async function fetchWeekdayStats(): Promise<{
 
   const buildingTotals = new Map<number, Map<number, number>>();
   const totalPerWeekday = new Map<number, number>();
+  const buildingTotalCounts = new Map<number, number>();
 
   workRows.forEach((row) => {
     const buildingId = Number(row.buildingId);
@@ -109,6 +111,8 @@ export async function fetchWeekdayStats(): Promise<{
     const inner = buildingTotals.get(buildingId)!;
     inner.set(weekday, totalCount);
 
+    buildingTotalCounts.set(buildingId, (buildingTotalCounts.get(buildingId) ?? 0) + totalCount);
+
     totalPerWeekday.set(weekday, (totalPerWeekday.get(weekday) ?? 0) + totalCount);
   });
 
@@ -117,18 +121,35 @@ export async function fetchWeekdayStats(): Promise<{
   let buildingNames: BuildingNameRow[] = [];
   if (buildingIds.length > 0) {
     [buildingNames] = await db.execute<BuildingNameRow>(sql`
-      SELECT id AS buildingId, building_short_name AS shortName, basecode_sector AS sectorCode
-      FROM etc_buildings
-      WHERE id IN (${sql.join(buildingIds, sql`,`)})
+      SELECT
+        eb.id AS buildingId,
+        eb.building_short_name AS shortName,
+        bc.code AS sectorCode
+      FROM etc_buildings eb
+      LEFT JOIN etc_baseCode bc ON bc.code = eb.basecode_code
+      WHERE eb.id IN (${sql.join(buildingIds, sql`,`)})
     `);
   }
+
+  const totalOccurrencesCount = occurrenceRows.reduce(
+    (sum, row) => sum + Number(row.occurrences ?? 0),
+    0
+  );
 
   const buildingMeta: WeekdaySeriesMeta[] = buildingIds.map((id) => {
     const match = buildingNames.find((row) => Number(row.buildingId) === id);
     const fallbackLabel = `건물${id}`;
     const trimmed = (match?.shortName || fallbackLabel).slice(0, 2);
     const label = trimmed || fallbackLabel;
-    return { key: makeBuildingKey(id), label, sectorCode: match?.sectorCode ?? null };
+    return {
+      key: makeBuildingKey(id),
+      label,
+      sectorCode: match?.sectorCode ?? null,
+      averageCount:
+        totalOccurrencesCount > 0
+          ? (buildingTotalCounts.get(id) ?? 0) / totalOccurrencesCount
+          : 0
+    };
   });
 
   const occurrenceMap = new Map<number, number>();
