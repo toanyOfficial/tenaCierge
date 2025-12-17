@@ -1,8 +1,17 @@
 "use client";
 
-import Script from 'next/script';
-import React, { useEffect, useMemo, useState } from 'react';
-import ReactDOM from 'react-dom';
+import React, { useMemo } from 'react';
+import {
+  Bar,
+  CartesianGrid,
+  ComposedChart,
+  LabelList,
+  Legend,
+  Line,
+  ResponsiveContainer,
+  XAxis,
+  YAxis
+} from 'recharts';
 
 import styles from './stats-dashboard.module.css';
 import type { MonthlyAveragePoint } from './server/fetchMonthlyAverages';
@@ -57,48 +66,9 @@ function formatValue(value: number) {
   return Number.isInteger(value) ? `${value}` : value.toFixed(1);
 }
 
-type RechartsNamespace = {
-  ResponsiveContainer: React.ComponentType<any>;
-  ComposedChart: React.ComponentType<any>;
-  Bar: React.ComponentType<any>;
-  Line: React.ComponentType<any>;
-  XAxis: React.ComponentType<any>;
-  YAxis: React.ComponentType<any>;
-  Legend: React.ComponentType<any>;
-  Tooltip: React.ComponentType<any>;
-  CartesianGrid: React.ComponentType<any>;
-  LabelList: React.ComponentType<any>;
-};
-
-declare global {
-  interface Window {
-    Recharts?: RechartsNamespace;
-  }
-}
-
 type Props = { profile: ProfileSummary; monthlyAverages: MonthlyAveragePoint[] };
 
-const rechartsCdn =
-  'https://unpkg.com/recharts@2.12.7/umd/Recharts.min.js';
-
 export default function StatsDashboard({ monthlyAverages }: Props) {
-  const [rechartsReady, setRechartsReady] = useState(false);
-  const [rechartsError, setRechartsError] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // Recharts UMD expects React/ReactDOM on window. Make them available before the CDN loads.
-      (window as any).React = (window as any).React ?? React;
-      (window as any).ReactDOM = (window as any).ReactDOM ?? ReactDOM;
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.Recharts) {
-      setRechartsReady(true);
-    }
-  }, []);
-
   const leftMax = useMemo(
     () => Math.max(100, ...monthlyAverages.map((row) => row.totalCount), 0),
     [monthlyAverages]
@@ -163,23 +133,8 @@ export default function StatsDashboard({ monthlyAverages }: Props) {
     []
   );
 
-  const monthlyChart = useMemo(() => {
-    if (rechartsError) {
-      return (
-        <div className={styles.chartError} role="status" aria-live="polite">
-          Recharts CDN 로드에 실패했습니다. 네트워크 또는 CSP 설정을 확인해 주세요.
-        </div>
-      );
-    }
-
-    if (typeof window === 'undefined' || !rechartsReady || !window.Recharts) {
-      return <div className={styles.chartPlaceholder} aria-hidden />;
-    }
-
-    const { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Legend, CartesianGrid, LabelList } =
-      window.Recharts;
-
-    return (
+  const monthlyChart = useMemo(
+    () => (
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={monthlyAverages} margin={{ top: 18, right: 18, bottom: 24, left: 18 }}>
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
@@ -238,17 +193,12 @@ export default function StatsDashboard({ monthlyAverages }: Props) {
           </defs>
         </ComposedChart>
       </ResponsiveContainer>
-    );
-  }, [BarValueLabel, ChartLegend, LineValueLabel, leftMax, leftTicks, monthlyAverages, rechartsReady, rightMax, rightTicks]);
+    ),
+    [BarValueLabel, ChartLegend, LineValueLabel, leftMax, leftTicks, monthlyAverages, rightMax, rightTicks]
+  );
 
   return (
     <div className={styles.shell}>
-      <Script
-        src={rechartsCdn}
-        strategy="afterInteractive"
-        onLoad={() => setRechartsReady(true)}
-        onError={() => setRechartsError(true)}
-      />
       <div className={styles.canvas}>
         <header className={styles.header}>
           <div>
