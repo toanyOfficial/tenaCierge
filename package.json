@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.30.10",
+    "recharts": "^2.12.7",
     "sharp": "^0.33.4",
     "luxon": "^3.4.4",
     "mysql2": "^3.9.7",
