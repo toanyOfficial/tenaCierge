@@ -20,6 +20,21 @@ function formatMonthKey(date: Date) {
   return `${year}-${month}-01`;
 }
 
+function normalizeMonthKey(rawMonth: string | Date) {
+  const parsed = (() => {
+    if (rawMonth instanceof Date) return rawMonth;
+
+    const value = new Date(`${rawMonth}`);
+    return Number.isNaN(value.getTime()) ? null : value;
+  })();
+
+  if (!parsed) return null;
+
+  const key = formatMonthKey(parsed);
+  const label = `${parsed.getUTCMonth() + 1}`.padStart(2, '0');
+  return { key, label };
+}
+
 async function resolveAnchorMonth() {
   const [rows] = await db.execute<{ lastMonth: string | null }>(sql`
     SELECT DATE_FORMAT(MAX(wh.date), '%Y-%m-01') AS lastMonth
@@ -77,30 +92,24 @@ export async function fetchMonthlyOverview(): Promise<MonthlyOverviewPoint[]> {
     `)
   ]);
 
-  const aggregates = new Map<string, { totalCount: number; roomAverage: number }>();
+  const aggregatesByKey = new Map<string, { totalCount: number; roomAverage: number }>();
+  const aggregatesByLabel = new Map<string, { totalCount: number; roomAverage: number }>();
+
   rows.forEach((row) => {
-    const monthKey = (() => {
-      if (row.month instanceof Date) {
-        return formatMonthKey(row.month);
-      }
+    const normalized = normalizeMonthKey(row.month);
+    if (!normalized) return;
 
-      const str = `${row.month}`;
-      const parsed = new Date(str);
-      if (!Number.isNaN(parsed.getTime())) {
-        return formatMonthKey(parsed);
-      }
-
-      return str;
-    })();
-
-    aggregates.set(monthKey, {
+    const snapshot = {
       totalCount: Number(row.totalCount ?? 0),
       roomAverage: Number(row.roomAverage ?? 0)
-    });
+    };
+
+    aggregatesByKey.set(normalized.key, snapshot);
+    aggregatesByLabel.set(normalized.label, snapshot);
   });
 
   return months.map(({ key, label }) => {
-    const stats = aggregates.get(key);
+    const stats = aggregatesByKey.get(key) ?? aggregatesByLabel.get(label);
     const totalCount = Number(stats?.totalCount ?? 0);
     const roomAverage = Number(stats?.roomAverage ?? 0);
     return { label, totalCount, roomAverage };
