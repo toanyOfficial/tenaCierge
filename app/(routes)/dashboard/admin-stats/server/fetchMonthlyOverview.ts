@@ -36,14 +36,15 @@ function normalizeMonthKey(rawMonth: string | Date) {
 }
 
 async function resolveAnchorMonth() {
-  const [rows] = await db.execute<{ lastMonth: string | null }>(sql`
+  const [rows] = await db.execute(sql`
     SELECT DATE_FORMAT(MAX(wh.date), '%Y-%m-01') AS lastMonth
     FROM work_header wh
     WHERE wh.cleaning_yn = 1
       AND wh.cancel_yn = 0
   `);
 
-  const lastMonth = rows[0]?.lastMonth;
+  const typedRows = rows as unknown as { lastMonth: string | null }[];
+  const lastMonth = typedRows[0]?.lastMonth;
   if (lastMonth) {
     return new Date(`${lastMonth}T00:00:00.000Z`);
   }
@@ -70,7 +71,7 @@ export async function fetchMonthlyOverview(): Promise<MonthlyOverviewPoint[]> {
   const endCursor = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + 1, 1));
   const endDate = formatMonthKey(endCursor);
 
-  const [rows] = await db.execute<MonthlyAggregateRow>(sql`
+  const [aggregateRows] = await db.execute(sql`
     SELECT
       month,
       CAST(SUM(room_count) AS DECIMAL(10, 2)) AS totalCount,
@@ -92,7 +93,8 @@ export async function fetchMonthlyOverview(): Promise<MonthlyOverviewPoint[]> {
 
   const aggregatesByKey = new Map<string, { totalCount: number; roomAverage: number }>();
 
-  rows.forEach((row) => {
+  const monthlyRows = aggregateRows as unknown as MonthlyAggregateRow[];
+  monthlyRows.forEach((row) => {
     const normalized = normalizeMonthKey(row.month);
     if (!normalized) return;
 

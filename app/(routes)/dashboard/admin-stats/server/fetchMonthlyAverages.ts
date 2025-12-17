@@ -26,14 +26,15 @@ function formatMonthKey(date: Date) {
 }
 
 async function resolveAnchorMonth() {
-  const [rows] = await db.execute<{ lastMonth: string | null }>(sql`
+  const [rows] = await db.execute(sql`
     SELECT DATE_FORMAT(MAX(wh.date), '%Y-%m-01') AS lastMonth
     FROM work_header wh
     WHERE wh.cleaning_yn = 1
       AND wh.cancel_yn = 0
   `);
 
-  const lastMonth = rows[0]?.lastMonth;
+  const typedRows = rows as unknown as { lastMonth: string | null }[];
+  const lastMonth = typedRows[0]?.lastMonth;
   if (lastMonth) {
     return new Date(`${lastMonth}T00:00:00.000Z`);
   }
@@ -64,7 +65,7 @@ export async function fetchMonthlyAverages(): Promise<MonthlyAveragePoint[]> {
   const endCursor = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + 1, 1));
   const endDate = formatMonthKey(endCursor);
 
-  const [rows] = await db.execute<MonthlyPlanRow>(sql`
+  const [rows] = await db.execute(sql`
     SELECT
       DATE_FORMAT(wh.date, '%Y-%m-01') AS month,
       ch.settle_flag AS settleFlag,
@@ -80,7 +81,7 @@ export async function fetchMonthlyAverages(): Promise<MonthlyAveragePoint[]> {
     GROUP BY month, ch.settle_flag
   `);
 
-  const [planRooms] = await db.execute<PlanRoomRow>(sql`
+  const [planRooms] = await db.execute(sql`
     SELECT
       ch.settle_flag AS settleFlag,
       COUNT(*) AS roomCount
@@ -91,7 +92,8 @@ export async function fetchMonthlyAverages(): Promise<MonthlyAveragePoint[]> {
     GROUP BY ch.settle_flag
   `);
 
-  const planRoomCounts = planRooms.reduce(
+  const planRoomRows = planRooms as unknown as PlanRoomRow[];
+  const planRoomCounts = planRoomRows.reduce(
     (acc, row) => {
       if (row.settleFlag === 1) {
         acc.perOrder = Number(row.roomCount ?? 0);
@@ -104,8 +106,9 @@ export async function fetchMonthlyAverages(): Promise<MonthlyAveragePoint[]> {
     { perOrder: 0, subscription: 0 }
   );
 
+  const monthlyPlanRows = rows as unknown as MonthlyPlanRow[];
   const groupedTotals = new Map<string, { perOrder: number; subscription: number }>();
-  rows.forEach((row) => {
+  monthlyPlanRows.forEach((row) => {
     const monthTotals = groupedTotals.get(row.month) ?? { perOrder: 0, subscription: 0 };
     if (row.settleFlag === 1) {
       monthTotals.perOrder = Number(row.totalCount ?? 0);
