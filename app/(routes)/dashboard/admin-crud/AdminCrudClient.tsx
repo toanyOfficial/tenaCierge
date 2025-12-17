@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import CommonHeader from '@/app/(routes)/dashboard/CommonHeader';
 
@@ -160,6 +160,9 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   const [helperSnapshot, setHelperSnapshot] = useState<Snapshot | null>(null);
   const [helperLoading, setHelperLoading] = useState(false);
   const [helperFeedback, setHelperFeedback] = useState<string | null>(null);
+  const [helperOffset, setHelperOffset] = useState(0);
+  const [helperHasMore, setHelperHasMore] = useState(false);
+  const [helperLoadingMore, setHelperLoadingMore] = useState(false);
   const [roomFilters, setRoomFilters] = useState<RoomFilterState>(() => createEmptyRoomFilters());
   const [collapsedFilters, setCollapsedFilters] = useState<Record<RoomFilterKey, boolean>>({
     buildings: false,
@@ -172,6 +175,7 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   const [pendingClientEdit, setPendingClientEdit] = useState<Record<string, unknown> | null>(null);
   const [exceptionContext, setExceptionContext] = useState(DEFAULT_EXCEPTION_STATE);
   const formRef = useRef<HTMLFormElement | null>(null);
+  const helperTableRef = useRef<HTMLDivElement | null>(null);
 
   const isClientAdditionalPrice = selectedTable === 'client_additional_price';
   const isClientHeader = selectedTable === 'client_header';
@@ -260,17 +264,21 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   }, [selectedTable]);
 
   useEffect(() => {
+    setHelperOffset(0);
+    setHelperHasMore(false);
     if (isProtectedTable) {
-      void fetchHelperSnapshot();
+      void fetchHelperSnapshot(0, false);
     } else {
       setHelperSnapshot(snapshot);
       setHelperFeedback(null);
     }
-  }, [isProtectedTable, selectedTable]);
+  }, [fetchHelperSnapshot, isProtectedTable, selectedTable, snapshot]);
 
   useEffect(() => {
     if (!isProtectedTable && snapshot) {
       setHelperSnapshot(snapshot);
+      setHelperOffset(snapshot.offset + (snapshot.rows?.length ?? 0));
+      setHelperHasMore(false);
     }
   }, [isProtectedTable, snapshot]);
 
@@ -285,6 +293,7 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   const columns = snapshot?.columns ?? [];
   const helperRows = usingSharedGrid ? snapshot?.rows ?? [] : helperSnapshot?.rows ?? [];
   const helperTableName = usingSharedGrid ? snapshot?.table ?? selectedTable : helperSnapshot?.table ?? selectedTable;
+  const isWorkerHelper = helperTableName === 'worker_header';
   const helperColumnsRaw = useMemo(
     () => (usingSharedGrid ? snapshot?.columns ?? [] : helperSnapshot?.columns ?? []),
     [helperSnapshot?.columns, snapshot?.columns, usingSharedGrid]
@@ -614,29 +623,61 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
     }
   }
 
-  async function fetchHelperSnapshot() {
-    if (!isProtectedTable) {
-      setHelperSnapshot(snapshot);
-      return;
-    }
-
-    setHelperLoading(true);
-    setHelperFeedback(null);
-    try {
-      const table = selectedTable;
-      const response = await fetch(`/api/admin/crud?table=${table}&limit=200&offset=0`, { cache: 'no-cache' });
-      if (!response.ok) {
-        throw new Error('목록을 불러오지 못했습니다.');
+  const fetchHelperSnapshot = useCallback(
+    async (offset = 0, append = false) => {
+      if (!isProtectedTable) {
+        setHelperSnapshot(snapshot);
+        return;
       }
-      const payload = (await response.json()) as Snapshot;
-      setHelperSnapshot({ ...payload, table });
-    } catch (error) {
-      console.error(error);
-      setHelperFeedback(error instanceof Error ? error.message : '목록 조회 중 오류가 발생했습니다.');
-    } finally {
-      setHelperLoading(false);
-    }
-  }
+
+      const table = selectedTable;
+      const isWorkerHelper = table === 'worker_header';
+      const limit = isWorkerHelper ? DEFAULT_LIMIT : 200;
+      const targetOffset = append ? offset : 0;
+
+      if (append) {
+        setHelperLoadingMore(true);
+      } else {
+        setHelperLoading(true);
+      }
+      setHelperFeedback(null);
+
+      try {
+        const response = await fetch(`/api/admin/crud?table=${table}&limit=${limit}&offset=${targetOffset}`, {
+          cache: 'no-cache'
+        });
+        if (!response.ok) {
+          throw new Error('목록을 불러오지 못했습니다.');
+        }
+        const payload = (await response.json()) as Snapshot;
+
+        setHelperSnapshot((prev) => {
+          const existingRows = append && prev?.table === table ? prev.rows : [];
+          const mergedRows = append ? [...existingRows, ...payload.rows] : payload.rows;
+          return { ...payload, table, rows: mergedRows };
+        });
+
+        if (isWorkerHelper) {
+          const nextOffset = targetOffset + payload.rows.length;
+          setHelperOffset(nextOffset);
+          setHelperHasMore(payload.rows.length >= limit);
+        } else {
+          setHelperOffset(payload.offset + payload.rows.length);
+          setHelperHasMore(false);
+        }
+      } catch (error) {
+        console.error(error);
+        setHelperFeedback(error instanceof Error ? error.message : '목록 조회 중 오류가 발생했습니다.');
+      } finally {
+        if (append) {
+          setHelperLoadingMore(false);
+        } else {
+          setHelperLoading(false);
+        }
+      }
+    },
+    [isProtectedTable, selectedTable, snapshot]
+  );
 
   function toInputType(column: AdminColumnMeta) {
     if (column.dataType.includes('int') || column.dataType.includes('decimal')) return 'number';
@@ -754,6 +795,26 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
   }, [helperRows, helperTableName, workerSearch]);
 
   const displayedRows = isRoomHelper ? filteredHelperRows : workerFilteredRows;
+
+  useEffect(() => {
+    const container = helperTableRef.current;
+    if (!container || !isWorkerHelper) return;
+
+    const handleScroll = () => {
+      if (helperLoadingMore || helperLoading || !helperHasMore) return;
+
+      const { scrollTop, clientHeight, scrollHeight } = container;
+      if (scrollHeight - (scrollTop + clientHeight) < 120) {
+        void fetchHelperSnapshot(helperOffset, true);
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll);
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+    };
+  }, [fetchHelperSnapshot, helperHasMore, helperLoading, helperLoadingMore, helperOffset, isWorkerHelper]);
 
   function sanitizePositiveInteger(value: string | boolean) {
     const raw = typeof value === 'string' ? value : String(value);
@@ -1952,7 +2013,9 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
           </div>
           <button
             type="button"
-            onClick={() => (usingSharedGrid ? fetchSnapshot(selectedTable, snapshot?.offset ?? 0) : fetchHelperSnapshot())}
+            onClick={() =>
+              usingSharedGrid ? fetchSnapshot(selectedTable, snapshot?.offset ?? 0) : fetchHelperSnapshot(0, false)
+            }
             disabled={helperLoading || loading}
           >
             목록 새로고침
@@ -2083,7 +2146,7 @@ export default function AdminCrudClient({ tables, profile, initialTable, title }
           </div>
         ) : null}
 
-        <div className={styles.workerTableWrapper}>
+        <div className={styles.workerTableWrapper} ref={helperTableRef}>
           {displayedRows.length ? (
             <table className={styles.workerTable}>
               <thead>
