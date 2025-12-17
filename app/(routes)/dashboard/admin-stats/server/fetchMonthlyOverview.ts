@@ -70,27 +70,25 @@ export async function fetchMonthlyOverview(): Promise<MonthlyOverviewPoint[]> {
   const endCursor = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + 1, 1));
   const endDate = formatMonthKey(endCursor);
 
-  const [rows] = await Promise.all([
-    db.execute<MonthlyAggregateRow>(sql`
+  const [rows] = await db.execute<MonthlyAggregateRow>(sql`
+    SELECT
+      month,
+      CAST(SUM(room_count) AS DECIMAL(10, 2)) AS totalCount,
+      CAST(AVG(room_count) AS DECIMAL(10, 4)) AS roomAverage
+    FROM (
       SELECT
-        month,
-        CAST(SUM(room_count) AS DECIMAL(10, 2)) AS totalCount,
-        CAST(AVG(room_count) AS DECIMAL(10, 4)) AS roomAverage
-      FROM (
-        SELECT
-          DATE_FORMAT(wh.date, '%Y-%m-01') AS month,
-          wh.room_id AS roomId,
-          COUNT(*) AS room_count
-        FROM work_header wh
-        WHERE wh.cleaning_yn = 1
-          AND wh.cancel_yn = 0
-          AND wh.date >= ${startDate}
-          AND wh.date < ${endDate}
-        GROUP BY month, roomId
-      ) per_room
-      GROUP BY month
-    `)
-  ]);
+        DATE_FORMAT(wh.date, '%Y-%m-01') AS month,
+        wh.room_id AS roomId,
+        COUNT(*) AS room_count
+      FROM work_header wh
+      WHERE wh.cleaning_yn = 1
+        AND wh.cancel_yn = 0
+        AND wh.date >= ${startDate}
+        AND wh.date < ${endDate}
+      GROUP BY month, roomId
+    ) per_room
+    GROUP BY month
+  `);
 
   const aggregatesByKey = new Map<string, { totalCount: number; roomAverage: number }>();
   const aggregatesByLabel = new Map<string, { totalCount: number; roomAverage: number }>();
