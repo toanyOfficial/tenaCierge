@@ -48,22 +48,38 @@ def configure_logging() -> None:
 def enqueue_web_push_scenario(payload: Dict[str, object], *, label: str) -> None:
     """웹푸시 시나리오 큐에 작업을 추가한다."""
 
+    logging.info(
+        "웹푸시 enqueue 시도(%s): url=%s payload=%s",
+        label,
+        WEB_PUSH_SCENARIO_URL,
+        json.dumps(payload, ensure_ascii=False),
+    )
     try:
         resp = requests.post(WEB_PUSH_SCENARIO_URL, json=payload, timeout=5)
     except Exception as exc:  # pylint: disable=broad-except
-        logging.warning("웹푸시 enqueue 실패(%s): %s", label, exc)
+        logging.warning(
+            "웹푸시 enqueue 실패(%s): url=%s error=%s", label, WEB_PUSH_SCENARIO_URL, exc
+        )
         return
 
     if resp.status_code >= 400:
         logging.warning(
-            "웹푸시 enqueue 응답 오류(%s): status=%s body=%s", label, resp.status_code, resp.text
+            "웹푸시 enqueue 응답 오류(%s): status=%s body=%s",
+            label,
+            resp.status_code,
+            resp.text,
         )
         return
 
     try:
         data = resp.json()
     except Exception:  # pylint: disable=broad-except
-        logging.info("웹푸시 enqueue 완료(%s) - JSON 파싱 실패", label)
+        logging.info(
+            "웹푸시 enqueue 완료(%s) - JSON 파싱 실패: status=%s body=%s",
+            label,
+            resp.status_code,
+            resp.text,
+        )
         return
 
     created = data.get("created")
