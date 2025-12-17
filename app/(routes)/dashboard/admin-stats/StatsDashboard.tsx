@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   Bar,
   CartesianGrid,
@@ -36,6 +36,29 @@ export default function StatsDashboard({
   monthlyOverview,
   weekdayStats
 }: Props) {
+  const normalizedMonthlyOverview = useMemo(
+    () =>
+      monthlyOverview.map((row) => ({
+        ...row,
+        totalCount: Number(row.totalCount ?? 0),
+        roomAverage: Number(row.roomAverage ?? 0)
+      })),
+    [monthlyOverview]
+  );
+
+  useEffect(() => {
+    console.log(
+      '[월별 통계값] chart data',
+      normalizedMonthlyOverview.map((row) => ({
+        label: row.label,
+        totalCount: row.totalCount,
+        totalCountType: typeof row.totalCount,
+        roomAverage: row.roomAverage,
+        roomAverageType: typeof row.roomAverage
+      }))
+    );
+  }, [normalizedMonthlyOverview]);
+
   const planMax = useMemo(() => {
     const peak = Math.max(
       ...monthlyAverages.map((row) => Math.max(row.subscriptionCount, row.perOrderCount)),
@@ -53,10 +76,10 @@ export default function StatsDashboard({
   const overviewLeftMax = 31;
 
   const overviewRightMax = useMemo(() => {
-    const peak = Math.max(...monthlyOverview.map((row) => row.totalCount), 0);
+    const peak = Math.max(...normalizedMonthlyOverview.map((row) => row.totalCount), 0);
     if (peak === 0) return 100;
     return Math.max(400, Math.ceil(peak * 1.15));
-  }, [monthlyOverview]);
+  }, [normalizedMonthlyOverview]);
 
   const overviewLeftTicks = useMemo(() => [0, 8, 16, 24, 31], []);
 
@@ -240,7 +263,10 @@ export default function StatsDashboard({
   const monthlyTotalsChart = useMemo(
     () => (
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={monthlyOverview} margin={{ top: 18, right: 18, bottom: 24, left: 18 }}>
+        <ComposedChart
+          data={normalizedMonthlyOverview}
+          margin={{ top: 18, right: 18, bottom: 24, left: 18 }}
+        >
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
           <XAxis
             dataKey="label"
@@ -299,7 +325,16 @@ export default function StatsDashboard({
         </ComposedChart>
       </ResponsiveContainer>
     ),
-    [BarValueLabel, LineValueLabel, MonthlyLegend, monthlyOverview, overviewLeftMax, overviewLeftTicks, overviewRightMax, overviewRightTicks]
+    [
+      BarValueLabel,
+      LineValueLabel,
+      MonthlyLegend,
+      normalizedMonthlyOverview,
+      overviewLeftMax,
+      overviewLeftTicks,
+      overviewRightMax,
+      overviewRightTicks
+    ]
   );
 
   const weekdayChart = useMemo(
