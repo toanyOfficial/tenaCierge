@@ -88,7 +88,10 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
   const canSeeList = viewingAsHost || viewingAsAdmin || viewingAsButler || viewingAsCleaner;
   const canEdit = viewingAsAdmin || (viewingAsHost && snapshot.hostCanEdit);
   const canEditRequirements = viewingAsAdmin;
-  const canAdd = viewingAsAdmin || (viewingAsHost && snapshot.hostCanAdd);
+  const canAdd = viewingAsAdmin || viewingAsHost;
+  
+  const todayDate = useMemo(() => new Date(`${snapshot.today}T00:00:00+09:00`), [snapshot.today]);
+  const hostAddMinOffset = snapshot.hostAddMinOffset ?? 1;
 
   const roomOptions = useMemo(() => {
     if (viewingAsAdmin) {
@@ -293,7 +296,9 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
   const hostRestrictionMessage = viewingAsHost
     ? snapshot.hostCanEdit
       ? 'D+1은 전날 16:00까지, D+2 이후 일정은 언제든 수정/추가할 수 있습니다.'
-      : 'D0과 전날 16:00 이후의 D+1 일정은 수정/추가가 제한됩니다.'
+      : hostAddMinOffset === 2
+        ? 'D0과 전날 16:00 이후의 D+1 일정은 수정이 제한되며, D+2 이후 일정만 추가할 수 있습니다.'
+        : 'D0과 전날 16:00 이후의 D+1 일정은 수정/추가가 제한됩니다.'
     : null;
 
   const roleGuardMessage = !canSeeList
@@ -530,10 +535,6 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
   }
 
   function handleAddTypeToggle() {
-    if (viewingAsHost) {
-      return;
-    }
-
     setAddForm((prev) => {
       const nextCleaning = !prev.cleaningYn;
       return {
@@ -570,6 +571,20 @@ export default function CleaningListClient({ profile, snapshot, basePath }: Prop
     if (!allowedDates.has(addForm.date)) {
       setAddError('조회 가능 기간(D0~D+7) 내의 날짜만 선택할 수 있습니다.');
       return;
+    }
+
+    if (viewingAsHost) {
+      const addTargetDate = new Date(`${addForm.date}T00:00:00+09:00`);
+      const diffDays = Math.round((addTargetDate.getTime() - todayDate.getTime()) / (24 * 60 * 60 * 1000));
+
+      if (diffDays < hostAddMinOffset) {
+        setAddError(
+          hostAddMinOffset === 2
+            ? '16:00 이후에는 D+2 이후 일정만 추가할 수 있습니다.'
+            : 'D+1 일정은 전날 16:00까지만 추가할 수 있습니다.'
+        );
+        return;
+      }
     }
 
     if (addForm.cleaningYn === addForm.conditionCheckYn) {
