@@ -291,6 +291,14 @@
   background: linear-gradient(135deg, #818cf8, #6366f1);
 }
 
+.legendBarSwatchDynamic {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  display: inline-block;
+  box-shadow: 0 0 10px rgba(148, 163, 184, 0.35);
+}
+
 .legendLineSwatchAlt {
   width: 22px;
   height: 2px;
