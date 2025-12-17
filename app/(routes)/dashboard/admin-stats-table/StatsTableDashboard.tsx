@@ -62,37 +62,26 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
 
   const weekdayMax = Math.max(...snapshot.weekdayStats.map((item) => item.averageTotal), 1);
 
+  const referenceLabel = DateTime.fromISO(snapshot.referenceDate).toFormat('yyyy-LL-dd HH:mm');
+
   return (
     <div className={styles.shell}>
       <div className={styles.canvas}>
-        <header className={styles.header}>대시보드-통계표</header>
-        <div className={styles.metaRow}>
-          <div className={styles.metaPill}>
-            월별 집계 범위 : {snapshot.monthRange.start} ~ {snapshot.monthRange.end}
-          </div>
-          <div className={styles.metaPill}>
-            요일별 집계 범위 : {snapshot.weekdayRange.start} ~ {snapshot.weekdayRange.end}
-          </div>
-          <div className={styles.metaPill}>기준일시 : {DateTime.fromISO(snapshot.referenceDate).toFormat('yyyy-LL-dd HH:mm')}</div>
-        </div>
-
         <div className={styles.grid}>
-          <section className={styles.cardLarge}>
-            <div className={styles.cardHeader}>
-              <div>
-                <p className={styles.cardTitle}>월별 평균 시계열</p>
-                <p className={styles.cardSubtitle}>
-                  최근 13개월(현재 달 포함) 건수/일 기준. 건물 · 요금제별로 세분화된 평균치를 표시합니다.
-                </p>
+          <section className={styles.quadrant}>
+            <div className={styles.overlay}>
+              <div className={styles.overlayTitle}>월별 평균 시계열</div>
+              <div className={styles.overlayMeta}>
+                월별 {snapshot.monthRange.start} ~ {snapshot.monthRange.end} · 기준 {referenceLabel} · 16:30 매일 갱신
               </div>
-              <div className={styles.legendRow}>
+              <div className={styles.overlayLegend}>
                 {snapshot.monthlySeries.map((series) => (
                   <span
                     key={series.key}
                     className={styles.legendChip}
                     style={{ backgroundColor: resolveColor(series.key, legendColors) }}
                   >
-                    {series.building} · {series.plan}
+                    {series.building}·{series.plan}
                   </span>
                 ))}
               </div>
@@ -110,7 +99,7 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
               <div className={styles.seriesStack}>
                 {snapshot.monthlySeries.map((series) => (
                   <div key={series.key} className={styles.seriesRow}>
-                    <div className={styles.seriesLabel}>{series.building} · {series.plan}</div>
+                    <div className={styles.seriesLabel}>{series.building}·{series.plan}</div>
                     <div className={styles.seriesBars}>
                       {series.values.map((value) => {
                         const height = `${(value.averagePerDay / maxMonthlyAverage) * 100}%`;
@@ -134,22 +123,16 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
             </div>
           </section>
 
-          <section className={styles.cardLarge}>
-            <div className={styles.cardHeader}>
-              <div>
-                <p className={styles.cardTitle}>월별 통계값</p>
-                <p className={styles.cardSubtitle}>호실평균 · 건물평균 · 총량을 하나의 그래프로 겹쳐서 비교합니다.</p>
+          <section className={styles.quadrant}>
+            <div className={styles.overlay}>
+              <div className={styles.overlayTitle}>월별 통계값</div>
+              <div className={styles.overlayMeta}>
+                월별 {snapshot.monthRange.start} ~ {snapshot.monthRange.end} · 기준 {referenceLabel}
               </div>
-              <div className={styles.legendRow}>
-                <span className={styles.legendChip} style={{ backgroundColor: '#60a5fa' }}>
-                  호실별 평균
-                </span>
-                <span className={styles.legendChip} style={{ backgroundColor: '#fbbf24' }}>
-                  건물별 평균
-                </span>
-                <span className={styles.legendChip} style={{ backgroundColor: '#34d399' }}>
-                  총 청소 건수
-                </span>
+              <div className={styles.overlayLegendCompact}>
+                <span className={styles.legendChip} style={{ backgroundColor: '#60a5fa' }}>호실평균</span>
+                <span className={styles.legendChip} style={{ backgroundColor: '#fbbf24' }}>건물평균</span>
+                <span className={styles.legendChip} style={{ backgroundColor: '#34d399' }}>총량</span>
               </div>
             </div>
 
@@ -189,11 +172,11 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
             </div>
           </section>
 
-          <section className={styles.cardWide}>
-            <div className={styles.cardHeader}>
-              <div>
-                <p className={styles.cardTitle}>요일별 통계값</p>
-                <p className={styles.cardSubtitle}>최근 1년간 요일별 평균과 건물별 평균을 하나의 보드로 보여줍니다.</p>
+          <section className={styles.quadrant}>
+            <div className={styles.overlay}>
+              <div className={styles.overlayTitle}>요일별 통계값</div>
+              <div className={styles.overlayMeta}>
+                요일별 {snapshot.weekdayRange.start} ~ {snapshot.weekdayRange.end} · 기준 {referenceLabel} · 16:30 매일 갱신
               </div>
             </div>
 
@@ -230,9 +213,10 @@ export default function StatsTableDashboard({ snapshot }: { snapshot: StatsTable
             </div>
           </section>
 
-          <section className={styles.cardSmall}>
-            <div className={styles.cardHeader}>
-              <p className={styles.cardTitle}>박수기준 통계값</p>
+          <section className={styles.quadrant}>
+            <div className={styles.overlay}>
+              <div className={styles.overlayTitle}>박수기준 통계값</div>
+              <div className={styles.overlayMeta}>매일 16:30 갱신 · 기준 {referenceLabel}</div>
             </div>
             <div className={styles.placeholder}>준비중입니다.</div>
           </section>
