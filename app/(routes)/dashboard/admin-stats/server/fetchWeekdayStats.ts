@@ -113,6 +113,10 @@ export async function fetchWeekdayStats(): Promise<{
     return Math.round(value * 100) / 100;
   };
 
+  const formatAverage = (value: number) => {
+    return Math.round(value * 100) / 100;
+  };
+
   const points: WeekdayStatsPoint[] = weekdayLabels.map((label, index) => {
     const mysqlWeekday = index === 0 ? 1 : index + 1; // DAYOFWEEK: 1=Sunday
     const occurrencesCount = occurrenceMap.get(mysqlWeekday) ?? 0;
