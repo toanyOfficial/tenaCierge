@@ -49,8 +49,25 @@ export async function fetchWeekdayStats(): Promise<{
   const rangeEnd = new Date(endDate);
   rangeEnd.setUTCDate(rangeEnd.getUTCDate() + 1);
 
-  const startDate = new Date(endDate);
-  startDate.setUTCDate(startDate.getUTCDate() - 365);
+  const baselineStart = new Date(endDate);
+  baselineStart.setUTCDate(baselineStart.getUTCDate() - 365);
+
+  const [minDateRows] = await db.execute<{ minDate: Date | null }>(sql`
+    SELECT MIN(date) AS minDate
+    FROM work_header
+    WHERE cleaning_yn = 1
+      AND cancel_yn = 0
+  `);
+
+  const firstWorkDate = minDateRows?.[0]?.minDate ? new Date(minDateRows[0].minDate) : null;
+
+  if (firstWorkDate) {
+    firstWorkDate.setUTCHours(0, 0, 0, 0);
+  }
+
+  const startDate = new Date(
+    firstWorkDate && firstWorkDate > baselineStart ? firstWorkDate : baselineStart,
+  );
 
   const [[workRows], [occurrenceRows]] = await Promise.all([
     db.execute<WeekdayCountRow>(sql`
