@@ -1,3 +1,8 @@
+"use client";
+
+import Script from 'next/script';
+import { useEffect, useMemo, useState } from 'react';
+
 import styles from './stats-dashboard.module.css';
 import type { MonthlyAveragePoint } from './server/fetchMonthlyAverages';
 import type { ProfileSummary } from '@/src/utils/profile';
@@ -51,17 +56,176 @@ function formatValue(value: number) {
   return Number.isInteger(value) ? `${value}` : value.toFixed(1);
 }
 
+type RechartsNamespace = {
+  ResponsiveContainer: React.ComponentType<any>;
+  ComposedChart: React.ComponentType<any>;
+  Bar: React.ComponentType<any>;
+  Line: React.ComponentType<any>;
+  XAxis: React.ComponentType<any>;
+  YAxis: React.ComponentType<any>;
+  Legend: React.ComponentType<any>;
+  Tooltip: React.ComponentType<any>;
+  CartesianGrid: React.ComponentType<any>;
+  LabelList: React.ComponentType<any>;
+};
+
+declare global {
+  interface Window {
+    Recharts?: RechartsNamespace;
+  }
+}
+
 type Props = { profile: ProfileSummary; monthlyAverages: MonthlyAveragePoint[] };
 
+const rechartsCdn =
+  'https://unpkg.com/recharts@2.12.7/umd/Recharts.min.js';
+
 export default function StatsDashboard({ monthlyAverages }: Props) {
-  const monthlyMax = Math.max(
-    1,
-    ...monthlyAverages.map((row) => Math.max(row.perOrder, row.subscription, 0))
+  const [rechartsReady, setRechartsReady] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.Recharts) {
+      setRechartsReady(true);
+    }
+  }, []);
+
+  const leftMax = useMemo(
+    () => Math.max(100, ...monthlyAverages.map((row) => row.totalCount), 0),
+    [monthlyAverages]
   );
-  const yTicks = yTickRatios.map((ratio) => Math.ceil(monthlyMax * ratio));
+  const rightMax = useMemo(
+    () => Math.max(31, ...monthlyAverages.map((row) => row.averagePerRoom), 0),
+    [monthlyAverages]
+  );
+
+  const leftTicks = useMemo(
+    () => yTickRatios.map((ratio) => Math.ceil(leftMax * ratio)),
+    [leftMax]
+  );
+  const rightTicks = useMemo(
+    () => yTickRatios.map((ratio) => Number((rightMax * ratio).toFixed(0))),
+    [rightMax]
+  );
+
+  const BarValueLabel = useMemo(
+    () =>
+      function BarLabel({ x, y, width, value }: any) {
+        if (!value) return null;
+        const midX = (x ?? 0) + (width ?? 0) / 2;
+        const labelY = (y ?? 0) - 8;
+        return (
+          <text x={midX} y={labelY} textAnchor="middle" className={styles.barLabelText}>
+            {formatValue(value)}
+          </text>
+        );
+      },
+    []
+  );
+
+  const LineValueLabel = useMemo(
+    () =>
+      function LineLabel({ x, y, value }: any) {
+        if (!value) return null;
+        const labelY = (y ?? 0) - 6;
+        return (
+          <text x={x} y={labelY} textAnchor="middle" className={styles.lineLabelText}>
+            {formatValue(value)}
+          </text>
+        );
+      },
+    []
+  );
+
+  const ChartLegend = useMemo(
+    () =>
+      function LegendContent() {
+        return (
+          <div className={styles.chartLegend} aria-label="범례">
+            <span className={styles.legendItem}>
+              <span className={styles.legendBarSwatch} />총 건수
+            </span>
+            <span className={styles.legendItem}>
+              <span className={styles.legendLineSwatch} />호실 평균 건수
+            </span>
+          </div>
+        );
+      },
+    []
+  );
+
+  const monthlyChart = useMemo(() => {
+    if (typeof window === 'undefined' || !rechartsReady || !window.Recharts) {
+      return <div className={styles.chartPlaceholder} aria-hidden />;
+    }
+
+    const { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Legend, CartesianGrid, LabelList } =
+      window.Recharts;
+
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={monthlyAverages} margin={{ top: 18, right: 18, bottom: 24, left: 18 }}>
+          <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
+          <XAxis
+            dataKey="label"
+            tickLine={false}
+            axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+            tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+          />
+          <YAxis
+            yAxisId="left"
+            orientation="left"
+            tickLine={false}
+            axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+            tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+            domain={[0, leftMax]}
+            ticks={leftTicks}
+          />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            tickLine={false}
+            axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+            tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+            domain={[0, rightMax]}
+            ticks={rightTicks}
+            allowDecimals={false}
+          />
+          <Legend verticalAlign="top" align="right" content={<ChartLegend />} />
+          <Bar
+            dataKey="totalCount"
+            yAxisId="left"
+            fill="url(#totalBarGradient)"
+            barSize={18}
+            radius={[6, 6, 0, 0]}
+          >
+            <LabelList dataKey="totalCount" position="top" content={<BarValueLabel />} />
+          </Bar>
+          <Line
+            dataKey="averagePerRoom"
+            yAxisId="right"
+            type="monotone"
+            stroke="#38bdf8"
+            strokeWidth={1}
+            dot={false}
+            activeDot={false}
+            connectNulls
+          >
+            <LabelList dataKey="averagePerRoom" position="top" content={<LineValueLabel />} />
+          </Line>
+          <defs>
+            <linearGradient id="totalBarGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#22c55e" stopOpacity="0.9" />
+              <stop offset="100%" stopColor="#16a34a" stopOpacity="0.9" />
+            </linearGradient>
+          </defs>
+        </ComposedChart>
+      </ResponsiveContainer>
+    );
+  }, [BarValueLabel, ChartLegend, LineValueLabel, leftMax, leftTicks, monthlyAverages, rechartsReady, rightMax, rightTicks]);
 
   return (
     <div className={styles.shell}>
+      <Script src={rechartsCdn} strategy="beforeInteractive" onLoad={() => setRechartsReady(true)} />
       <div className={styles.canvas}>
         <header className={styles.header}>
           <div>
@@ -81,86 +245,7 @@ export default function StatsDashboard({ monthlyAverages }: Props) {
             </div>
 
             <div className={styles.graphSurface} aria-hidden="true">
-              <div className={styles.monthlyLegend}>
-                <span className={styles.legendItem}>
-                  <span className={styles.legendSwatchPerOrder} />건별제
-                </span>
-                <span className={styles.legendItem}>
-                  <span className={styles.legendSwatchSubscription} />정액제
-                </span>
-              </div>
-
-              <div className={styles.monthlyGridLines}>
-                {yTicks.map((tick) => (
-                  <span key={`tick-${tick}`} className={styles.monthlyGridLine}>
-                    <em>{tick}</em>
-                  </span>
-                ))}
-              </div>
-
-              <svg
-                className={styles.perOrderLine}
-                viewBox="0 0 100 100"
-                preserveAspectRatio="none"
-                aria-hidden="true"
-              >
-                <defs>
-                  <linearGradient id="perOrderGradient" x1="0%" x2="100%" y1="0%" y2="0%">
-                    <stop offset="0%" stopColor="#38bdf8" />
-                    <stop offset="100%" stopColor="#6366f1" />
-                  </linearGradient>
-                </defs>
-
-                <path
-                  className={styles.perOrderPath}
-                  d={`M ${monthlyAverages
-                    .map((row, index) => {
-                      const x = (index / (monthlyAverages.length - 1)) * 100;
-                      const y = 100 - Math.min(100, (row.perOrder / monthlyMax) * 100);
-                      return `${x.toFixed(3)} ${y.toFixed(3)}`;
-                    })
-                    .join(' L ')}`}
-                />
-
-                {monthlyAverages.map((row, index) => {
-                  const x = (index / (monthlyAverages.length - 1)) * 100;
-                  const y = 100 - Math.min(100, (row.perOrder / monthlyMax) * 100);
-                  const labelY = Math.max(6, y - 4);
-
-                  return (
-                    <g key={`perorder-${row.label}-${index}`}>
-                      <circle className={styles.perOrderDot} cx={x} cy={y} r={1} />
-                      {row.perOrder !== 0 && (
-                        <text className={styles.perOrderValue} x={x} y={labelY}>
-                          {formatValue(row.perOrder)}
-                        </text>
-                      )}
-                    </g>
-                  );
-                })}
-              </svg>
-
-              <div className={styles.monthlyBarArea}>
-                {monthlyAverages.map((row, index) => {
-                  const subscriptionHeight = (row.subscription / monthlyMax) * 100;
-
-                  return (
-                    <div key={`${row.label}-${index}`} className={styles.monthlyColumn}>
-                      <div className={styles.subscriptionBarWrapper}>
-                        <div
-                          className={styles.subscriptionBar}
-                          style={{ height: `${subscriptionHeight}%` }}
-                          aria-label={`정액제 ${row.label}월 평균 ${row.subscription}`}
-                        />
-                        {row.subscription !== 0 && (
-                          <span className={styles.barValueLabel}>{formatValue(row.subscription)}</span>
-                        )}
-                      </div>
-                      <span className={styles.monthLabel}>{row.label}</span>
-                    </div>
-                  );
-                })}
-              </div>
+              <div className={styles.mixedChart}>{monthlyChart}</div>
             </div>
           </section>
 
