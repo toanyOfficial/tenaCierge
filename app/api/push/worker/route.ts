@@ -8,7 +8,6 @@ export const revalidate = 0;
 type WorkerPayload = {
   limit?: number;
   lockedBy?: string;
-  now?: string;
 };
 
 function parseBody(json: unknown): WorkerPayload {
@@ -16,15 +15,8 @@ function parseBody(json: unknown): WorkerPayload {
   const value = json as Record<string, unknown>;
   const limit = typeof value.limit === 'number' ? value.limit : Number(value.limit);
   const lockedBy = typeof value.lockedBy === 'string' && value.lockedBy.trim() ? value.lockedBy.trim() : undefined;
-  const now = typeof value.now === 'string' ? value.now : undefined;
 
-  return { limit: Number.isFinite(limit) && limit > 0 ? limit : undefined, lockedBy, now };
-}
-
-function parseDate(value: string | undefined): Date | null {
-  if (!value) return null;
-  const dt = new Date(value);
-  return Number.isNaN(dt.getTime()) ? null : dt;
+  return { limit: Number.isFinite(limit) && limit > 0 ? limit : undefined, lockedBy };
 }
 
 function authorize(request: Request) {
@@ -51,13 +43,9 @@ export async function POST(request: Request) {
   const limit = payload.limit ?? (Number.isFinite(limitFromEnv) && (limitFromEnv as number) > 0 ? (limitFromEnv as number) : 50);
 
   const lockedBy = payload.lockedBy ?? process.env.PUSH_WORKER_ID ?? 'webpush-cron';
-  const now = parseDate(payload.now);
-  if (payload.now && !now) {
-    return NextResponse.json({ message: '유효한 now(datetime) 값을 입력해 주세요.' }, { status: 400 });
-  }
 
   try {
-    const results = await runWebPushWorker({ limit, lockedBy, now: now ?? undefined });
+    const results = await runWebPushWorker({ limit, lockedBy });
     const summary = results.reduce(
       (acc, curr) => {
         acc.jobs += 1;
