@@ -15,7 +15,7 @@ function normalizeRegister(value: string | null | undefined) {
   return trimmed ? trimmed.toUpperCase() : '';
 }
 
-async function hasClientSubscription(phone: string, registerNo: string) {
+async function hasClientSubscription(phone: string | null, registerNo: string) {
   if (!phone || !registerNo) return false;
 
   const [client] = await db
@@ -41,7 +41,7 @@ async function hasClientSubscription(phone: string, registerNo: string) {
   return Boolean(subscription);
 }
 
-async function hasWorkerSubscription(phone: string, registerNo: string) {
+async function hasWorkerSubscription(phone: string | null, registerNo: string) {
   if (!phone && !registerNo) return false;
 
   const [worker] = await db

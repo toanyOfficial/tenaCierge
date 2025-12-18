@@ -9,6 +9,7 @@ const vendorPackages = [
   'recharts-scale',
   'tiny-invariant',
   'victory-vendor',
+  'google-auth-library',
 ];
 
 const fallbackPackages = {};
