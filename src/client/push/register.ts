@@ -1,74 +1,55 @@
-export type SubscriptionContext = {
-  type: 'CLIENT' | 'WORKER';
-  phone?: string | null;
-  registerNo?: string | null;
+import { getDeviceFingerprint } from './device';
+import { obtainFcmToken } from './fcm';
+import type { SubscriptionContext } from './types';
+
+type RegistrationFailureReason =
+  | 'config-missing'
+  | 'service-worker-failed'
+  | 'token-failed'
+  | 'sdk-load-failed'
+  | 'unsupported-browser'
+  | 'permission-denied'
+  | 'fingerprint-missing'
+  | undefined;
+
+export type PersistResult = {
+  successes: string[];
+  failures: string[];
+  skipped: string[];
+  failureReasons?: Record<string, string>;
 };
 
 export type RegisterResult =
-  | {
-      status: 'success';
-      message?: string;
-      successes: string[];
-      failures: string[];
-      skipped: string[];
-      failureReasons?: Record<string, string>;
-    }
+  | ({ status: 'success' } & PersistResult & { token: string })
   | { status: 'skipped'; message: string }
-  | { status: 'unsupported'; message: string }
+  | { status: 'unsupported'; message: string; reason?: RegistrationFailureReason }
   | { status: 'denied'; message: string }
-  | { status: 'error'; message: string };
-
-function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-
-  for (let i = 0; i < rawData.length; i += 1) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-
-  return outputArray;
-}
+  | { status: 'error'; message: string; reason?: RegistrationFailureReason };
 
 function buildBrowserLabel() {
   if (typeof navigator === 'undefined') return '';
-  const brands = (navigator as Navigator & { userAgentData?: { brands?: { brand: string; version: string }[] } }).userAgentData?.brands;
+  const brands = (navigator as Navigator & { userAgentData?: { brands?: { brand: string; version: string }[] } }).userAgentData
+    ?.brands;
   if (!brands || !brands.length) return navigator.userAgent;
   return brands.map((entry) => `${entry.brand}/${entry.version}`).join(', ');
 }
 
-async function getSubscription(applicationServerKey: ArrayBuffer) {
-  const registration = await navigator.serviceWorker.register('/push-sw.js');
-  const existing = await registration.pushManager.getSubscription();
-  if (existing) {
-    return existing;
-  }
-
-  return registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey
-  });
-}
-
-async function persistSubscription(
+async function persistToken(
   contexts: SubscriptionContext[],
-  subscription: PushSubscription,
-  metadata?: { userAgent?: string; platform?: string; browser?: string; deviceId?: string; locale?: string }
-) {
+  token: string,
+  metadata?: {
+    userAgent?: string;
+    platform?: string;
+    browser?: string;
+    deviceId?: string;
+    locale?: string;
+    deviceFingerprint?: string;
+  }
+): Promise<PersistResult> {
   const successes: string[] = [];
   const failures: string[] = [];
   const skipped: string[] = [];
   const failureReasons: Record<string, string> = {};
-
-  const subscriptionPayload = subscription.toJSON();
-  const { endpoint } = subscriptionPayload;
-  const p256dh = subscriptionPayload.keys?.p256dh;
-  const auth = subscriptionPayload.keys?.auth;
-
-  if (!p256dh || !auth) {
-    throw new Error('브라우저 구독 키를 읽을 수 없습니다. 권한을 다시 요청해 주세요.');
-  }
 
   for (const ctx of contexts) {
     const label = `${ctx.type}-${ctx.registerNo ?? ctx.phone ?? 'unknown'}`;
@@ -84,23 +65,21 @@ async function persistSubscription(
     }
 
     try {
-      const response = await fetch('/api/push/subscribe', {
+      const response = await fetch('/api/push/subscriptions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           context: ctx.type,
-          subscription: subscriptionPayload,
-          endpoint,
-          p256dh,
-          auth,
+          token,
           phone: ctx.phone ?? null,
           registerNo: ctx.registerNo ?? null,
           userAgent: metadata?.userAgent,
           platform: metadata?.platform,
           browser: metadata?.browser,
           deviceId: metadata?.deviceId,
-          locale: metadata?.locale ?? (typeof navigator !== 'undefined' ? navigator.language : undefined)
-        })
+          deviceFingerprint: metadata?.deviceFingerprint,
+          locale: metadata?.locale ?? (typeof navigator !== 'undefined' ? navigator.language : undefined),
+        }),
       });
 
       if (!response.ok) {
@@ -123,13 +102,13 @@ async function persistSubscription(
   return { successes, failures, skipped, failureReasons };
 }
 
-export async function registerWebPush(contexts: SubscriptionContext[]): Promise<RegisterResult> {
+export async function registerFcmSubscriptions(contexts: SubscriptionContext[]): Promise<RegisterResult> {
   if (typeof window === 'undefined') {
     return { status: 'unsupported', message: '브라우저 환경에서만 푸시를 등록할 수 있습니다.' };
   }
 
-  if (!('serviceWorker' in navigator) || typeof Notification === 'undefined' || !(window as any).PushManager) {
-    return { status: 'unsupported', message: '브라우저가 웹푸시를 지원하지 않습니다.' };
+  if (!('serviceWorker' in navigator) || typeof Notification === 'undefined') {
+    return { status: 'unsupported', message: '브라우저가 푸시를 지원하지 않습니다.' };
   }
 
   const readyContexts = contexts.filter((ctx) => {
@@ -143,41 +122,56 @@ export async function registerWebPush(contexts: SubscriptionContext[]): Promise<
     return { status: 'skipped', message: '푸시 구독에 필요한 식별자가 없습니다.' };
   }
 
-  const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  if (!vapidKey) {
-    return { status: 'error', message: 'VAPID 공개키가 설정되지 않았습니다.' };
+  const permission = Notification.permission;
+  if (permission === 'denied') {
+    return { status: 'denied', message: '알림 권한이 거부되어 있습니다.' };
   }
 
-  const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+  const [fingerprint, tokenResult] = await Promise.all([getDeviceFingerprint(), obtainFcmToken()]);
 
-  if (permission !== 'granted') {
-    return { status: 'denied', message: '알림 권한이 허용되지 않았습니다.' };
+  if (!fingerprint) {
+    return {
+      status: 'error',
+      reason: 'fingerprint-missing',
+      message: '디바이스를 식별할 수 없어 푸시 알림을 활성화하지 못했습니다. 새로고침 후 다시 시도해 주세요.',
+    };
   }
 
-  const subscription = await getSubscription(urlBase64ToUint8Array(vapidKey).buffer as ArrayBuffer);
+  if (tokenResult.status === 'denied') {
+    return { status: 'denied', message: tokenResult.message ?? '알림 권한이 거부되었습니다.' };
+  }
+
+  if (tokenResult.status === 'unsupported' || tokenResult.status === 'error') {
+    return {
+      status: tokenResult.status,
+      message: tokenResult.message ?? '푸시를 지원하지 않는 환경입니다.',
+      reason: tokenResult.reason,
+    } as const;
+  }
+
   const metadata = {
     userAgent: navigator.userAgent,
     platform: (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform || navigator.platform,
     browser: buildBrowserLabel(),
-    deviceId: (navigator as Navigator & { deviceMemory?: number }).deviceMemory ? `${(navigator as Navigator & { deviceMemory?: number }).deviceMemory}GB` : undefined,
-    locale: navigator.language
+    deviceId: (navigator as Navigator & { deviceMemory?: number }).deviceMemory
+      ? `${(navigator as Navigator & { deviceMemory?: number }).deviceMemory}GB`
+      : undefined,
+    locale: navigator.language,
+    deviceFingerprint: fingerprint,
   };
 
   try {
-    const { successes, failures, skipped, failureReasons } = await persistSubscription(readyContexts, subscription, metadata);
+    const { successes, failures, skipped, failureReasons } = await persistToken(readyContexts, tokenResult.token, metadata);
     const hasFailure = failures.length > 0;
     const hasSuccess = successes.length > 0;
 
     if (hasSuccess) {
-      if (hasFailure) {
-        console.warn('일부 웹푸시 구독 저장 실패', { successes, failures, skipped, reasons: failureReasons });
-      }
-      return { status: 'success', message: '푸시 구독이 저장되었습니다.', successes, failures, skipped, failureReasons };
+      return { status: 'success', token: tokenResult.token, successes, failures, skipped, failureReasons };
     }
 
     if (hasFailure) {
       const primaryLabel = failures[0];
-      const reason = primaryLabel ? failureReasons[primaryLabel] : null;
+      const reason = primaryLabel ? failureReasons?.[primaryLabel] : null;
       return { status: 'error', message: reason ?? '푸시 구독 저장에 실패했습니다. 다시 시도해 주세요.' };
     }
 

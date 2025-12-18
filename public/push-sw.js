@@ -4,6 +4,25 @@
 self.addEventListener('push', (event) => {
   let payload = {};
 
+  const mergeData = (raw) => {
+    if (!raw || typeof raw !== 'object') return {};
+
+    const nestedData = raw.data;
+    let parsedNested = {};
+
+    if (typeof nestedData === 'string') {
+      try {
+        parsedNested = JSON.parse(nestedData);
+      } catch (error) {
+        parsedNested = {};
+      }
+    } else if (nestedData && typeof nestedData === 'object') {
+      parsedNested = nestedData;
+    }
+
+    return { ...parsedNested, ...raw };
+  };
+
   try {
     payload = event.data ? event.data.json() : {};
   } catch (error) {
@@ -14,12 +33,14 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  const title = payload.title || '알림이 도착했습니다';
-  const body = payload.body || '';
-  const icon = payload.iconUrl || '/icon.png';
-  const clickUrl = payload.clickUrl || '/';
+  payload = mergeData(payload);
+
+  const title = payload.title || payload.notification?.title || '알림이 도착했습니다';
+  const body = payload.body || payload.notification?.body || '';
+  const icon = payload.iconUrl || payload.icon || '/icon.png';
+  const clickUrl = payload.clickUrl || payload.url || '/';
   const dedupKey = payload.dedupKey;
-  const data = payload.data || {};
+  const data = payload.data && typeof payload.data === 'object' ? payload.data : {};
 
   const options = {
     body,

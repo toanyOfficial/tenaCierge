@@ -627,6 +627,7 @@ export const pushSubscriptions = mysqlTable(
     platform: varchar('platform', { length: 50 }),
     browser: varchar('browser', { length: 50 }),
     deviceId: varchar('device_id', { length: 100 }),
+    deviceFingerprint: varchar('device_fingerprint', { length: 128 }),
     locale: varchar('locale', { length: 10 }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
@@ -635,7 +636,8 @@ export const pushSubscriptions = mysqlTable(
   },
   (table) => ({
     webpushEndpointUniq: uniqueIndex('uq_webpush_endpoint').on(table.userType, table.endpoint, table.userId),
-    webpushLastSeenIdx: index('idx_webpush_last_seen').on(table.lastSeenAt)
+    webpushLastSeenIdx: index('idx_webpush_last_seen').on(table.lastSeenAt),
+    webpushDeviceIdx: index('idx_webpush_device').on(table.userType, table.userId, table.deviceFingerprint)
   })
 );
 
