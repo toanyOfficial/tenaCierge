@@ -5,6 +5,7 @@ import {
   clearPushSession,
   getLastPushState,
   markPushDenied,
+  markPushFailed,
   markPushPrompted,
   markPushSuccess,
   resetPushSessionFlags,
@@ -17,6 +18,32 @@ const PUSH_CONSENT_MESSAGE =
 const RETRY_EVENTS = ['visibilitychange', 'focus', 'pageshow'] as const;
 let listenersBound = false;
 let latestRunner: (() => void) | null = null;
+
+type FailureReason =
+  | 'config-missing'
+  | 'service-worker-failed'
+  | 'token-failed'
+  | 'sdk-load-failed'
+  | 'unsupported-browser'
+  | 'permission-denied'
+  | undefined;
+
+function buildFailureAlert(reason?: FailureReason, fallback?: string) {
+  switch (reason) {
+    case 'config-missing':
+      return '푸시 알림 설정이 완료되지 않았습니다.\n잠시 후 다시 시도해 주세요. (설정 누락)';
+    case 'sdk-load-failed':
+      return '푸시 알림을 초기화하는 데 실패했습니다.\n네트워크 상태를 확인하거나 새로고침 후 다시 시도해 주세요.';
+    case 'service-worker-failed':
+      return '푸시 알림을 사용할 수 없는 환경입니다.\n브라우저 설정을 확인해 주세요.';
+    case 'token-failed':
+      return '푸시 알림을 활성화하는 중 오류가 발생했습니다.\n새로고침 후 다시 시도해 주세요.';
+    case 'unsupported-browser':
+      return '이 브라우저에서는 푸시 알림을 지원하지 않습니다.\n브라우저 설정을 확인해 주세요.';
+    default:
+      return fallback || '푸시 알림을 활성화하는 중 오류가 발생했습니다.\n새로고침 후 다시 시도해 주세요.';
+  }
+}
 
 async function fetchSubscriptionStatus() {
   try {
@@ -52,8 +79,8 @@ async function persistWithToken(contexts: ReturnType<typeof buildPushContexts>) 
   }
 
   if (result.status === 'unsupported' || result.status === 'error') {
-    console.warn('푸시 구독 처리 실패', result.message);
-    return { outcome: 'error', message: result.message } as const;
+    console.warn('푸시 구독 처리 실패', { message: result.message, reason: result.reason });
+    return { outcome: 'error', message: result.message, reason: result.reason } as const;
   }
 
   if (result.status === 'skipped') {
@@ -62,6 +89,18 @@ async function persistWithToken(contexts: ReturnType<typeof buildPushContexts>) 
 
   logPartialFailures('일부 푸시 구독 저장 실패', result);
   return { outcome: 'success' as const };
+}
+
+function notifyFailure(identity: PushIdentity, reason?: FailureReason, message?: string) {
+  const alertMessage = buildFailureAlert(reason, message);
+  const lastState = getLastPushState(identity);
+
+  if (lastState?.status !== 'failed') {
+    alert(alertMessage);
+  }
+
+  console.warn('푸시 구독 실패', { reason, message: alertMessage });
+  markPushFailed(identity, alertMessage);
 }
 
 function bindRetry(runner: () => void) {
@@ -95,6 +134,10 @@ async function runEnforcement(identity: PushIdentity) {
       const result = await persistWithToken(contexts);
       if (result.outcome === 'success') {
         markPushSuccess(identity);
+      } else if (result.outcome === 'error') {
+        notifyFailure(identity, result.reason, result.message);
+      } else if (result.outcome === 'denied') {
+        markPushDenied(identity);
       }
       return;
     }
@@ -110,6 +153,10 @@ async function runEnforcement(identity: PushIdentity) {
             const result = await persistWithToken(contexts);
             if (result.outcome === 'success') {
               markPushSuccess(identity);
+            } else if (result.outcome === 'error') {
+              notifyFailure(identity, result.reason, result.message);
+            } else if (result.outcome === 'denied') {
+              markPushDenied(identity);
             }
           } else {
             markPushDenied(identity);

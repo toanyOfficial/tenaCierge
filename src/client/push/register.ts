@@ -1,6 +1,15 @@
 import { obtainFcmToken } from './fcm';
 import type { SubscriptionContext } from './types';
 
+type RegistrationFailureReason =
+  | 'config-missing'
+  | 'service-worker-failed'
+  | 'token-failed'
+  | 'sdk-load-failed'
+  | 'unsupported-browser'
+  | 'permission-denied'
+  | undefined;
+
 export type PersistResult = {
   successes: string[];
   failures: string[];
@@ -11,9 +20,9 @@ export type PersistResult = {
 export type RegisterResult =
   | ({ status: 'success' } & PersistResult & { token: string })
   | { status: 'skipped'; message: string }
-  | { status: 'unsupported'; message: string }
+  | { status: 'unsupported'; message: string; reason?: RegistrationFailureReason }
   | { status: 'denied'; message: string }
-  | { status: 'error'; message: string };
+  | { status: 'error'; message: string; reason?: RegistrationFailureReason };
 
 function buildBrowserLabel() {
   if (typeof navigator === 'undefined') return '';
@@ -114,7 +123,11 @@ export async function registerFcmSubscriptions(contexts: SubscriptionContext[]):
   }
 
   if (tokenResult.status === 'unsupported' || tokenResult.status === 'error') {
-    return { status: tokenResult.status, message: tokenResult.message ?? '푸시를 지원하지 않는 환경입니다.' } as const;
+    return {
+      status: tokenResult.status,
+      message: tokenResult.message ?? '푸시를 지원하지 않는 환경입니다.',
+      reason: tokenResult.reason,
+    } as const;
   }
 
   const metadata = {

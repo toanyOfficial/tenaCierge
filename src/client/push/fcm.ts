@@ -52,13 +52,6 @@ function getFirebaseConfig() {
   };
 }
 
-async function ensureApp(modules: FirebaseModules) {
-  const existing = modules.getApps()[0];
-  if (existing) return existing;
-  const config = getFirebaseConfig();
-  return modules.initializeApp(config);
-}
-
 export async function obtainFcmToken(): Promise<PushRegistrationResult> {
   if (typeof window === 'undefined') {
     return { status: 'unsupported', message: '브라우저 환경에서만 지원됩니다.' };
@@ -69,22 +62,42 @@ export async function obtainFcmToken(): Promise<PushRegistrationResult> {
     modules = await loadFirebaseModules();
   } catch (error) {
     const message = error instanceof Error ? error.message : 'FCM 스크립트를 불러오지 못했습니다.';
-    return { status: 'unsupported', message };
+    return {
+      status: 'unsupported',
+      message,
+      reason: 'sdk-load-failed',
+    };
   }
 
   try {
     const supported = await modules.isSupported();
     if (!supported) {
-      return { status: 'unsupported', message: '이 브라우저에서는 푸시 알림을 지원하지 않습니다.' };
+      return { status: 'unsupported', message: '이 브라우저에서는 푸시 알림을 지원하지 않습니다.', reason: 'unsupported-browser' };
     }
   } catch (error) {
     console.warn('FCM 지원 여부 확인 실패', error);
-    return { status: 'unsupported', message: '이 브라우저에서는 푸시 알림을 지원하지 않습니다.' };
+    return { status: 'unsupported', message: '이 브라우저에서는 푸시 알림을 지원하지 않습니다.', reason: 'sdk-load-failed' };
+  }
+
+  const firebaseConfig = (() => {
+    try {
+      return getFirebaseConfig();
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message.includes('Firebase 웹 설정이 누락')
+          ? '푸시 알림 설정이 완료되지 않았습니다. 잠시 후 다시 시도해 주세요. (설정 누락)'
+          : '푸시 알림 설정을 불러오지 못했습니다.';
+      return { error: { status: 'error' as const, reason: 'config-missing' as const, message } };
+    }
+  })();
+
+  if ('error' in firebaseConfig) {
+    return firebaseConfig.error;
   }
 
   try {
     const registration = await navigator.serviceWorker.register('/push-sw.js');
-    const app = await ensureApp(modules);
+    const app = modules.getApps()[0] ?? modules.initializeApp(firebaseConfig);
     const messaging = modules.getMessaging(app);
     const vapidKey = process.env.NEXT_PUBLIC_FCM_VAPID_KEY;
     const token = await modules.getToken(messaging, {
@@ -93,12 +106,17 @@ export async function obtainFcmToken(): Promise<PushRegistrationResult> {
     });
 
     if (!token) {
-      return { status: 'error', message: 'FCM 토큰을 발급하지 못했습니다.' };
+      return { status: 'error', message: 'FCM 토큰을 발급하지 못했습니다.', reason: 'token-failed' };
     }
 
     return { status: 'success', token };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'FCM 토큰 발급 중 오류가 발생했습니다.';
-    return { status: 'error', message };
+    const reason = (() => {
+      if (message.includes('service worker')) return 'service-worker-failed' as const;
+      if (message.includes('messaging') && message.includes('supported')) return 'sdk-load-failed' as const;
+      return 'token-failed' as const;
+    })();
+    return { status: 'error', message, reason };
   }
 }

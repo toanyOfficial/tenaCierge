@@ -8,8 +8,9 @@ export type PushIdentity = {
 };
 
 export type PushSessionState = {
-  status: 'succeeded' | 'denied' | 'prompted';
+  status: 'succeeded' | 'denied' | 'prompted' | 'failed';
   lastUpdated: number;
+  message?: string;
 };
 
 const SESSION_KEY_PREFIX = 'push-session/';
@@ -73,6 +74,10 @@ export function markPushDenied(identity: PushIdentity) {
 
 export function markPushPrompted(identity: PushIdentity) {
   writeState(identity, { status: 'prompted', lastUpdated: Date.now() });
+}
+
+export function markPushFailed(identity: PushIdentity, message?: string) {
+  writeState(identity, { status: 'failed', lastUpdated: Date.now(), ...(message ? { message } : {}) });
 }
 
 export function clearPushSession(identity: PushIdentity) {
