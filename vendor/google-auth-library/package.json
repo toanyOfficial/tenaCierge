@@ -1,0 +1,6 @@
+{
+  "name": "google-auth-library",
+  "version": "9.14.2",
+  "main": "index.js",
+  "types": "index.d.ts"
+}
