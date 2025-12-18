@@ -13,14 +13,7 @@ type UserContext = 'CLIENT' | 'WORKER';
 
 type SubscribeRequest = {
   context: UserContext;
-  endpoint?: string;
-  p256dh?: string;
-  auth?: string;
-  subscription?: {
-    endpoint?: string;
-    keys?: { p256dh?: string; auth?: string } | null;
-    expirationTime?: number | null;
-  } | null;
+  token?: string;
   phone?: string | null;
   registerNo?: string | null;
   userAgent?: string | null;
@@ -39,14 +32,15 @@ function normalizeRegister(registerRaw: string | null | undefined) {
   return trimmed ? trimmed.toUpperCase() : '';
 }
 
-function extractSubscriptionKeys(body: SubscribeRequest) {
-  const subscription = body.subscription ?? null;
+const FCM_HOST_KEYWORD = 'fcm.googleapis.com';
 
-  const endpoint = cleanString(body.endpoint || (subscription?.endpoint ?? ''));
-  const p256dh = cleanString(body.p256dh || (subscription?.keys?.p256dh ?? ''));
-  const auth = cleanString(body.auth || (subscription?.keys?.auth ?? ''));
+function extractRegistrationToken(body: SubscribeRequest) {
+  return cleanString(body.token);
+}
 
-  return { endpoint, p256dh, auth };
+function isInvalidTokenFormat(token: string) {
+  const lowered = token.toLowerCase();
+  return lowered.includes('http://') || lowered.includes('https://') || lowered.includes(FCM_HOST_KEYWORD);
 }
 
 function clamp(value: string | undefined, maxLength: number) {
@@ -141,16 +135,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ message }, { status });
     }
 
-    const { endpoint, p256dh, auth } = extractSubscriptionKeys(body);
+    const registrationToken = extractRegistrationToken(body);
 
-    if (!endpoint || !p256dh || !auth) {
+    if (!registrationToken) {
       const status = 400;
-      const message = 'endpoint, p256dh, auth는 필수입니다.';
+      const message = 'registration token이 필요합니다.';
       await logSubscribeFailure({
         status,
         message,
-        context: { reason: 'missing_keys', endpoint: Boolean(endpoint), hasSubscription: Boolean(body.subscription) }
+        context: { reason: 'missing_token' }
       });
+      return NextResponse.json({ message }, { status });
+    }
+
+    if (isInvalidTokenFormat(registrationToken)) {
+      const status = 400;
+      const message = 'INVALID_TOKEN';
+      await logSubscribeFailure({ status, message, context: { reason: 'invalid_token_format' } });
       return NextResponse.json({ message }, { status });
     }
 
@@ -189,9 +190,9 @@ export async function POST(request: Request) {
       await upsertSubscription({
         userType: 'CLIENT',
         userId: client.id,
-        endpoint,
-        p256dh,
-        auth,
+        endpoint: registrationToken,
+        p256dh: '',
+        auth: '',
         userAgent: body.userAgent ?? undefined,
         platform: body.platform ?? undefined,
         browser: body.browser ?? undefined,
@@ -237,9 +238,9 @@ export async function POST(request: Request) {
     await upsertSubscription({
       userType: 'WORKER',
       userId: worker.id,
-      endpoint,
-      p256dh,
-      auth,
+      endpoint: registrationToken,
+      p256dh: '',
+      auth: '',
       userAgent: body.userAgent ?? undefined,
       platform: body.platform ?? undefined,
       browser: body.browser ?? undefined,
@@ -252,12 +253,7 @@ export async function POST(request: Request) {
     const sanitizedBody = body
       ? {
           ...body,
-          endpoint: undefined,
-          p256dh: undefined,
-          auth: undefined,
-          subscription: body.subscription
-            ? { endpoint: body.subscription.endpoint ?? undefined, keys: undefined, expirationTime: body.subscription.expirationTime }
-            : undefined,
+          token: undefined,
         }
       : undefined;
 
