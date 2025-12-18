@@ -156,8 +156,26 @@ export async function processLockedJob(job: NotifyJobRow, deliver: DeliverFn) {
   const payload = job.payloadJson as NotifyJobPayload;
   const subscriptions = await fetchEnabledSubscriptions(job.userType, job.userId);
 
+  if (!payload?.title || !payload?.body) {
+    const reason = 'payload missing title/body';
+    console.warn('[web-push] skip delivery', {
+      jobId: job.id,
+      reasonCode: 'PAYLOAD_INVALID',
+      detail: reason,
+    });
+    await markJobFailed(job.id, reason);
+    return { jobId: job.id, sent: 0, failed: 0, skipped: true } as const;
+  }
+
   if (!subscriptions.length) {
-    await markJobDone(job.id);
+    console.warn('[web-push] skip delivery', {
+      jobId: job.id,
+      userType: job.userType,
+      userId: job.userId,
+      reasonCode: 'NO_TOKEN',
+      detail: 'no enabled subscriptions',
+    });
+    await markJobFailed(job.id, 'no enabled subscriptions');
     return { jobId: job.id, sent: 0, failed: 0, skipped: true } as const;
   }
 

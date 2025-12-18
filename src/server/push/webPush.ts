@@ -166,6 +166,14 @@ export function createWebPushDeliver(): DeliverFn {
   return async (subscription, payload, job) => {
     try {
       const normalizedToken = await normalizeStoredEndpoint(subscription.id, subscription.endpoint);
+      if (!normalizedToken) {
+        console.warn('[web-push] skip delivery', {
+          jobId: job.id,
+          subscriptionId: subscription.id,
+          reasonCode: 'TOKEN_MISSING',
+        });
+        return { status: 'FAILED', errorMessage: 'empty token' } satisfies DeliverResult;
+      }
       const { client, projectId } = await getAccessContext();
       const accessToken = await getAccessToken(client);
       if (!accessToken) {
@@ -174,6 +182,17 @@ export function createWebPushDeliver(): DeliverFn {
 
       const url = `${FCM_ENDPOINT}/${projectId}/messages:send`;
       const fcmMessage = buildFcmMessage(payload, normalizedToken, job.dedupKey);
+      console.info('[web-push] fcm send start', {
+        jobId: job.id,
+        subscriptionId: subscription.id,
+        token: maskToken(normalizedToken),
+        deviceFingerprint: maskFingerprint(subscription.deviceFingerprint),
+        payload: {
+          title: payload.title,
+          hasData: Boolean(payload.data),
+          clickUrl: Boolean(payload.clickUrl),
+        },
+      });
       const response = await fetch(url, {
         method: 'POST',
         headers: {
