@@ -19,13 +19,12 @@
     "luxon": "^3.4.4",
     "mysql2": "^3.9.7",
     "next": "^14.2.5",
-    "recharts": "^2.12.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-smooth": "file:vendor/react-smooth",
     "tiny-invariant": "file:vendor/tiny-invariant",
     "victory-vendor": "file:vendor/victory-vendor",
-    "web-push": "file:vendor/web-push",
+    "web-push": "^3.6.6",
     "zod": "^3.23.8"
   },
   "devDependencies": {
