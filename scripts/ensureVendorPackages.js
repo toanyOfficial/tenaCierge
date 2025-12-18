@@ -15,6 +15,7 @@ const fallbackPackages = {
   'web-push': {
     version: '0.0.0-fallback',
     main: 'index.js',
+    requiredModules: ['http_ece', 'asn1.js', 'jws', 'https-proxy-agent'],
     index: `"use strict";
 
 class WebPushError extends Error {
@@ -97,14 +98,13 @@ function ensureSymlink(pkg) {
 
 function ensureFallbackModule(pkg, definition) {
   const dest = path.join(nodeModulesDir, pkg);
+  const missingDependencies = hasMissingDependencies(dest, definition.requiredModules);
 
-  if (fs.existsSync(dest) && !isBrokenSymlink(dest)) {
+  if (fs.existsSync(dest) && !isBrokenSymlink(dest) && !missingDependencies) {
     return;
   }
 
-  if (isBrokenSymlink(dest)) {
-    fs.unlinkSync(dest);
-  }
+  fs.rmSync(dest, { recursive: true, force: true });
 
   fs.mkdirSync(dest, { recursive: true });
   fs.writeFileSync(path.join(dest, 'package.json'), JSON.stringify({
@@ -113,7 +113,31 @@ function ensureFallbackModule(pkg, definition) {
     main: definition.main
   }, null, 2));
   fs.writeFileSync(path.join(dest, definition.main), definition.index, 'utf8');
-  console.warn(`Created fallback shim for missing package: ${pkg}`);
+  const reason = missingDependencies ? 'missing dependencies' : 'missing package';
+  console.warn(`Created fallback shim for ${pkg} (${reason}).`);
+}
+
+function hasMissingDependencies(moduleDir, requiredModules = []) {
+  if (!fs.existsSync(moduleDir)) {
+    return true;
+  }
+
+  if (!requiredModules || requiredModules.length === 0) {
+    return false;
+  }
+
+  return requiredModules.some((dep) => {
+    try {
+      require.resolve(dep, { paths: [moduleDir] });
+      return false;
+    } catch (error) {
+      if (error && error.code === 'MODULE_NOT_FOUND') {
+        return true;
+      }
+
+      throw error;
+    }
+  });
 }
 
 fs.mkdirSync(nodeModulesDir, { recursive: true });
