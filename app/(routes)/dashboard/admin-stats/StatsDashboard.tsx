@@ -425,9 +425,9 @@ export default function StatsDashboard({
     ]
   );
 
-  const monthlyTotalsChart = useMemo(
-    () => (
-      <ResponsiveContainer width="100%" height="100%">
+  const monthlyTotalsChart = useMemo(() => {
+    return (
+      <ResponsiveContainer width="100%" aspect={515 / 355}>
         <ComposedChart
           data={normalizedMonthlyOverview}
           margin={{ top: 54, right: 18, bottom: 24, left: 18 }}
@@ -494,19 +494,18 @@ export default function StatsDashboard({
           </defs>
         </ComposedChart>
       </ResponsiveContainer>
-    ),
-    [
-      BarValueLabel,
-      LineValueLabel,
-      MonthlyLegend,
-      legendTopLeft,
-      normalizedMonthlyOverview,
-      overviewLeftMax,
-      overviewLeftTicks,
-      overviewRightMax,
-      overviewRightTicks
-    ]
-  );
+    );
+  }, [
+    BarValueLabel,
+    LineValueLabel,
+    MonthlyLegend,
+    legendTopLeft,
+    normalizedMonthlyOverview,
+    overviewLeftMax,
+    overviewLeftTicks,
+    overviewRightMax,
+    overviewRightTicks
+  ]);
 
   const weekdayChart = useMemo(
     () => (
