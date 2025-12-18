@@ -50,7 +50,7 @@ ICS_BASE = BASE_DIR / "ics"
 SEOUL = tz.gettz("Asia/Seoul")
 
 WEB_PUSH_SCENARIO_URL = os.environ.get(
-    "WEB_PUSH_SCENARIO_ENDPOINT", "http://localhost:3000/api/push/scenario"
+    "WEB_PUSH_SCENARIO_ENDPOINT", "http://localhost:3200/api/push/scenario"
 )
 
 WEEKDAY_BASE = {0: 0.6, 1: 0.45, 2: 0.45, 3: 0.5, 4: 0.8, 5: 1.0, 6: 0.9}

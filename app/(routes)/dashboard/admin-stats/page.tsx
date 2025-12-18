@@ -1,6 +1,10 @@
 import { redirect } from 'next/navigation';
 
-import StatsDashboard from './StatsDashboard';
+import dynamic from 'next/dynamic';
+
+const StatsDashboard = dynamic(() => import('./StatsDashboard'), {
+  ssr: false
+});
 import { fetchMonthlyAverages } from './server/fetchMonthlyAverages';
 import { fetchMonthlyOverview } from './server/fetchMonthlyOverview';
 import { fetchWeekdayStats } from './server/fetchWeekdayStats';
