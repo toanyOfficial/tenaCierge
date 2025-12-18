@@ -427,7 +427,7 @@ export default function StatsDashboard({
 
   const monthlyTotalsChart = useMemo(
     () => (
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" aspect={515 / 355}>
         <ComposedChart
           data={normalizedMonthlyOverview}
           margin={{ top: 54, right: 18, bottom: 24, left: 18 }}
