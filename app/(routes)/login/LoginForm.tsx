@@ -2,8 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ensurePushSubscription } from '@/src/client/push/ensureAfterLogin';
-import { buildPushContexts, hasPushCheckRun, resetPushCheckFlags } from '@/src/client/push/session';
+import { ensurePushSubscription, resetPushSessionFlags } from '@/src/client/push/ensureAfterLogin';
 import { normalizePhone } from '@/src/utils/phone';
 import styles from './login.module.css';
 
@@ -52,19 +51,13 @@ export default function LoginForm() {
   async function syncWebPushConsent(loginResult: LoginSuccess) {
     if (typeof window === 'undefined') return;
 
-    resetPushCheckFlags();
+    resetPushSessionFlags();
 
     const identity = {
       phone: loginResult.profile.phone,
       registerNo: loginResult.profile.registerNo,
       roles: loginResult.roleArrange,
     };
-
-    const contexts = buildPushContexts(identity);
-
-    if (contexts.length === 0 || hasPushCheckRun(identity)) {
-      return;
-    }
 
     try {
       await ensurePushSubscription(identity);

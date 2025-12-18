@@ -7,6 +7,7 @@ import {
   type PushSubscriptionRow,
   runDueJobs
 } from '@/src/server/push/jobs';
+import { normalizeStoredEndpoint } from '@/src/server/push/subscriptionStore';
 
 const DEFAULT_TTL_SECONDS = 3600;
 const DEFAULT_URGENCY: NotifyJobPayload['urgency'] = 'normal';
@@ -97,9 +98,9 @@ function buildWebpushConfig(payload: NotifyJobPayload) {
   return webpush;
 }
 
-function buildFcmMessage(payload: NotifyJobPayload, subscription: PushSubscriptionRow, dedupKey: string) {
+function buildFcmMessage(payload: NotifyJobPayload, token: string, dedupKey: string) {
   const message: Record<string, unknown> = {
-    token: subscription.endpoint,
+    token,
     notification: {
       title: payload.title,
       body: payload.body,
@@ -116,18 +117,47 @@ function buildFcmMessage(payload: NotifyJobPayload, subscription: PushSubscripti
   return { message };
 }
 
-function toDeliverResult(httpStatus: number | undefined, errorMessage: string): DeliverResult {
-  const expired = httpStatus === 404 || httpStatus === 410;
+function maskToken(token: string) {
+  if (token.length <= 8) return token;
+  return `${token.slice(0, 4)}...${token.slice(-4)}`;
+}
+
+function parseFcmError(bodyText: string) {
+  try {
+    const parsed = JSON.parse(bodyText) as { error?: { status?: string; message?: string; code?: number } };
+    return parsed.error;
+  } catch (error) {
+    return null;
+  }
+}
+
+function toDeliverResult(subscription: PushSubscriptionRow, httpStatus: number | undefined, bodyText: string): DeliverResult {
+  const error = bodyText ? parseFcmError(bodyText) : null;
+  const message = (error?.message || bodyText || `HTTP ${httpStatus ?? 0}`).slice(0, 255);
+  const errorCode = error?.status;
+  const expired = httpStatus === 404 || httpStatus === 410 || errorCode === 'NOT_FOUND';
+  const invalidToken = errorCode === 'INVALID_ARGUMENT' || message.toLowerCase().includes('registration token');
+  const unauthenticated = errorCode === 'UNAUTHENTICATED' || httpStatus === 401 || httpStatus === 403;
+
+  const disableSubscription = expired || invalidToken;
+
+  if (unauthenticated) {
+    console.warn('[push] FCM authentication issue', { subscriptionId: subscription.id, status: httpStatus, message });
+  }
+
   return {
-    status: expired ? 'EXPIRED' : 'FAILED',
+    status: disableSubscription ? 'EXPIRED' : 'FAILED',
     httpStatus,
-    errorMessage: errorMessage.slice(0, 255)
+    errorCode,
+    errorMessage: message,
+    disableSubscription,
   } satisfies DeliverResult;
 }
 
 export function createWebPushDeliver(): DeliverFn {
   return async (subscription, payload, job) => {
     try {
+      const normalizedToken = await normalizeStoredEndpoint(subscription.id, subscription.endpoint);
       const { client, projectId } = await getAccessContext();
       const accessToken = await getAccessToken(client);
       if (!accessToken) {
@@ -135,7 +165,7 @@ export function createWebPushDeliver(): DeliverFn {
       }
 
       const url = `${FCM_ENDPOINT}/${projectId}/messages:send`;
-      const fcmMessage = buildFcmMessage(payload, subscription, job.dedupKey);
+      const fcmMessage = buildFcmMessage(payload, normalizedToken, job.dedupKey);
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -146,16 +176,27 @@ export function createWebPushDeliver(): DeliverFn {
       });
 
       const responseBody = await response.text();
-      console.info('[web-push] fcm response', { status: response.status, body: responseBody });
+      console.info('[web-push] fcm response', {
+        status: response.status,
+        token: maskToken(normalizedToken),
+        jobId: job.id,
+        subscriptionId: subscription.id,
+        body: responseBody,
+      });
 
       if (response.ok) {
         return { status: 'SENT', sentAt: new Date(), httpStatus: response.status } satisfies DeliverResult;
       }
 
-      return toDeliverResult(response.status, responseBody || `HTTP ${response.status}`);
+      return toDeliverResult(subscription, response.status, responseBody || `HTTP ${response.status}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unexpected fcm error';
-      console.error('[web-push] fcm error', { message });
+      console.error('[web-push] fcm error', {
+        jobId: job.id,
+        subscriptionId: subscription.id,
+        token: maskToken(subscription.endpoint),
+        message,
+      });
       return { status: 'FAILED', errorMessage: message.slice(0, 255) } satisfies DeliverResult;
     }
   };

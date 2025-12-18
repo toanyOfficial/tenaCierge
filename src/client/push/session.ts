@@ -1,5 +1,5 @@
 import { normalizePhone } from '@/src/utils/phone';
-import type { SubscriptionContext } from './register';
+import type { SubscriptionContext } from './types';
 
 export type PushIdentity = {
   phone?: string | null;
@@ -7,7 +7,12 @@ export type PushIdentity = {
   roles?: string[] | null;
 };
 
-const SESSION_KEY_PREFIX = 'push-check/';
+export type PushSessionState = {
+  status: 'succeeded' | 'denied' | 'prompted';
+  lastUpdated: number;
+};
+
+const SESSION_KEY_PREFIX = 'push-session/';
 
 function normalizeRegister(value: string | null | undefined) {
   const trimmed = typeof value === 'string' ? value.trim() : '';
@@ -30,24 +35,57 @@ function buildSessionKey(identity: PushIdentity) {
   return `${SESSION_KEY_PREFIX}${phone}|${registerNo}|${roles}`;
 }
 
-export function hasPushCheckRun(identity: PushIdentity) {
-  if (typeof window === 'undefined') return false;
+function readState(identity: PushIdentity): PushSessionState | null {
+  if (typeof window === 'undefined') return null;
   const key = buildSessionKey(identity);
-  return window.sessionStorage.getItem(key) === 'done';
+  const raw = window.sessionStorage.getItem(key);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as PushSessionState;
+    if (parsed && typeof parsed === 'object' && typeof parsed.status === 'string') {
+      return parsed;
+    }
+  } catch (error) {
+    // ignore corrupted state
+  }
+
+  return null;
 }
 
-export function markPushCheckRun(identity: PushIdentity) {
+function writeState(identity: PushIdentity, state: PushSessionState) {
   if (typeof window === 'undefined') return;
   const key = buildSessionKey(identity);
   try {
-    window.sessionStorage.setItem(key, 'done');
+    window.sessionStorage.setItem(key, JSON.stringify(state));
   } catch (error) {
-    // Ignore storage errors to avoid blocking the flow.
-    console.warn('push check flag 저장 실패', error);
+    console.warn('push session 저장 실패', error);
   }
 }
 
-export function resetPushCheckFlags() {
+export function markPushSuccess(identity: PushIdentity) {
+  writeState(identity, { status: 'succeeded', lastUpdated: Date.now() });
+}
+
+export function markPushDenied(identity: PushIdentity) {
+  writeState(identity, { status: 'denied', lastUpdated: Date.now() });
+}
+
+export function markPushPrompted(identity: PushIdentity) {
+  writeState(identity, { status: 'prompted', lastUpdated: Date.now() });
+}
+
+export function clearPushSession(identity: PushIdentity) {
+  if (typeof window === 'undefined') return;
+  const key = buildSessionKey(identity);
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch (error) {
+    console.warn('push session 제거 실패', error);
+  }
+}
+
+export function resetPushSessionFlags() {
   if (typeof window === 'undefined') return;
   try {
     const keys: string[] = [];
@@ -59,8 +97,17 @@ export function resetPushCheckFlags() {
     }
     keys.forEach((key) => window.sessionStorage.removeItem(key));
   } catch (error) {
-    console.warn('push check flag 초기화 실패', error);
+    console.warn('push session 초기화 실패', error);
   }
+}
+
+export function shouldRetry(identity: PushIdentity) {
+  const state = readState(identity);
+  return !state || state.status !== 'succeeded';
+}
+
+export function getLastPushState(identity: PushIdentity) {
+  return readState(identity);
 }
 
 export function buildPushContexts(identity: PushIdentity): SubscriptionContext[] {

@@ -11,7 +11,6 @@ import HostPanel from './HostPanel';
 import AdminPanel from './AdminPanel';
 import styles from './dashboard.module.css';
 import { ensurePushSubscription } from '@/src/client/push/ensureAfterLogin';
-import { buildPushContexts } from '@/src/client/push/session';
 
 type Props = {
   profile: ProfileSummary;
@@ -95,16 +94,6 @@ export default function DashboardClient({ profile, cleanerSnapshot, butlerSnapsh
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
-    const contexts = buildPushContexts({
-      phone: profile.phone,
-      registerNo: profile.registerNo,
-      roles: profile.roles,
-    });
-
-    if (contexts.length === 0) {
-      return;
-    }
 
     void ensurePushSubscription({
       phone: profile.phone,
