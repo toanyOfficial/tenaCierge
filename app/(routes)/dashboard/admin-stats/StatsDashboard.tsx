@@ -56,23 +56,82 @@ type Props = {
   weekdayStats: { points: WeekdayStatsPoint[]; buildings: WeekdaySeriesMeta[] };
 };
 
+function toNumber(value: unknown, fallback = 0) {
+  const parsed = Number(value ?? fallback);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 export default function StatsDashboard({
   profile: _profile,
   monthlyAverages,
   monthlyOverview,
   weekdayStats
 }: Props) {
+  const normalizedMonthlyAverages = useMemo(
+    () =>
+      monthlyAverages.map((row) => ({
+        ...row,
+        subscriptionCount: toNumber(row.subscriptionCount),
+        perOrderCount: toNumber(row.perOrderCount)
+      })),
+    [monthlyAverages]
+  );
+
   const normalizedMonthlyOverview = useMemo(
     () =>
       monthlyOverview.map((row) => ({
         ...row,
-        totalCount: Number(row.totalCount ?? 0),
-        roomAverage: Number(row.roomAverage ?? 0)
+        totalCount: toNumber(row.totalCount),
+        roomAverage: toNumber(row.roomAverage)
       })),
     [monthlyOverview]
   );
 
+  const normalizedWeekdayBuildings = useMemo(
+    () =>
+      [...weekdayStats.buildings]
+        .map((meta) => ({
+          ...meta,
+          averageCount: toNumber(meta.averageCount)
+        }))
+        .sort((a, b) => {
+          const diff = (b.averageCount ?? 0) - (a.averageCount ?? 0);
+          if (diff !== 0) return diff;
+          return a.key.localeCompare(b.key);
+        }),
+    [weekdayStats.buildings]
+  );
+
+  const normalizedWeekdayPoints = useMemo(
+    () =>
+      weekdayStats.points.map((point) => {
+        const next: WeekdayStatsPoint = {
+          label: point.label,
+          totalCount: toNumber(point.totalCount)
+        };
+
+        Object.entries(point).forEach(([key, value]) => {
+          if (key === 'label' || key === 'totalCount') return;
+          next[key] = toNumber(value);
+        });
+
+        return next;
+      }),
+    [weekdayStats.points]
+  );
+
   useEffect(() => {
+    console.log(
+      '[요금제별 평균] chart data',
+      normalizedMonthlyAverages.map((row) => ({
+        label: row.label,
+        subscriptionCount: row.subscriptionCount,
+        subscriptionType: typeof row.subscriptionCount,
+        perOrderCount: row.perOrderCount,
+        perOrderType: typeof row.perOrderCount
+      }))
+    );
+
     console.log(
       '[월별 통계값] chart data',
       normalizedMonthlyOverview.map((row) => ({
@@ -83,16 +142,34 @@ export default function StatsDashboard({
         roomAverageType: typeof row.roomAverage
       }))
     );
-  }, [normalizedMonthlyOverview]);
+
+    console.log(
+      '[요일별 통계] meta',
+      normalizedWeekdayBuildings.map((meta) => ({
+        key: meta.key,
+        label: meta.label,
+        averageCount: meta.averageCount,
+        averageType: typeof meta.averageCount,
+        sectorCode: meta.sectorCode
+      }))
+    );
+
+    console.log('[요일별 통계] points', normalizedWeekdayPoints);
+  }, [
+    normalizedMonthlyAverages,
+    normalizedMonthlyOverview,
+    normalizedWeekdayBuildings,
+    normalizedWeekdayPoints
+  ]);
 
   const planMax = useMemo(() => {
     const peak = Math.max(
-      ...monthlyAverages.map((row) => Math.max(row.subscriptionCount, row.perOrderCount)),
+      ...normalizedMonthlyAverages.map((row) => Math.max(row.subscriptionCount, row.perOrderCount)),
       0
     );
     if (peak === 0) return 1;
     return Math.ceil(peak * 1.1);
-  }, [monthlyAverages]);
+  }, [normalizedMonthlyAverages]);
 
   const planTicks = useMemo(() => {
     const ratios = [0.25, 0.5, 0.75, 1];
@@ -121,7 +198,7 @@ export default function StatsDashboard({
       '3': '#22c55e'
     };
 
-    const groupedBySector = weekdayStats.buildings.reduce((acc, meta) => {
+    const groupedBySector = normalizedWeekdayBuildings.reduce((acc, meta) => {
       const sectorKey = meta.sectorCode ?? '__unknown__';
       const group = acc.get(sectorKey) ?? [];
       group.push(meta);
@@ -149,13 +226,13 @@ export default function StatsDashboard({
     });
 
     return buildingColors;
-  }, [weekdayStats.buildings]);
+  }, [normalizedWeekdayBuildings]);
 
   const weekdayMax = useMemo(() => {
-    const peak = Math.max(...weekdayStats.points.map((row) => row.totalCount), 0);
+    const peak = Math.max(...normalizedWeekdayPoints.map((row) => toNumber(row.totalCount)), 0);
     if (peak === 0) return 4;
     return Math.max(14, Math.ceil(peak * 1.2));
-  }, [weekdayStats]);
+  }, [normalizedWeekdayPoints]);
 
   const weekdayTicks = useMemo(() => {
     const ratios = [0.25, 0.5, 0.75, 1];
@@ -260,7 +337,7 @@ export default function StatsDashboard({
       function LegendContent() {
         return (
           <div className={`${styles.chartLegend} ${styles.weekdayLegend}`} aria-label="범례">
-            {weekdayStats.buildings.map((meta, index) => {
+            {normalizedWeekdayBuildings.map((meta, index) => {
               const color = weekdayColorMap.get(meta.key) ?? '#38bdf8';
               return (
                 <span key={meta.key} className={styles.legendItem}>
@@ -272,7 +349,7 @@ export default function StatsDashboard({
           </div>
       );
     },
-    [weekdayColorMap, weekdayStats.buildings]
+    [weekdayColorMap, normalizedWeekdayBuildings]
   );
 
   const legendTopLeft = useMemo(() => ({ top: 6, left: 12 }), []);
@@ -280,7 +357,10 @@ export default function StatsDashboard({
   const planChart = useMemo(
     () => (
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={monthlyAverages} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
+        <ComposedChart
+          data={normalizedMonthlyAverages}
+          margin={{ top: 54, right: 18, bottom: 24, left: 18 }}
+        >
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
           <XAxis
             dataKey="label"
@@ -334,7 +414,15 @@ export default function StatsDashboard({
         </ComposedChart>
       </ResponsiveContainer>
     ),
-    [BarValueLabel, LineValueLabel, PlanLegend, legendTopLeft, monthlyAverages, planMax, planTicks]
+    [
+      BarValueLabel,
+      LineValueLabel,
+      PlanLegend,
+      legendTopLeft,
+      normalizedMonthlyAverages,
+      planMax,
+      planTicks
+    ]
   );
 
   const monthlyTotalsChart = useMemo(
@@ -424,7 +512,7 @@ export default function StatsDashboard({
     () => (
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
-          data={weekdayStats.points}
+          data={normalizedWeekdayPoints}
           margin={{ top: 60, right: 40, bottom: 24, left: 40 }}
         >
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
@@ -448,9 +536,9 @@ export default function StatsDashboard({
             wrapperStyle={legendTopLeft}
             content={<WeekdayLegend />}
           />
-          {weekdayStats.buildings.map((meta, index) => {
+          {normalizedWeekdayBuildings.map((meta, index) => {
             const color = weekdayColorMap.get(meta.key) ?? '#38bdf8';
-            const isTopStack = index === weekdayStats.buildings.length - 1;
+            const isTopStack = index === normalizedWeekdayBuildings.length - 1;
             const labelSide = index % 2 === 0 ? 'right' : 'left';
             const BuildingLabel = makeBuildingLabel(labelSide);
             return (
@@ -480,9 +568,9 @@ export default function StatsDashboard({
       makeBuildingLabel,
       weekdayColorMap,
       weekdayMax,
-      weekdayStats.buildings,
-      weekdayStats.points,
-      weekdayTicks,
+      normalizedWeekdayBuildings,
+      normalizedWeekdayPoints,
+      weekdayTicks
     ]
   );
 
