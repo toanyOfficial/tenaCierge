@@ -210,7 +210,8 @@ export default function LoginForm() {
 
       await syncWebPushConsent(data);
 
-      router.push('/dashboard');
+      router.replace('/dashboard');
+      router.refresh();
     } catch (error) {
       setErrors({ global: '로그인 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.' });
     } finally {

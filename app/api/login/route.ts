@@ -80,10 +80,37 @@ export async function POST(request: Request) {
     let primaryRole: string | null = null;
     let profile: { name: string; phone: string | null; registerNo: string | null } | null = null;
 
-    if (hasPhone !== hasRegister) {
-      const identifier: SearchIdentifier = hasPhone
-        ? { type: 'phone', value: phoneValue }
-        : { type: 'register', value: normalizedRegister };
+    if (hasPhone && hasRegister) {
+      const [clientResult] = await db
+        .select({
+          id: clientHeader.id,
+          name: clientHeader.name,
+          phone: clientHeader.phone,
+          registerNo: clientHeader.registerCode
+        })
+        .from(clientHeader)
+        .where(and(eq(clientHeader.phone, phoneValue), eq(clientHeader.registerCode, normalizedRegister)))
+        .limit(1);
+
+      if (clientResult) {
+        roleArrange = ['host'];
+        primaryRole = 'host';
+        profile = {
+          name: clientResult.name,
+          phone: clientResult.phone,
+          registerNo: clientResult.registerNo
+        };
+      }
+    }
+
+    if (!profile) {
+      const workerWhere = hasPhone && hasRegister
+        ? and(eq(workerHeader.registerCode, normalizedRegister), eq(workerHeader.phone, phoneValue))
+        : buildWorkerClause(
+            hasRegister
+              ? { type: 'register', value: normalizedRegister }
+              : ({ type: 'phone', value: phoneValue } as SearchIdentifier)
+          );
 
       const [workerResult] = await db
         .select({
@@ -94,14 +121,21 @@ export async function POST(request: Request) {
           tier: workerHeader.tier
         })
         .from(workerHeader)
-        .where(buildWorkerClause(identifier))
+        .where(workerWhere)
         .limit(1);
 
       if (!workerResult) {
+        if (hasRegister && !hasPhone) {
+          return NextResponse.json(
+            { message: '등록된 관리번호가 없거나 휴대전화를 함께 입력해야 합니다.' },
+            { status: 404 }
+          );
+        }
+
         return NextResponse.json({ message: '일치하는 구성원을 찾지 못했습니다.' }, { status: 404 });
       }
 
-      if (workerResult.tier === 99) {
+      if (workerResult.tier === 99 && !hasPhone) {
         return NextResponse.json(
           { message: '호스트 계정은 휴대폰번호와 관리코드를 함께 입력해주세요.' },
           { status: 400 }
@@ -114,69 +148,19 @@ export async function POST(request: Request) {
 
       const butlerEligible = await hasUpcomingButler(workerResult.id);
       roleArrange = butlerEligible ? ['cleaner', 'butler'] : ['cleaner'];
-      primaryRole = butlerEligible ? 'butler' : 'cleaner';
+
+      if (workerResult.tier === 99) {
+        roleArrange = ['admin', 'host', ...roleArrange];
+        primaryRole = 'admin';
+      } else {
+        primaryRole = butlerEligible ? 'butler' : 'cleaner';
+      }
+
       profile = {
         name: workerResult.name,
         phone: workerResult.phone,
         registerNo: workerResult.registerNo
       };
-    } else {
-      const [workerResult] = await db
-        .select({
-          id: workerHeader.id,
-          name: workerHeader.name,
-          phone: workerHeader.phone,
-          registerNo: workerHeader.registerCode,
-          tier: workerHeader.tier
-        })
-        .from(workerHeader)
-        .where(and(eq(workerHeader.phone, phoneValue), eq(workerHeader.registerCode, normalizedRegister)))
-        .limit(1);
-
-      if (workerResult) {
-        if (workerResult.tier === 1) {
-          return NextResponse.json({ message: '로그인이 제한된 유저입니다.' }, { status: 403 });
-        }
-
-        const butlerEligible = await hasUpcomingButler(workerResult.id);
-        roleArrange = butlerEligible ? ['cleaner', 'butler'] : ['cleaner'];
-
-        if (workerResult.tier === 99) {
-          roleArrange = ['admin', 'host', ...roleArrange];
-          primaryRole = 'admin';
-        } else {
-          primaryRole = butlerEligible ? 'butler' : 'cleaner';
-        }
-
-        profile = {
-          name: workerResult.name,
-          phone: workerResult.phone,
-          registerNo: workerResult.registerNo
-        };
-      } else {
-        const [clientResult] = await db
-          .select({
-            id: clientHeader.id,
-            name: clientHeader.name,
-            phone: clientHeader.phone,
-            registerNo: clientHeader.registerCode
-          })
-          .from(clientHeader)
-          .where(and(eq(clientHeader.phone, phoneValue), eq(clientHeader.registerCode, normalizedRegister)))
-          .limit(1);
-
-        if (!clientResult) {
-          return NextResponse.json({ message: '일치하는 구성원을 찾지 못했습니다.' }, { status: 404 });
-        }
-
-        roleArrange = ['host'];
-        primaryRole = 'host';
-        profile = {
-          name: clientResult.name,
-          phone: clientResult.phone,
-          registerNo: clientResult.registerNo
-        };
-      }
     }
 
     if (!primaryRole || roleArrange.length === 0 || !profile) {

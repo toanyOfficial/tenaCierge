@@ -91,6 +91,7 @@ export default function CommonHeader({ profile, activeRole, onRoleChange, compac
       console.error('로그아웃 처리 중 오류', error);
     } finally {
       router.replace('/login');
+      router.refresh();
     }
   }, [router]);
 
