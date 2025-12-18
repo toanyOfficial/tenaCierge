@@ -59,6 +59,9 @@ export async function enqueueNotifyJob(params: EnqueueNotifyJobParams) {
 }
 
 export async function fetchReadyJobs(now = new Date(), limit = 50) {
+  // Raw SQL equivalent for clarity:
+  // WHERE status = 'READY'
+  //   AND scheduled_at <= now()
   return db
     .select()
     .from(notifyJobs)
