@@ -426,75 +426,86 @@ export default function StatsDashboard({
   );
 
   const monthlyTotalsChart = useMemo(
-    () => (
-      <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart
-          data={normalizedMonthlyOverview}
-          margin={{ top: 54, right: 18, bottom: 24, left: 18 }}
-        >
-          <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
-          <XAxis
-            dataKey="label"
-            tickLine={false}
-            axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
-            tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-          />
-          <YAxis
-            yAxisId="left"
-            orientation="left"
-            tickLine={false}
-            axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
-            tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-            domain={[0, overviewLeftMax]}
-            ticks={overviewLeftTicks}
-            allowDecimals={false}
-          />
-          <YAxis
-            yAxisId="right"
-            orientation="right"
-            tickLine={false}
-            axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
-            tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-            domain={[0, overviewRightMax]}
-            ticks={overviewRightTicks}
-            allowDecimals={false}
-          />
-          <Legend
-            verticalAlign="top"
-            align="left"
-            wrapperStyle={legendTopLeft}
-            content={<MonthlyLegend />}
-          />
-          <Bar
-            dataKey="totalCount"
-            yAxisId="right"
-            fill="url(#totalCountGradient)"
-            barSize={18}
-            radius={[6, 6, 0, 0]}
+    () => {
+      console.log(
+        '[Bar data sanity check]',
+        normalizedMonthlyOverview.map((d) => ({
+          value: d.totalCount,
+          type: typeof d.totalCount,
+          isFinite: Number.isFinite(d.totalCount)
+        }))
+      );
+
+      return (
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart
+            data={normalizedMonthlyOverview}
+            margin={{ top: 54, right: 18, bottom: 24, left: 18 }}
           >
-            <LabelList dataKey="totalCount" position="top" content={<BarValueLabel />} />
-          </Bar>
-          <Line
-            dataKey="roomAverage"
-            yAxisId="left"
-            type="monotone"
-            stroke="#7dd3fc"
-            strokeWidth={1}
-            dot={{ stroke: '#0ea5e9', fill: '#0ea5e9', r: 3 }}
-            activeDot={false}
-            connectNulls
-          >
-            <LabelList dataKey="roomAverage" position="top" content={<LineValueLabel />} />
-          </Line>
-          <defs>
-            <linearGradient id="totalCountGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#818cf8" stopOpacity="0.95" />
-              <stop offset="100%" stopColor="#6366f1" stopOpacity="0.95" />
-            </linearGradient>
-          </defs>
-        </ComposedChart>
-      </ResponsiveContainer>
-    ),
+            <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
+            <XAxis
+              dataKey="label"
+              tickLine={false}
+              axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+              tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+            />
+            <YAxis
+              yAxisId="left"
+              orientation="left"
+              tickLine={false}
+              axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+              tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+              domain={[0, overviewLeftMax]}
+              ticks={overviewLeftTicks}
+              allowDecimals={false}
+            />
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              tickLine={false}
+              axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+              tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+              domain={[0, overviewRightMax]}
+              ticks={overviewRightTicks}
+              allowDecimals={false}
+            />
+            <Legend
+              verticalAlign="top"
+              align="left"
+              wrapperStyle={legendTopLeft}
+              content={<MonthlyLegend />}
+            />
+            <Bar
+              dataKey="totalCount"
+              yAxisId="right"
+              fill="url(#totalCountGradient)"
+              barSize={18}
+              radius={[6, 6, 0, 0]}
+            >
+              <LabelList dataKey="totalCount" position="top" content={<BarValueLabel />} />
+            </Bar>
+            <Line
+              dataKey="roomAverage"
+              yAxisId="left"
+              type="monotone"
+              stroke="#7dd3fc"
+              strokeWidth={1}
+              dot={{ stroke: '#0ea5e9', fill: '#0ea5e9', r: 3 }}
+              activeDot={false}
+              connectNulls
+            >
+              <LabelList dataKey="roomAverage" position="top" content={<LineValueLabel />} />
+            </Line>
+            <defs>
+              <linearGradient id="totalCountGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#818cf8" stopOpacity="0.95" />
+                <stop offset="100%" stopColor="#6366f1" stopOpacity="0.95" />
+              </linearGradient>
+            </defs>
+          </ComposedChart>
+        </ResponsiveContainer>
+      );
+    },
     [
       BarValueLabel,
       LineValueLabel,
