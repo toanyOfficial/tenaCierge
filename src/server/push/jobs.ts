@@ -27,6 +27,16 @@ export type EnqueueNotifyJobParams = {
   createdBy?: string;
 };
 
+function maskToken(token: string) {
+  if (token.length <= 8) return token;
+  return `${token.slice(0, 4)}...${token.slice(-4)}`;
+}
+
+function maskFingerprint(fingerprint?: string | null) {
+  if (!fingerprint) return fingerprint ?? undefined;
+  return fingerprint.length > 8 ? `${fingerprint.slice(0, 4)}...${fingerprint.slice(-4)}` : fingerprint;
+}
+
 export async function enqueueNotifyJob(params: EnqueueNotifyJobParams) {
   const scheduledAt = params.scheduledAt ?? new Date();
 
@@ -117,6 +127,7 @@ export type DeliverResult = {
   errorMessage?: string;
   sentAt?: Date;
   disableSubscription?: boolean;
+  disableReason?: string;
 };
 
 export type DeliverFn = (
@@ -176,6 +187,9 @@ export async function processLockedJob(job: NotifyJobRow, deliver: DeliverFn) {
           userId: subscription.userId,
           httpStatus: result.httpStatus,
           errorCode: result.errorCode,
+          disableReason: result.disableReason,
+          deviceFingerprint: maskFingerprint(subscription.deviceFingerprint),
+          token: maskToken(subscription.endpoint),
         });
       }
       await logPushAttempt({ jobId: job.id, subscriptionId: subscription.id, result });
@@ -187,9 +201,9 @@ export async function processLockedJob(job: NotifyJobRow, deliver: DeliverFn) {
           const parts = [] as string[];
           if (result.httpStatus) parts.push(`status=${result.httpStatus}`);
           if (result.errorMessage) parts.push(result.errorMessage);
-          const token = subscription.endpoint;
-          const masked = token.length > 8 ? `${token.slice(0, 4)}...${token.slice(-4)}` : token;
-          parts.push(`token=${masked}`);
+          parts.push(`token=${maskToken(subscription.endpoint)}`);
+          const maskedFingerprint = maskFingerprint(subscription.deviceFingerprint);
+          if (maskedFingerprint) parts.push(`device=${maskedFingerprint}`);
           firstFailureDetail = parts.join(' ');
         }
       }
@@ -202,9 +216,9 @@ export async function processLockedJob(job: NotifyJobRow, deliver: DeliverFn) {
         result: { status: 'FAILED', errorMessage: message },
       });
       if (!firstFailureDetail) {
-        const token = subscription.endpoint;
-        const masked = token.length > 8 ? `${token.slice(0, 4)}...${token.slice(-4)}` : token;
-        firstFailureDetail = `error=${message} token=${masked}`;
+        const maskedFingerprint = maskFingerprint(subscription.deviceFingerprint);
+        const maskedToken = maskToken(subscription.endpoint);
+        firstFailureDetail = `error=${message} token=${maskedToken}${maskedFingerprint ? ` device=${maskedFingerprint}` : ''}`;
       }
     }
   }

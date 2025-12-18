@@ -11,5 +11,10 @@ export type PushRegistrationResult =
   | {
       status: 'error';
       message?: string;
-      reason?: 'config-missing' | 'service-worker-failed' | 'token-failed' | 'sdk-load-failed';
+      reason?:
+        | 'config-missing'
+        | 'service-worker-failed'
+        | 'token-failed'
+        | 'sdk-load-failed'
+        | 'fingerprint-missing';
     };

@@ -1,3 +1,4 @@
+import { getDeviceFingerprint } from './device';
 import { obtainFcmToken } from './fcm';
 import type { SubscriptionContext } from './types';
 
@@ -8,6 +9,7 @@ type RegistrationFailureReason =
   | 'sdk-load-failed'
   | 'unsupported-browser'
   | 'permission-denied'
+  | 'fingerprint-missing'
   | undefined;
 
 export type PersistResult = {
@@ -35,7 +37,14 @@ function buildBrowserLabel() {
 async function persistToken(
   contexts: SubscriptionContext[],
   token: string,
-  metadata?: { userAgent?: string; platform?: string; browser?: string; deviceId?: string; locale?: string }
+  metadata?: {
+    userAgent?: string;
+    platform?: string;
+    browser?: string;
+    deviceId?: string;
+    locale?: string;
+    deviceFingerprint?: string;
+  }
 ): Promise<PersistResult> {
   const successes: string[] = [];
   const failures: string[] = [];
@@ -68,6 +77,7 @@ async function persistToken(
           platform: metadata?.platform,
           browser: metadata?.browser,
           deviceId: metadata?.deviceId,
+          deviceFingerprint: metadata?.deviceFingerprint,
           locale: metadata?.locale ?? (typeof navigator !== 'undefined' ? navigator.language : undefined),
         }),
       });
@@ -117,7 +127,16 @@ export async function registerFcmSubscriptions(contexts: SubscriptionContext[]):
     return { status: 'denied', message: '알림 권한이 거부되어 있습니다.' };
   }
 
-  const tokenResult = await obtainFcmToken();
+  const [fingerprint, tokenResult] = await Promise.all([getDeviceFingerprint(), obtainFcmToken()]);
+
+  if (!fingerprint) {
+    return {
+      status: 'error',
+      reason: 'fingerprint-missing',
+      message: '디바이스를 식별할 수 없어 푸시 알림을 활성화하지 못했습니다. 새로고침 후 다시 시도해 주세요.',
+    };
+  }
+
   if (tokenResult.status === 'denied') {
     return { status: 'denied', message: tokenResult.message ?? '알림 권한이 거부되었습니다.' };
   }
@@ -138,6 +157,7 @@ export async function registerFcmSubscriptions(contexts: SubscriptionContext[]):
       ? `${(navigator as Navigator & { deviceMemory?: number }).deviceMemory}GB`
       : undefined,
     locale: navigator.language,
+    deviceFingerprint: fingerprint,
   };
 
   try {

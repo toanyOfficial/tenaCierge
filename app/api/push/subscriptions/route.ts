@@ -21,11 +21,17 @@ type SubscribeRequest = {
   platform?: string | null;
   browser?: string | null;
   deviceId?: string | null;
+  deviceFingerprint?: string | null;
   locale?: string | null;
 };
 
 function cleanString(value: string | null | undefined) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function maskFingerprint(raw: string) {
+  if (!raw) return raw;
+  return raw.length > 8 ? `${raw.slice(0, 4)}...${raw.slice(-4)}` : raw;
 }
 
 function normalizeRegister(registerRaw: string | null | undefined) {
@@ -80,6 +86,17 @@ export async function POST(request: Request) {
     }
 
     const registrationToken = normalizeToken(rawToken);
+    const deviceFingerprint = cleanString(body.deviceFingerprint);
+    if (!deviceFingerprint) {
+      const status = 400;
+      const message = 'device_fingerprint가 필요합니다.';
+      await logSubscribeFailure({
+        status,
+        message,
+        context: { reason: 'missing_device_fingerprint', tokenPrefix: registrationToken.slice(0, 8) },
+      });
+      return NextResponse.json({ message }, { status });
+    }
     const normalizedPhone = normalizePhone(body.phone);
     const normalizedRegister = normalizeRegister(body.registerNo);
 
@@ -116,6 +133,7 @@ export async function POST(request: Request) {
         userType: 'CLIENT',
         userId: client.id,
         token: registrationToken,
+        deviceFingerprint,
         userAgent: body.userAgent ?? undefined,
         platform: body.platform ?? undefined,
         browser: body.browser ?? undefined,
@@ -158,6 +176,7 @@ export async function POST(request: Request) {
       userType: 'WORKER',
       userId: worker.id,
       token: registrationToken,
+      deviceFingerprint,
       userAgent: body.userAgent ?? undefined,
       platform: body.platform ?? undefined,
       browser: body.browser ?? undefined,
@@ -171,6 +190,7 @@ export async function POST(request: Request) {
       ? {
           ...body,
           token: undefined,
+          deviceFingerprint: body.deviceFingerprint ? maskFingerprint(body.deviceFingerprint) : undefined,
         }
       : undefined;
 

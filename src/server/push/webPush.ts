@@ -122,6 +122,11 @@ function maskToken(token: string) {
   return `${token.slice(0, 4)}...${token.slice(-4)}`;
 }
 
+function maskFingerprint(fingerprint?: string | null) {
+  if (!fingerprint) return fingerprint ?? undefined;
+  return fingerprint.length > 8 ? `${fingerprint.slice(0, 4)}...${fingerprint.slice(-4)}` : fingerprint;
+}
+
 function parseFcmError(bodyText: string) {
   try {
     const parsed = JSON.parse(bodyText) as { error?: { status?: string; message?: string; code?: number } };
@@ -135,11 +140,13 @@ function toDeliverResult(subscription: PushSubscriptionRow, httpStatus: number |
   const error = bodyText ? parseFcmError(bodyText) : null;
   const message = (error?.message || bodyText || `HTTP ${httpStatus ?? 0}`).slice(0, 255);
   const errorCode = error?.status;
-  const expired = httpStatus === 404 || httpStatus === 410 || errorCode === 'NOT_FOUND';
-  const invalidToken = errorCode === 'INVALID_ARGUMENT' || message.toLowerCase().includes('registration token');
+  const expired = httpStatus === 404 || httpStatus === 410 || errorCode === 'NOT_FOUND' || errorCode === 'UNREGISTERED';
+  const invalidToken =
+    errorCode === 'INVALID_ARGUMENT' || errorCode === 'UNREGISTERED' || message.toLowerCase().includes('registration token');
   const unauthenticated = errorCode === 'UNAUTHENTICATED' || httpStatus === 401 || httpStatus === 403;
 
   const disableSubscription = expired || invalidToken;
+  const disableReason = expired ? 'expired' : invalidToken ? 'invalid-token' : undefined;
 
   if (unauthenticated) {
     console.warn('[push] FCM authentication issue', { subscriptionId: subscription.id, status: httpStatus, message });
@@ -151,6 +158,7 @@ function toDeliverResult(subscription: PushSubscriptionRow, httpStatus: number |
     errorCode,
     errorMessage: message,
     disableSubscription,
+    ...(disableReason ? { disableReason } : {}),
   } satisfies DeliverResult;
 }
 
@@ -179,6 +187,7 @@ export function createWebPushDeliver(): DeliverFn {
       console.info('[web-push] fcm response', {
         status: response.status,
         token: maskToken(normalizedToken),
+        deviceFingerprint: maskFingerprint(subscription.deviceFingerprint),
         jobId: job.id,
         subscriptionId: subscription.id,
         body: responseBody,
@@ -195,6 +204,7 @@ export function createWebPushDeliver(): DeliverFn {
         jobId: job.id,
         subscriptionId: subscription.id,
         token: maskToken(subscription.endpoint),
+        deviceFingerprint: maskFingerprint(subscription.deviceFingerprint),
         message,
       });
       return { status: 'FAILED', errorMessage: message.slice(0, 255) } satisfies DeliverResult;

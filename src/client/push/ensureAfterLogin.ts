@@ -25,6 +25,7 @@ type FailureReason =
   | 'token-failed'
   | 'sdk-load-failed'
   | 'unsupported-browser'
+  | 'fingerprint-missing'
   | 'permission-denied'
   | undefined;
 
@@ -38,6 +39,8 @@ function buildFailureAlert(reason?: FailureReason, fallback?: string) {
       return '푸시 알림을 사용할 수 없는 환경입니다.\n브라우저 설정을 확인해 주세요.';
     case 'token-failed':
       return '푸시 알림을 활성화하는 중 오류가 발생했습니다.\n새로고침 후 다시 시도해 주세요.';
+    case 'fingerprint-missing':
+      return '디바이스 정보를 확인하지 못해 푸시 알림을 활성화할 수 없습니다.\n새로고침 후 다시 시도해 주세요.';
     case 'unsupported-browser':
       return '이 브라우저에서는 푸시 알림을 지원하지 않습니다.\n브라우저 설정을 확인해 주세요.';
     default:

@@ -54,8 +54,8 @@ batchs/           # 기존 배치 스크립트(참고용)
 ## 푸시 점검/검증 체크리스트
 - **로그인 직후**: Notification 권한이 `granted`면 안내 없이 FCM 토큰을 발급·저장합니다. `default`면 동의 알럿 후 허용 시 즉시 저장, `denied`이면서 서버 구독이 없으면 안내를 반복합니다.
 - **상태 조회**: `/api/push/subscriptions/me`가 로그인 사용자 기준으로 구독 존재 여부를 반환합니다.
-- **업서트**: `/api/push/subscriptions`에 `{ context, token, phone, registerNo }`를 전달하면 토큰을 정규화(https://fcm... 제거)하여 저장합니다.
-- **워커 로그**: `webpush-worker` 실행 시 각 구독별 응답 status/body를 기록하며 `INVALID_ARGUMENT/NOT_FOUND` 토큰은 `enabled_yn=false`로 비활성화합니다. 인증 오류(`UNAUTHENTICATED`)는 별도 경고 로그로 남습니다.
+- **업서트**: `/api/push/subscriptions`에 `{ context, token, deviceFingerprint, phone, registerNo }`를 전달하면 토큰을 정규화(https://fcm... 제거)하여 저장합니다. 같은 사용자·fingerprint 조합의 기존 구독이 있다면 disabled 처리 후 새 토큰만 enabled 상태로 유지합니다.
+- **워커 로그/정리**: `webpush-worker` 실행 시 각 구독별 응답 status/body를 기록하며 `INVALID_ARGUMENT/NOT_FOUND/UNREGISTERED` 토큰은 `enabled_yn=false`로 비활성화합니다. 인증 오류(`UNAUTHENTICATED`)는 별도 경고 로그로 남습니다. 로그에는 userId, device fingerprint prefix, token prefix 등이 포함됩니다.
 
 ## 알림 스케줄 타임존 주의사항
 - MySQL `notifications.scheduled_at`은 **KST 기준 DATETIME**으로 저장됩니다.
