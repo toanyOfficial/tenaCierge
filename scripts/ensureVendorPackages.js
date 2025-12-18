@@ -9,49 +9,10 @@ const vendorPackages = [
   'recharts-scale',
   'tiny-invariant',
   'victory-vendor',
+  'google-auth-library',
 ];
 
-const fallbackPackages = {
-  'web-push': {
-    version: '0.0.0-fallback',
-    main: 'index.js',
-    requiredModules: ['http_ece', 'asn1.js', 'jws', 'https-proxy-agent'],
-    index: `"use strict";
-
-class WebPushError extends Error {
-  constructor(message, statusCode) {
-    super(message);
-    this.name = 'WebPushError';
-    this.statusCode = statusCode;
-  }
-}
-
-function unavailable(method) {
-  const error = new WebPushError(
-    'web-push module is not installed. Install it with "npm install web-push" to enable ' + method + '.',
-    503
-  );
-  return Promise.reject(error);
-}
-
-module.exports = {
-  WebPushError,
-  setVapidDetails() {
-    console.warn('[web-push] setVapidDetails skipped: fallback shim in use.');
-  },
-  setGCMAPIKey() {
-    console.warn('[web-push] setGCMAPIKey skipped: fallback shim in use.');
-  },
-  generateVAPIDKeys() {
-    throw new WebPushError('generateVAPIDKeys unavailable: install web-push to use this feature.', 503);
-  },
-  sendNotification() {
-    return unavailable('sendNotification');
-  }
-};
-`
-  }
-};
+const fallbackPackages = {};
 
 const repoRoot = path.resolve(__dirname, '..');
 const nodeModulesDir = path.join(repoRoot, 'node_modules');

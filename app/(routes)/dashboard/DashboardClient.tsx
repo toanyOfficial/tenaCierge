@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { AdminNotice, ButlerSnapshotOption, CleanerSnapshot } from './page';
 import type { ProfileSummary } from '@/src/utils/profile';
@@ -10,6 +10,7 @@ import ButlerPanel from './ButlerPanel';
 import HostPanel from './HostPanel';
 import AdminPanel from './AdminPanel';
 import styles from './dashboard.module.css';
+import { ensurePushSubscription } from '@/src/client/push/ensureAfterLogin';
 
 type Props = {
   profile: ProfileSummary;
@@ -90,6 +91,16 @@ export default function DashboardClient({ profile, cleanerSnapshot, butlerSnapsh
       </article>
     );
   }, [activeRole, adminNotice, activeButlerKey, butlerSnapshots, cleanerSnapshot]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    void ensurePushSubscription({
+      phone: profile.phone,
+      registerNo: profile.registerNo,
+      roles: profile.roles,
+    });
+  }, [profile.phone, profile.registerNo, profile.roles]);
 
   return (
     <div className={styles.dashboardStack}>
