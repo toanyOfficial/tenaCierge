@@ -26,7 +26,7 @@ MAX_OPENAI_CALLS_PER_RUN = 3
 COMMENT_DB_LIMIT = 240
 SCHEMA_CSV_PATH = Path(__file__).resolve().parent.parent / "docsForCodex" / "schema.csv"
 WEB_PUSH_SCENARIO_URL = os.environ.get(
-    "WEB_PUSH_SCENARIO_ENDPOINT", "http://localhost:3000/api/push/scenario"
+    "WEB_PUSH_SCENARIO_ENDPOINT", "http://localhost:3200/api/push/scenario"
 )
 
 
