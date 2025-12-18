@@ -425,9 +425,9 @@ export default function StatsDashboard({
     ]
   );
 
-  const monthlyTotalsChart = useMemo(
-    () => (
-      <ResponsiveContainer width="100%" height="100%">
+  const monthlyTotalsChart = useMemo(() => {
+    return (
+      <ResponsiveContainer width="100%" aspect={515 / 355}>
         <ComposedChart
           data={normalizedMonthlyOverview}
           margin={{ top: 54, right: 18, bottom: 24, left: 18 }}
@@ -435,6 +435,8 @@ export default function StatsDashboard({
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
           <XAxis
             dataKey="label"
+            type="category"
+            interval={0}
             tickLine={false}
             axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
@@ -494,19 +496,18 @@ export default function StatsDashboard({
           </defs>
         </ComposedChart>
       </ResponsiveContainer>
-    ),
-    [
-      BarValueLabel,
-      LineValueLabel,
-      MonthlyLegend,
-      legendTopLeft,
-      normalizedMonthlyOverview,
-      overviewLeftMax,
-      overviewLeftTicks,
-      overviewRightMax,
-      overviewRightTicks
-    ]
-  );
+    );
+  }, [
+    BarValueLabel,
+    LineValueLabel,
+    MonthlyLegend,
+    legendTopLeft,
+    normalizedMonthlyOverview,
+    overviewLeftMax,
+    overviewLeftTicks,
+    overviewRightMax,
+    overviewRightTicks
+  ]);
 
   const weekdayChart = useMemo(
     () => (
