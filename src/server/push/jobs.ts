@@ -1,4 +1,4 @@
-import { and, eq, inArray, lte, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@/src/db/client';
 import { notifyJobs, pushMessageLogs, pushSubscriptions } from '@/src/db/schema';
@@ -58,11 +58,15 @@ export async function enqueueNotifyJob(params: EnqueueNotifyJobParams) {
   }
 }
 
-export async function fetchReadyJobs(now = new Date(), limit = 50) {
+export async function fetchReadyJobs(limit = 50) {
+  // NOTE:
+  // scheduled_at is stored as KST (DATETIME).
+  // DB NOW() is UTC, so we must compare against KST-adjusted NOW()
+  // to avoid missing due notification jobs.
   return db
     .select()
     .from(notifyJobs)
-    .where(and(eq(notifyJobs.status, 'READY'), lte(notifyJobs.scheduledAt, now)))
+    .where(and(eq(notifyJobs.status, 'READY'), sql`${notifyJobs.scheduledAt} <= CONVERT_TZ(NOW(), '+00:00', '+09:00')`))
     .orderBy(notifyJobs.scheduledAt)
     .limit(limit);
 }
@@ -196,12 +200,11 @@ export async function processLockedJob(job: NotifyJobRow, deliver: DeliverFn) {
   return { jobId: job.id, sent, failed, skipped: false } as const;
 }
 
-export async function runDueJobs(deliver: DeliverFn, options?: { now?: Date; limit?: number; lockedBy?: string }) {
-  const now = options?.now ?? new Date();
+export async function runDueJobs(deliver: DeliverFn, options?: { limit?: number; lockedBy?: string }) {
   const limit = options?.limit ?? 50;
   const lockedBy = options?.lockedBy ?? 'webpush-worker';
 
-  const ready = await fetchReadyJobs(now, limit);
+  const ready = await fetchReadyJobs(limit);
   if (!ready.length) {
     return [] as Array<{ jobId: number; sent: number; failed: number; skipped: boolean }>;
   }
