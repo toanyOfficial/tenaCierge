@@ -118,12 +118,14 @@ export function validateWorkInput(
   }
 
   if ('requirements' in input) {
-    if (!options.canEditRequirements) {
-      return { ok: false, message: '요청사항을 수정할 권한이 없습니다.' };
-    }
+    if (input.requirements !== undefined) {
+      if (!options.canEditRequirements) {
+        return { ok: false, message: '요청사항을 수정할 권한이 없습니다.' };
+      }
 
-    const text = typeof input.requirements === 'string' ? input.requirements.slice(0, 255) : '';
-    update.requirements = text;
+      const text = typeof input.requirements === 'string' ? input.requirements.slice(0, 255) : '';
+      update.requirements = text;
+    }
   }
 
   if (Object.keys(update).length === 0) {

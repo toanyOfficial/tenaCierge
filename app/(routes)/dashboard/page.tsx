@@ -15,6 +15,9 @@ export const metadata: Metadata = {
   description: '모든 역할에 공통으로 노출되는 프로필 및 제어 영역'
 };
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const roleOrder = ['admin', 'host', 'butler', 'cleaner'] as const;
 
 type CleanerTimeSegment = 'preBatch' | 'batching' | 'applyWindow';

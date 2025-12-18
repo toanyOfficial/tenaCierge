@@ -18,8 +18,9 @@ export function getKstNow() {
 }
 
 export function resolveWorkWindow(baseDate?: Date, forcedDate?: string): WorkWindowMeta {
-  const now = baseDate ?? getKstNow();
-  const minutes = now.getHours() * 60 + now.getMinutes();
+  const nowDateTime = baseDate ? toKstDateTime(baseDate) : nowKst();
+  const now = nowDateTime.toJSDate();
+  const minutes = nowDateTime.hour * 60 + nowDateTime.minute;
   const targetDate = forcedDate ? parseDateKey(forcedDate) ?? new Date(now) : new Date(now);
   const targetKey = formatDateKey(targetDate);
   const todayKey = formatDateKey(now);

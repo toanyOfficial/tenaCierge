@@ -98,9 +98,9 @@ export async function POST(request: Request) {
       blanketQty: typeof body.blanketQty === 'number' ? body.blanketQty : current.bedCount,
       amenitiesQty: typeof body.amenitiesQty === 'number' ? body.amenitiesQty : current.bedCount,
       cancelYn: typeof body.cancelYn === 'boolean' ? body.cancelYn : false,
-      requirements: isAdmin && typeof body.requirements === 'string' ? body.requirements : undefined,
       cleaningYn: typeof body.cleaningYn === 'boolean' ? body.cleaningYn : undefined,
-      conditionCheckYn: typeof body.conditionCheckYn === 'boolean' ? body.conditionCheckYn : undefined
+      conditionCheckYn: typeof body.conditionCheckYn === 'boolean' ? body.conditionCheckYn : undefined,
+      ...(isAdmin && typeof body.requirements === 'string' ? { requirements: body.requirements } : {})
     };
 
     const validation = validateWorkInput(creationInput, current, { canEditRequirements: isAdmin });
