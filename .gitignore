@@ -18,3 +18,7 @@ logs/
 # OS
 .DS_Store
 .venv/
+
+# secrets
+secrets/
+
