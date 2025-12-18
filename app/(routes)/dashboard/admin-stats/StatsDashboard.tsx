@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import {
   Bar,
+  BarChart,
   CartesianGrid,
   ComposedChart,
   LabelList,
@@ -458,7 +459,7 @@ export default function StatsDashboard({
             });
 
             return (
-              <ComposedChart
+              <BarChart
                 width={chartWidth}
                 height={chartHeight}
                 data={normalizedMonthlyOverview}
@@ -501,25 +502,13 @@ export default function StatsDashboard({
                 <Bar dataKey="totalCount" yAxisId="right" fill="url(#totalCountGradient)" radius={[6, 6, 0, 0]}>
                   <LabelList dataKey="totalCount" position="top" content={<BarValueLabel />} />
                 </Bar>
-                <Line
-                  dataKey="roomAverage"
-                  yAxisId="left"
-                  type="monotone"
-                  stroke="#7dd3fc"
-                  strokeWidth={1}
-                  dot={{ stroke: '#0ea5e9', fill: '#0ea5e9', r: 3 }}
-                  activeDot={false}
-                  connectNulls
-                >
-                  <LabelList dataKey="roomAverage" position="top" content={<LineValueLabel />} />
-                </Line>
                 <defs>
                   <linearGradient id="totalCountGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#818cf8" stopOpacity="0.95" />
                     <stop offset="100%" stopColor="#6366f1" stopOpacity="0.95" />
                   </linearGradient>
                 </defs>
-              </ComposedChart>
+              </BarChart>
             );
           }}
         </ResponsiveContainer>
@@ -527,7 +516,6 @@ export default function StatsDashboard({
     },
     [
       BarValueLabel,
-      LineValueLabel,
       MonthlyLegend,
       legendTopLeft,
       normalizedMonthlyOverview,
