@@ -428,9 +428,8 @@ export default function StatsDashboard({
     ]
   );
 
-
-  const monthlyTotalsChart = useMemo(
-    () => (
+  const monthlyTotalsChart = useMemo(() => {
+    return (
       <ResponsiveContainer width="100%" aspect={515 / 355}>
         <ComposedChart
           data={normalizedMonthlyOverview}
@@ -488,70 +487,28 @@ export default function StatsDashboard({
             activeDot={false}
             connectNulls
           >
-            <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
-            <XAxis
-              ref={overviewXAxisRef}
-              dataKey="label"
-              tickLine={false}
-              axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
-              tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-            />
-            <YAxis
-              yAxisId="left"
-              orientation="left"
-              tickLine={false}
-              axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
-              tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-              domain={[0, overviewLeftMax]}
-              ticks={overviewLeftTicks}
-              allowDecimals={false}
-            />
-            <YAxis
-              yAxisId="right"
-              orientation="right"
-              tickLine={false}
-              axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
-              tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-              domain={[0, overviewRightMax]}
-              ticks={overviewRightTicks}
-              allowDecimals={false}
-            />
-            <Legend
-              verticalAlign="top"
-              align="left"
-              wrapperStyle={legendTopLeft}
-              content={<MonthlyLegend />}
-            />
-            {(() => {
-              console.log('[BAR JSX RENDERED]');
-              return null;
-            })()}
-            <Bar dataKey="totalCount" yAxisId="right" fill="url(#totalCountGradient)" radius={[6, 6, 0, 0]}>
-              <LabelList dataKey="totalCount" position="top" content={<BarValueLabel />} />
-            </Bar>
-            <defs>
-              <linearGradient id="totalCountGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#818cf8" stopOpacity="0.95" />
-                <stop offset="100%" stopColor="#6366f1" stopOpacity="0.95" />
-              </linearGradient>
-            </defs>
-          </BarChart>
-        </ResponsiveContainer>
-      );
-
-      return barChartNode;
-    },
-    [
-      BarValueLabel,
-      MonthlyLegend,
-      legendTopLeft,
-      normalizedMonthlyOverview,
-      overviewLeftMax,
-      overviewLeftTicks,
-      overviewRightMax,
-      overviewRightTicks
-    ]
-  );
+            <LabelList dataKey="roomAverage" position="top" content={<LineValueLabel />} />
+          </Line>
+          <defs>
+            <linearGradient id="totalCountGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#818cf8" stopOpacity="0.95" />
+              <stop offset="100%" stopColor="#6366f1" stopOpacity="0.95" />
+            </linearGradient>
+          </defs>
+        </ComposedChart>
+      </ResponsiveContainer>
+    );
+  }, [
+    BarValueLabel,
+    LineValueLabel,
+    MonthlyLegend,
+    legendTopLeft,
+    normalizedMonthlyOverview,
+    overviewLeftMax,
+    overviewLeftTicks,
+    overviewRightMax,
+    overviewRightTicks
+  ]);
 
   const weekdayChart = useMemo(
     () => (
