@@ -95,14 +95,12 @@ export function createWebPushDeliver(vapidConfig?: VapidConfig): DeliverFn {
 }
 
 export async function runWebPushWorker(options?: {
-  now?: Date;
   limit?: number;
   lockedBy?: string;
   vapid?: VapidConfig;
 }) {
   const deliver = createWebPushDeliver(options?.vapid);
   return runDueJobs(deliver, {
-    now: options?.now,
     limit: options?.limit,
     lockedBy: options?.lockedBy ?? 'webpush-worker'
   });

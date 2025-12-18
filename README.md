@@ -46,3 +46,27 @@ batchs/           # 기존 배치 스크립트(참고용)
 ## 환경 변수
 - `DATABASE_URL` – mysql2 커넥션 문자열
 - `PUPPETEER_EXECUTABLE_PATH` – PDF 출력 시 사용(향후 기능)
+
+## 알림 스케줄 타임존 주의사항
+- MySQL `notifications.scheduled_at`은 **KST 기준 DATETIME**으로 저장됩니다.
+- DB `NOW()`는 UTC 기준이므로, KST 기준 스케줄과 비교할 때는 반드시 `CONVERT_TZ(NOW(), '+00:00', '+09:00')`로 변환해 비교해야 합니다.
+- 예시 (Drizzle where 절):
+  ```ts
+  // scheduled_at은 KST, NOW()는 UTC이므로 KST로 변환 후 비교
+  .where(
+    and(
+      eq(notifyJobs.status, 'READY'),
+      sql`${notifyJobs.scheduledAt} <= CONVERT_TZ(NOW(), '+00:00', '+09:00')`
+    )
+  )
+  ```
+- 수동 검증 SQL:
+  ```sql
+  SELECT
+    id,
+    scheduled_at,
+    CONVERT_TZ(NOW(), '+00:00', '+09:00') AS kst_now,
+    scheduled_at <= CONVERT_TZ(NOW(), '+00:00', '+09:00') AS is_due
+  FROM notifications
+  WHERE status = 'READY';
+  ```
