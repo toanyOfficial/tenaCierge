@@ -438,6 +438,8 @@ export default function StatsDashboard({
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
           <XAxis
             dataKey="label"
+            type="category"
+            interval={0}
             tickLine={false}
             axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
