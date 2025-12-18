@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   Bar,
+  BarChart,
   CartesianGrid,
   ComposedChart,
   LabelList,
@@ -119,6 +120,8 @@ export default function StatsDashboard({
       }),
     [weekdayStats.points]
   );
+
+  const overviewXAxisRef = useRef<any>(null);
 
   useEffect(() => {
     console.log(
