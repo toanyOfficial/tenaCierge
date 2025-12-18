@@ -116,6 +116,7 @@ export type DeliverResult = {
   errorCode?: string;
   errorMessage?: string;
   sentAt?: Date;
+  disableSubscription?: boolean;
 };
 
 export type DeliverFn = (
@@ -163,6 +164,20 @@ export async function processLockedJob(job: NotifyJobRow, deliver: DeliverFn) {
   for (const subscription of subscriptions) {
     try {
       const result = await deliver(subscription, payload, job);
+      if (result.disableSubscription) {
+        await db
+          .update(pushSubscriptions)
+          .set({ enabledYn: false, updatedAt: sql`CURRENT_TIMESTAMP` })
+          .where(eq(pushSubscriptions.id, subscription.id));
+        console.warn('[push] subscription disabled after failure', {
+          subscriptionId: subscription.id,
+          jobId: job.id,
+          userType: subscription.userType,
+          userId: subscription.userId,
+          httpStatus: result.httpStatus,
+          errorCode: result.errorCode,
+        });
+      }
       await logPushAttempt({ jobId: job.id, subscriptionId: subscription.id, result });
       if (result.status === 'SENT') {
         sent += 1;
@@ -172,7 +187,9 @@ export async function processLockedJob(job: NotifyJobRow, deliver: DeliverFn) {
           const parts = [] as string[];
           if (result.httpStatus) parts.push(`status=${result.httpStatus}`);
           if (result.errorMessage) parts.push(result.errorMessage);
-          parts.push(`endpoint=${subscription.endpoint}`);
+          const token = subscription.endpoint;
+          const masked = token.length > 8 ? `${token.slice(0, 4)}...${token.slice(-4)}` : token;
+          parts.push(`token=${masked}`);
           firstFailureDetail = parts.join(' ');
         }
       }
@@ -185,7 +202,9 @@ export async function processLockedJob(job: NotifyJobRow, deliver: DeliverFn) {
         result: { status: 'FAILED', errorMessage: message },
       });
       if (!firstFailureDetail) {
-        firstFailureDetail = `error=${message} endpoint=${subscription.endpoint}`;
+        const token = subscription.endpoint;
+        const masked = token.length > 8 ? `${token.slice(0, 4)}...${token.slice(-4)}` : token;
+        firstFailureDetail = `error=${message} token=${masked}`;
       }
     }
   }
