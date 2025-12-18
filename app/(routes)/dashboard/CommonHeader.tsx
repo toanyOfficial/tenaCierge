@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 
 import type { ProfileSummary } from '@/src/utils/profile';
 import styles from './dashboard.module.css';
+import { resetPushCheckFlags } from '@/src/client/push/session';
 
 const roleLabels: Record<string, string> = {
   admin: 'Admin',
@@ -90,6 +91,7 @@ export default function CommonHeader({ profile, activeRole, onRoleChange, compac
     } catch (error) {
       console.error('로그아웃 처리 중 오류', error);
     } finally {
+      resetPushCheckFlags();
       router.replace('/login');
       router.refresh();
     }
