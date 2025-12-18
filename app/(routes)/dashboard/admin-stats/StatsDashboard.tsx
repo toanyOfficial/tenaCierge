@@ -440,6 +440,7 @@ export default function StatsDashboard({
             dataKey="label"
             type="category"
             interval={0}
+            xAxisId="monthly"
             tickLine={false}
             axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
@@ -472,6 +473,7 @@ export default function StatsDashboard({
           />
           <Bar
             dataKey="totalCount"
+            xAxisId="monthly"
             yAxisId="right"
             fill="url(#totalCountGradient)"
             barSize={18}
@@ -481,6 +483,7 @@ export default function StatsDashboard({
           </Bar>
           <Line
             dataKey="roomAverage"
+            xAxisId="monthly"
             yAxisId="left"
             type="monotone"
             stroke="#7dd3fc"
