@@ -2,12 +2,9 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { registerWebPush, type SubscriptionContext } from '@/src/client/push/register';
+import { ensurePushSubscription, resetPushSessionFlags } from '@/src/client/push/ensureAfterLogin';
 import { normalizePhone } from '@/src/utils/phone';
 import styles from './login.module.css';
-
-const PUSH_CONSENT_MESSAGE =
-  '청소목록 등 필수요소는 물론 업무 진행 상 유리하게 작용할 수 있는 여러가지 정보를 푸시알람으로 보내드리오니 꼭 허용하기 부탁 드립니다. 광고나 스팸성 푸시는 일절 전송되지 않습니다. 동의하시겠습니까?';
 
 type FormValues = {
   phone: string;
@@ -44,22 +41,6 @@ function validate(values: FormValues): FormErrors {
   return errors;
 }
 
-function buildPushContexts(profile: LoginSuccess['profile'], roleArrange: string[]): SubscriptionContext[] {
-  const contexts: SubscriptionContext[] = [];
-  const normalizedPhone = profile.phone ? normalizePhone(profile.phone) : null;
-  const normalizedRegister = profile.registerNo?.trim().toUpperCase() || null;
-
-  if (roleArrange.includes('host')) {
-    contexts.push({ type: 'CLIENT', phone: normalizedPhone, registerNo: normalizedRegister });
-  }
-
-  if (roleArrange.some((role) => role === 'cleaner' || role === 'butler')) {
-    contexts.push({ type: 'WORKER', phone: normalizedPhone, registerNo: normalizedRegister });
-  }
-
-  return contexts;
-}
-
 export default function LoginForm() {
   const router = useRouter();
   const [values, setValues] = useState<FormValues>(initialValues);
@@ -68,62 +49,18 @@ export default function LoginForm() {
   const [rememberMe, setRememberMe] = useState(false);
 
   async function syncWebPushConsent(loginResult: LoginSuccess) {
-    if (typeof window === 'undefined' || typeof Notification === 'undefined') return;
+    if (typeof window === 'undefined') return;
 
-    const contexts = buildPushContexts(loginResult.profile, loginResult.roleArrange ?? []);
-    if (contexts.length === 0) return;
+    resetPushSessionFlags();
+
+    const identity = {
+      phone: loginResult.profile.phone,
+      registerNo: loginResult.profile.registerNo,
+      roles: loginResult.roleArrange,
+    };
 
     try {
-      if (Notification.permission === 'granted') {
-        const result = await registerWebPush(contexts);
-
-        if (result.status === 'success' && result.failures.length > 0) {
-          console.warn('일부 웹푸시 구독 저장 실패', {
-            successes: result.successes,
-            failures: result.failures,
-            skipped: result.skipped,
-          });
-        }
-        return;
-      }
-
-      // 이미 한 번 거절했더라도 동의할 때까지 반복해서 요청한다.
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        const proceed = window.confirm(PUSH_CONSENT_MESSAGE);
-
-        if (!proceed) {
-          continue;
-        }
-
-        const result = await registerWebPush(contexts);
-
-        if (result.status === 'success') {
-          if (result.failures.length > 0) {
-            // 이미 로그인은 성공했으므로 사용자 흐름을 막지 않고, 콘솔 로그로만 노출한다.
-            console.warn('일부 웹푸시 구독 저장 실패', {
-              successes: result.successes,
-              failures: result.failures,
-              skipped: result.skipped,
-            });
-          }
-          return;
-        }
-
-        if (result.status === 'denied') {
-          alert('알림 권한이 거부되어 푸시를 등록할 수 없습니다. 브라우저 설정을 확인해 주세요.');
-          continue;
-        }
-
-        if (result.status === 'unsupported' || result.status === 'error') {
-          alert(result.message ?? '푸시 구독 처리 중 문제가 발생했습니다.');
-          return;
-        }
-
-        if (result.status === 'skipped') {
-          return;
-        }
-      }
+      await ensurePushSubscription(identity);
     } catch (error) {
       console.error('푸시 구독 처리 중 오류', error);
     }
