@@ -61,13 +61,17 @@ async function persistSubscription(
   const skipped: string[] = [];
   const failureReasons: Record<string, string> = {};
 
-  const subscriptionPayload = subscription.toJSON();
-  const { endpoint } = subscriptionPayload;
-  const p256dh = subscriptionPayload.keys?.p256dh;
-  const auth = subscriptionPayload.keys?.auth;
+  const endpoint = subscription.endpoint;
 
-  if (!p256dh || !auth) {
-    throw new Error('브라우저 구독 키를 읽을 수 없습니다. 권한을 다시 요청해 주세요.');
+  if (!endpoint) {
+    throw new Error('FCM registration token을 확인할 수 없습니다.');
+  }
+
+  const endpointParts = endpoint.split('/');
+  const registrationToken = endpointParts[endpointParts.length - 1];
+
+  if (!registrationToken) {
+    throw new Error('FCM registration token을 확인할 수 없습니다.');
   }
 
   for (const ctx of contexts) {
@@ -89,10 +93,7 @@ async function persistSubscription(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           context: ctx.type,
-          subscription: subscriptionPayload,
-          endpoint,
-          p256dh,
-          auth,
+          token: registrationToken,
           phone: ctx.phone ?? null,
           registerNo: ctx.registerNo ?? null,
           userAgent: metadata?.userAgent,
