@@ -1,13 +1,15 @@
 "use client";
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   Bar,
+  BarChart,
   CartesianGrid,
   ComposedChart,
   LabelList,
   Legend,
   Line,
+  Rectangle,
   ResponsiveContainer,
   XAxis,
   YAxis
@@ -61,12 +63,20 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+const minimalBarData = [
+  { label: 'Alpha', value: 12 },
+  { label: 'Beta', value: 24 }
+];
+
 export default function StatsDashboard({
   profile: _profile,
   monthlyAverages,
   monthlyOverview,
   weekdayStats
 }: Props) {
+  const minimalChartRef = useRef<HTMLDivElement | null>(null);
+  const minimalBarShapeLog = useRef<Set<string>>(new Set());
+
   const normalizedMonthlyAverages = useMemo(
     () =>
       monthlyAverages.map((row) => ({
@@ -115,9 +125,65 @@ export default function StatsDashboard({
           next[key] = toNumber(value);
         });
 
-        return next;
-      }),
+      return next;
+    }),
     [weekdayStats.points]
+  );
+
+  useEffect(() => {
+    console.log('[client-001 -> minimal-fixed-barchart-mounted -> 고정형 BarChart 렌더 준비]', {
+      dataLength: minimalBarData.length
+    });
+
+    const rect = minimalChartRef.current?.getBoundingClientRect();
+    console.log('[client-002 -> minimal-fixed-barchart-domrect -> 컨테이너 크기 스냅샷]', {
+      width: rect?.width ?? null,
+      height: rect?.height ?? null,
+      x: rect?.x ?? null,
+      y: rect?.y ?? null
+    });
+
+    console.log('[client-004 -> minimal-fixed-barchart-data -> 고정 데이터 스냅샷]', {
+      rows: minimalBarData,
+      dataLength: minimalBarData.length
+    });
+
+    const logRects = () => {
+      const rectNodes = minimalChartRef.current?.querySelectorAll('rect');
+      console.log('[client-005 -> minimal-fixed-barchart-rect-elements -> SVG rect 존재 여부]', {
+        rectCount: rectNodes?.length ?? 0,
+        rectClassList: rectNodes ? Array.from(rectNodes).map((node) => node.getAttribute('class')) : []
+      });
+    };
+
+    logRects();
+    const timeoutId = setTimeout(logRects, 300);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, []);
+
+  const MinimalBarShape = useMemo(
+    () =>
+      function MinimalBarShape(props: any) {
+        const { index, x, y, width, height, value } = props;
+        const key = `${index}-${x}-${y}-${width}-${height}-${value}`;
+        if (!minimalBarShapeLog.current.has(key)) {
+          minimalBarShapeLog.current.add(key);
+          console.log('[client-003 -> minimal-fixed-barchart-shape -> Bar shape props 스냅샷]', {
+            index,
+            x,
+            y,
+            width,
+            height,
+            value
+          });
+        }
+
+        return <Rectangle {...props} />;
+      },
+    []
   );
 
   useEffect(() => {
@@ -618,10 +684,40 @@ export default function StatsDashboard({
 
           <section className={styles.graphCard} aria-label="숙박일수별 통계">
             <div className={styles.graphHeading}>
-              <p className={styles.graphTitle}>숙박일수별 통계</p>
+              <p className={styles.graphTitle}>고정형 BarChart 진단 (PR-001)</p>
             </div>
-            <div className={styles.graphSurface} aria-hidden="true">
-              <div className={styles.placeholderMessage}>준비중입니다.</div>
+            <div ref={minimalChartRef} className={styles.graphSurface} aria-hidden="true">
+              <div className={styles.fixedChartFrame}>
+                <BarChart
+                  width={420}
+                  height={260}
+                  data={minimalBarData}
+                  margin={{ top: 18, right: 12, bottom: 24, left: 12 }}
+                >
+                  <XAxis
+                    dataKey="label"
+                    tickLine={false}
+                    axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+                    tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+                    tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+                    domain={[0, 30]}
+                    ticks={[0, 6, 12, 18, 24, 30]}
+                    allowDecimals={false}
+                  />
+                  <Bar
+                    dataKey="value"
+                    fill="#38bdf8"
+                    barSize={32}
+                    radius={[6, 6, 0, 0]}
+                    isAnimationActive={false}
+                    shape={<MinimalBarShape />}
+                  />
+                </BarChart>
+              </div>
             </div>
           </section>
         </div>
