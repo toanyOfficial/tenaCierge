@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Bar,
   BarChart,
@@ -684,44 +685,27 @@ export default function StatsDashboard({
             </div>
           </section>
 
-          <section className={styles.graphCard} aria-label="숙박일수별 통계">
-            <div className={styles.graphHeading}>
-              <p className={styles.graphTitle}>고정형 BarChart 진단 (PR-001)</p>
-            </div>
-            <div ref={minimalChartRef} className={styles.graphSurface} aria-hidden="true">
-              <div className={styles.fixedChartFrame}>
-                <BarChart
-                  width={420}
-                  height={260}
-                  data={minimalBarData}
-                  margin={{ top: 18, right: 12, bottom: 24, left: 12 }}
-                >
-                  <XAxis
-                    dataKey="label"
-                    tickLine={false}
-                    axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
-                    tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-                  />
-                  <YAxis
-                    tickLine={false}
-                    axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
-                    tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-                    domain={[0, 30]}
-                    ticks={[0, 6, 12, 18, 24, 30]}
-                    allowDecimals={false}
-                  />
-                  <Bar
-                    dataKey="value"
-                    fill="#38bdf8"
-                    barSize={32}
-                    radius={[6, 6, 0, 0]}
-                    isAnimationActive={false}
-                    shape={<MinimalBarShape />}
-                  />
-                </BarChart>
-              </div>
-            </div>
-          </section>
+          {/* ===========================
+              PR-001: Fixed BarChart Debug
+              =========================== */}
+          <section className={styles.graphCard} style={{ border: '2px dashed red' }}>
+            <h3 style={{ color: 'red' }}>고정형 BarChart 진단 (PR-001)</h3>
+
+            <div
+              id="pr-001-fixed-chart"
+          style={{
+            width: 520,
+            height: 320,
+                background: '#fff',
+                marginTop: 12
+              }}
+            >
+            {(() => {
+                console.log('[client-003] PR-001 debug card mounted');
+                return <PR001ClientOnlyChart />;
+              })()}
+          </div>
+        </section>
         </div>
       </div>
     </div>
