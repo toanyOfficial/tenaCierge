@@ -438,6 +438,80 @@ export default function StatsDashboard({
 
       logClipDebug('chart-subscription', 'client-060', 'client-062', 'client-064');
       logClipDebug('chart-monthly', 'client-061', 'client-063', 'client-065');
+
+      const collectTickGaps = (root: HTMLElement | null) => {
+        const ticks = Array.from(
+          root?.querySelectorAll<SVGTextElement>(
+            '.recharts-cartesian-axis.recharts-xAxis .recharts-cartesian-axis-tick text'
+          ) ?? []
+        );
+        const positions = ticks
+          .map((node) => node.getBoundingClientRect().x)
+          .filter((x) => Number.isFinite(x));
+        const gaps = positions
+          .sort((a, b) => a - b)
+          .slice(1)
+          .map((x, index) => x - positions[index]);
+        const xGapAvg = gaps.length ? gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length : null;
+        return { tickCount: ticks.length, xGapAvg, tickTexts: ticks.slice(0, 5).map((t) => t.textContent ?? '') };
+      };
+
+      const logBarWidthDebug = (id: string, debugId: string) => {
+        const root = document.getElementById(id);
+        const barPaths = root?.querySelectorAll<SVGPathElement>(
+          '.recharts-layer.recharts-bar-rectangle path.recharts-rectangle'
+        );
+        const firstBBox = barPaths?.[0]
+          ? (() => {
+              try {
+                const bbox = barPaths[0].getBBox();
+                return { width: bbox.width, height: bbox.height, x: bbox.x, y: bbox.y };
+              } catch (error) {
+                return { error: String(error) };
+              }
+            })()
+          : null;
+        const tickInfo = collectTickGaps(root);
+        console.log(`[${debugId} -> ${id}-bar-width-debug]`, {
+          barPathCount: barPaths?.length ?? 0,
+          firstBBox,
+          tickCount: tickInfo.tickCount,
+          xGapAvg: tickInfo.xGapAvg,
+          tickTexts: tickInfo.tickTexts
+        });
+      };
+
+      const logSvgBasics = (id: string, debugId: string) => {
+        const root = document.getElementById(id);
+        const svg = root?.querySelector('svg');
+        const viewBox = svg?.getAttribute('viewBox');
+        console.log(`[${debugId} -> ${id}-svg-basic]`, {
+          viewBox,
+          width: svg?.getAttribute('width'),
+          height: svg?.getAttribute('height'),
+          gridCount: root?.querySelectorAll('.recharts-cartesian-grid').length ?? 0,
+          xAxisCount: root?.querySelectorAll('.recharts-xAxis').length ?? 0,
+          yAxisCount: root?.querySelectorAll('.recharts-yAxis').length ?? 0
+        });
+      };
+
+      const logBarSizeResult = (id: string, debugId: string, barSizeApplied: number) => {
+        const root = document.getElementById(id);
+        const barPaths = root?.querySelectorAll<SVGPathElement>(
+          '.recharts-layer.recharts-bar-rectangle path.recharts-rectangle'
+        );
+        console.log(`[${debugId} -> ${id}-barSize-result]`, {
+          barSizeApplied,
+          barPathCount: barPaths?.length ?? 0
+        });
+      };
+
+      logBarWidthDebug('chart-subscription', 'client-070');
+      logBarWidthDebug('chart-monthly', 'client-071');
+      logSvgBasics('chart-subscription', 'client-072');
+      logSvgBasics('chart-monthly', 'client-073');
+      logBarSizeResult('chart-subscription', 'client-074', 20);
+      logBarSizeResult('chart-monthly', 'client-075', 20);
     }, 800);
 
     return () => clearTimeout(timer);
@@ -675,7 +749,7 @@ export default function StatsDashboard({
             dataKey="subscriptionCount"
             yAxisId="left"
             fill="url(#planBarGradient)"
-            barSize={18}
+            barSize={20}
             radius={[6, 6, 0, 0]}
             minPointSize={1}
           >
@@ -758,7 +832,7 @@ export default function StatsDashboard({
             dataKey="totalCount"
             yAxisId="right"
             fill="url(#totalCountGradient)"
-            barSize={18}
+            barSize={20}
             radius={[6, 6, 0, 0]}
             minPointSize={1}
           >

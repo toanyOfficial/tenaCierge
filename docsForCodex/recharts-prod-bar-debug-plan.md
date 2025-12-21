@@ -172,9 +172,10 @@
    - prod 관찰: 사용자 DOM 확인 기준 barPathCount 여전히 0 → minPointSize 단독으로는 미생성 문제 해소 실패.
    - 로그: 신규 ID 없이 기존 `client-020~043` 계측 로그로 barPathCount 변화 확인.
 
-7. **PR-007: clipPath/클리핑 영향 실험(구독/월별)** — 상태: 진행
+7. **PR-007: clipPath/클리핑 영향 실험(구독/월별)** — 상태: 검증완료
    - 목표: `chart-subscription`, `chart-monthly`에서 clipPath에 의한 Bar 무력화 가능성을 배제/확정.
    - 변경: 두 차트 ComposedChart에 `style={{ overflow: 'visible' }}` 적용해 클리핑 영향 최소화, 마운트 800ms 후 clipPath/bar path 스냅샷을 로그(`client-060~065`)로 출력.
+   - prod 관찰: overflow visible 적용만으로도 bar path 변화 없음 → 클리핑 단독 원인 배제.
    - 로그:
      - `client-060` -> chart-subscription-clip-debug -> overflow-visible before/after counts
      - `client-061` -> chart-monthly-clip-debug -> overflow-visible before/after counts
@@ -183,20 +184,33 @@
      - `client-064` -> chart-subscription-bar-bbox (bar 존재 시 상위 5개)
      - `client-065` -> chart-monthly-bar-bbox (bar 존재 시 상위 5개)
 
-8. **PR-008: 데이터 전처리/NaN 방어 실험** — 상태: 예정
-   - NaN/undefined를 0으로 강제하거나 최소 높이 가드를 추가하는 등 값 보정 실험(필요 시 시행, minPointSize 이후 단계).
+8. **PR-008: xAxis bandwidth/bar width 0/NaN 계측 + barSize 강제 실험** — 상태: 진행
+   - 목표: `chart-subscription`, `chart-monthly`에서 x축 bandwidth/Bar 폭 계산이 0/NaN인지 DOM 기반으로 계측하고, `barSize` 강제(20) 시 bar path가 생성되는지 확인.
+   - 변경:
+     - 마운트 800ms 후 tick 위치 간격, 첫 bar bbox, svg viewBox/axis/grid 존재 등을 `client-070~075` 로그로 출력.
+     - 구독/월별 Bar에 `barSize={20}` 적용(weekday 변경 없음).
+   - 로그:
+     - `client-070` -> chart-subscription-bar-width-debug (barPathCount, 첫 bbox, tick gap)
+     - `client-071` -> chart-monthly-bar-width-debug
+     - `client-072` -> chart-subscription-svg-basic (viewBox/width/height, axis/grid count)
+     - `client-073` -> chart-monthly-svg-basic
+     - `client-074` -> chart-subscription-barSize-result (barSize=20 적용 후 barPathCount)
+     - `client-075` -> chart-monthly-barSize-result
 
-9. **PR-009: 생성/정렬 고정 실험(보류)** — 상태: 보류
+9. **PR-009: 데이터 전처리/NaN 방어 실험** — 상태: 예정
+   - NaN/undefined를 0으로 강제하거나 minPointSize 외 추가 가드 적용(필요 시 시행, barSize 실험 이후 단계).
+
+10. **PR-010: 생성/정렬 고정 실험(보류)** — 상태: 보류
    - 실제 대시보드 차트에서 Bar 생성용 key 배열 정렬/고정, stack 순서 명시.
    - 목표: prod에서 순서 반전·중간 누락이 키 순서 문제인지 검증.
 
-10. **PR-010: 원인 확정 후 최소 수정 반영** — 상태: 예정
-    - 위 실험 결과에 따라 최소 수정으로 prod Bar 렌더 복구.
-    - 로그: 문제 해결 근거를 남기고, 해결 확인 후 상태 `검증완료`.
+11. **PR-011: 원인 확정 후 최소 수정 반영** — 상태: 예정
+   - 위 실험 결과에 따라 최소 수정으로 prod Bar 렌더 복구.
+   - 로그: 문제 해결 근거를 남기고, 해결 확인 후 상태 `검증완료`.
 
-11. **PR-011: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
-    - 모든 디버그 로그/배너/임시 차트를 제거하고 기준 디자인만 남김.
-    - 목표: 최종 정리.
+12. **PR-012: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
+   - 모든 디버그 로그/배너/임시 차트를 제거하고 기준 디자인만 남김.
+   - 목표: 최종 정리.
 
 ## 5) 로그 설계 및 규칙
 - **표기 규격:** `[고유ID -> 요약(코덱스전달용) -> 상세(전문)]`
