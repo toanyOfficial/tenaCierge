@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Bar,
   CartesianGrid,
@@ -18,6 +19,8 @@ import type { MonthlyAveragePoint } from './server/fetchMonthlyAverages';
 import type { MonthlyOverviewPoint } from './server/fetchMonthlyOverview';
 import type { WeekdaySeriesMeta, WeekdayStatsPoint } from './server/fetchWeekdayStats';
 import type { ProfileSummary } from '@/src/utils/profile';
+
+const PR001ClientOnlyChart = dynamic(() => import('./PR001ClientOnlyChart'), { ssr: false });
 
 function formatValue(value: number) {
   return Number.isInteger(value) ? `${value}` : value.toFixed(1);
@@ -67,6 +70,9 @@ export default function StatsDashboard({
   monthlyOverview,
   weekdayStats
 }: Props) {
+  const minimalChartRef = useRef<HTMLDivElement | null>(null);
+  const minimalBarShapeLog = useRef<Set<string>>(new Set());
+
   const normalizedMonthlyAverages = useMemo(
     () =>
       monthlyAverages.map((row) => ({
@@ -115,8 +121,8 @@ export default function StatsDashboard({
           next[key] = toNumber(value);
         });
 
-        return next;
-      }),
+      return next;
+    }),
     [weekdayStats.points]
   );
 
@@ -155,6 +161,128 @@ export default function StatsDashboard({
     );
 
     console.log('[요일별 통계] points', normalizedWeekdayPoints);
+  }, [
+    normalizedMonthlyAverages,
+    normalizedMonthlyOverview,
+    normalizedWeekdayBuildings,
+    normalizedWeekdayPoints
+  ]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const targets = [
+        {
+          id: 'chart-subscription',
+          countId: 'client-020',
+          bboxId: 'client-021',
+          dataShapeId: 'client-030',
+          dataKeySanityId: 'client-031',
+          tickId: 'client-034',
+          presenceId: 'client-036',
+          data: normalizedMonthlyAverages,
+          xAxisKey: 'label',
+          barKeys: ['subscriptionCount']
+        },
+        {
+          id: 'chart-monthly',
+          countId: 'client-022',
+          bboxId: 'client-023',
+          dataShapeId: 'client-032',
+          dataKeySanityId: 'client-033',
+          tickId: 'client-035',
+          presenceId: 'client-037',
+          data: normalizedMonthlyOverview,
+          xAxisKey: 'label',
+          barKeys: ['totalCount']
+        },
+        { id: 'chart-weekday', countId: 'client-024', bboxId: 'client-025' }
+      ];
+
+      targets.forEach(({ id, countId, bboxId, data, barKeys, dataShapeId, dataKeySanityId, xAxisKey, tickId, presenceId }) => {
+        const root = document.getElementById(id);
+        const barPaths = root?.querySelectorAll<SVGPathElement>(
+          '.recharts-layer.recharts-bar-rectangle path.recharts-rectangle'
+        );
+        const clipPaths = root?.querySelectorAll('svg defs clipPath');
+        const svgs = root?.querySelectorAll('svg');
+
+        console.log(`[${countId} -> ${id} -> bar counts]`, {
+          barPathCount: barPaths?.length ?? 0,
+          clipPathCount: clipPaths?.length ?? 0,
+          svgCount: svgs?.length ?? 0
+        });
+
+        const bboxes = Array.from(barPaths ?? [])
+          .slice(0, 5)
+          .map((node, index) => {
+            try {
+              const bbox = node.getBBox();
+              return {
+                index,
+                width: bbox.width,
+                height: bbox.height,
+                x: bbox.x,
+                y: bbox.y
+              };
+            } catch (error) {
+              return { index, error: String(error) };
+            }
+          });
+
+        console.log(`[${bboxId} -> ${id} -> bar bbox sample]`, bboxes);
+        console.log(`[client-026 -> ${id} -> clipPath count]`, {
+          clipPathCount: clipPaths?.length ?? 0
+        });
+
+        if (data && barKeys && dataShapeId && dataKeySanityId) {
+          const firstRow = data[0];
+          const keys = firstRow ? Object.keys(firstRow) : null;
+          console.log(`[${dataShapeId} -> ${id}-data-shape]`, {
+            dataLength: data.length,
+            keys,
+            xAxisKey,
+            barDataKeys: barKeys
+          });
+
+          const sanity = barKeys.map((key) => {
+            const value = firstRow ? (firstRow as Record<string, unknown>)[key] : undefined;
+            return {
+              key,
+              value,
+              type: typeof value,
+              isFinite: typeof value === 'number' ? Number.isFinite(value) : Number.isFinite(Number(value))
+            };
+          });
+          console.log(`[${dataKeySanityId} -> ${id}-datakey-sanity]`, sanity);
+        }
+
+        if (tickId) {
+          const ticks = root?.querySelectorAll('.recharts-cartesian-axis-tick');
+          const tickTexts = Array.from(
+            root?.querySelectorAll<SVGTextElement>('.recharts-cartesian-axis-tick text') ?? []
+          )
+            .slice(0, 5)
+            .map((node) => node.textContent ?? '');
+          console.log(`[${tickId} -> ${id}-xaxis-ticks]`, {
+            tickCount: ticks?.length ?? 0,
+            tickTexts
+          });
+        }
+
+        if (presenceId) {
+          const barLayer = root?.querySelector('.recharts-layer.recharts-bar');
+          const barRectangles = root?.querySelector('.recharts-layer.recharts-bar-rectangles');
+          console.log(`[${presenceId} -> ${id}-dom-presence]`, {
+            hasBarLayer: Boolean(barLayer),
+            hasBarRectangles: Boolean(barRectangles),
+            barLayerCount: barLayer ? 1 : 0,
+            barRectanglesCount: barRectangles ? 1 : 0
+          });
+        }
+      });
+    }, 800);
+
+    return () => clearTimeout(timer);
   }, [
     normalizedMonthlyAverages,
     normalizedMonthlyOverview,
@@ -589,7 +717,11 @@ export default function StatsDashboard({
         </header>
 
         <div className={styles.graphGrid}>
-          <section className={styles.graphCard} aria-label="요금제별 통계">
+          <section
+            id="chart-subscription"
+            className={styles.graphCard}
+            aria-label="요금제별 통계"
+          >
             <div className={styles.graphHeading}>
               <p className={styles.graphTitle}>요금제별 통계</p>
             </div>
@@ -598,7 +730,7 @@ export default function StatsDashboard({
             </div>
           </section>
 
-          <section className={styles.graphCard} aria-label="월별 통계">
+          <section id="chart-monthly" className={styles.graphCard} aria-label="월별 통계">
             <div className={styles.graphHeading}>
               <p className={styles.graphTitle}>월별 통계</p>
             </div>
@@ -607,7 +739,7 @@ export default function StatsDashboard({
             </div>
           </section>
 
-          <section className={styles.graphCard} aria-label="요일별 통계">
+          <section id="chart-weekday" className={styles.graphCard} aria-label="요일별 통계">
             <div className={styles.graphHeading}>
               <p className={styles.graphTitle}>요일별 통계</p>
             </div>
@@ -616,12 +748,26 @@ export default function StatsDashboard({
             </div>
           </section>
 
-          <section className={styles.graphCard} aria-label="숙박일수별 통계">
-            <div className={styles.graphHeading}>
-              <p className={styles.graphTitle}>숙박일수별 통계</p>
-            </div>
-            <div className={styles.graphSurface} aria-hidden="true">
-              <div className={styles.placeholderMessage}>준비중입니다.</div>
+          {/* ===========================
+              PR-001: Fixed BarChart Debug
+              =========================== */}
+          <section className={styles.graphCard} style={{ border: '2px dashed red' }}>
+            <h3 style={{ color: 'red' }}>고정형 BarChart 진단 (PR-001)</h3>
+
+            <div
+              id="pr-001-fixed-chart"
+              ref={minimalChartRef}
+              style={{
+                width: 520,
+                height: 320,
+                background: '#fff',
+                marginTop: 12
+              }}
+            >
+              {(() => {
+                console.log('[client-003] PR-001 debug card mounted');
+                return <PR001ClientOnlyChart />;
+              })()}
             </div>
           </section>
         </div>
