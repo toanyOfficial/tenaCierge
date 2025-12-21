@@ -77,7 +77,7 @@ export default function StatsDashboard({
   monthlyOverview,
   weekdayStats
 }: Props) {
-  const fixedChartRef = useRef<HTMLDivElement | null>(null);
+  const minimalChartRef = useRef<HTMLDivElement | null>(null);
 
   const normalizedMonthlyAverages = useMemo(
     () =>
@@ -692,7 +692,7 @@ export default function StatsDashboard({
 
             <div
               id="pr-001-fixed-chart"
-              ref={fixedChartRef}
+              ref={minimalChartRef}
               style={{
                 width: 520,
                 height: 320,
