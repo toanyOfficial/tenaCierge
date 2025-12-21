@@ -4,11 +4,13 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import {
   Bar,
+  BarChart,
   CartesianGrid,
   ComposedChart,
   LabelList,
   Legend,
   Line,
+  Rectangle,
   ResponsiveContainer,
   XAxis,
   YAxis,
@@ -69,6 +71,11 @@ function toNumber(value: unknown, fallback = 0) {
   const parsed = Number(value ?? fallback);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
+
+const minimalBarData = [
+  { label: 'Alpha', value: 12 },
+  { label: 'Beta', value: 24 }
+];
 
 export default function StatsDashboard({
   profile: _profile,
@@ -162,6 +169,62 @@ export default function StatsDashboard({
       return next;
     }),
     [weekdayStats.points]
+  );
+
+  useEffect(() => {
+    console.log('[client-001 -> minimal-fixed-barchart-mounted -> 고정형 BarChart 렌더 준비]', {
+      dataLength: minimalBarData.length
+    });
+
+    const rect = minimalChartRef.current?.getBoundingClientRect();
+    console.log('[client-002 -> minimal-fixed-barchart-domrect -> 컨테이너 크기 스냅샷]', {
+      width: rect?.width ?? null,
+      height: rect?.height ?? null,
+      x: rect?.x ?? null,
+      y: rect?.y ?? null
+    });
+
+    console.log('[client-004 -> minimal-fixed-barchart-data -> 고정 데이터 스냅샷]', {
+      rows: minimalBarData,
+      dataLength: minimalBarData.length
+    });
+
+    const logRects = () => {
+      const rectNodes = minimalChartRef.current?.querySelectorAll('rect');
+      console.log('[client-005 -> minimal-fixed-barchart-rect-elements -> SVG rect 존재 여부]', {
+        rectCount: rectNodes?.length ?? 0,
+        rectClassList: rectNodes ? Array.from(rectNodes).map((node) => node.getAttribute('class')) : []
+      });
+    };
+
+    logRects();
+    const timeoutId = setTimeout(logRects, 300);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, []);
+
+  const MinimalBarShape = useMemo(
+    () =>
+      function MinimalBarShape(props: any) {
+        const { index, x, y, width, height, value } = props;
+        const key = `${index}-${x}-${y}-${width}-${height}-${value}`;
+        if (!minimalBarShapeLog.current.has(key)) {
+          minimalBarShapeLog.current.add(key);
+          console.log('[client-003 -> minimal-fixed-barchart-shape -> Bar shape props 스냅샷]', {
+            index,
+            x,
+            y,
+            width,
+            height,
+            value
+          });
+        }
+
+        return <Rectangle {...props} />;
+      },
+    []
   );
 
   useEffect(() => {
