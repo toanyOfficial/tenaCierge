@@ -622,6 +622,7 @@ export default function StatsDashboard({
             fill="url(#planBarGradient)"
             barSize={18}
             radius={[6, 6, 0, 0]}
+            minPointSize={1}
           >
             <LabelList dataKey="subscriptionCount" position="top" content={<BarValueLabel />} />
           </Bar>
@@ -703,6 +704,7 @@ export default function StatsDashboard({
             fill="url(#totalCountGradient)"
             barSize={18}
             radius={[6, 6, 0, 0]}
+            minPointSize={1}
           >
             <LabelList dataKey="totalCount" position="top" content={<BarValueLabel />} />
           </Bar>

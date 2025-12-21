@@ -156,27 +156,33 @@
      - `client-036` -> subscription-dom-presence
      - `client-037` -> monthly-dom-presence
 
-5. **PR-005: YAxis domain 명시 실험(구독/월별)** — 상태: 진행
+5. **PR-005: YAxis domain 명시 실험(구독/월별)** — 상태: 검증완료
    - 목표: `chart-subscription`, `chart-monthly`에서 YAxis domain을 명시(`[0, 'auto']`)해 Bar path 미생성을 해소하는지 확인하고, 도메인/NaN 가설을 검증.
    - 변경: 두 차트의 YAxis domain을 `[0, 'auto']`로 고정(weekday 차트는 변경 없음).
+   - prod 관찰: `client-040/041`에서 `barPathCount=0` 유지, `client-042/043`에서 Y축 tick 정상 → 도메인 단독 원인 배제.
    - 로그 `client-040~043`:
      - `client-040` -> chart-subscription-domain-guard -> domain + barPathCount
      - `client-041` -> chart-monthly-domain-guard -> domain + barPathCount
      - `client-042` -> chart-subscription-yaxis-ticks
      - `client-043` -> chart-monthly-yaxis-ticks
 
-6. **PR-006: 키 생성/정렬 고정 실험** — 상태: 보류
+6. **PR-006: minPointSize 실험(구독/월별 Bar 생성 스킵 원인 확정)** — 상태: 진행
+   - 목표: `chart-subscription`, `chart-monthly`의 Bar에 `minPointSize={1}`만 추가해 prod에서 barPathCount가 0→양수로 변하는지 확인.
+   - 변경: 두 Bar(`subscriptionCount`, `totalCount`)에만 `minPointSize={1}` 적용, 기타 옵션/레이아웃/weekday 차트는 그대로 유지.
+   - 로그: 신규 ID 없이 기존 `client-020~043` 계측 로그로 barPathCount 변화 확인.
+
+7. **PR-007: 데이터 전처리/NaN 방어 실험** — 상태: 예정
+   - NaN/undefined를 0으로 강제하거나 최소 높이 가드를 추가하는 등 값 보정 실험(필요 시 시행, minPointSize 이후 단계).
+
+8. **PR-008: 생성/정렬 고정 실험(보류)** — 상태: 보류
    - 실제 대시보드 차트에서 Bar 생성용 key 배열 정렬/고정, stack 순서 명시.
    - 목표: prod에서 순서 반전·중간 누락이 키 순서 문제인지 검증.
 
-7. **PR-007: 데이터 전처리/NaN 방어 실험** — 상태: 예정
-   - NaN/undefined를 0으로 강제하거나 `minPointSize` 등을 적용해 Bar height가 0으로 되는지 확인(필요 시 시행).
-
-8. **PR-008: 원인 확정 후 최소 수정 반영** — 상태: 예정
+9. **PR-009: 원인 확정 후 최소 수정 반영** — 상태: 예정
    - 위 실험 결과에 따라 최소 수정으로 prod Bar 렌더 복구.
    - 로그: 문제 해결 근거를 남기고, 해결 확인 후 상태 `검증완료`.
 
-9. **PR-009: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
+10. **PR-010: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
    - 모든 디버그 로그/배너/임시 차트를 제거하고 기준 디자인만 남김.
    - 목표: 최종 정리.
 
