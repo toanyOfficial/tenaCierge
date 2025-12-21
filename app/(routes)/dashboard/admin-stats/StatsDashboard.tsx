@@ -13,7 +13,8 @@ import {
   Rectangle,
   ResponsiveContainer,
   XAxis,
-  YAxis
+  YAxis,
+  Rectangle
 } from 'recharts';
 
 import styles from './stats-dashboard.module.css';
@@ -64,6 +65,7 @@ type Props = {
 const SUBSCRIPTION_Y_AXIS_DOMAIN: [number, number | 'auto'] = [0, 'auto'];
 const MONTHLY_LEFT_Y_AXIS_DOMAIN: [number, number | 'auto'] = [0, 'auto'];
 const MONTHLY_RIGHT_Y_AXIS_DOMAIN: [number, number | 'auto'] = [0, 'auto'];
+const DEBUG_BAR_SHAPE_LIMIT = 10;
 
 function toNumber(value: unknown, fallback = 0) {
   const parsed = Number(value ?? fallback);
@@ -83,6 +85,38 @@ export default function StatsDashboard({
 }: Props) {
   const minimalChartRef = useRef<HTMLDivElement | null>(null);
   const minimalBarShapeLog = useRef<Set<string>>(new Set());
+  const barShapeLogCounters = useRef<Record<string, number>>({});
+
+  const debugBarShapes = useMemo(() => {
+    const createShape = (logId: string) =>
+      function DebugBarShape(props: any) {
+        const { x, y, width, height, value, index, dataKey, fill, background } = props ?? {};
+        const current = barShapeLogCounters.current[logId] ?? 0;
+
+        if (current < DEBUG_BAR_SHAPE_LIMIT) {
+          barShapeLogCounters.current[logId] = current + 1;
+          console.log(`[${logId}] debug bar shape props`, {
+            x,
+            y,
+            width,
+            height,
+            value,
+            index,
+            dataKey,
+            fill,
+            background
+          });
+        }
+
+        return <Rectangle {...props} />;
+      };
+
+    return {
+      subscription: createShape('client-080'),
+      monthly: createShape('client-081'),
+      weekday: createShape('client-082')
+    };
+  }, []);
 
   const normalizedMonthlyAverages = useMemo(
     () =>
@@ -752,6 +786,7 @@ export default function StatsDashboard({
             barSize={20}
             radius={[6, 6, 0, 0]}
             minPointSize={1}
+            shape={debugBarShapes.subscription}
           >
             <LabelList dataKey="subscriptionCount" position="top" content={<BarValueLabel />} />
           </Bar>
@@ -835,6 +870,7 @@ export default function StatsDashboard({
             barSize={20}
             radius={[6, 6, 0, 0]}
             minPointSize={1}
+            shape={debugBarShapes.monthly}
           >
             <LabelList dataKey="totalCount" position="top" content={<BarValueLabel />} />
           </Bar>
@@ -914,6 +950,7 @@ export default function StatsDashboard({
                 barSize={20}
                 radius={isTopStack ? [6, 6, 0, 0] : [0, 0, 0, 0]}
                 isAnimationActive={false}
+                shape={index === 0 ? debugBarShapes.weekday : undefined}
               >
                 <LabelList dataKey={meta.key} content={<BuildingLabel />} />
                 {isTopStack ? (

@@ -197,8 +197,13 @@
      - `client-074` -> chart-subscription-barSize-result (barSize=20 적용 후 barPathCount)
      - `client-075` -> chart-monthly-barSize-result
 
-9. **PR-009: 데이터 전처리/NaN 방어 실험** — 상태: 예정
-   - NaN/undefined를 0으로 강제하거나 minPointSize 외 추가 가드 적용(필요 시 시행, barSize 실험 이후 단계).
+9. **PR-009: Bar shape 호출 여부 계측(구독/월별 vs 요일별 비교)** — 상태: 진행
+   - 목표: `chart-subscription`, `chart-monthly` Bar에서 shape 렌더 함수가 호출되는지 여부를 로그로 확인하고, 정상인 weekday와 비교해 파이프라인 스킵 vs 계산 문제를 확정.
+   - 변경: 두 Bar에 `shape={DebugBarShape}`를 적용하고, weekday Bar 중 1개에도 동일 shape를 적용해 비교군 확보. shape는 최초 10회만 props 로그 출력.
+   - 로그:
+     - `client-080` -> subscription DebugBarShape props(x, y, width, height, value, index, dataKey, fill, background)
+     - `client-081` -> monthly DebugBarShape props
+     - `client-082` -> weekday DebugBarShape props
 
 10. **PR-010: 생성/정렬 고정 실험(보류)** — 상태: 보류
    - 실제 대시보드 차트에서 Bar 생성용 key 배열 정렬/고정, stack 순서 명시.
