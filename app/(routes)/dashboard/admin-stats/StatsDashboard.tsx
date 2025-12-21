@@ -54,6 +54,28 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function PR001FixedDebugBarChart() {
+  console.log('[client-001] PR-001 FixedDebugBarChart render');
+
+  const data = [
+    { name: 'A', v: 10 },
+    { name: 'B', v: 30 }
+  ];
+
+  return (
+    <BarChart width={520} height={320} data={data}>
+      <CartesianGrid vertical={false} />
+      <XAxis dataKey="name" type="category" />
+      <YAxis domain={[0, 40]} />
+      <Bar
+        dataKey="v"
+        isAnimationActive={false}
+        onMouseEnter={() => console.log('[client-002] PR-001 Bar mouse enter')}
+      />
+    </BarChart>
+  );
+}
+
 export default function StatsDashboard({
   profile: _profile,
   monthlyAverages,
