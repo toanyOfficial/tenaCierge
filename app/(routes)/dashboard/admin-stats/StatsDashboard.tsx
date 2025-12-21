@@ -1,8 +1,19 @@
 "use client";
 
-import dynamic from 'next/dynamic';
-import React, { useEffect, useMemo } from 'react';
-import { Bar, CartesianGrid, ComposedChart, LabelList, Legend, Line, ResponsiveContainer, XAxis, YAxis } from 'recharts';
+import React, { useEffect, useMemo, useRef } from 'react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ComposedChart,
+  LabelList,
+  Legend,
+  Line,
+  Rectangle,
+  ResponsiveContainer,
+  XAxis,
+  YAxis
+} from 'recharts';
 
 import styles from './stats-dashboard.module.css';
 import type { MonthlyAveragePoint } from './server/fetchMonthlyAverages';
@@ -54,27 +65,10 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function PR001FixedDebugBarChart() {
-  console.log('[client-001] PR-001 FixedDebugBarChart render');
-
-  const data = [
-    { name: 'A', v: 10 },
-    { name: 'B', v: 30 }
-  ];
-
-  return (
-    <BarChart width={520} height={320} data={data}>
-      <CartesianGrid vertical={false} />
-      <XAxis dataKey="name" type="category" />
-      <YAxis domain={[0, 40]} />
-      <Bar
-        dataKey="v"
-        isAnimationActive={false}
-        onMouseEnter={() => console.log('[client-002] PR-001 Bar mouse enter')}
-      />
-    </BarChart>
-  );
-}
+const minimalBarData = [
+  { label: 'Alpha', value: 12 },
+  { label: 'Beta', value: 24 }
+];
 
 export default function StatsDashboard({
   profile: _profile,
@@ -82,6 +76,9 @@ export default function StatsDashboard({
   monthlyOverview,
   weekdayStats
 }: Props) {
+  const minimalChartRef = useRef<HTMLDivElement | null>(null);
+  const minimalBarShapeLog = useRef<Set<string>>(new Set());
+
   const normalizedMonthlyAverages = useMemo(
     () =>
       monthlyAverages.map((row) => ({
@@ -133,6 +130,62 @@ export default function StatsDashboard({
       return next;
     }),
     [weekdayStats.points]
+  );
+
+  useEffect(() => {
+    console.log('[client-001 -> minimal-fixed-barchart-mounted -> 고정형 BarChart 렌더 준비]', {
+      dataLength: minimalBarData.length
+    });
+
+    const rect = minimalChartRef.current?.getBoundingClientRect();
+    console.log('[client-002 -> minimal-fixed-barchart-domrect -> 컨테이너 크기 스냅샷]', {
+      width: rect?.width ?? null,
+      height: rect?.height ?? null,
+      x: rect?.x ?? null,
+      y: rect?.y ?? null
+    });
+
+    console.log('[client-004 -> minimal-fixed-barchart-data -> 고정 데이터 스냅샷]', {
+      rows: minimalBarData,
+      dataLength: minimalBarData.length
+    });
+
+    const logRects = () => {
+      const rectNodes = minimalChartRef.current?.querySelectorAll('rect');
+      console.log('[client-005 -> minimal-fixed-barchart-rect-elements -> SVG rect 존재 여부]', {
+        rectCount: rectNodes?.length ?? 0,
+        rectClassList: rectNodes ? Array.from(rectNodes).map((node) => node.getAttribute('class')) : []
+      });
+    };
+
+    logRects();
+    const timeoutId = setTimeout(logRects, 300);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, []);
+
+  const MinimalBarShape = useMemo(
+    () =>
+      function MinimalBarShape(props: any) {
+        const { index, x, y, width, height, value } = props;
+        const key = `${index}-${x}-${y}-${width}-${height}-${value}`;
+        if (!minimalBarShapeLog.current.has(key)) {
+          minimalBarShapeLog.current.add(key);
+          console.log('[client-003 -> minimal-fixed-barchart-shape -> Bar shape props 스냅샷]', {
+            index,
+            x,
+            y,
+            width,
+            height,
+            value
+          });
+        }
+
+        return <Rectangle {...props} />;
+      },
+    []
   );
 
   useEffect(() => {
@@ -631,27 +684,44 @@ export default function StatsDashboard({
             </div>
           </section>
 
-          {/* ===========================
-              PR-001: Fixed BarChart Debug
-              =========================== */}
-          <section className={styles.graphCard} style={{ border: '2px dashed red' }}>
-            <h3 style={{ color: 'red' }}>고정형 BarChart 진단 (PR-001)</h3>
-
-            <div
-              id="pr-001-fixed-chart"
-          style={{
-            width: 520,
-            height: 320,
-                background: '#fff',
-                marginTop: 12
-              }}
-            >
-            {(() => {
-                console.log('[client-003] PR-001 debug card mounted');
-                return <PR001ClientOnlyChart />;
-              })()}
-          </div>
-        </section>
+          <section className={styles.graphCard} aria-label="숙박일수별 통계">
+            <div className={styles.graphHeading}>
+              <p className={styles.graphTitle}>고정형 BarChart 진단 (PR-001)</p>
+            </div>
+            <div ref={minimalChartRef} className={styles.graphSurface} aria-hidden="true">
+              <div className={styles.fixedChartFrame}>
+                <BarChart
+                  width={420}
+                  height={260}
+                  data={minimalBarData}
+                  margin={{ top: 18, right: 12, bottom: 24, left: 12 }}
+                >
+                  <XAxis
+                    dataKey="label"
+                    tickLine={false}
+                    axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+                    tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+                    tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+                    domain={[0, 30]}
+                    ticks={[0, 6, 12, 18, 24, 30]}
+                    allowDecimals={false}
+                  />
+                  <Bar
+                    dataKey="value"
+                    fill="#38bdf8"
+                    barSize={32}
+                    radius={[6, 6, 0, 0]}
+                    isAnimationActive={false}
+                    shape={<MinimalBarShape />}
+                  />
+                </BarChart>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
     </div>
