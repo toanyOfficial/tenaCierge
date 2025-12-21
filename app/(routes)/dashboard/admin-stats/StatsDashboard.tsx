@@ -384,6 +384,60 @@ export default function StatsDashboard({
         tickCount: monthlyRoot?.querySelectorAll('.recharts-yAxis .recharts-cartesian-axis-tick').length ?? 0,
         tickTexts: monthlyYAxisTicks
       });
+
+      const measureClipState = (root: HTMLElement | null) => {
+        const barPaths = root?.querySelectorAll<SVGPathElement>(
+          '.recharts-layer.recharts-bar-rectangle path.recharts-rectangle'
+        );
+        const clipPaths = root?.querySelectorAll('svg clipPath');
+        const allPaths = root?.querySelectorAll('svg path');
+        const allRects = root?.querySelectorAll('svg rect');
+        return {
+          barPathCount: barPaths?.length ?? 0,
+          clipPathCount: clipPaths?.length ?? 0,
+          allPathCount: allPaths?.length ?? 0,
+          allRectCount: allRects?.length ?? 0
+        };
+      };
+
+      const logClipDebug = (
+        id: string,
+        debugId: string,
+        snapshotId: string,
+        bboxId?: string
+      ) => {
+        const root = document.getElementById(id);
+        const before = measureClipState(root);
+
+        console.log(`[${debugId} -> ${id}-clip-debug -> overflow-visible]`, {
+          overflowApplied: true,
+          before,
+          after: before
+        });
+
+        console.log(`[${snapshotId} -> ${id}-svg-snapshot]`, before);
+
+        if ((before.barPathCount ?? 0) > 0 && bboxId) {
+          const barPaths = root?.querySelectorAll<SVGPathElement>(
+            '.recharts-layer.recharts-bar-rectangle path.recharts-rectangle'
+          );
+          const bboxSample = Array.from(barPaths ?? [])
+            .slice(0, 5)
+            .map((node, index) => {
+              try {
+                const bbox = node.getBBox();
+                return { index, width: bbox.width, height: bbox.height, x: bbox.x, y: bbox.y };
+              } catch (error) {
+                return { index, error: String(error) };
+              }
+            });
+
+          console.log(`[${bboxId} -> ${id}-bar-bbox]`, bboxSample);
+        }
+      };
+
+      logClipDebug('chart-subscription', 'client-060', 'client-062', 'client-064');
+      logClipDebug('chart-monthly', 'client-061', 'client-063', 'client-065');
     }, 800);
 
     return () => clearTimeout(timer);
@@ -592,6 +646,7 @@ export default function StatsDashboard({
         <ComposedChart
           data={normalizedMonthlyAverages}
           margin={{ top: 54, right: 18, bottom: 24, left: 18 }}
+          style={{ overflow: 'visible' }}
         >
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
           <XAxis
@@ -664,6 +719,7 @@ export default function StatsDashboard({
         <ComposedChart
           data={normalizedMonthlyOverview}
           margin={{ top: 54, right: 18, bottom: 24, left: 18 }}
+          style={{ overflow: 'visible' }}
         >
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
           <XAxis
