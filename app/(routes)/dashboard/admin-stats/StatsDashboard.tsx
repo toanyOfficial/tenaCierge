@@ -231,6 +231,60 @@ export default function StatsDashboard({
     normalizedWeekdayPoints
   ]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const targets = [
+        { id: 'chart-subscription', countId: 'client-020', bboxId: 'client-021' },
+        { id: 'chart-monthly', countId: 'client-022', bboxId: 'client-023' },
+        { id: 'chart-weekday', countId: 'client-024', bboxId: 'client-025' }
+      ];
+
+      targets.forEach(({ id, countId, bboxId }) => {
+        const root = document.getElementById(id);
+        const barPaths = root?.querySelectorAll<SVGPathElement>(
+          '.recharts-layer.recharts-bar-rectangle path.recharts-rectangle'
+        );
+        const clipPaths = root?.querySelectorAll('svg defs clipPath');
+        const svgs = root?.querySelectorAll('svg');
+
+        console.log(`[${countId} -> ${id} -> bar counts]`, {
+          barPathCount: barPaths?.length ?? 0,
+          clipPathCount: clipPaths?.length ?? 0,
+          svgCount: svgs?.length ?? 0
+        });
+
+        const bboxes = Array.from(barPaths ?? [])
+          .slice(0, 5)
+          .map((node, index) => {
+            try {
+              const bbox = node.getBBox();
+              return {
+                index,
+                width: bbox.width,
+                height: bbox.height,
+                x: bbox.x,
+                y: bbox.y
+              };
+            } catch (error) {
+              return { index, error: String(error) };
+            }
+          });
+
+        console.log(`[${bboxId} -> ${id} -> bar bbox sample]`, bboxes);
+        console.log(`[client-026 -> ${id} -> clipPath count]`, {
+          clipPathCount: clipPaths?.length ?? 0
+        });
+      });
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [
+    normalizedMonthlyAverages,
+    normalizedMonthlyOverview,
+    normalizedWeekdayBuildings,
+    normalizedWeekdayPoints
+  ]);
+
   const planMax = useMemo(() => {
     const peak = Math.max(
       ...normalizedMonthlyAverages.map((row) => Math.max(row.subscriptionCount, row.perOrderCount)),
@@ -658,7 +712,11 @@ export default function StatsDashboard({
         </header>
 
         <div className={styles.graphGrid}>
-          <section className={styles.graphCard} aria-label="요금제별 통계">
+          <section
+            id="chart-subscription"
+            className={styles.graphCard}
+            aria-label="요금제별 통계"
+          >
             <div className={styles.graphHeading}>
               <p className={styles.graphTitle}>요금제별 통계</p>
             </div>
@@ -667,7 +725,7 @@ export default function StatsDashboard({
             </div>
           </section>
 
-          <section className={styles.graphCard} aria-label="월별 통계">
+          <section id="chart-monthly" className={styles.graphCard} aria-label="월별 통계">
             <div className={styles.graphHeading}>
               <p className={styles.graphTitle}>월별 통계</p>
             </div>
@@ -676,7 +734,7 @@ export default function StatsDashboard({
             </div>
           </section>
 
-          <section className={styles.graphCard} aria-label="요일별 통계">
+          <section id="chart-weekday" className={styles.graphCard} aria-label="요일별 통계">
             <div className={styles.graphHeading}>
               <p className={styles.graphTitle}>요일별 통계</p>
             </div>

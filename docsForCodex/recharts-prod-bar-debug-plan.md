@@ -128,26 +128,39 @@
          └── zod@3.25.76
          ```
 
-3. **PR-003: React/Recharts 의존성 중복 점검** — 상태: 예정
+3. **PR-003: 카드별 Bar 렌더 수/크기 분리 계측(원인 분리)** — 상태: 진행
+   - 각 통계 카드 섹션에 id 부여: 요금제 `chart-subscription`, 월별 `chart-monthly`, 요일별 `chart-weekday`.
+   - 마운트 후 800ms에 카드별 Bar path 개수/clipPath 개수/bbox 샘플을 로그로 남김.
+   - 로그:
+     - `client-020` -> chart-subscription -> bar counts
+     - `client-021` -> chart-subscription -> bar bbox sample
+     - `client-022` -> chart-monthly -> bar counts
+     - `client-023` -> chart-monthly -> bar bbox sample
+     - `client-024` -> chart-weekday -> bar counts
+     - `client-025` -> chart-weekday -> bar bbox sample
+     - `client-026` -> 카드별 clipPath count
+   - 목표: 카드별 Bar 렌더 수를 분리 계측해 문제 구간을 확정.
+
+4. **PR-004: React/Recharts 의존성 중복 점검** — 상태: 예정
    - 서버에서 `npm ls react react-dom recharts --all`, `node -p "require('react/package.json').version"` 등 실행.
    - 로그 `server-001~`: 명령 전문을 규격대로 기록 후 문서에 첨부.
    - 목표: 다중 React/버전 불일치 여부 확인.
 
-4. **PR-004: 키 생성/정렬 고정 실험** — 상태: 예정
+5. **PR-005: 키 생성/정렬 고정 실험** — 상태: 예정
    - 실제 대시보드 차트에서 Bar 생성용 key 배열 정렬/고정, stack 순서 명시.
    - 로그 `client-020~`: keys 배열 전문, 렌더 순서, 특정 key에서 height=0/NaN 여부.
    - 목표: prod에서 순서 반전·중간 누락이 키 순서 문제인지 검증.
 
-5. **PR-005: 도메인/NaN 가드 실험** — 상태: 예정
+6. **PR-006: 도메인/NaN 가드 실험** — 상태: 예정
    - YAxis domain을 명시 범위로 고정하거나 데이터 전처리(0/NaN 방어) 추가.
    - 로그 `client-030~`: domain 확정값, 변환 후 데이터 스냅샷.
    - 목표: height 0/미생성 문제가 도메인/NaN 때문인지 확인.
 
-6. **PR-006: 원인 확정 후 최소 수정 반영** — 상태: 예정
+7. **PR-007: 원인 확정 후 최소 수정 반영** — 상태: 예정
    - 위 실험 결과에 따라 최소 수정으로 prod Bar 렌더 복구.
    - 로그: 문제 해결 근거를 남기고, 해결 확인 후 상태 `검증완료`.
 
-7. **PR-007: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
+8. **PR-008: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
    - 모든 디버그 로그/배너/임시 차트를 제거하고 기준 디자인만 남김.
    - 목표: 최종 정리.
 
