@@ -1,24 +1,16 @@
 "use client";
 
+import dynamic from 'next/dynamic';
 import React, { useEffect, useMemo } from 'react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ComposedChart,
-  LabelList,
-  Legend,
-  Line,
-  ResponsiveContainer,
-  XAxis,
-  YAxis
-} from 'recharts';
+import { Bar, CartesianGrid, ComposedChart, LabelList, Legend, Line, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 
 import styles from './stats-dashboard.module.css';
 import type { MonthlyAveragePoint } from './server/fetchMonthlyAverages';
 import type { MonthlyOverviewPoint } from './server/fetchMonthlyOverview';
 import type { WeekdaySeriesMeta, WeekdayStatsPoint } from './server/fetchWeekdayStats';
 import type { ProfileSummary } from '@/src/utils/profile';
+
+const PR001ClientOnlyChart = dynamic(() => import('./PR001ClientOnlyChart'), { ssr: false });
 
 function formatValue(value: number) {
   return Number.isInteger(value) ? `${value}` : value.toFixed(1);
@@ -647,19 +639,19 @@ export default function StatsDashboard({
 
             <div
               id="pr-001-fixed-chart"
-              style={{
-                width: 520,
-                height: 320,
+          style={{
+            width: 520,
+            height: 320,
                 background: '#fff',
                 marginTop: 12
               }}
             >
-              {(() => {
+            {(() => {
                 console.log('[client-003] PR-001 debug card mounted');
-                return <PR001FixedDebugBarChart />;
+                return <PR001ClientOnlyChart />;
               })()}
-            </div>
-          </section>
+          </div>
+        </section>
         </div>
       </div>
     </div>

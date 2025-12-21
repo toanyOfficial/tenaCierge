@@ -44,19 +44,83 @@
 - 상태 값: `예정 / 진행 / 실패 / 검증완료 / 보류`
 - 각 PR은 atomic 목표 1개만 수행하며, 실행 시 문서 상태/로그를 업데이트한다.
 
-1. **PR-001: 고정형 BarChart 최소 재현 카드 추가** — 상태: 진행
+1. **PR-001: 고정형 BarChart 최소 재현 카드 추가** — 상태: 검증완료
    - 관리자 대시보드 `StatsDashboard.tsx` 마지막 섹션에 조건 없이 항상 렌더되는 “고정형 BarChart 진단 (PR-001)” 카드 삽입.
    - ResponsiveContainer 없이 width/height 하드코딩, 데이터 2개, Y 도메인 하드코딩, 애니메이션 off.
+   - prod 관찰: `barGroup=2`, `barPath=2`, `barRect=0`, `path.recharts-rectangle`가 2개 생성됨.
    - 로그:
      - `client-001` -> PR-001 FixedDebugBarChart render
      - `client-002` -> PR-001 Bar mouse enter (선택)
      - `client-003` -> PR-001 debug card mounted
-   - 목표: prod에서 `<rect>` 생성 여부를 확실히 확인하고, 카드가 항상 DOM에 포함되는지 검증.
+   - 목표: prod에서 `<rect>` 생성 여부를 확실히 확인하고, 카드가 항상 DOM에 포함되는지 검증. **관찰 완료** (path로 렌더되는 환경 확인).
 
-2. **PR-002: SSR 차단 실험** — 상태: 예정
-   - PR-001 차트를 `dynamic(..., { ssr: false })` 또는 mount 이후 gate로 감싸서 prod 렌더 비교.
-   - 로그 `client-010~`: ssr 차단 전/후 rect 생성 여부, hydration 경고 수집.
-   - 목표: SSR/CSR 차이로 bandwidth N/A 발생 여부 확인.
+2. **PR-002: SSR 차단 실험 + 의존성 수집** — 상태: 진행
+   - PR-001 차트를 `dynamic(..., { ssr: false })`로 감싸 client-only 렌더 시 Bar path/rect 개수 변화를 관찰.
+   - 새 컴포넌트 `PR001ClientOnlyChart`에서 `client-010~012` 로그 및 마운트 후 path/rect 카운트 로그(`client-011`).
+   - 서버 로그 `server-001~003`: React/ReactDOM/Recharts 버전, `npm ls` 결과, `bun pm ls` 결과를 수집해 전문 기록.
+   - 목표: SSR/CSR 영향 여부와 React/Recharts 중복/버전 불일치를 확정.
+   - 로그:
+     - `client-010` -> ssr:false chart render
+     - `client-011` -> post-mount counts (barGroup/barRect/barPath/allPath/allRect)
+     - `client-012` -> Bar mouse enter
+     - `server-001` -> React/ReactDOM/Recharts version 확인
+       - 전문:
+         ```
+         node -p "require('react/package.json').version"
+         18.3.1
+         node -p "require('react-dom/package.json').version"
+         18.3.1
+         node -p "require('recharts/package.json').version"
+         2.12.7
+         ```
+     - `server-002` -> `npm ls react react-dom recharts --all`
+       - 전문:
+         ```
+         npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+         tena-cierge-web@ /workspace/tenaCierge
+         ├─┬ drizzle-orm@0.30.10
+         │ └── react@18.3.1 deduped
+         ├─┬ next@14.2.33
+         │ ├── react-dom@18.3.1 deduped
+         │ ├── react@18.3.1 deduped
+         │ └─┬ styled-jsx@5.1.1
+         │   └── react@18.3.1 deduped
+         ├─┬ react-dom@18.3.1
+         │ └── react@18.3.1 deduped
+         ├── react@18.3.1
+         └─┬ recharts@2.12.7
+           ├── react-dom@18.3.1 deduped
+           └── react@18.3.1 deduped
+         ```
+     - `server-003` -> `bun pm ls react react-dom recharts`
+       - 전문:
+         ```
+         [11.46ms] migrated lockfile from package-lock.json
+         /workspace/tenaCierge node_modules (408)
+         ├── @types/node@20.19.25
+         ├── @types/react@18.3.27
+         ├── @types/react-dom@18.3.7
+         ├── clsx@vendor/clsx
+         ├── drizzle-orm@0.30.10
+         ├── eslint@8.57.1
+         ├── eslint-config-next@14.2.33
+         ├── eventemitter3@vendor/eventemitter3
+         ├── google-auth-library@vendor/google-auth-library
+         ├── lodash@vendor/lodash
+         ├── luxon@3.7.2
+         ├── mysql2@3.15.3
+         ├── next@14.2.33
+         ├── react@18.3.1
+         ├── react-dom@18.3.1
+         ├── react-smooth@vendor/react-smooth
+         ├── recharts@2.12.7
+         ├── recharts-scale@vendor/recharts-scale
+         ├── sharp@0.33.5
+         ├── tiny-invariant@vendor/tiny-invariant
+         ├── typescript@5.9.3
+         ├── victory-vendor@vendor/victory-vendor
+         └── zod@3.25.76
+         ```
 
 3. **PR-003: React/Recharts 의존성 중복 점검** — 상태: 예정
    - 서버에서 `npm ls react react-dom recharts --all`, `node -p "require('react/package.json').version"` 등 실행.
