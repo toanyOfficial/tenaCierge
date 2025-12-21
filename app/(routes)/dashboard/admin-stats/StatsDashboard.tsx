@@ -61,6 +61,10 @@ type Props = {
   weekdayStats: { points: WeekdayStatsPoint[]; buildings: WeekdaySeriesMeta[] };
 };
 
+const SUBSCRIPTION_Y_AXIS_DOMAIN: [number, number | 'auto'] = [0, 'auto'];
+const MONTHLY_LEFT_Y_AXIS_DOMAIN: [number, number | 'auto'] = [0, 'auto'];
+const MONTHLY_RIGHT_Y_AXIS_DOMAIN: [number, number | 'auto'] = [0, 'auto'];
+
 function toNumber(value: unknown, fallback = 0) {
   const parsed = Number(value ?? fallback);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -343,6 +347,43 @@ export default function StatsDashboard({
           });
         }
       });
+
+      const subscriptionRoot = document.getElementById('chart-subscription');
+      const subscriptionBarPaths = subscriptionRoot?.querySelectorAll<SVGPathElement>(
+        '.recharts-layer.recharts-bar-rectangle path.recharts-rectangle'
+      );
+      console.log('[client-040 -> chart-subscription-domain-guard -> domain + barPathCount]', {
+        domainApplied: SUBSCRIPTION_Y_AXIS_DOMAIN,
+        barPathCount: subscriptionBarPaths?.length ?? 0
+      });
+      const subscriptionYAxisTicks = Array.from(
+        subscriptionRoot?.querySelectorAll<SVGTextElement>('.recharts-yAxis .recharts-cartesian-axis-tick text') ?? []
+      )
+        .slice(0, 5)
+        .map((node) => node.textContent ?? '');
+      console.log('[client-042 -> chart-subscription-yaxis-ticks]', {
+        tickCount:
+          subscriptionRoot?.querySelectorAll('.recharts-yAxis .recharts-cartesian-axis-tick').length ?? 0,
+        tickTexts: subscriptionYAxisTicks
+      });
+
+      const monthlyRoot = document.getElementById('chart-monthly');
+      const monthlyBarPaths = monthlyRoot?.querySelectorAll<SVGPathElement>(
+        '.recharts-layer.recharts-bar-rectangle path.recharts-rectangle'
+      );
+      console.log('[client-041 -> chart-monthly-domain-guard -> domain + barPathCount]', {
+        domainApplied: { left: MONTHLY_LEFT_Y_AXIS_DOMAIN, right: MONTHLY_RIGHT_Y_AXIS_DOMAIN },
+        barPathCount: monthlyBarPaths?.length ?? 0
+      });
+      const monthlyYAxisTicks = Array.from(
+        monthlyRoot?.querySelectorAll<SVGTextElement>('.recharts-yAxis .recharts-cartesian-axis-tick text') ?? []
+      )
+        .slice(0, 5)
+        .map((node) => node.textContent ?? '');
+      console.log('[client-043 -> chart-monthly-yaxis-ticks]', {
+        tickCount: monthlyRoot?.querySelectorAll('.recharts-yAxis .recharts-cartesian-axis-tick').length ?? 0,
+        tickTexts: monthlyYAxisTicks
+      });
     }, 800);
 
     return () => clearTimeout(timer);
@@ -565,7 +606,7 @@ export default function StatsDashboard({
             tickLine={false}
             axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-            domain={[0, planMax]}
+            domain={SUBSCRIPTION_Y_AXIS_DOMAIN}
             ticks={planTicks}
             allowDecimals={false}
           />
@@ -636,7 +677,7 @@ export default function StatsDashboard({
             tickLine={false}
             axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-            domain={[0, overviewLeftMax]}
+            domain={MONTHLY_LEFT_Y_AXIS_DOMAIN}
             ticks={overviewLeftTicks}
             allowDecimals={false}
           />
@@ -646,7 +687,7 @@ export default function StatsDashboard({
             tickLine={false}
             axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-            domain={[0, overviewRightMax]}
+            domain={MONTHLY_RIGHT_Y_AXIS_DOMAIN}
             ticks={overviewRightTicks}
             allowDecimals={false}
           />

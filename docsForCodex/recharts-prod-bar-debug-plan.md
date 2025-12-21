@@ -142,9 +142,10 @@
      - `client-026` -> 카드별 clipPath count
    - 목표: 카드별 Bar 렌더 수를 분리 계측해 “subscription/monthly만 Bar 미생성”을 확정.
 
-4. **PR-004: subscription/monthly Bar pathCount=0 원인 계측(데이터키/axis/tick)** — 상태: 진행
+4. **PR-004: subscription/monthly Bar pathCount=0 원인 계측(데이터키/axis/tick)** — 상태: 검증완료
    - 목표: `chart-subscription`, `chart-monthly`에서 Bar path가 0이 되는 원인을 데이터키/axis/bandwidth/조건부 렌더 관점에서 계측.
    - 마운트 후 800ms에 데이터 shape, dataKey finite 여부, XAxis tick 분포, Bar DOM 존재 여부를 로그(`client-030~037`)로 출력.
+   - prod 관찰: data length 13, XAxis key `label`, barDataKeys `subscriptionCount`/`totalCount`, tick 존재(17/22), Bar layer/rectangles 존재하지만 barPathCount=0, allPaths=1, allRects=1로 Bar 도형 미생성 확인.
    - 로그:
      - `client-030` -> chart-subscription-data-shape
      - `client-031` -> chart-subscription-datakey-sanity
@@ -155,18 +156,21 @@
      - `client-036` -> subscription-dom-presence
      - `client-037` -> monthly-dom-presence
 
-5. **PR-005: React/Recharts 의존성 중복 점검** — 상태: 진행(서버 로그 수집 포함)
-   - `server-001~003`에서 수집한 React/ReactDOM/Recharts 버전 및 `npm ls`/`bun pm ls` 결과를 기반으로 중복 여부 검증(현재 자료 수집 완료, 추가 확인 보류).
+5. **PR-005: YAxis domain 명시 실험(구독/월별)** — 상태: 진행
+   - 목표: `chart-subscription`, `chart-monthly`에서 YAxis domain을 명시(`[0, 'auto']`)해 Bar path 미생성을 해소하는지 확인하고, 도메인/NaN 가설을 검증.
+   - 변경: 두 차트의 YAxis domain을 `[0, 'auto']`로 고정(weekday 차트는 변경 없음).
+   - 로그 `client-040~043`:
+     - `client-040` -> chart-subscription-domain-guard -> domain + barPathCount
+     - `client-041` -> chart-monthly-domain-guard -> domain + barPathCount
+     - `client-042` -> chart-subscription-yaxis-ticks
+     - `client-043` -> chart-monthly-yaxis-ticks
 
 6. **PR-006: 키 생성/정렬 고정 실험** — 상태: 보류
    - 실제 대시보드 차트에서 Bar 생성용 key 배열 정렬/고정, stack 순서 명시.
-   - 로그 `client-040~`: keys 배열 전문, 렌더 순서, 특정 key에서 height=0/NaN 여부.
    - 목표: prod에서 순서 반전·중간 누락이 키 순서 문제인지 검증.
 
-7. **PR-007: 도메인/NaN 가드 실험** — 상태: 예정
-   - YAxis domain을 명시 범위로 고정하거나 데이터 전처리(0/NaN 방어) 추가.
-   - 로그 `client-050~`: domain 확정값, 변환 후 데이터 스냅샷.
-   - 목표: height 0/미생성 문제가 도메인/NaN 때문인지 확인.
+7. **PR-007: 데이터 전처리/NaN 방어 실험** — 상태: 예정
+   - NaN/undefined를 0으로 강제하거나 `minPointSize` 등을 적용해 Bar height가 0으로 되는지 확인(필요 시 시행).
 
 8. **PR-008: 원인 확정 후 최소 수정 반영** — 상태: 예정
    - 위 실험 결과에 따라 최소 수정으로 prod Bar 렌더 복구.
