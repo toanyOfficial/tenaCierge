@@ -59,6 +59,8 @@
    - 새 컴포넌트 `PR001ClientOnlyChart`에서 `client-010~012` 로그 및 마운트 후 path/rect 카운트 로그(`client-011`).
    - 서버 로그 `server-001~003`: React/ReactDOM/Recharts 버전, `npm ls` 결과, `bun pm ls` 결과를 수집해 전문 기록.
    - 고정형 디버그 카드에 `ref`를 부여하고 `useRef`를 명시적으로 import하여 빌드 시 `useRef` 미정의 오류를 방지.
+   - **빌드 복구(PR-002a-2):** `minimalBarShapeLog`를 `useRef<Set<string>>(new Set())`로 컴포넌트 스코프 상단에 선언해 TS 식별자
+     누락 에러를 제거.
    - 목표: SSR/CSR 영향 여부와 React/Recharts 중복/버전 불일치를 확정.
    - 로그:
      - `client-001` -> PR-001 FixedDebugBarChart render (client-only)

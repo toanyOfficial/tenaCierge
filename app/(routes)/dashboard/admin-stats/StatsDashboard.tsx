@@ -78,6 +78,7 @@ export default function StatsDashboard({
   weekdayStats
 }: Props) {
   const minimalChartRef = useRef<HTMLDivElement | null>(null);
+  const minimalBarShapeLog = useRef<Set<string>>(new Set());
 
   const normalizedMonthlyAverages = useMemo(
     () =>
