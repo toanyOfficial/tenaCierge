@@ -44,11 +44,14 @@
 - 상태 값: `예정 / 진행 / 실패 / 검증완료 / 보류`
 - 각 PR은 atomic 목표 1개만 수행하며, 실행 시 문서 상태/로그를 업데이트한다.
 
-1. **PR-001: 최소 재현 고정 차트 추가** — 상태: 예정
-   - 관리자 대시보드에 width/height 하드코딩, 고정 데이터 2개, animation off, axis/domain 단순화된 BarChart 1개 추가.
-   - ResponsiveContainer/Legend/Tooltip/Gradient 제거.
-   - 로그 `client-001~` 추가: 차트 mount, 컨테이너 DOMRect, dataLength, Bar shape 호출/rect 생성 여부. 브라우저에서 `<rect>` 확인 가이드 포함.
-   - 목표: prod에서도 `<rect>` 미생성 재현 여부를 분리해 **빌드/환경 vs 구조 문제** 분기.
+1. **PR-001: 고정형 BarChart 최소 재현 카드 추가** — 상태: 진행
+   - 관리자 대시보드 `StatsDashboard.tsx` 마지막 섹션에 조건 없이 항상 렌더되는 “고정형 BarChart 진단 (PR-001)” 카드 삽입.
+   - ResponsiveContainer 없이 width/height 하드코딩, 데이터 2개, Y 도메인 하드코딩, 애니메이션 off.
+   - 로그:
+     - `client-001` -> PR-001 FixedDebugBarChart render
+     - `client-002` -> PR-001 Bar mouse enter (선택)
+     - `client-003` -> PR-001 debug card mounted
+   - 목표: prod에서 `<rect>` 생성 여부를 확실히 확인하고, 카드가 항상 DOM에 포함되는지 검증.
 
 2. **PR-002: SSR 차단 실험** — 상태: 예정
    - PR-001 차트를 `dynamic(..., { ssr: false })` 또는 mount 이후 gate로 감싸서 prod 렌더 비교.

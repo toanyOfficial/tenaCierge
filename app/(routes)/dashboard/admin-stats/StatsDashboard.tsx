@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo } from 'react';
 import {
   Bar,
+  BarChart,
   CartesianGrid,
   ComposedChart,
   LabelList,
@@ -61,6 +62,28 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function PR001FixedDebugBarChart() {
+  console.log('[client-001] PR-001 FixedDebugBarChart render');
+
+  const data = [
+    { name: 'A', v: 10 },
+    { name: 'B', v: 30 }
+  ];
+
+  return (
+    <BarChart width={520} height={320} data={data}>
+      <CartesianGrid vertical={false} />
+      <XAxis dataKey="name" type="category" />
+      <YAxis domain={[0, 40]} />
+      <Bar
+        dataKey="v"
+        isAnimationActive={false}
+        onMouseEnter={() => console.log('[client-002] PR-001 Bar mouse enter')}
+      />
+    </BarChart>
+  );
+}
+
 export default function StatsDashboard({
   profile: _profile,
   monthlyAverages,
@@ -115,8 +138,8 @@ export default function StatsDashboard({
           next[key] = toNumber(value);
         });
 
-        return next;
-      }),
+      return next;
+    }),
     [weekdayStats.points]
   );
 
@@ -616,12 +639,25 @@ export default function StatsDashboard({
             </div>
           </section>
 
-          <section className={styles.graphCard} aria-label="숙박일수별 통계">
-            <div className={styles.graphHeading}>
-              <p className={styles.graphTitle}>숙박일수별 통계</p>
-            </div>
-            <div className={styles.graphSurface} aria-hidden="true">
-              <div className={styles.placeholderMessage}>준비중입니다.</div>
+          {/* ===========================
+              PR-001: Fixed BarChart Debug
+              =========================== */}
+          <section className={styles.graphCard} style={{ border: '2px dashed red' }}>
+            <h3 style={{ color: 'red' }}>고정형 BarChart 진단 (PR-001)</h3>
+
+            <div
+              id="pr-001-fixed-chart"
+              style={{
+                width: 520,
+                height: 320,
+                background: '#fff',
+                marginTop: 12
+              }}
+            >
+              {(() => {
+                console.log('[client-003] PR-001 debug card mounted');
+                return <PR001FixedDebugBarChart />;
+              })()}
             </div>
           </section>
         </div>
