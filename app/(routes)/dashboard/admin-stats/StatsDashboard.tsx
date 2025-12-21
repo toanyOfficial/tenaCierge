@@ -1,23 +1,16 @@
 "use client";
 
+import dynamic from 'next/dynamic';
 import React, { useEffect, useMemo } from 'react';
-import {
-  Bar,
-  CartesianGrid,
-  ComposedChart,
-  LabelList,
-  Legend,
-  Line,
-  ResponsiveContainer,
-  XAxis,
-  YAxis
-} from 'recharts';
+import { Bar, CartesianGrid, ComposedChart, LabelList, Legend, Line, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 
 import styles from './stats-dashboard.module.css';
 import type { MonthlyAveragePoint } from './server/fetchMonthlyAverages';
 import type { MonthlyOverviewPoint } from './server/fetchMonthlyOverview';
 import type { WeekdaySeriesMeta, WeekdayStatsPoint } from './server/fetchWeekdayStats';
 import type { ProfileSummary } from '@/src/utils/profile';
+
+const PR001ClientOnlyChart = dynamic(() => import('./PR001ClientOnlyChart'), { ssr: false });
 
 function formatValue(value: number) {
   return Number.isInteger(value) ? `${value}` : value.toFixed(1);
@@ -115,8 +108,8 @@ export default function StatsDashboard({
           next[key] = toNumber(value);
         });
 
-        return next;
-      }),
+      return next;
+    }),
     [weekdayStats.points]
   );
 
@@ -616,14 +609,27 @@ export default function StatsDashboard({
             </div>
           </section>
 
-          <section className={styles.graphCard} aria-label="숙박일수별 통계">
-            <div className={styles.graphHeading}>
-              <p className={styles.graphTitle}>숙박일수별 통계</p>
-            </div>
-            <div className={styles.graphSurface} aria-hidden="true">
-              <div className={styles.placeholderMessage}>준비중입니다.</div>
-            </div>
-          </section>
+          {/* ===========================
+              PR-001: Fixed BarChart Debug
+              =========================== */}
+          <section className={styles.graphCard} style={{ border: '2px dashed red' }}>
+            <h3 style={{ color: 'red' }}>고정형 BarChart 진단 (PR-001)</h3>
+
+            <div
+              id="pr-001-fixed-chart"
+          style={{
+            width: 520,
+            height: 320,
+                background: '#fff',
+                marginTop: 12
+              }}
+            >
+            {(() => {
+                console.log('[client-003] PR-001 debug card mounted');
+                return <PR001ClientOnlyChart />;
+              })()}
+          </div>
+        </section>
         </div>
       </div>
     </div>
