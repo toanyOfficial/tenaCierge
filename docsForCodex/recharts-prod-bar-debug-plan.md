@@ -49,7 +49,7 @@
    - ResponsiveContainer 없이 width/height 하드코딩, 데이터 2개, Y 도메인 하드코딩, 애니메이션 off.
    - prod 관찰: `barGroup=2`, `barPath=2`, `barRect=0`, `path.recharts-rectangle`가 2개 생성됨.
    - 로그:
-     - `client-001` -> PR-001 FixedDebugBarChart render
+     - `client-001` -> PR-001 FixedDebugBarChart render (client-only)
      - `client-002` -> PR-001 Bar mouse enter (선택)
      - `client-003` -> PR-001 debug card mounted
    - 목표: prod에서 `<rect>` 생성 여부를 확실히 확인하고, 카드가 항상 DOM에 포함되는지 검증. **관찰 완료** (path로 렌더되는 환경 확인).
@@ -61,6 +61,9 @@
    - 고정형 디버그 카드에 `ref`를 부여하고 `useRef`를 명시적으로 import하여 빌드 시 `useRef` 미정의 오류를 방지.
    - 목표: SSR/CSR 영향 여부와 React/Recharts 중복/버전 불일치를 확정.
    - 로그:
+     - `client-001` -> PR-001 FixedDebugBarChart render (client-only)
+     - `client-002` -> PR-001 Bar mouse enter (선택)
+     - `client-003` -> PR-001 debug card mounted
      - `client-010` -> ssr:false chart render
      - `client-011` -> post-mount counts (barGroup/barRect/barPath/allPath/allRect)
      - `client-012` -> Bar mouse enter

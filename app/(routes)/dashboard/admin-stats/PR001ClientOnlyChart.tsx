@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 export default function PR001ClientOnlyChart() {
+  console.log('[client-001] PR-001 FixedDebugBarChart render (client-only)');
   console.log('[client-010] PR-002 PR001ClientOnlyChart render (ssr:false target)');
 
   const data = [
@@ -31,7 +32,10 @@ export default function PR001ClientOnlyChart() {
       <Bar
         dataKey="v"
         isAnimationActive={false}
-        onMouseEnter={() => console.log('[client-012] PR-002 Bar mouse enter')}
+        onMouseEnter={() => {
+          console.log('[client-002] PR-001 Bar mouse enter');
+          console.log('[client-012] PR-002 Bar mouse enter');
+        }}
       />
     </BarChart>
   );
