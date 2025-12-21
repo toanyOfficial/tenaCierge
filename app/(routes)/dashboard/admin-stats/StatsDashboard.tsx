@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import {
   Bar,
@@ -77,8 +77,7 @@ export default function StatsDashboard({
   monthlyOverview,
   weekdayStats
 }: Props) {
-  const minimalChartRef = useRef<HTMLDivElement | null>(null);
-  const minimalBarShapeLog = useRef<Set<string>>(new Set());
+  const fixedChartRef = useRef<HTMLDivElement | null>(null);
 
   const normalizedMonthlyAverages = useMemo(
     () =>
@@ -693,19 +692,20 @@ export default function StatsDashboard({
 
             <div
               id="pr-001-fixed-chart"
-          style={{
-            width: 520,
-            height: 320,
+              ref={fixedChartRef}
+              style={{
+                width: 520,
+                height: 320,
                 background: '#fff',
                 marginTop: 12
               }}
             >
-            {(() => {
+              {(() => {
                 console.log('[client-003] PR-001 debug card mounted');
                 return <PR001ClientOnlyChart />;
               })()}
-          </div>
-        </section>
+            </div>
+          </section>
         </div>
       </div>
     </div>
