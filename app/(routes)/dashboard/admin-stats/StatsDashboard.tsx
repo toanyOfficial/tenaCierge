@@ -21,6 +21,8 @@ import type { MonthlyOverviewPoint } from './server/fetchMonthlyOverview';
 import type { WeekdaySeriesMeta, WeekdayStatsPoint } from './server/fetchWeekdayStats';
 import type { ProfileSummary } from '@/src/utils/profile';
 
+const PR001ClientOnlyChart = dynamic(() => import('./PR001ClientOnlyChart'), { ssr: false });
+
 function formatValue(value: number) {
   return Number.isInteger(value) ? `${value}` : value.toFixed(1);
 }

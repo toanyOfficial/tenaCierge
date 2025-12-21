@@ -50,10 +50,73 @@
    - 로그 `client-001~` 추가: 차트 mount, 컨테이너 DOMRect, dataLength, Bar shape 호출/rect 생성 여부. 브라우저에서 `<rect>` 확인 가이드 포함. (client-001~005 추가 완료)
    - 목표: prod에서도 `<rect>` 미생성 재현 여부를 분리해 **빌드/환경 vs 구조 문제** 분기.
 
-2. **PR-002: SSR 차단 실험** — 상태: 예정
-   - PR-001 차트를 `dynamic(..., { ssr: false })` 또는 mount 이후 gate로 감싸서 prod 렌더 비교.
-   - 로그 `client-010~`: ssr 차단 전/후 rect 생성 여부, hydration 경고 수집.
-   - 목표: SSR/CSR 차이로 bandwidth N/A 발생 여부 확인.
+2. **PR-002: SSR 차단 실험 + 의존성 수집** — 상태: 진행
+   - PR-001 차트를 `dynamic(..., { ssr: false })`로 감싸 client-only 렌더 시 Bar path/rect 개수 변화를 관찰.
+   - 새 컴포넌트 `PR001ClientOnlyChart`에서 `client-010~012` 로그 및 마운트 후 path/rect 카운트 로그(`client-011`).
+   - 서버 로그 `server-001~003`: React/ReactDOM/Recharts 버전, `npm ls` 결과, `bun pm ls` 결과를 수집해 전문 기록.
+   - 목표: SSR/CSR 영향 여부와 React/Recharts 중복/버전 불일치를 확정.
+   - 로그:
+     - `client-010` -> ssr:false chart render
+     - `client-011` -> post-mount counts (barGroup/barRect/barPath/allPath/allRect)
+     - `client-012` -> Bar mouse enter
+     - `server-001` -> React/ReactDOM/Recharts version 확인
+       - 전문:
+         ```
+         node -p "require('react/package.json').version"
+         18.3.1
+         node -p "require('react-dom/package.json').version"
+         18.3.1
+         node -p "require('recharts/package.json').version"
+         2.12.7
+         ```
+     - `server-002` -> `npm ls react react-dom recharts --all`
+       - 전문:
+         ```
+         npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+         tena-cierge-web@ /workspace/tenaCierge
+         ├─┬ drizzle-orm@0.30.10
+         │ └── react@18.3.1 deduped
+         ├─┬ next@14.2.33
+         │ ├── react-dom@18.3.1 deduped
+         │ ├── react@18.3.1 deduped
+         │ └─┬ styled-jsx@5.1.1
+         │   └── react@18.3.1 deduped
+         ├─┬ react-dom@18.3.1
+         │ └── react@18.3.1 deduped
+         ├── react@18.3.1
+         └─┬ recharts@2.12.7
+           ├── react-dom@18.3.1 deduped
+           └── react@18.3.1 deduped
+         ```
+     - `server-003` -> `bun pm ls react react-dom recharts`
+       - 전문:
+         ```
+         [11.46ms] migrated lockfile from package-lock.json
+         /workspace/tenaCierge node_modules (408)
+         ├── @types/node@20.19.25
+         ├── @types/react@18.3.27
+         ├── @types/react-dom@18.3.7
+         ├── clsx@vendor/clsx
+         ├── drizzle-orm@0.30.10
+         ├── eslint@8.57.1
+         ├── eslint-config-next@14.2.33
+         ├── eventemitter3@vendor/eventemitter3
+         ├── google-auth-library@vendor/google-auth-library
+         ├── lodash@vendor/lodash
+         ├── luxon@3.7.2
+         ├── mysql2@3.15.3
+         ├── next@14.2.33
+         ├── react@18.3.1
+         ├── react-dom@18.3.1
+         ├── react-smooth@vendor/react-smooth
+         ├── recharts@2.12.7
+         ├── recharts-scale@vendor/recharts-scale
+         ├── sharp@0.33.5
+         ├── tiny-invariant@vendor/tiny-invariant
+         ├── typescript@5.9.3
+         ├── victory-vendor@vendor/victory-vendor
+         └── zod@3.25.76
+         ```
 
 3. **PR-003: React/Recharts 의존성 중복 점검** — 상태: 예정
    - 서버에서 `npm ls react react-dom recharts --all`, `node -p "require('react/package.json').version"` 등 실행.
