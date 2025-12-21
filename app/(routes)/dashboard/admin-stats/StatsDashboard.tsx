@@ -234,12 +234,34 @@ export default function StatsDashboard({
   useEffect(() => {
     const timer = setTimeout(() => {
       const targets = [
-        { id: 'chart-subscription', countId: 'client-020', bboxId: 'client-021' },
-        { id: 'chart-monthly', countId: 'client-022', bboxId: 'client-023' },
+        {
+          id: 'chart-subscription',
+          countId: 'client-020',
+          bboxId: 'client-021',
+          dataShapeId: 'client-030',
+          dataKeySanityId: 'client-031',
+          tickId: 'client-034',
+          presenceId: 'client-036',
+          data: normalizedMonthlyAverages,
+          xAxisKey: 'label',
+          barKeys: ['subscriptionCount']
+        },
+        {
+          id: 'chart-monthly',
+          countId: 'client-022',
+          bboxId: 'client-023',
+          dataShapeId: 'client-032',
+          dataKeySanityId: 'client-033',
+          tickId: 'client-035',
+          presenceId: 'client-037',
+          data: normalizedMonthlyOverview,
+          xAxisKey: 'label',
+          barKeys: ['totalCount']
+        },
         { id: 'chart-weekday', countId: 'client-024', bboxId: 'client-025' }
       ];
 
-      targets.forEach(({ id, countId, bboxId }) => {
+      targets.forEach(({ id, countId, bboxId, data, barKeys, dataShapeId, dataKeySanityId, xAxisKey, tickId, presenceId }) => {
         const root = document.getElementById(id);
         const barPaths = root?.querySelectorAll<SVGPathElement>(
           '.recharts-layer.recharts-bar-rectangle path.recharts-rectangle'
@@ -274,6 +296,52 @@ export default function StatsDashboard({
         console.log(`[client-026 -> ${id} -> clipPath count]`, {
           clipPathCount: clipPaths?.length ?? 0
         });
+
+        if (data && barKeys && dataShapeId && dataKeySanityId) {
+          const firstRow = data[0];
+          const keys = firstRow ? Object.keys(firstRow) : null;
+          console.log(`[${dataShapeId} -> ${id}-data-shape]`, {
+            dataLength: data.length,
+            keys,
+            xAxisKey,
+            barDataKeys: barKeys
+          });
+
+          const sanity = barKeys.map((key) => {
+            const value = firstRow ? (firstRow as Record<string, unknown>)[key] : undefined;
+            return {
+              key,
+              value,
+              type: typeof value,
+              isFinite: typeof value === 'number' ? Number.isFinite(value) : Number.isFinite(Number(value))
+            };
+          });
+          console.log(`[${dataKeySanityId} -> ${id}-datakey-sanity]`, sanity);
+        }
+
+        if (tickId) {
+          const ticks = root?.querySelectorAll('.recharts-cartesian-axis-tick');
+          const tickTexts = Array.from(
+            root?.querySelectorAll<SVGTextElement>('.recharts-cartesian-axis-tick text') ?? []
+          )
+            .slice(0, 5)
+            .map((node) => node.textContent ?? '');
+          console.log(`[${tickId} -> ${id}-xaxis-ticks]`, {
+            tickCount: ticks?.length ?? 0,
+            tickTexts
+          });
+        }
+
+        if (presenceId) {
+          const barLayer = root?.querySelector('.recharts-layer.recharts-bar');
+          const barRectangles = root?.querySelector('.recharts-layer.recharts-bar-rectangles');
+          console.log(`[${presenceId} -> ${id}-dom-presence]`, {
+            hasBarLayer: Boolean(barLayer),
+            hasBarRectangles: Boolean(barRectangles),
+            barLayerCount: barLayer ? 1 : 0,
+            barRectanglesCount: barRectangles ? 1 : 0
+          });
+        }
       });
     }, 800);
 

@@ -128,9 +128,10 @@
          └── zod@3.25.76
          ```
 
-3. **PR-003: 카드별 Bar 렌더 수/크기 분리 계측(원인 분리)** — 상태: 진행
+3. **PR-003: 카드별 Bar 렌더 수/크기 분리 계측(원인 분리)** — 상태: 검증완료
    - 각 통계 카드 섹션에 id 부여: 요금제 `chart-subscription`, 월별 `chart-monthly`, 요일별 `chart-weekday`.
    - 마운트 후 800ms에 카드별 Bar path 개수/clipPath 개수/bbox 샘플을 로그로 남김.
+   - prod 관찰: `chart-subscription` `barPathCount=0`, `chart-monthly` `barPathCount=0`, `chart-weekday` `barPathCount=45`.
    - 로그:
      - `client-020` -> chart-subscription -> bar counts
      - `client-021` -> chart-subscription -> bar bbox sample
@@ -139,28 +140,39 @@
      - `client-024` -> chart-weekday -> bar counts
      - `client-025` -> chart-weekday -> bar bbox sample
      - `client-026` -> 카드별 clipPath count
-   - 목표: 카드별 Bar 렌더 수를 분리 계측해 문제 구간을 확정.
+   - 목표: 카드별 Bar 렌더 수를 분리 계측해 “subscription/monthly만 Bar 미생성”을 확정.
 
-4. **PR-004: React/Recharts 의존성 중복 점검** — 상태: 예정
-   - 서버에서 `npm ls react react-dom recharts --all`, `node -p "require('react/package.json').version"` 등 실행.
-   - 로그 `server-001~`: 명령 전문을 규격대로 기록 후 문서에 첨부.
-   - 목표: 다중 React/버전 불일치 여부 확인.
+4. **PR-004: subscription/monthly Bar pathCount=0 원인 계측(데이터키/axis/tick)** — 상태: 진행
+   - 목표: `chart-subscription`, `chart-monthly`에서 Bar path가 0이 되는 원인을 데이터키/axis/bandwidth/조건부 렌더 관점에서 계측.
+   - 마운트 후 800ms에 데이터 shape, dataKey finite 여부, XAxis tick 분포, Bar DOM 존재 여부를 로그(`client-030~037`)로 출력.
+   - 로그:
+     - `client-030` -> chart-subscription-data-shape
+     - `client-031` -> chart-subscription-datakey-sanity
+     - `client-032` -> chart-monthly-data-shape
+     - `client-033` -> chart-monthly-datakey-sanity
+     - `client-034` -> chart-subscription-xaxis-ticks
+     - `client-035` -> chart-monthly-xaxis-ticks
+     - `client-036` -> subscription-dom-presence
+     - `client-037` -> monthly-dom-presence
 
-5. **PR-005: 키 생성/정렬 고정 실험** — 상태: 예정
+5. **PR-005: React/Recharts 의존성 중복 점검** — 상태: 진행(서버 로그 수집 포함)
+   - `server-001~003`에서 수집한 React/ReactDOM/Recharts 버전 및 `npm ls`/`bun pm ls` 결과를 기반으로 중복 여부 검증(현재 자료 수집 완료, 추가 확인 보류).
+
+6. **PR-006: 키 생성/정렬 고정 실험** — 상태: 보류
    - 실제 대시보드 차트에서 Bar 생성용 key 배열 정렬/고정, stack 순서 명시.
-   - 로그 `client-020~`: keys 배열 전문, 렌더 순서, 특정 key에서 height=0/NaN 여부.
+   - 로그 `client-040~`: keys 배열 전문, 렌더 순서, 특정 key에서 height=0/NaN 여부.
    - 목표: prod에서 순서 반전·중간 누락이 키 순서 문제인지 검증.
 
-6. **PR-006: 도메인/NaN 가드 실험** — 상태: 예정
+7. **PR-007: 도메인/NaN 가드 실험** — 상태: 예정
    - YAxis domain을 명시 범위로 고정하거나 데이터 전처리(0/NaN 방어) 추가.
-   - 로그 `client-030~`: domain 확정값, 변환 후 데이터 스냅샷.
+   - 로그 `client-050~`: domain 확정값, 변환 후 데이터 스냅샷.
    - 목표: height 0/미생성 문제가 도메인/NaN 때문인지 확인.
 
-7. **PR-007: 원인 확정 후 최소 수정 반영** — 상태: 예정
+8. **PR-008: 원인 확정 후 최소 수정 반영** — 상태: 예정
    - 위 실험 결과에 따라 최소 수정으로 prod Bar 렌더 복구.
    - 로그: 문제 해결 근거를 남기고, 해결 확인 후 상태 `검증완료`.
 
-8. **PR-008: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
+9. **PR-009: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
    - 모든 디버그 로그/배너/임시 차트를 제거하고 기준 디자인만 남김.
    - 목표: 최종 정리.
 
