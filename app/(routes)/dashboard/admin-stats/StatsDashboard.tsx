@@ -4,17 +4,21 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import {
   Bar,
+  BarChart,
   CartesianGrid,
   ComposedChart,
   LabelList,
   Legend,
   Line,
+  Rectangle as RechartsRectangle,
   ResponsiveContainer,
   XAxis,
-  YAxis
+  YAxis,
+  Rectangle
 } from 'recharts';
 
 import styles from './stats-dashboard.module.css';
+import PR010NaNProbe from './PR010NaNProbe.client';
 import type { MonthlyAveragePoint } from './server/fetchMonthlyAverages';
 import type { MonthlyOverviewPoint } from './server/fetchMonthlyOverview';
 import type { WeekdaySeriesMeta, WeekdayStatsPoint } from './server/fetchWeekdayStats';
@@ -95,6 +99,11 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+const minimalBarData = [
+  { label: 'Alpha', value: 12 },
+  { label: 'Beta', value: 24 }
+];
+
 export default function StatsDashboard({
   profile: _profile,
   monthlyAverages,
@@ -151,8 +160,8 @@ export default function StatsDashboard({
           next[key] = toNumber(value);
         });
 
-        return next;
-      }),
+      return next;
+    }),
     [weekdayStats.points]
   );
 
@@ -394,10 +403,12 @@ export default function StatsDashboard({
         <ComposedChart
           data={subscriptionGuard.data}
           margin={{ top: 54, right: 18, bottom: 24, left: 18 }}
+          style={{ overflow: 'visible' }}
         >
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
           <XAxis
             dataKey="label"
+            xAxisId="x"
             tickLine={false}
             axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
@@ -466,10 +477,12 @@ export default function StatsDashboard({
         <ComposedChart
           data={monthlyGuard.data}
           margin={{ top: 54, right: 18, bottom: 24, left: 18 }}
+          style={{ overflow: 'visible' }}
         >
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
           <XAxis
             dataKey="label"
+            xAxisId="x"
             tickLine={false}
             axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
@@ -574,6 +587,7 @@ export default function StatsDashboard({
                 barSize={20}
                 radius={isTopStack ? [6, 6, 0, 0] : [0, 0, 0, 0]}
                 isAnimationActive={false}
+                shape={index === 0 ? debugBarShapes.weekday : undefined}
               >
                 <LabelList dataKey={meta.key} content={<BuildingLabel />} />
                 {isTopStack ? (
