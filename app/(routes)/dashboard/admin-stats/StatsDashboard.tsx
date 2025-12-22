@@ -233,14 +233,14 @@ function resolveBarChartFeatureFlags(mode: ChartMode, step: number): BarChartFea
     hasBar: normalizedStep >= 6,
     barHasFill: normalizedStep >= 7,
     barHasMinPointSize: normalizedStep >= 8,
-    animation: normalizedStep >= 9 ? 'default' : false,
-    hasTooltip: normalizedStep >= 10,
-    hasLegend: normalizedStep >= 11,
-    hasLabelList: normalizedStep >= 12,
-    hasCartesianGrid: normalizedStep >= 13,
-    stackIdUsed: normalizedStep >= 14,
-    barSize: normalizedStep >= 15 ? 20 : null,
-    radius: normalizedStep >= 16 ? [6, 6, 0, 0] : null
+    animation: normalizedStep >= 10 ? 'default' : false,
+    hasTooltip: normalizedStep >= 11,
+    hasLegend: normalizedStep >= 12,
+    hasLabelList: normalizedStep >= 13,
+    hasCartesianGrid: normalizedStep >= 14,
+    stackIdUsed: normalizedStep >= 15,
+    barSize: normalizedStep >= 16 ? 20 : null,
+    radius: normalizedStep >= 17 ? [6, 6, 0, 0] : null
   };
 }
 
@@ -1201,6 +1201,7 @@ export default function StatsDashboard({
   }) {
     const featureFlags = useMemo(() => resolveBarChartFeatureFlags(mode, step), [mode, step]);
     const willRenderBarChart = featureFlags.hasBarChart && featureFlags.hasResponsiveContainer;
+    const chartWrapperRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
       if (mode !== 'minChart') return;
@@ -1219,6 +1220,8 @@ export default function StatsDashboard({
           key: 'x-axis',
           dataKey: 'label',
           xAxisId: 'x',
+          type: 'category' as const,
+          scale: 'band' as const,
           tickLine: false,
           axisLine: { stroke: 'rgba(148, 163, 184, 0.4)' },
           tick: { fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }
@@ -1230,6 +1233,7 @@ export default function StatsDashboard({
           key: 'y-axis',
           yAxisId: 'y',
           orientation: 'left' as const,
+          type: 'number' as const,
           tickLine: false,
           axisLine: { stroke: 'rgba(148, 163, 184, 0.4)' },
           tick: { fill: '#cbd5e1', fontWeight: 700, fontSize: 12 },
@@ -1375,7 +1379,11 @@ export default function StatsDashboard({
     }, [mode, step, willRenderBarChart]);
 
     let chartBody: React.ReactNode;
-    const barChartProps = { data: dataForChart, margin: { top: 54, right: 18, bottom: 24, left: 18 } };
+    const barChartProps = {
+      data: dataForChart,
+      margin: { top: 54, right: 18, bottom: 24, left: 18 },
+      layout: 'horizontal' as const
+    };
 
     if (!featureFlags.hasBarChart) {
       chartBody = <div data-minchart="1" data-step={step} data-section="subscription" />;
@@ -1416,6 +1424,7 @@ export default function StatsDashboard({
         });
 
         try {
+          const measuredBox = chartWrapperRef.current?.getBoundingClientRect?.();
           if (typeof window !== 'undefined') {
             (window as any).__lastSubscriptionData = dataForChart;
             (window as any).__lastSubscriptionChildren = cleanedChildren;
@@ -1424,10 +1433,10 @@ export default function StatsDashboard({
             (window as any).__lastSubscriptionYAxisProps = yAxisProps;
           }
           const chartPropsDump = {
-            width: undefined,
-            height: undefined,
-            layout: undefined,
-            margin: { top: 54, right: 18, bottom: 24, left: 18 },
+            width: measuredBox?.width,
+            height: measuredBox?.height,
+            layout: barChartProps.layout,
+            margin: barChartProps.margin,
             barCategoryGap: undefined,
             barGap: undefined
           };
@@ -1483,7 +1492,45 @@ export default function StatsDashboard({
       return <div data-minchart="1" data-step={step} data-section="subscription" />;
     }
 
-    return <ResponsiveContainer width="100%" height="100%">{chartBody}</ResponsiveContainer>;
+    useEffect(() => {
+      if (mode !== 'minChart') return;
+      if (!willRenderBarChart) return;
+      const node = chartWrapperRef.current;
+      if (!node) return;
+
+      const logShapes = () => {
+        const box = node.getBoundingClientRect();
+        const count = node.querySelectorAll(
+          'g.recharts-layer.recharts-bar-rectangle rect, g.recharts-layer.recharts-bar-rectangle path'
+        ).length;
+        console.log('[bar-shape-count]', {
+          section: 'subscription',
+          step,
+          count,
+          width: box?.width,
+          height: box?.height,
+          dataLen: dataForChart?.length ?? null,
+          barChartProps,
+          xAxisProps,
+          yAxisProps,
+          barProps
+        });
+      };
+
+      const id = requestAnimationFrame(() => {
+        requestAnimationFrame(logShapes);
+      });
+
+      return () => cancelAnimationFrame(id);
+    }, [barChartProps, barProps, dataForChart, mode, step, willRenderBarChart, xAxisProps, yAxisProps]);
+
+    return (
+      <div ref={chartWrapperRef} style={{ width: '100%', height: 320, minHeight: 320 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          {chartBody}
+        </ResponsiveContainer>
+      </div>
+    );
   }
 
   function MonthlyChartImpl({
@@ -1507,6 +1554,7 @@ export default function StatsDashboard({
   }) {
     const featureFlags = useMemo(() => resolveBarChartFeatureFlags(mode, step), [mode, step]);
     const willRenderBarChart = featureFlags.hasBarChart && featureFlags.hasResponsiveContainer;
+    const chartWrapperRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
       if (mode !== 'minChart') return;
@@ -1525,6 +1573,8 @@ export default function StatsDashboard({
           key: 'x-axis',
           dataKey: 'label',
           xAxisId: 'x',
+          type: 'category' as const,
+          scale: 'band' as const,
           tickLine: false,
           axisLine: { stroke: 'rgba(148, 163, 184, 0.4)' },
           tick: { fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }
@@ -1536,6 +1586,7 @@ export default function StatsDashboard({
           key: 'y-axis',
           yAxisId: 'y',
           orientation: 'left' as const,
+          type: 'number' as const,
           tickLine: false,
           axisLine: { stroke: 'rgba(148, 163, 184, 0.4)' },
           tick: { fill: '#cbd5e1', fontWeight: 700, fontSize: 12 },
@@ -1681,7 +1732,11 @@ export default function StatsDashboard({
     }, [mode, step, willRenderBarChart]);
 
     let chartBody: React.ReactNode;
-    const barChartProps = { data: dataForChart, margin: { top: 54, right: 18, bottom: 24, left: 18 } };
+    const barChartProps = {
+      data: dataForChart,
+      margin: { top: 54, right: 18, bottom: 24, left: 18 },
+      layout: 'horizontal' as const
+    };
 
     if (!featureFlags.hasBarChart) {
       chartBody = <div data-minchart="1" data-step={step} data-section="monthly" />;
@@ -1722,6 +1777,7 @@ export default function StatsDashboard({
         });
 
         try {
+          const measuredBox = chartWrapperRef.current?.getBoundingClientRect?.();
           if (typeof window !== 'undefined') {
             (window as any).__lastMonthlyData = dataForChart;
             (window as any).__lastMonthlyChildren = cleanedChildren;
@@ -1730,10 +1786,10 @@ export default function StatsDashboard({
             (window as any).__lastMonthlyYAxisProps = yAxisProps;
           }
           const chartPropsDump = {
-            width: undefined,
-            height: undefined,
-            layout: undefined,
-            margin: { top: 54, right: 18, bottom: 24, left: 18 },
+            width: measuredBox?.width,
+            height: measuredBox?.height,
+            layout: barChartProps.layout,
+            margin: barChartProps.margin,
             barCategoryGap: undefined,
             barGap: undefined
           };
@@ -1789,7 +1845,45 @@ export default function StatsDashboard({
       return <div data-minchart="1" data-step={step} data-section="monthly" />;
     }
 
-    return <ResponsiveContainer width="100%" height="100%">{chartBody}</ResponsiveContainer>;
+    useEffect(() => {
+      if (mode !== 'minChart') return;
+      if (!willRenderBarChart) return;
+      const node = chartWrapperRef.current;
+      if (!node) return;
+
+      const logShapes = () => {
+        const box = node.getBoundingClientRect();
+        const count = node.querySelectorAll(
+          'g.recharts-layer.recharts-bar-rectangle rect, g.recharts-layer.recharts-bar-rectangle path'
+        ).length;
+        console.log('[bar-shape-count]', {
+          section: 'monthly',
+          step,
+          count,
+          width: box?.width,
+          height: box?.height,
+          dataLen: dataForChart?.length ?? null,
+          barChartProps,
+          xAxisProps,
+          yAxisProps,
+          barProps
+        });
+      };
+
+      const id = requestAnimationFrame(() => {
+        requestAnimationFrame(logShapes);
+      });
+
+      return () => cancelAnimationFrame(id);
+    }, [barChartProps, barProps, dataForChart, mode, step, willRenderBarChart, xAxisProps, yAxisProps]);
+
+    return (
+      <div ref={chartWrapperRef} style={{ width: '100%', height: 320, minHeight: 320 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          {chartBody}
+        </ResponsiveContainer>
+      </div>
+    );
   }
 
   const subscriptionChart = useMemo(
