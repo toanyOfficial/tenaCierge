@@ -88,9 +88,10 @@ export default function StatsDashboard({
   const minimalBarShapeLog = useRef<Set<string>>(new Set());
   const barShapeLogCounters = useRef<Record<string, number>>({});
   const barShapeOnceLogGuard = useRef<Set<string>>(new Set());
+  const barShapeCallCounters = useRef<Record<string, number>>({});
 
   const debugBarShapes = useMemo(() => {
-    const createShape = (logId: string, onceLogId?: string) =>
+    const createShape = (logId: string, onceLogId?: string, callLogId?: string) =>
       function DebugBarShape(props: any) {
         const { x, y, width, height, value, index, dataKey, fill, background } = props ?? {};
         const current = barShapeLogCounters.current[logId] ?? 0;
@@ -108,6 +109,28 @@ export default function StatsDashboard({
             fill,
             background
           });
+        }
+
+        if (callLogId) {
+          const callCount = barShapeCallCounters.current[callLogId] ?? 0;
+          barShapeCallCounters.current[callLogId] = callCount + 1;
+          if (callCount === 0) {
+            console.log(`[${callLogId} -> ${callLogId === 'client-120' ? 'subscription' : 'monthly'}-shape-called]`, {
+              callCount: callCount + 1,
+              dataKey,
+              value,
+              x,
+              y,
+              width,
+              height,
+              isYFinite: Number.isFinite(y),
+              isHeightFinite: Number.isFinite(height),
+              isValueFinite: Number.isFinite(value),
+              yAxisId: props?.yAxisId,
+              xAxisId: props?.xAxisId,
+              stackId: props?.stackId
+            });
+          }
         }
 
         if (onceLogId && !barShapeOnceLogGuard.current.has(onceLogId)) {
@@ -130,8 +153,8 @@ export default function StatsDashboard({
       };
 
     return {
-      subscription: createShape('client-080', 'client-110'),
-      monthly: createShape('client-081', 'client-111'),
+      subscription: createShape('client-080', 'client-110', 'client-120'),
+      monthly: createShape('client-081', 'client-111', 'client-121'),
       weekday: createShape('client-082')
     };
   }, []);
@@ -564,6 +587,24 @@ export default function StatsDashboard({
       logSvgBasics('chart-monthly', 'client-073');
       logBarSizeResult('chart-subscription', 'client-074', 20);
       logBarSizeResult('chart-monthly', 'client-075', 20);
+
+      const logDomAfter = (id: string, logId: string) => {
+        const root = document.getElementById(id);
+        const barRectangleLayers = root?.querySelectorAll('.recharts-layer.recharts-bar-rectangle').length ?? 0;
+        const barPathCount =
+          root?.querySelectorAll<SVGPathElement>(
+            '.recharts-layer.recharts-bar-rectangle path.recharts-rectangle'
+          ).length ?? 0;
+        const clipPathCount = root?.querySelectorAll('svg clipPath').length ?? 0;
+        console.log(`[${logId} -> ${id}-dom-after-800ms]`, {
+          barRectangleLayers,
+          barPathCount,
+          clipPathCount
+        });
+      };
+
+      logDomAfter('chart-subscription', 'client-122');
+      logDomAfter('chart-monthly', 'client-123');
     }, 800);
 
     return () => clearTimeout(timer);
@@ -592,6 +633,30 @@ export default function StatsDashboard({
     }, 800);
 
     return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    console.log('[client-124 -> subscription-yaxis-config]', {
+      yAxisId: 'left',
+      domain: SUBSCRIPTION_Y_AXIS_DOMAIN,
+      allowDataOverflow: false,
+      scale: 'auto'
+    });
+
+    console.log('[client-125 -> monthly-yaxis-config]', {
+      left: {
+        yAxisId: 'left',
+        domain: MONTHLY_LEFT_Y_AXIS_DOMAIN,
+        allowDataOverflow: false,
+        scale: 'auto'
+      },
+      right: {
+        yAxisId: 'right',
+        domain: MONTHLY_RIGHT_Y_AXIS_DOMAIN,
+        allowDataOverflow: false,
+        scale: 'auto'
+      }
+    });
   }, []);
 
   const planMax = useMemo(() => {
