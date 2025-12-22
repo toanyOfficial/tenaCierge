@@ -259,11 +259,12 @@
 
 15. **PR-015: subscription/monthly invariant 제거 + finite 가드** — 상태: 진행
     - 목표: 축 매칭을 단일 left YAxis로 고정하고, NaN/undefined를 0으로 치환하며 domain을 `[0,1]/[0,'auto']`로 안정화해 invariant와 NaN을 제거.
-    - 변경 예정:
+    - 변경 예정/진행:
       - 구독/월별 데이터 shallow copy 후 finite 가드 → domain `[0,1]`(전부 0) or `[0,'auto']`.
       - 구독: 단일 YAxis left + Bar `yAxisId="left"` 명시, xAxisId 미사용.
       - 월별: YAxis 하나만(left), Bar/Line 모두 left 축 사용.
       - 디버그 섹션/shape 실험 제거, 필수 로그만 유지.
+      - **빌드 복구:** StatsDashboard에 `dynamic` import 및 PR-001 client-only 고정 차트를 다시 렌더하도록 복구(고정형 카드가 항상 DOM에 포함됨).
     - 로그:
       - `client-160` -> chart-finite-guard-summary (데이터 총계/치환 건수/domain)
 
