@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import {
   Bar,
@@ -108,6 +109,17 @@ export default function StatsDashboard({
   monthlyOverview,
   weekdayStats
 }: Props) {
+  const searchParams = useSearchParams();
+  const unsafeCharts = searchParams?.get('unsafeCharts') === '1';
+
+  useEffect(() => {
+    console.log('[client-180 -> admin-stats-fingerprint]', {
+      commit: process.env.NEXT_PUBLIC_GIT_SHA ?? 'unknown',
+      buildTime: process.env.NEXT_PUBLIC_BUILD_TIME ?? 'unknown',
+      fileMarker: 'StatsDashboard.PR017-HOTFIX.v1',
+      unsafeCharts
+    });
+  }, [unsafeCharts]);
 
   const normalizedMonthlyAverages = useMemo(
     () =>
@@ -190,6 +202,17 @@ export default function StatsDashboard({
 
   const subscriptionDomain: [number, number | 'auto'] = subscriptionGuard.allZero ? [0, 1] : [0, 'auto'];
   const monthlyDomain: [number, number | 'auto'] = monthlyGuard.allZero ? [0, 1] : [0, 'auto'];
+
+  useEffect(() => {
+    console.log('[client-181 -> subscription-render-path]', {
+      rendered: unsafeCharts,
+      reason: unsafeCharts ? 'unsafe-enabled' : 'hard-disabled'
+    });
+    console.log('[client-182 -> monthly-render-path]', {
+      rendered: unsafeCharts,
+      reason: unsafeCharts ? 'unsafe-enabled' : 'hard-disabled'
+    });
+  }, [unsafeCharts]);
 
   useEffect(() => {
     console.log('[client-160 -> chart-finite-guard-summary]', {
@@ -563,7 +586,15 @@ export default function StatsDashboard({
                 <p className={styles.graphTitle}>요금제별 통계</p>
               </div>
               <div className={styles.graphSurface} aria-hidden="true">
-                <div className={styles.mixedChart}>{planChart}</div>
+                <div className={styles.mixedChart}>
+                  {unsafeCharts ? (
+                    planChart
+                  ) : (
+                    <p className={styles.chartDisabledText}>
+                      Chart temporarily disabled (invariant hotfix). add ?unsafeCharts=1 to render.
+                    </p>
+                  )}
+                </div>
               </div>
             </section>
           </ChartErrorBoundary>
@@ -574,7 +605,15 @@ export default function StatsDashboard({
                 <p className={styles.graphTitle}>월별 통계</p>
               </div>
               <div className={styles.graphSurface} aria-hidden="true">
-                <div className={styles.mixedChart}>{monthlyTotalsChart}</div>
+                <div className={styles.mixedChart}>
+                  {unsafeCharts ? (
+                    monthlyTotalsChart
+                  ) : (
+                    <p className={styles.chartDisabledText}>
+                      Chart temporarily disabled (invariant hotfix). add ?unsafeCharts=1 to render.
+                    </p>
+                  )}
+                </div>
               </div>
             </section>
           </ChartErrorBoundary>

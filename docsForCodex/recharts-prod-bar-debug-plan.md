@@ -269,15 +269,27 @@
     - 로그:
       - `client-160` -> chart-finite-guard-summary (데이터 총계/치환 건수/domain)
 
-16. **PR-016: subscription/monthly invariant 제거(BarChart 단순화)** — 상태: 진행
+16. **PR-016: subscription/monthly invariant 제거(BarChart 단순화)** — 상태: 실패
     - 목표: subscription/monthly 차트를 ComposedChart에서 BarChart로 단순화해 invariant를 제거하고 동일 데이터/라벨 기반으로 안정 렌더 확인.
+    - 결과: `client-170` 로그로 BarChart 단순화 적용이 기록되었으나 prod에서 subscription/monthly 섹션 invariant( `client-150`)가 계속 발생함.
     - 변경:
       - 구독/월별 차트를 `BarChart` + XAxis(label)/YAxis(domain `[0,1]` 또는 `[0,'auto']`)/Legend/Bar(단일) 구성으로 단순화, stack/Line/axisId 제거.
       - mount 200ms 후 차트 타입/적용 도메인을 1회 로그(`client-170`)로 기록.
     - 로그:
       - `client-170` -> chart-type-simplified (subscriptionChart, monthlyChart, sub_domain, mon_domain)
 
-17. **PR-017: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
+17. **PR-017-HOTFIX: subscription/monthly invariant 즉시 차단 + fingerprint** — 상태: 진행
+    - 목표: prod에서 subscription/monthly 섹션이 invariant를 발생시키지 않도록 기본적으로 Recharts 렌더를 차단하고, 빌드/코드 fingerprint와 렌더 경로를 로그로 남김.
+    - 변경:
+      - `unsafeCharts` URL 쿼리(`?unsafeCharts=1`)가 없으면 subscription/monthly 섹션에서 차트를 렌더하지 않고 안내 문구를 표시하는 안전 모드 적용.
+      - fingerprint 로그(`client-180`)로 빌드 정보/토글 상태/파일 마커를 1회 출력.
+      - 렌더 경로 로그(`client-181/182`)로 subscription/monthly의 렌더 여부와 사유 기록.
+    - 로그:
+      - `client-180` -> admin-stats-fingerprint { commit, buildTime, fileMarker, unsafeCharts }
+      - `client-181` -> subscription-render-path { rendered, reason }
+      - `client-182` -> monthly-render-path { rendered, reason }
+
+18. **PR-017: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
     - 모든 디버그 로그/배너/임시 차트를 제거하고 기준 디자인만 남김.
     - 목표: 최종 정리.
 

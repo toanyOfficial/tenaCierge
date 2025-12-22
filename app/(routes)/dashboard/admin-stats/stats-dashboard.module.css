@@ -171,6 +171,18 @@
   line-height: 1.5;
 }
 
+.chartDisabledText {
+  margin: 0;
+  padding: 18px;
+  border-radius: 12px;
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px dashed rgba(226, 232, 240, 0.32);
+  color: #e2e8f0;
+  text-align: center;
+  line-height: 1.5;
+  font-weight: 700;
+}
+
 .gridLines {
   position: absolute;
   inset: 14px 14px 46px;
