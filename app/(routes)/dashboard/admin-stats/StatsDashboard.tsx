@@ -253,9 +253,11 @@ function sanitizeBarProps(
     stackIdIsNull: 'stackId' in props ? props.stackId === null : false
   };
 
+  const bannedKeys = new Set(['children', 'data', 'layout']);
+
   const cleaned = Object.fromEntries(
     Object.entries(props as unknown as Record<string, unknown>).filter(([key, value]) => {
-      if (key === 'children') return false;
+      if (bannedKeys.has(key)) return false;
       if (value === null || value === undefined) return false;
       if (value === false && key !== 'isAnimationActive') return false;
       return true;
@@ -1226,6 +1228,7 @@ export default function StatsDashboard({
     const yAxisProps = featureFlags.hasYAxis
       ? {
           key: 'y-axis',
+          yAxisId: 'y',
           orientation: 'left' as const,
           tickLine: false,
           axisLine: { stroke: 'rgba(148, 163, 184, 0.4)' },
@@ -1277,6 +1280,10 @@ export default function StatsDashboard({
 
       if (xAxisProps?.xAxisId !== undefined) {
         baseBarProps.xAxisId = xAxisProps.xAxisId;
+      }
+
+      if (yAxisProps?.yAxisId !== undefined) {
+        baseBarProps.yAxisId = yAxisProps.yAxisId;
       }
 
       if (featureFlags.barHasFill) {
@@ -1527,6 +1534,7 @@ export default function StatsDashboard({
     const yAxisProps = featureFlags.hasYAxis
       ? {
           key: 'y-axis',
+          yAxisId: 'y',
           orientation: 'left' as const,
           tickLine: false,
           axisLine: { stroke: 'rgba(148, 163, 184, 0.4)' },
@@ -1578,6 +1586,10 @@ export default function StatsDashboard({
 
       if (xAxisProps?.xAxisId !== undefined) {
         baseBarProps.xAxisId = xAxisProps.xAxisId;
+      }
+
+      if (yAxisProps?.yAxisId !== undefined) {
+        baseBarProps.yAxisId = yAxisProps.yAxisId;
       }
 
       if (featureFlags.barHasFill) {
