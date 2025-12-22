@@ -282,8 +282,8 @@
     - 목표: prod에서 subscription/monthly 섹션이 invariant를 발생시키지 않도록 기본적으로 Recharts 렌더를 차단하고, 빌드/코드 fingerprint와 렌더 경로를 로그로 남김.
     - 변경:
       - `unsafeCharts` URL 쿼리(`?unsafeCharts=1`)가 없으면 subscription/monthly 섹션에서 차트를 렌더하지 않고 안내 문구를 표시하는 안전 모드 적용.
-      - `chart` 쿼리(`subscription|monthly|weekday|pr001|pr010|all`)가 주어지면 해당 섹션만 렌더하고 나머지는 강제 비활성화(unsafeCharts=1일 때만 적용)하여 invariant 범인을 단독 재현 가능하게 함.
-      - fingerprint 로그(`client-180`)로 빌드 정보/토글 상태/파일 마커(v2) 및 chart 파라미터를 1회 출력.
+      - `chart` 쿼리(`subscription|monthly|weekday|pr001|pr010|all|none`)와 단일 렌더 토글은 PR-018에서 보완.
+      - fingerprint 로그(`client-180`)로 빌드 정보/토글 상태/파일 마커(v3) 및 chart 파라미터를 1회 출력.
       - 렌더 경로 로그(`client-181/182`)로 subscription/monthly의 렌더 여부와 사유 기록.
       - 토글 상태/실제로 렌더된 섹션 목록을 `client-190/191`로 1회 기록.
     - 로그:
@@ -293,7 +293,18 @@
       - `client-190` -> charts-toggle-state { unsafeCharts, chart }
       - `client-191` -> charts-enabled-sections { enabledSections }
 
-18. **PR-017: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
+18. **PR-018: unsafeCharts+chart 단독 렌더 버그 수정 + 데이터/컨테이너 스냅샷** — 상태: 진행
+    - 목표: `?unsafeCharts=1&chart=<section>`일 때 해당 섹션만 렌더되도록 필터를 단일 선택으로 강제하고, 데이터Key/컨테이너 크기 스냅샷 로그로 원인 확정을 지원.
+    - 변경:
+      - `chart` 파라미터가 `subscription|monthly|weekday|pr001|pr010|all|none` 중 하나일 때만 반영하며, unsafeCharts=false면 모든 섹션 렌더 차단.
+      - enabledSections 계산을 단일 선택 규칙으로 재구성하여 `chart=monthly` 등에서 해당 섹션만 렌더.
+      - fingerprint(`client-180`) fileMarker를 v3로 갱신, 토글 상태/활성 섹션 로그(`client-190/191`) 유지.
+      - 새 로그: 데이터/키 스냅샷 `client-200`, 컨테이너 크기 스냅샷 `client-201` (subscription/monthly가 활성일 때 1회 기록).
+    - 로그:
+      - `client-200` -> chart-data-sample { sub0/mon0, label/key/type 유무 등 }
+      - `client-201` -> chart-container-rect { section, w, h }
+
+19. **PR-017: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
     - 모든 디버그 로그/배너/임시 차트를 제거하고 기준 디자인만 남김.
     - 목표: 최종 정리.
 

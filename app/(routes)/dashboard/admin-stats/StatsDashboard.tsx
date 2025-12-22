@@ -110,21 +110,31 @@ export default function StatsDashboard({
   weekdayStats
 }: Props) {
   const searchParams = useSearchParams();
-  const unsafeCharts = searchParams?.get('unsafeCharts') === '1';
+  const unsafeCharts = searchParams?.get('unsafeCharts') === '1' || searchParams?.get('unsafeCharts') === 'true';
   const chartFilterRaw = searchParams?.get('chart');
-  const allowedChartFilters = new Set(['subscription', 'monthly', 'weekday', 'pr001', 'pr010', 'all']);
+  const allowedChartFilters = new Set(['subscription', 'monthly', 'weekday', 'pr001', 'pr010', 'all', 'none']);
   const chartFilter = chartFilterRaw && allowedChartFilters.has(chartFilterRaw) ? chartFilterRaw : null;
 
-  const subscriptionEnabled = unsafeCharts && (!chartFilter || chartFilter === 'all' || chartFilter === 'subscription');
-  const monthlyEnabled = unsafeCharts && (!chartFilter || chartFilter === 'all' || chartFilter === 'monthly');
-  const weekdayEnabled = !chartFilter || chartFilter === 'all' || chartFilter === 'weekday';
-  const pr001Enabled = !chartFilter || chartFilter === 'all' || chartFilter === 'pr001';
+  const enabledSections = useMemo(() => {
+    const allSections = ['subscription', 'monthly', 'weekday', 'pr001'];
+    if (!unsafeCharts) return [];
+    if (!chartFilter || chartFilter === 'all') return allSections;
+    if (chartFilter === 'none') return [];
+    return allSections.includes(chartFilter) ? [chartFilter] : [];
+  }, [chartFilter, unsafeCharts]);
+
+  const subscriptionEnabled = enabledSections.includes('subscription');
+  const monthlyEnabled = enabledSections.includes('monthly');
+  const weekdayEnabled = enabledSections.includes('weekday');
+  const pr001Enabled = enabledSections.includes('pr001');
+  const subscriptionContainerRef = useRef<HTMLDivElement | null>(null);
+  const monthlyContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     console.log('[client-180 -> admin-stats-fingerprint]', {
       commit: process.env.NEXT_PUBLIC_GIT_SHA ?? 'unknown',
       buildTime: process.env.NEXT_PUBLIC_BUILD_TIME ?? 'unknown',
-      fileMarker: 'StatsDashboard.PR017-HOTFIX.v2',
+      fileMarker: 'StatsDashboard.PR017-HOTFIX.v3',
       unsafeCharts,
       chart: chartFilter ?? 'none'
     });
@@ -135,13 +145,8 @@ export default function StatsDashboard({
       unsafeCharts,
       chart: chartFilter ?? 'none'
     });
-    const enabledSections: string[] = [];
-    if (subscriptionEnabled) enabledSections.push('subscription');
-    if (monthlyEnabled) enabledSections.push('monthly');
-    if (weekdayEnabled) enabledSections.push('weekday');
-    if (pr001Enabled) enabledSections.push('pr001');
     console.log('[client-191 -> charts-enabled-sections]', { enabledSections });
-  }, [chartFilter, monthlyEnabled, pr001Enabled, subscriptionEnabled, unsafeCharts, weekdayEnabled]);
+  }, [chartFilter, enabledSections, unsafeCharts]);
 
   const normalizedMonthlyAverages = useMemo(
     () =>
@@ -226,15 +231,79 @@ export default function StatsDashboard({
   const monthlyDomain: [number, number | 'auto'] = monthlyGuard.allZero ? [0, 1] : [0, 'auto'];
 
   useEffect(() => {
+    const subscriptionReason = !unsafeCharts
+      ? 'hard-disabled'
+      : subscriptionEnabled
+      ? 'unsafe-enabled'
+      : 'filtered-out';
+    const monthlyReason = !unsafeCharts
+      ? 'hard-disabled'
+      : monthlyEnabled
+      ? 'unsafe-enabled'
+      : 'filtered-out';
+
     console.log('[client-181 -> subscription-render-path]', {
-      rendered: unsafeCharts,
-      reason: unsafeCharts ? 'unsafe-enabled' : 'hard-disabled'
+      rendered: subscriptionEnabled,
+      reason: subscriptionReason
     });
     console.log('[client-182 -> monthly-render-path]', {
-      rendered: unsafeCharts,
-      reason: unsafeCharts ? 'unsafe-enabled' : 'hard-disabled'
+      rendered: monthlyEnabled,
+      reason: monthlyReason
     });
-  }, [unsafeCharts]);
+  }, [monthlyEnabled, subscriptionEnabled, unsafeCharts]);
+
+  useEffect(() => {
+    if (!subscriptionEnabled && !monthlyEnabled) return;
+
+    const payload = {
+      sub0: subscriptionEnabled ? subscriptionGuard.data?.[0] ?? null : null,
+      mon0: monthlyEnabled ? monthlyGuard.data?.[0] ?? null : null,
+      subHasLabel: subscriptionEnabled
+        ? subscriptionGuard.data?.[0]
+          ? 'label' in subscriptionGuard.data[0]
+          : null
+        : null,
+      monHasLabel: monthlyEnabled ? (monthlyGuard.data?.[0] ? 'label' in monthlyGuard.data[0] : null) : null,
+      subCountType: subscriptionEnabled
+        ? subscriptionGuard.data?.[0]
+          ? typeof subscriptionGuard.data[0].subscriptionCount
+          : null
+        : null,
+      monCountType: monthlyEnabled ? (monthlyGuard.data?.[0] ? typeof monthlyGuard.data[0].totalCount : null) : null,
+      subKeys: subscriptionEnabled
+        ? subscriptionGuard.data?.[0]
+          ? Object.keys(subscriptionGuard.data[0]).slice(0, 20)
+          : []
+        : [],
+      monKeys: monthlyEnabled ? (monthlyGuard.data?.[0] ? Object.keys(monthlyGuard.data[0]).slice(0, 20) : []) : []
+    };
+
+    console.log('[client-200 -> chart-data-sample]', payload);
+  }, [monthlyEnabled, monthlyGuard.data, subscriptionEnabled, subscriptionGuard.data]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const entries: { section: 'subscription' | 'monthly'; w: number | null; h: number | null }[] = [];
+
+      if (subscriptionEnabled) {
+        const rect = subscriptionContainerRef.current?.getBoundingClientRect();
+        entries.push({ section: 'subscription', w: rect?.width ?? null, h: rect?.height ?? null });
+      }
+
+      if (monthlyEnabled) {
+        const rect = monthlyContainerRef.current?.getBoundingClientRect();
+        entries.push({ section: 'monthly', w: rect?.width ?? null, h: rect?.height ?? null });
+      }
+
+      if (entries.length > 0) {
+        entries.forEach((entry) => {
+          console.log('[client-201 -> chart-container-rect]', entry);
+        });
+      }
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [monthlyEnabled, subscriptionEnabled]);
 
   useEffect(() => {
     console.log('[client-160 -> chart-finite-guard-summary]', {
@@ -607,11 +676,11 @@ export default function StatsDashboard({
               <div className={styles.graphHeading}>
                 <p className={styles.graphTitle}>요금제별 통계</p>
               </div>
-              <div className={styles.graphSurface} aria-hidden="true">
-                <div className={styles.mixedChart}>
-                  {subscriptionEnabled ? (
-                    planChart
-                  ) : (
+                <div className={styles.graphSurface} aria-hidden="true">
+                  <div className={styles.mixedChart} ref={subscriptionContainerRef}>
+                    {subscriptionEnabled ? (
+                      planChart
+                    ) : (
                     <p className={styles.chartDisabledText}>
                       Chart temporarily disabled (invariant hotfix). add ?unsafeCharts=1&chart=subscription to render.
                     </p>
@@ -626,11 +695,11 @@ export default function StatsDashboard({
               <div className={styles.graphHeading}>
                 <p className={styles.graphTitle}>월별 통계</p>
               </div>
-              <div className={styles.graphSurface} aria-hidden="true">
-                <div className={styles.mixedChart}>
-                  {monthlyEnabled ? (
-                    monthlyTotalsChart
-                  ) : (
+                <div className={styles.graphSurface} aria-hidden="true">
+                  <div className={styles.mixedChart} ref={monthlyContainerRef}>
+                    {monthlyEnabled ? (
+                      monthlyTotalsChart
+                    ) : (
                     <p className={styles.chartDisabledText}>
                       Chart temporarily disabled (invariant hotfix). add ?unsafeCharts=1&chart=monthly to render.
                     </p>
