@@ -322,7 +322,8 @@ export default function StatsDashboard({
   const searchParams = useSearchParams();
   const unsafeCharts = searchParams?.get('unsafeCharts') === '1' || searchParams?.get('unsafeCharts') === 'true';
   const chartFilterRaw = searchParams?.get('chart');
-  const minChartEnabled = unsafeCharts && searchParams?.get('minChart') === '1';
+  const minChartEnabled = searchParams?.get('minChart') === '1';
+  const minChartSectionRaw = searchParams?.get('section') ?? searchParams?.get('chart');
   const minChartStepRaw = searchParams?.get('step');
   const minChartStep = Number.isFinite(Number(minChartStepRaw)) ? Number(minChartStepRaw) : 0;
   const allowedChartFilters = new Set(['subscription', 'monthly', 'weekday', 'pr001', 'pr010', 'all', 'none']);
@@ -364,7 +365,10 @@ export default function StatsDashboard({
   useEffect(() => {
     const commit =
       process.env.NEXT_PUBLIC_GIT_SHA ??
+      process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ??
+      process.env.NEXT_PUBLIC_GITHUB_SHA ??
       process.env.VERCEL_GIT_COMMIT_SHA ??
+      process.env.GITHUB_SHA ??
       pkgMeta?.commit ??
       pkgMeta?.version ??
       'env:missing';
@@ -475,6 +479,17 @@ export default function StatsDashboard({
     return features;
   }, [minChartStep]);
   const minChartFeatureFlags = useMemo(() => resolveBarChartFeatureFlags('minChart', minChartStep), [minChartStep]);
+
+  const minChartSection = useMemo(() => {
+    const allowed = new Set(['subscription', 'monthly']);
+    if (minChartSectionRaw && allowed.has(minChartSectionRaw)) {
+      return minChartSectionRaw as 'subscription' | 'monthly';
+    }
+    return 'subscription';
+  }, [minChartSectionRaw]);
+
+  const minSubscriptionEnabled = minChartEnabled && minChartSection === 'subscription';
+  const minMonthlyEnabled = minChartEnabled && minChartSection === 'monthly';
   const minimalChartSummary = useMemo(
     () =>
       summarizeChartProps({
@@ -492,8 +507,12 @@ export default function StatsDashboard({
   );
   useEffect(() => {
     if (!minChartEnabled) return;
-    console.log('[client-210 -> min-chart-step]', { step: minChartStep, features: minChartFeatures });
-  }, [minChartEnabled, minChartFeatures, minChartStep]);
+    console.log('[client-210 -> min-chart-step]', {
+      step: minChartStep,
+      features: minChartFeatures,
+      section: minChartSection
+    });
+  }, [minChartEnabled, minChartFeatures, minChartSection, minChartStep]);
 
   useEffect(() => {
     const subscriptionReason = !unsafeCharts
@@ -1259,7 +1278,7 @@ export default function StatsDashboard({
             </section>
           </ChartErrorBoundary>
 
-          {minChartEnabled ? (
+          {minSubscriptionEnabled ? (
             <ChartErrorBoundary
               section="min-subscription"
               chartSummary={minimalChartSummary}
@@ -1279,7 +1298,7 @@ export default function StatsDashboard({
             </ChartErrorBoundary>
           ) : null}
 
-          {minChartEnabled ? (
+          {minMonthlyEnabled ? (
             <ChartErrorBoundary
               section="min-monthly"
               chartSummary={minimalChartSummary}
