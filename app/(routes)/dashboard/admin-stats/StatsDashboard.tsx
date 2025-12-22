@@ -282,6 +282,9 @@ export default function StatsDashboard({
     return ratios.map((ratio) => Math.ceil(weekdayMax * ratio));
   }, [weekdayMax]);
 
+  // shape 디버그 변수가 누락되어 빌드가 깨지는 것을 방지하기 위한 안전한 기본 shape
+  const weekdayBarShape: React.ComponentProps<typeof Bar>['shape'] = undefined;
+
   const BarValueLabel = useMemo(
     () =>
       function BarLabel({ x, y, width, value }: any) {
@@ -587,7 +590,7 @@ export default function StatsDashboard({
                 barSize={20}
                 radius={isTopStack ? [6, 6, 0, 0] : [0, 0, 0, 0]}
                 isAnimationActive={false}
-                shape={index === 0 ? debugBarShapes.weekday : undefined}
+                shape={weekdayBarShape}
               >
                 <LabelList dataKey={meta.key} content={<BuildingLabel />} />
                 {isTopStack ? (

@@ -265,6 +265,7 @@
       - 월별: YAxis 하나만(left), Bar/Line 모두 left 축 사용.
       - 디버그 섹션/shape 실험 제거, 필수 로그만 유지.
       - **빌드 복구:** StatsDashboard에 `dynamic` import 및 PR-001 client-only 고정 차트를 다시 렌더하도록 복구(고정형 카드가 항상 DOM에 포함됨).
+      - **추가 빌드 수습:** weekday Bar에서 남아 있을 수 있는 `debugBarShapes` shape 참조를 안전한 기본 shape 변수로 고정해 TS 빌드 오류(`Cannot find name 'debugBarShapes'`)를 차단.
     - 로그:
       - `client-160` -> chart-finite-guard-summary (데이터 총계/치환 건수/domain)
 
