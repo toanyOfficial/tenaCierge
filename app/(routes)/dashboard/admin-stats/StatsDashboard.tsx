@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef } from 'react';
-import dynamic from 'next/dynamic';
-import { useSearchParams } from 'next/navigation';
 import {
   Bar,
   BarChart,
@@ -64,11 +62,6 @@ type Props = {
   weekdayStats: { points: WeekdayStatsPoint[]; buildings: WeekdaySeriesMeta[] };
 };
 
-const SUBSCRIPTION_Y_AXIS_DOMAIN: [number, number | 'auto'] = [0, 'auto'];
-const MONTHLY_LEFT_Y_AXIS_DOMAIN: [number, number | 'auto'] = [0, 'auto'];
-const MONTHLY_RIGHT_Y_AXIS_DOMAIN: [number, number | 'auto'] = [0, 'auto'];
-const DEBUG_BAR_SHAPE_LIMIT = 10;
-
 class ChartErrorBoundary extends React.Component<
   { children: React.ReactNode; section: string },
   { hasError: boolean }
@@ -116,81 +109,6 @@ export default function StatsDashboard({
   monthlyOverview,
   weekdayStats
 }: Props) {
-  const searchParams = useSearchParams();
-  const minimalChartRef = useRef<HTMLDivElement | null>(null);
-  const minimalBarShapeLog = useRef<Set<string>>(new Set());
-  const barShapeLogCounters = useRef<Record<string, number>>({});
-  const barShapeOnceLogGuard = useRef<Set<string>>(new Set());
-  const barShapeCallCounters = useRef<Record<string, number>>({});
-
-  const debugBarShapes = useMemo(() => {
-    const createShape = (logId: string, onceLogId?: string, callLogId?: string) =>
-      function DebugBarShape(props: any) {
-        const { x, y, width, height, value, index, dataKey, fill, background } = props ?? {};
-        const current = barShapeLogCounters.current[logId] ?? 0;
-
-        if (current < DEBUG_BAR_SHAPE_LIMIT) {
-          barShapeLogCounters.current[logId] = current + 1;
-          console.log(`[${logId}] debug bar shape props`, {
-            x,
-            y,
-            width,
-            height,
-            value,
-            index,
-            dataKey,
-            fill,
-            background
-          });
-        }
-
-        if (callLogId) {
-          const callCount = barShapeCallCounters.current[callLogId] ?? 0;
-          barShapeCallCounters.current[callLogId] = callCount + 1;
-          if (callCount === 0) {
-            console.log(`[${callLogId} -> ${callLogId === 'client-120' ? 'subscription' : 'monthly'}-shape-called]`, {
-              callCount: callCount + 1,
-              dataKey,
-              value,
-              x,
-              y,
-              width,
-              height,
-              isYFinite: Number.isFinite(y),
-              isHeightFinite: Number.isFinite(height),
-              isValueFinite: Number.isFinite(value),
-              yAxisId: props?.yAxisId,
-              xAxisId: props?.xAxisId,
-              stackId: props?.stackId
-            });
-          }
-        }
-
-        if (onceLogId && !barShapeOnceLogGuard.current.has(onceLogId)) {
-          barShapeOnceLogGuard.current.add(onceLogId);
-          console.log(`[${onceLogId} -> shape-props snapshot]`, {
-            index,
-            value,
-            valueType: typeof value,
-            y,
-            height,
-            isYFinite: Number.isFinite(y),
-            isHeightFinite: Number.isFinite(height),
-            fill,
-            stackId: props?.stackId,
-            yAxisId: props?.yAxisId
-          });
-        }
-
-        return <RechartsRectangle {...props} />;
-      };
-
-    return {
-      subscription: createShape('client-080', 'client-110', 'client-120'),
-      monthly: createShape('client-081', 'client-111', 'client-121'),
-      weekday: createShape('client-082')
-    };
-  }, []);
 
   const normalizedMonthlyAverages = useMemo(
     () =>
@@ -227,6 +145,7 @@ export default function StatsDashboard({
     [weekdayStats.buildings]
   );
 
+  
   const normalizedWeekdayPoints = useMemo(
     () =>
       weekdayStats.points.map((point) => {
@@ -245,124 +164,46 @@ export default function StatsDashboard({
     [weekdayStats.points]
   );
 
-  const enabledSections = useMemo(() => {
-    const param = searchParams.get('chart');
-    const chart = param ?? 'all';
-    const enabled = {
-      subscription: chart === 'all' || chart === 'subscription',
-      monthly: chart === 'all' || chart === 'monthly',
-      weekday: chart === 'all' || chart === 'weekday',
-      pr001: chart === 'all' || chart === 'pr001',
-      pr010: chart === 'all' || chart === 'pr010'
-    } as const;
-
-    console.log('[client-151 -> chart-render-toggle]', {
-      chart,
-      enabledSections: Object.entries(enabled)
-        .filter(([, value]) => value)
-        .map(([key]) => key)
+  const subscriptionGuard = useMemo(() => {
+    let fixed = 0;
+    const data = normalizedMonthlyAverages.map((row) => {
+      const value = toNumber(row.subscriptionCount, 0);
+      if (!Number.isFinite(row.subscriptionCount)) fixed += 1;
+      return { ...row, subscriptionCount: value };
     });
+    const allZero = data.every((row) => row.subscriptionCount === 0);
+    return { data, fixed, total: data.length, allZero };
+  }, [normalizedMonthlyAverages]);
 
-    return enabled;
-  }, [searchParams]);
+  const monthlyGuard = useMemo(() => {
+    let totalFixed = 0;
+    let roomFixed = 0;
+    const data = normalizedMonthlyOverview.map((row) => {
+      const totalCount = toNumber(row.totalCount, 0);
+      const roomAverage = toNumber(row.roomAverage, 0);
+      if (!Number.isFinite(row.totalCount)) totalFixed += 1;
+      if (!Number.isFinite(row.roomAverage)) roomFixed += 1;
+      return { ...row, totalCount, roomAverage };
+    });
+    const allZero = data.every((row) => row.totalCount === 0);
+    return { data, totalFixed, roomFixed, total: data.length, allZero };
+  }, [normalizedMonthlyOverview]);
+
+  const subscriptionDomain: [number, number | 'auto'] = subscriptionGuard.allZero ? [0, 1] : [0, 'auto'];
+  const monthlyDomain: [number, number | 'auto'] = monthlyGuard.allZero ? [0, 1] : [0, 'auto'];
 
   useEffect(() => {
-    console.log('[client-001 -> minimal-fixed-barchart-mounted -> 고정형 BarChart 렌더 준비]', {
-      dataLength: minimalBarData.length
+    console.log('[client-160 -> chart-finite-guard-summary]', {
+      sub_total: subscriptionGuard.total,
+      sub_fixed: subscriptionGuard.fixed,
+      mon_total: monthlyGuard.total,
+      mon_fixed: monthlyGuard.totalFixed + monthlyGuard.roomFixed,
+      sub_allZero: subscriptionGuard.allZero,
+      mon_allZero: monthlyGuard.allZero,
+      sub_domain: subscriptionDomain,
+      mon_domain: monthlyDomain
     });
-
-    const rect = minimalChartRef.current?.getBoundingClientRect();
-    console.log('[client-002 -> minimal-fixed-barchart-domrect -> 컨테이너 크기 스냅샷]', {
-      width: rect?.width ?? null,
-      height: rect?.height ?? null,
-      x: rect?.x ?? null,
-      y: rect?.y ?? null
-    });
-
-    console.log('[client-004 -> minimal-fixed-barchart-data -> 고정 데이터 스냅샷]', {
-      rows: minimalBarData,
-      dataLength: minimalBarData.length
-    });
-
-    const logRects = () => {
-      const rectNodes = minimalChartRef.current?.querySelectorAll('rect');
-      console.log('[client-005 -> minimal-fixed-barchart-rect-elements -> SVG rect 존재 여부]', {
-        rectCount: rectNodes?.length ?? 0,
-        rectClassList: rectNodes ? Array.from(rectNodes).map((node) => node.getAttribute('class')) : []
-      });
-    };
-
-    logRects();
-    const timeoutId = setTimeout(logRects, 300);
-
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, []);
-
-  const MinimalBarShape = useMemo(
-    () =>
-      function MinimalBarShape(props: any) {
-        const { index, x, y, width, height, value } = props;
-        const key = `${index}-${x}-${y}-${width}-${height}-${value}`;
-        if (!minimalBarShapeLog.current.has(key)) {
-          minimalBarShapeLog.current.add(key);
-          console.log('[client-003 -> minimal-fixed-barchart-shape -> Bar shape props 스냅샷]', {
-            index,
-            x,
-            y,
-            width,
-            height,
-            value
-          });
-        }
-
-        return <Rectangle {...props} />;
-      },
-    []
-  );
-
-  useEffect(() => {
-    console.log(
-      '[요금제별 평균] chart data',
-      normalizedMonthlyAverages.map((row) => ({
-        label: row.label,
-        subscriptionCount: row.subscriptionCount,
-        subscriptionType: typeof row.subscriptionCount,
-        perOrderCount: row.perOrderCount,
-        perOrderType: typeof row.perOrderCount
-      }))
-    );
-
-    console.log(
-      '[월별 통계값] chart data',
-      normalizedMonthlyOverview.map((row) => ({
-        label: row.label,
-        totalCount: row.totalCount,
-        totalCountType: typeof row.totalCount,
-        roomAverage: row.roomAverage,
-        roomAverageType: typeof row.roomAverage
-      }))
-    );
-
-    console.log(
-      '[요일별 통계] meta',
-      normalizedWeekdayBuildings.map((meta) => ({
-        key: meta.key,
-        label: meta.label,
-        averageCount: meta.averageCount,
-        averageType: typeof meta.averageCount,
-        sectorCode: meta.sectorCode
-      }))
-    );
-
-    console.log('[요일별 통계] points', normalizedWeekdayPoints);
-  }, [
-    normalizedMonthlyAverages,
-    normalizedMonthlyOverview,
-    normalizedWeekdayBuildings,
-    normalizedWeekdayPoints
-  ]);
+  }, [monthlyDomain, monthlyGuard, subscriptionDomain, subscriptionGuard]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -744,32 +585,31 @@ export default function StatsDashboard({
 
   const planMax = useMemo(() => {
     const peak = Math.max(
-      ...normalizedMonthlyAverages.map((row) => Math.max(row.subscriptionCount, row.perOrderCount)),
+      ...subscriptionGuard.data.map((row) => Math.max(row.subscriptionCount, row.perOrderCount)),
       0
     );
     if (peak === 0) return 1;
     return Math.ceil(peak * 1.1);
-  }, [normalizedMonthlyAverages]);
+  }, [subscriptionGuard.data]);
 
   const planTicks = useMemo(() => {
     const ratios = [0.25, 0.5, 0.75, 1];
     return ratios.map((ratio) => Math.ceil(planMax * ratio));
   }, [planMax]);
 
-  const overviewLeftMax = 31;
+  const monthlyMax = useMemo(() => {
+    const peak = Math.max(
+      ...monthlyGuard.data.map((row) => Math.max(row.totalCount, row.roomAverage)),
+      0
+    );
+    if (peak === 0) return 1;
+    return Math.max(1, Math.ceil(peak * 1.15));
+  }, [monthlyGuard.data]);
 
-  const overviewRightMax = useMemo(() => {
-    const peak = Math.max(...normalizedMonthlyOverview.map((row) => row.totalCount), 0);
-    if (peak === 0) return 100;
-    return Math.max(400, Math.ceil(peak * 1.15));
-  }, [normalizedMonthlyOverview]);
-
-  const overviewLeftTicks = useMemo(() => [0, 8, 16, 24, 31], []);
-
-  const overviewRightTicks = useMemo(() => {
+  const monthlyTicks = useMemo(() => {
     const ratios = [0.25, 0.5, 0.75, 1];
-    return ratios.map((ratio) => Math.ceil(overviewRightMax * ratio));
-  }, [overviewRightMax]);
+    return ratios.map((ratio) => Math.ceil(monthlyMax * ratio));
+  }, [monthlyMax]);
 
   const weekdayColorMap = useMemo(() => {
     const sectorBaseColors: Record<string, string> = {
@@ -938,7 +778,7 @@ export default function StatsDashboard({
     () => (
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
-          data={normalizedMonthlyAverages}
+          data={subscriptionGuard.data}
           margin={{ top: 54, right: 18, bottom: 24, left: 18 }}
           style={{ overflow: 'visible' }}
         >
@@ -951,12 +791,11 @@ export default function StatsDashboard({
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
           />
           <YAxis
-            yAxisId="left"
             orientation="left"
             tickLine={false}
             axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-            domain={SUBSCRIPTION_Y_AXIS_DOMAIN}
+            domain={subscriptionDomain}
             ticks={planTicks}
             allowDecimals={false}
           />
@@ -973,7 +812,6 @@ export default function StatsDashboard({
             radius={[6, 6, 0, 0]}
             minPointSize={1}
             yAxisId="left"
-            shape={debugBarShapes.subscription}
           >
             <LabelList dataKey="subscriptionCount" position="top" content={<BarValueLabel />} />
           </Bar>
@@ -1003,7 +841,8 @@ export default function StatsDashboard({
       LineValueLabel,
       PlanLegend,
       legendTopLeft,
-      normalizedMonthlyAverages,
+      subscriptionDomain,
+      subscriptionGuard.data,
       planMax,
       planTicks
     ]
@@ -1013,7 +852,7 @@ export default function StatsDashboard({
     () => (
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
-          data={normalizedMonthlyOverview}
+          data={monthlyGuard.data}
           margin={{ top: 54, right: 18, bottom: 24, left: 18 }}
           style={{ overflow: 'visible' }}
         >
@@ -1026,23 +865,12 @@ export default function StatsDashboard({
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
           />
           <YAxis
-            yAxisId="left"
             orientation="left"
             tickLine={false}
             axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-            domain={MONTHLY_LEFT_Y_AXIS_DOMAIN}
-            ticks={overviewLeftTicks}
-            allowDecimals={false}
-          />
-          <YAxis
-            yAxisId="right"
-            orientation="right"
-            tickLine={false}
-            axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
-            tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-            domain={MONTHLY_RIGHT_Y_AXIS_DOMAIN}
-            ticks={overviewRightTicks}
+            domain={monthlyDomain}
+            ticks={monthlyTicks}
             allowDecimals={false}
           />
           <Legend
@@ -1057,8 +885,7 @@ export default function StatsDashboard({
             barSize={20}
             radius={[6, 6, 0, 0]}
             minPointSize={1}
-            yAxisId="right"
-            shape={debugBarShapes.monthly}
+            yAxisId="left"
           >
             <LabelList dataKey="totalCount" position="top" content={<BarValueLabel />} />
           </Bar>
@@ -1088,11 +915,10 @@ export default function StatsDashboard({
       LineValueLabel,
       MonthlyLegend,
       legendTopLeft,
-      normalizedMonthlyOverview,
-      overviewLeftMax,
-      overviewLeftTicks,
-      overviewRightMax,
-      overviewRightTicks
+      monthlyDomain,
+      monthlyGuard.data,
+      monthlyMax,
+      monthlyTicks
     ]
   );
 
@@ -1178,89 +1004,38 @@ export default function StatsDashboard({
         </header>
 
         <div className={styles.graphGrid}>
-          {enabledSections.subscription && (
-            <ChartErrorBoundary section="subscription">
-              <section
-                id="chart-subscription"
-                className={styles.graphCard}
-                aria-label="요금제별 통계"
-              >
-                <div className={styles.graphHeading}>
-                  <p className={styles.graphTitle}>요금제별 통계</p>
-                </div>
-                <div className={styles.graphSurface} aria-hidden="true">
-                  <div className={styles.mixedChart}>{planChart}</div>
-                </div>
-              </section>
-            </ChartErrorBoundary>
-          )}
+          <ChartErrorBoundary section="subscription">
+            <section id="chart-subscription" className={styles.graphCard} aria-label="요금제별 통계">
+              <div className={styles.graphHeading}>
+                <p className={styles.graphTitle}>요금제별 통계</p>
+              </div>
+              <div className={styles.graphSurface} aria-hidden="true">
+                <div className={styles.mixedChart}>{planChart}</div>
+              </div>
+            </section>
+          </ChartErrorBoundary>
 
-          {enabledSections.monthly && (
-            <ChartErrorBoundary section="monthly">
-              <section id="chart-monthly" className={styles.graphCard} aria-label="월별 통계">
-                <div className={styles.graphHeading}>
-                  <p className={styles.graphTitle}>월별 통계</p>
-                </div>
-                <div className={styles.graphSurface} aria-hidden="true">
-                  <div className={styles.mixedChart}>{monthlyTotalsChart}</div>
-                </div>
-              </section>
-            </ChartErrorBoundary>
-          )}
+          <ChartErrorBoundary section="monthly">
+            <section id="chart-monthly" className={styles.graphCard} aria-label="월별 통계">
+              <div className={styles.graphHeading}>
+                <p className={styles.graphTitle}>월별 통계</p>
+              </div>
+              <div className={styles.graphSurface} aria-hidden="true">
+                <div className={styles.mixedChart}>{monthlyTotalsChart}</div>
+              </div>
+            </section>
+          </ChartErrorBoundary>
 
-          {enabledSections.weekday && (
-            <ChartErrorBoundary section="weekday">
-              <section id="chart-weekday" className={styles.graphCard} aria-label="요일별 통계">
-                <div className={styles.graphHeading}>
-                  <p className={styles.graphTitle}>요일별 통계</p>
-                </div>
-                <div className={styles.graphSurface} aria-hidden="true">
-                  <div className={styles.mixedChart}>{weekdayChart}</div>
-                </div>
-              </section>
-            </ChartErrorBoundary>
-          )}
-
-          {/* ===========================
-              PR-001: Fixed BarChart Debug
-              =========================== */}
-          {enabledSections.pr001 && (
-            <ChartErrorBoundary section="pr-001">
-              <section className={styles.graphCard} style={{ border: '2px dashed red' }}>
-                <h3 style={{ color: 'red' }}>고정형 BarChart 진단 (PR-001)</h3>
-
-                <div
-                  id="pr-001-fixed-chart"
-                  ref={minimalChartRef}
-                  style={{
-                    width: 520,
-                    height: 320,
-                    background: '#fff',
-                    marginTop: 12
-                  }}
-                >
-                  {(() => {
-                    console.log('[client-003] PR-001 debug card mounted');
-                    return <PR001ClientOnlyChart />;
-                  })()}
-                </div>
-              </section>
-            </ChartErrorBoundary>
-          )}
-
-          {enabledSections.pr010 && (
-            <ChartErrorBoundary section="pr-010">
-              <section className={styles.graphCard} style={{ border: '2px dashed #f97316' }}>
-                <h3 style={{ color: '#f97316' }}>PR-010 NaN Probe (subscription/monthly)</h3>
-                <div style={{ marginTop: 12 }}>
-                  <PR010NaNProbe
-                    subscriptionData={normalizedMonthlyAverages}
-                    monthlyData={normalizedMonthlyOverview}
-                  />
-                </div>
-              </section>
-            </ChartErrorBoundary>
-          )}
+          <ChartErrorBoundary section="weekday">
+            <section id="chart-weekday" className={styles.graphCard} aria-label="요일별 통계">
+              <div className={styles.graphHeading}>
+                <p className={styles.graphTitle}>요일별 통계</p>
+              </div>
+              <div className={styles.graphSurface} aria-hidden="true">
+                <div className={styles.mixedChart}>{weekdayChart}</div>
+              </div>
+            </section>
+          </ChartErrorBoundary>
         </div>
       </div>
     </div>

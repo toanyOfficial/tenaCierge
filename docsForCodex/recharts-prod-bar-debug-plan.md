@@ -251,18 +251,21 @@
       - `client-142` -> monthly axis/dom sanity
       - 기존 shape 로그 `client-120/121` 유지(축 id undefined 여부 확인)
 
-14. **PR-014: Invariant 범인 분리(섹션별 ErrorBoundary + 렌더 토글)** — 상태: 진행
-    - 목표: 어떤 카드(구독/월별/요일별/PR-001/PR-010 등)가 invariant를 발생시키는지 단번에 특정하고, URL 쿼리로 해당 카드만 렌더해 단독 재현 여부를 확인.
-    - 변경:
-      - 차트 섹션별로 개별 ErrorBoundary 적용(fallback: `Chart render error (section=<name>)`).
-      - `?chart=` 쿼리로 렌더 섹션 토글(`subscription|monthly|weekday|pr001|pr010|all`).
+14. **PR-014: Invariant 범인 분리(섹션별 ErrorBoundary + 렌더 토글)** — 상태: 검증완료
+    - 결과: `client-150` 로그로 subscription/monthly 섹션에서 invariant 발생이 확정됨. 토글은 이후 비활성화.
+    - 변경: 섹션별 ErrorBoundary 적용(각기 fallback 문구). 이후 토글/디버그 섹션은 제거됨.
     - 로그:
       - `client-150` -> boundary catch 시 섹션명 포함 로그
-      - `client-151` -> chart-render-toggle (쿼리값 및 활성 섹션)
 
-15. **PR-015: 생성/정렬 고정 실험(보류)** — 상태: 보류
-    - 실제 대시보드 차트에서 Bar 생성용 key 배열 정렬/고정, stack 순서 명시.
-    - 목표: prod에서 순서 반전·중간 누락이 키 순서 문제인지 검증.
+15. **PR-015: subscription/monthly invariant 제거 + finite 가드** — 상태: 진행
+    - 목표: 축 매칭을 단일 left YAxis로 고정하고, NaN/undefined를 0으로 치환하며 domain을 `[0,1]/[0,'auto']`로 안정화해 invariant와 NaN을 제거.
+    - 변경 예정:
+      - 구독/월별 데이터 shallow copy 후 finite 가드 → domain `[0,1]`(전부 0) or `[0,'auto']`.
+      - 구독: 단일 YAxis left + Bar `yAxisId="left"` 명시, xAxisId 미사용.
+      - 월별: YAxis 하나만(left), Bar/Line 모두 left 축 사용.
+      - 디버그 섹션/shape 실험 제거, 필수 로그만 유지.
+    - 로그:
+      - `client-160` -> chart-finite-guard-summary (데이터 총계/치환 건수/domain)
 
 16. **PR-016: 원인 확정 후 최소 수정 반영** — 상태: 예정
     - 위 실험 결과에 따라 최소 수정으로 prod Bar 렌더 복구.
