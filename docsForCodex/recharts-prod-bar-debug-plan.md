@@ -205,15 +205,23 @@
      - `client-081` -> monthly DebugBarShape props
      - `client-082` -> weekday DebugBarShape props
 
-10. **PR-010: 생성/정렬 고정 실험(보류)** — 상태: 보류
+10. **PR-010: NaN probe 실험(구독/월별 value=1 강제 주입)** — 상태: 진행
+   - 목표: `chart-subscription`, `chart-monthly`에서 Bar shape props의 y/height가 NaN인 원인이 값 0 때문인지, 축/스케일 결손 때문인지 확정.
+   - 변경: 별도 client 컴포넌트 `PR010NaNProbe.client.tsx`를 추가해 원본 데이터를 shallow copy한 뒤 0번 인덱스 value를 1로 강제, 동일 Bar 구성을 렌더하며 shape 로그/DOM 카운트를 남김. StatsDashboard에는 컴포넌트를 삽입만 하여 기존 훅 변경 없이 동작.
+   - 로그:
+     - `client-090` -> subscription probe bar-shape-props (value=1 우선)
+     - `client-091` -> monthly probe bar-shape-props (value=1 우선)
+     - `client-092` -> subscription/monthly barPathCount after probe 적용
+
+11. **PR-011: 생성/정렬 고정 실험(보류)** — 상태: 보류
    - 실제 대시보드 차트에서 Bar 생성용 key 배열 정렬/고정, stack 순서 명시.
    - 목표: prod에서 순서 반전·중간 누락이 키 순서 문제인지 검증.
 
-11. **PR-011: 원인 확정 후 최소 수정 반영** — 상태: 예정
+12. **PR-012: 원인 확정 후 최소 수정 반영** — 상태: 예정
    - 위 실험 결과에 따라 최소 수정으로 prod Bar 렌더 복구.
    - 로그: 문제 해결 근거를 남기고, 해결 확인 후 상태 `검증완료`.
 
-12. **PR-012: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
+13. **PR-013: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
    - 모든 디버그 로그/배너/임시 차트를 제거하고 기준 디자인만 남김.
    - 목표: 최종 정리.
 

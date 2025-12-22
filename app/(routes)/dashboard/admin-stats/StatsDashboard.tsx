@@ -18,6 +18,7 @@ import {
 } from 'recharts';
 
 import styles from './stats-dashboard.module.css';
+import PR010NaNProbe from './PR010NaNProbe.client';
 import type { MonthlyAveragePoint } from './server/fetchMonthlyAverages';
 import type { MonthlyOverviewPoint } from './server/fetchMonthlyOverview';
 import type { WeekdaySeriesMeta, WeekdayStatsPoint } from './server/fetchWeekdayStats';
@@ -1041,6 +1042,16 @@ export default function StatsDashboard({
                 console.log('[client-003] PR-001 debug card mounted');
                 return <PR001ClientOnlyChart />;
               })()}
+            </div>
+          </section>
+
+          <section className={styles.graphCard} style={{ border: '2px dashed #f97316' }}>
+            <h3 style={{ color: '#f97316' }}>PR-010 NaN Probe (subscription/monthly)</h3>
+            <div style={{ marginTop: 12 }}>
+              <PR010NaNProbe
+                subscriptionData={normalizedMonthlyAverages}
+                monthlyData={normalizedMonthlyOverview}
+              />
             </div>
           </section>
         </div>
