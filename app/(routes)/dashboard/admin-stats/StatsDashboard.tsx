@@ -1275,6 +1275,10 @@ export default function StatsDashboard({
         isAnimationActive: featureFlags.animation === 'default' ? undefined : featureFlags.animation
       };
 
+      if (xAxisProps?.xAxisId !== undefined) {
+        baseBarProps.xAxisId = xAxisProps.xAxisId;
+      }
+
       if (featureFlags.barHasFill) {
         baseBarProps.fill = '#22c55e';
       }
@@ -1526,6 +1530,10 @@ export default function StatsDashboard({
         dataKey: 'totalCount',
         isAnimationActive: featureFlags.animation === 'default' ? undefined : featureFlags.animation
       };
+
+      if (xAxisProps?.xAxisId !== undefined) {
+        baseBarProps.xAxisId = xAxisProps.xAxisId;
+      }
 
       if (featureFlags.barHasFill) {
         baseBarProps.fill = '#6366f1';
