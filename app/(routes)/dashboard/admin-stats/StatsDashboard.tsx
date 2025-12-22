@@ -1292,6 +1292,9 @@ export default function StatsDashboard({
 
       try {
         console.log('[bar-props-final]', { section: 'subscription', step, props: sanitizedBarProps });
+        if (typeof window !== 'undefined') {
+          (window as any).__lastSubscriptionBarProps = sanitizedBarProps;
+        }
       } catch (error) {
         console.log('[bar-props-final] log failed', error);
       }
@@ -1403,6 +1406,28 @@ export default function StatsDashboard({
           yAxisProps: yAxisProps as Record<string, unknown> | null,
           barProps: (barProps as Record<string, unknown> | null) ?? null
         });
+
+        try {
+          if (typeof window !== 'undefined') {
+            (window as any).__lastSubscriptionData = dataForChart;
+            (window as any).__lastSubscriptionChildren = cleanedChildren;
+          }
+          const chartPropsDump = {
+            width: undefined,
+            height: undefined,
+            layout: undefined,
+            margin: { top: 54, right: 18, bottom: 24, left: 18 },
+            barCategoryGap: undefined,
+            barGap: undefined
+          };
+          console.log('[__lastSubscriptionData]', {
+            len: dataForChart?.length ?? null,
+            keys: dataForChart?.[0] ? Object.keys(dataForChart[0]) : []
+          });
+          console.log('[__lastSubscriptionBarChartProps]', chartPropsDump);
+        } catch (error) {
+          console.log('[subscription-bar-chart-props] log failed', error);
+        }
 
         chartBody = (
           <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
@@ -1548,6 +1573,9 @@ export default function StatsDashboard({
 
       try {
         console.log('[bar-props-final]', { section: 'monthly', step, props: sanitizedBarProps });
+        if (typeof window !== 'undefined') {
+          (window as any).__lastMonthlyBarProps = sanitizedBarProps;
+        }
       } catch (error) {
         console.log('[bar-props-final] log failed', error);
       }
@@ -1659,6 +1687,28 @@ export default function StatsDashboard({
           yAxisProps: yAxisProps as Record<string, unknown> | null,
           barProps: (barProps as Record<string, unknown> | null) ?? null
         });
+
+        try {
+          if (typeof window !== 'undefined') {
+            (window as any).__lastMonthlyData = dataForChart;
+            (window as any).__lastMonthlyChildren = cleanedChildren;
+          }
+          const chartPropsDump = {
+            width: undefined,
+            height: undefined,
+            layout: undefined,
+            margin: { top: 54, right: 18, bottom: 24, left: 18 },
+            barCategoryGap: undefined,
+            barGap: undefined
+          };
+          console.log('[__lastMonthlyData]', {
+            len: dataForChart?.length ?? null,
+            keys: dataForChart?.[0] ? Object.keys(dataForChart[0]) : []
+          });
+          console.log('[__lastMonthlyBarChartProps]', chartPropsDump);
+        } catch (error) {
+          console.log('[monthly-bar-chart-props] log failed', error);
+        }
 
         chartBody = (
           <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
