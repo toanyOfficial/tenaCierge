@@ -1297,42 +1297,43 @@ export default function StatsDashboard({
     if (featureFlags.hasBar) {
       const baseBarProps: Partial<BarProps> = {
         dataKey: 'subscriptionCount',
+        xAxisId: xAxisProps?.xAxisId,
+        yAxisId: yAxisProps?.yAxisId,
+        fill: featureFlags.barHasFill ? '#22c55e' : undefined,
+        minPointSize: featureFlags.barHasMinPointSize ? 1 : undefined,
         isAnimationActive: featureFlags.animation === 'default' ? undefined : featureFlags.animation
       };
 
-      if (xAxisProps?.xAxisId !== undefined) {
-        baseBarProps.xAxisId = xAxisProps.xAxisId;
-      }
+      const allowlistedBarProps = buildAllowlistedBarProps(baseBarProps);
+      const finalBarProps: Partial<BarProps> = Object.fromEntries(
+        Object.entries(allowlistedBarProps as Record<string, unknown>).filter(([, value]) => value !== undefined)
+      ) as Partial<BarProps>;
 
-      if (yAxisProps?.yAxisId !== undefined) {
-        baseBarProps.yAxisId = yAxisProps.yAxisId;
-      }
-
-      if (featureFlags.barHasFill) {
-        baseBarProps.fill = '#22c55e';
-      }
-
-      if (featureFlags.barHasMinPointSize) {
-        baseBarProps.minPointSize = 1;
-      }
-
-      const { cleaned: sanitizedBarProps } = sanitizeBarProps(baseBarProps);
-      const allowlistedBarProps = buildAllowlistedBarProps(sanitizedBarProps);
-      barProps = allowlistedBarProps;
+      barProps = finalBarProps;
 
       try {
-        console.log('[bar-props-final]', { section: 'subscription', step, props: allowlistedBarProps });
+        console.log('[bar-props-final]', { section: 'subscription', step, props: finalBarProps });
         if (typeof window !== 'undefined') {
-          (window as any).__lastSubscriptionBarProps = allowlistedBarProps;
+          (window as any).__lastSubscriptionBarProps = finalBarProps;
         }
       } catch (error) {
         console.log('[bar-props-final] log failed', error);
       }
 
+      const barElementProps = {
+        key: 'bar',
+        dataKey: 'subscriptionCount',
+        xAxisId: finalBarProps.xAxisId,
+        yAxisId: finalBarProps.yAxisId,
+        fill: finalBarProps.fill,
+        minPointSize: finalBarProps.minPointSize,
+        isAnimationActive: finalBarProps.isAnimationActive
+      } satisfies Partial<BarProps> & { key: string };
+
       const barElement = featureFlags.hasLabelList
         ? React.createElement(
             Bar as unknown as React.ElementType,
-            { ...(allowlistedBarProps as any), key: 'bar' },
+            barElementProps,
             React.createElement(LabelList, {
               key: 'label-list',
               dataKey: 'subscriptionCount',
@@ -1340,10 +1341,7 @@ export default function StatsDashboard({
               content: labelContent
             })
           )
-        : React.createElement(Bar as unknown as React.ElementType, {
-            ...(allowlistedBarProps as any),
-            key: 'bar'
-          });
+        : React.createElement(Bar as unknown as React.ElementType, barElementProps);
 
       parts.push(barElement);
     }
@@ -1705,42 +1703,43 @@ export default function StatsDashboard({
     if (featureFlags.hasBar) {
       const baseBarProps: Partial<BarProps> = {
         dataKey: 'totalCount',
+        xAxisId: xAxisProps?.xAxisId,
+        yAxisId: yAxisProps?.yAxisId,
+        fill: featureFlags.barHasFill ? '#6366f1' : undefined,
+        minPointSize: featureFlags.barHasMinPointSize ? 1 : undefined,
         isAnimationActive: featureFlags.animation === 'default' ? undefined : featureFlags.animation
       };
 
-      if (xAxisProps?.xAxisId !== undefined) {
-        baseBarProps.xAxisId = xAxisProps.xAxisId;
-      }
+      const allowlistedBarProps = buildAllowlistedBarProps(baseBarProps);
+      const finalBarProps: Partial<BarProps> = Object.fromEntries(
+        Object.entries(allowlistedBarProps as Record<string, unknown>).filter(([, value]) => value !== undefined)
+      ) as Partial<BarProps>;
 
-      if (yAxisProps?.yAxisId !== undefined) {
-        baseBarProps.yAxisId = yAxisProps.yAxisId;
-      }
-
-      if (featureFlags.barHasFill) {
-        baseBarProps.fill = '#6366f1';
-      }
-
-      if (featureFlags.barHasMinPointSize) {
-        baseBarProps.minPointSize = 1;
-      }
-
-      const { cleaned: sanitizedBarProps } = sanitizeBarProps(baseBarProps);
-      const allowlistedBarProps = buildAllowlistedBarProps(sanitizedBarProps);
-      barProps = allowlistedBarProps;
+      barProps = finalBarProps;
 
       try {
-        console.log('[bar-props-final]', { section: 'monthly', step, props: allowlistedBarProps });
+        console.log('[bar-props-final]', { section: 'monthly', step, props: finalBarProps });
         if (typeof window !== 'undefined') {
-          (window as any).__lastMonthlyBarProps = allowlistedBarProps;
+          (window as any).__lastMonthlyBarProps = finalBarProps;
         }
       } catch (error) {
         console.log('[bar-props-final] log failed', error);
       }
 
+      const barElementProps = {
+        key: 'bar',
+        dataKey: 'totalCount',
+        xAxisId: finalBarProps.xAxisId,
+        yAxisId: finalBarProps.yAxisId,
+        fill: finalBarProps.fill,
+        minPointSize: finalBarProps.minPointSize,
+        isAnimationActive: finalBarProps.isAnimationActive
+      } satisfies Partial<BarProps> & { key: string };
+
       const barElement = featureFlags.hasLabelList
         ? React.createElement(
             Bar as unknown as React.ElementType,
-            { ...(allowlistedBarProps as any), key: 'bar' },
+            barElementProps,
             React.createElement(LabelList, {
               key: 'label-list',
               dataKey: 'totalCount',
@@ -1748,10 +1747,7 @@ export default function StatsDashboard({
               content: labelContent
             })
           )
-        : React.createElement(Bar as unknown as React.ElementType, {
-            ...(allowlistedBarProps as any),
-            key: 'bar'
-          });
+        : React.createElement(Bar as unknown as React.ElementType, barElementProps);
 
       parts.push(barElement);
     }
