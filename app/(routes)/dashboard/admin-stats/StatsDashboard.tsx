@@ -249,6 +249,7 @@ function sanitizeBarProps(
 
   const cleaned = Object.fromEntries(
     Object.entries(props as unknown as Record<string, unknown>).filter(([key, value]) => {
+      if (key === 'children') return false;
       if (value === null || value === undefined) return false;
       if (value === false && key !== 'isAnimationActive') return false;
       return true;
@@ -1174,18 +1175,6 @@ export default function StatsDashboard({
     }
 
     if (featureFlags.hasBar) {
-      const barChildren: React.ReactElement[] = [];
-      if (featureFlags.hasLabelList) {
-        barChildren.push(
-          <LabelList
-            key="label-list"
-            dataKey="subscriptionCount"
-            position="top"
-            content={labelContent}
-          />
-        );
-      }
-
       const { cleaned: sanitizedBarProps } = sanitizeBarProps({
         dataKey: 'subscriptionCount',
         fill: '#22c55e',
@@ -1193,11 +1182,23 @@ export default function StatsDashboard({
         isAnimationActive: featureFlags.animation === 'default' ? undefined : featureFlags.animation,
       });
 
-      parts.push(
-        <Bar key="bar" {...(sanitizedBarProps as any)}>
-          {barChildren.length > 0 ? barChildren : null}
-        </Bar>
-      );
+      const barElement = featureFlags.hasLabelList
+        ? React.createElement(
+            Bar as unknown as React.ElementType,
+            { ...(sanitizedBarProps as any), key: 'bar' },
+            React.createElement(LabelList, {
+              key: 'label-list',
+              dataKey: 'subscriptionCount',
+              position: 'top',
+              content: labelContent
+            })
+          )
+        : React.createElement(Bar as unknown as React.ElementType, {
+            ...(sanitizedBarProps as any),
+            key: 'bar'
+          });
+
+      parts.push(barElement);
     }
 
     if (featureFlags.hasTooltip) {
@@ -1370,13 +1371,6 @@ export default function StatsDashboard({
     }
 
     if (featureFlags.hasBar) {
-      const barChildren: React.ReactElement[] = [];
-      if (featureFlags.hasLabelList) {
-        barChildren.push(
-          <LabelList key="label-list" dataKey="totalCount" position="top" content={labelContent} />
-        );
-      }
-
       const { cleaned: sanitizedBarProps } = sanitizeBarProps({
         dataKey: 'totalCount',
         fill: '#6366f1',
@@ -1384,11 +1378,23 @@ export default function StatsDashboard({
         isAnimationActive: featureFlags.animation === 'default' ? undefined : featureFlags.animation
       });
 
-      parts.push(
-        <Bar key="bar" {...(sanitizedBarProps as any)}>
-          {barChildren.length > 0 ? barChildren : null}
-        </Bar>
-      );
+      const barElement = featureFlags.hasLabelList
+        ? React.createElement(
+            Bar as unknown as React.ElementType,
+            { ...(sanitizedBarProps as any), key: 'bar' },
+            React.createElement(LabelList, {
+              key: 'label-list',
+              dataKey: 'totalCount',
+              position: 'top',
+              content: labelContent
+            })
+          )
+        : React.createElement(Bar as unknown as React.ElementType, {
+            ...(sanitizedBarProps as any),
+            key: 'bar'
+          });
+
+      parts.push(barElement);
     }
 
     if (featureFlags.hasTooltip) {
