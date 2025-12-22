@@ -581,12 +581,24 @@ export default function StatsDashboard({
         });
       };
 
+      const logBarPathAfterAxisFix = (id: string, logId: string) => {
+        const root = document.getElementById(id);
+        const barPaths = root?.querySelectorAll<SVGPathElement>(
+          '.recharts-layer.recharts-bar-rectangle path.recharts-rectangle'
+        );
+        console.log(`[${logId} -> ${id}-barPathCount-after-axis-fix]`, {
+          barPathCount: barPaths?.length ?? 0
+        });
+      };
+
       logBarWidthDebug('chart-subscription', 'client-070');
       logBarWidthDebug('chart-monthly', 'client-071');
       logSvgBasics('chart-subscription', 'client-072');
       logSvgBasics('chart-monthly', 'client-073');
       logBarSizeResult('chart-subscription', 'client-074', 20);
       logBarSizeResult('chart-monthly', 'client-075', 20);
+      logBarPathAfterAxisFix('chart-subscription', 'client-130');
+      logBarPathAfterAxisFix('chart-monthly', 'client-131');
 
       const logDomAfter = (id: string, logId: string) => {
         const root = document.getElementById(id);
@@ -862,6 +874,7 @@ export default function StatsDashboard({
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
           <XAxis
             dataKey="label"
+            xAxisId="x"
             tickLine={false}
             axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
@@ -884,11 +897,12 @@ export default function StatsDashboard({
           />
           <Bar
             dataKey="subscriptionCount"
-            yAxisId="left"
             fill="#22c55e"
             barSize={20}
             radius={[6, 6, 0, 0]}
             minPointSize={1}
+            xAxisId="x"
+            yAxisId="left"
             shape={debugBarShapes.subscription}
           >
             <LabelList dataKey="subscriptionCount" position="top" content={<BarValueLabel />} />
@@ -936,6 +950,7 @@ export default function StatsDashboard({
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
           <XAxis
             dataKey="label"
+            xAxisId="x"
             tickLine={false}
             axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
@@ -968,11 +983,12 @@ export default function StatsDashboard({
           />
           <Bar
             dataKey="totalCount"
-            yAxisId="right"
             fill="#6366f1"
             barSize={20}
             radius={[6, 6, 0, 0]}
             minPointSize={1}
+            xAxisId="x"
+            yAxisId="right"
             shape={debugBarShapes.monthly}
           >
             <LabelList dataKey="totalCount" position="top" content={<BarValueLabel />} />

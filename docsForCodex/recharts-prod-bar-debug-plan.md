@@ -222,9 +222,9 @@
       - `client-112` -> subscription barPathCount after solid fill
       - `client-113` -> monthly barPathCount after solid fill
 
-12. **PR-012: Bar 내부 생성 스킵 원인 확정(구독/월별 shape 호출 + NaN 필드 로깅)** — 상태: 진행
+12. **PR-012: Bar 내부 생성 스킵 원인 확정(구독/월별 shape 호출 + NaN 필드 로깅)** — 상태: 검증완료
     - 목표: `chart-subscription`, `chart-monthly` Bar에서 shape 함수 호출 여부를 확정하고, 호출 시 props(y/height/value/axis) NaN 여부를 1회 스냅샷으로 남김. 호출이 안 되면 DOM/축 설정을 함께 로그로 기록.
-    - 변경: Bar shape에 호출 카운터/1회 스냅샷 로그 추가(`client-120/121`), mount 후 DOM 계측(`client-122/123`), YAxis 설정 스냅샷(`client-124/125`).
+    - 결과: shape는 호출되나 `y/height`가 NaN이고 `xAxisId/yAxisId`가 undefined, DOM에는 bar-rectangle layer만 존재하여 Bar↔Axis 매칭 실패 가능성이 높음.
     - 로그:
       - `client-120` -> subscription shape called 여부 및 props(y/height/value/xAxisId/yAxisId/stackId)
       - `client-121` -> monthly shape called 여부 및 props
@@ -233,15 +233,22 @@
       - `client-124` -> subscription YAxis config (domain/allowDataOverflow/scale/yAxisId)
       - `client-125` -> monthly YAxis config(좌/우) 스냅샷
 
-13. **PR-013: 생성/정렬 고정 실험(보류)** — 상태: 보류
+13. **PR-013: axisId 명시로 Bar↔Axis 매칭 고정(구독/월별)** — 상태: 진행
+    - 목표: `chart-subscription`, `chart-monthly` Bar가 명시적 `xAxisId/yAxisId`를 사용하도록 강제해 NaN(y/height) 및 barPathCount=0 문제를 해소하는지 확인.
+    - 변경: 두 차트의 XAxis/Bar에 `xAxisId="x"`, YAxis/Bar에 명시적 `yAxisId` 부여, mount 후 barPathCount 재계측.
+    - 로그:
+      - `client-130` -> subscription barPathCount after axis fix
+      - `client-131` -> monthly barPathCount after axis fix
+
+14. **PR-014: 생성/정렬 고정 실험(보류)** — 상태: 보류
     - 실제 대시보드 차트에서 Bar 생성용 key 배열 정렬/고정, stack 순서 명시.
     - 목표: prod에서 순서 반전·중간 누락이 키 순서 문제인지 검증.
 
-14. **PR-014: 원인 확정 후 최소 수정 반영** — 상태: 예정
+15. **PR-015: 원인 확정 후 최소 수정 반영** — 상태: 예정
     - 위 실험 결과에 따라 최소 수정으로 prod Bar 렌더 복구.
     - 로그: 문제 해결 근거를 남기고, 해결 확인 후 상태 `검증완료`.
 
-15. **PR-015: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
+16. **PR-016: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
     - 모든 디버그 로그/배너/임시 차트를 제거하고 기준 디자인만 남김.
     - 목표: 최종 정리.
 
