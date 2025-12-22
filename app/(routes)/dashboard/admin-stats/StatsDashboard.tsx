@@ -10,7 +10,7 @@ import {
   LabelList,
   Legend,
   Line,
-  Rectangle,
+  Rectangle as RechartsRectangle,
   ResponsiveContainer,
   XAxis,
   YAxis,
@@ -108,7 +108,7 @@ export default function StatsDashboard({
           });
         }
 
-        return <Rectangle {...props} />;
+        return <RechartsRectangle {...props} />;
       };
 
     return {
