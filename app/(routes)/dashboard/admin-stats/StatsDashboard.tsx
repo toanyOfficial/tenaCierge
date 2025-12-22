@@ -206,50 +206,6 @@ export default function StatsDashboard({
     });
   }, [monthlyDomain, monthlyGuard, subscriptionDomain, subscriptionGuard]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const targets = [
-        { id: 'chart-subscription', logId: 'client-112' },
-        { id: 'chart-monthly', logId: 'client-113' }
-      ];
-
-      targets.forEach(({ id, logId }) => {
-        const barPaths = document.querySelectorAll<SVGPathElement>(
-          `#${id} .recharts-layer.recharts-bar-rectangle path.recharts-rectangle`
-        );
-        console.log(`[${logId} -> ${id}-barPathCount-solid-fill]`, {
-          barPathCount: barPaths.length
-        });
-      });
-    }, 800);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    console.log('[client-124 -> subscription-yaxis-config]', {
-      yAxisId: 'left',
-      domain: SUBSCRIPTION_Y_AXIS_DOMAIN,
-      allowDataOverflow: false,
-      scale: 'auto'
-    });
-
-    console.log('[client-125 -> monthly-yaxis-config]', {
-      left: {
-        yAxisId: 'left',
-        domain: MONTHLY_LEFT_Y_AXIS_DOMAIN,
-        allowDataOverflow: false,
-        scale: 'auto'
-      },
-      right: {
-        yAxisId: 'right',
-        domain: MONTHLY_RIGHT_Y_AXIS_DOMAIN,
-        allowDataOverflow: false,
-        scale: 'auto'
-      }
-    });
-  }, []);
-
   const planMax = useMemo(() => {
     const peak = Math.max(
       ...subscriptionGuard.data.map((row) => Math.max(row.subscriptionCount, row.perOrderCount)),
