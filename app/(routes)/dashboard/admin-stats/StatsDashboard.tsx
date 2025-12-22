@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import {
@@ -130,6 +130,15 @@ export default function StatsDashboard({
   const subscriptionContainerRef = useRef<HTMLDivElement | null>(null);
   const monthlyContainerRef = useRef<HTMLDivElement | null>(null);
   const containerRefLogged = useRef({ subscription: false, monthly: false });
+  const [containerRects, setContainerRects] = useState({
+    subscription: { w: null as number | null, h: null as number | null },
+    monthly: { w: null as number | null, h: null as number | null }
+  });
+  const subscriptionRect = containerRects.subscription;
+  const monthlyRect = containerRects.monthly;
+  const subscriptionHasSize =
+    subscriptionRect.w !== null && subscriptionRect.w > 0 && subscriptionRect.h !== null && subscriptionRect.h > 0;
+  const monthlyHasSize = monthlyRect.w !== null && monthlyRect.w > 0 && monthlyRect.h !== null && monthlyRect.h > 0;
 
   useEffect(() => {
     console.log('[client-180 -> admin-stats-fingerprint]', {
@@ -324,6 +333,23 @@ export default function StatsDashboard({
           section,
           w: rect?.width ?? null,
           h: rect?.height ?? null
+        });
+
+        setContainerRects((prev) => {
+          const next = {
+            ...prev,
+            [section]: {
+              w: rect?.width ?? null,
+              h: rect?.height ?? null
+            }
+          };
+          if (
+            prev[section].w === next[section].w &&
+            prev[section].h === next[section].h
+          ) {
+            return prev;
+          }
+          return next;
         });
 
         containerRefLogged.current[section] = true;
@@ -707,43 +733,55 @@ export default function StatsDashboard({
         </header>
 
         <div className={styles.graphGrid}>
-          <ChartErrorBoundary section="subscription">
-            <section id="chart-subscription" className={styles.graphCard} aria-label="요금제별 통계">
-              <div className={styles.graphHeading}>
-                <p className={styles.graphTitle}>요금제별 통계</p>
-              </div>
-                <div className={styles.graphSurface} aria-hidden="true">
-                  <div className={styles.mixedChart} ref={subscriptionContainerRef}>
-                    {subscriptionEnabled ? (
-                      planChart
-                    ) : (
+      <ChartErrorBoundary section="subscription">
+        <section id="chart-subscription" className={styles.graphCard} aria-label="요금제별 통계">
+          <div className={styles.graphHeading}>
+            <p className={styles.graphTitle}>요금제별 통계</p>
+          </div>
+            <div className={styles.graphSurface} aria-hidden="true">
+              <div className={styles.mixedChart} ref={subscriptionContainerRef} style={{ minHeight: 320 }}>
+                {subscriptionEnabled ? (
+                  subscriptionHasSize ? (
+                    planChart
+                  ) : (
                     <p className={styles.chartDisabledText}>
-                      Chart temporarily disabled (invariant hotfix). add ?unsafeCharts=1&chart=subscription to render.
+                      Chart container not ready (size unavailable). enable unsafeCharts=1&chart=subscription and retry.
                     </p>
-                  )}
-                </div>
+                  )
+                ) : (
+                  <p className={styles.chartDisabledText}>
+                    Chart temporarily disabled (invariant hotfix). add ?unsafeCharts=1&chart=subscription to render.
+                  </p>
+                )}
               </div>
-            </section>
-          </ChartErrorBoundary>
+            </div>
+          </section>
+        </ChartErrorBoundary>
 
-          <ChartErrorBoundary section="monthly">
+        <ChartErrorBoundary section="monthly">
             <section id="chart-monthly" className={styles.graphCard} aria-label="월별 통계">
-              <div className={styles.graphHeading}>
-                <p className={styles.graphTitle}>월별 통계</p>
-              </div>
-                <div className={styles.graphSurface} aria-hidden="true">
-                  <div className={styles.mixedChart} ref={monthlyContainerRef}>
-                    {monthlyEnabled ? (
-                      monthlyTotalsChart
-                    ) : (
+          <div className={styles.graphHeading}>
+            <p className={styles.graphTitle}>월별 통계</p>
+          </div>
+            <div className={styles.graphSurface} aria-hidden="true">
+              <div className={styles.mixedChart} ref={monthlyContainerRef} style={{ minHeight: 320 }}>
+                {monthlyEnabled ? (
+                  monthlyHasSize ? (
+                    monthlyTotalsChart
+                  ) : (
                     <p className={styles.chartDisabledText}>
-                      Chart temporarily disabled (invariant hotfix). add ?unsafeCharts=1&chart=monthly to render.
+                      Chart container not ready (size unavailable). enable unsafeCharts=1&chart=monthly and retry.
                     </p>
-                  )}
-                </div>
+                  )
+                ) : (
+                  <p className={styles.chartDisabledText}>
+                    Chart temporarily disabled (invariant hotfix). add ?unsafeCharts=1&chart=monthly to render.
+                  </p>
+                )}
               </div>
-            </section>
-          </ChartErrorBoundary>
+            </div>
+          </section>
+        </ChartErrorBoundary>
 
           <ChartErrorBoundary section="weekday">
             <section id="chart-weekday" className={styles.graphCard} aria-label="요일별 통계">

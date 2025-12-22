@@ -298,15 +298,19 @@
       - `client-204` -> chart-container-style-sample { section, style(width/height/minHeight/display/position) }
 
 18. **PR-018: unsafeCharts+chart 단독 렌더 버그 수정 + 데이터/컨테이너 스냅샷** — 상태: 진행
-    - 목표: `?unsafeCharts=1&chart=<section>`일 때 해당 섹션만 렌더되도록 필터를 단일 선택으로 강제하고, 데이터Key/컨테이너 크기 스냅샷 로그로 원인 확정을 지원.
+    - 목표: `?unsafeCharts=1&chart=<section>`일 때 해당 섹션만 렌더되도록 필터를 단일 선택으로 강제하고, 데이터Key/컨테이너 크기 스냅샷 로그로 원인 확정을 지원. 추가로 container ref가 항상 DOM을 가리키게 하고, w/h가 0/null이면 안전하게 fallback UI를 노출해 invariant를 차단.
     - 변경:
       - `chart` 파라미터가 `subscription|monthly|weekday|pr001|pr010|all|none` 중 하나일 때만 반영하며, unsafeCharts=false면 모든 섹션 렌더 차단.
       - enabledSections 계산을 단일 선택 규칙으로 재구성하여 `chart=monthly` 등에서 해당 섹션만 렌더.
+      - subscription/monthly 카드에 독립 DOM 컨테이너(ref)와 minHeight를 부여해 ref null/size 0을 방지하고, 사이즈가 준비되지 않으면 차트를 렌더하지 않고 안내 문구를 표시.
       - fingerprint(`client-180`) fileMarker를 v3로 갱신, 토글 상태/활성 섹션 로그(`client-190/191`) 유지.
-      - 새 로그: 데이터/키 스냅샷 `client-200`, 컨테이너 크기 스냅샷 `client-201` (subscription/monthly가 활성일 때 1회 기록).
+      - 새 로그: 데이터/키 스냅샷 `client-200`, 컨테이너 크기 스냅샷 `client-201`, container ref/rect/style `client-202~204` (subscription/monthly 활성 시 1회 기록).
     - 로그:
       - `client-200` -> chart-data-sample { sub0/mon0, label/key/type 유무 등 }
       - `client-201` -> chart-container-rect { section, w, h }
+      - `client-202` -> chart-container-ref-state { section, hasRef, nodeName, isConnected }
+      - `client-203` -> chart-container-rect-raw { section, rect }
+      - `client-204` -> chart-container-style-sample { section, style }
 
 19. **PR-017: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
     - 모든 디버그 로그/배너/임시 차트를 제거하고 기준 디자인만 남김.
