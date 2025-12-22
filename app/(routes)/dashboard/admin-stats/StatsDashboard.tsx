@@ -267,6 +267,23 @@ function sanitizeBarProps(
   return { cleaned, nullFlags } as const;
 }
 
+const allowedBarPropKeys = new Set<keyof BarProps>([
+  'dataKey',
+  'fill',
+  'isAnimationActive',
+  'minPointSize',
+  'xAxisId',
+  'yAxisId'
+]);
+
+function buildAllowlistedBarProps(props: Partial<BarProps>): Partial<BarProps> {
+  return Object.fromEntries(
+    Object.entries(props as Record<string, unknown>).filter(([key, value]) => {
+      return allowedBarPropKeys.has(key as keyof BarProps) && value !== undefined;
+    })
+  ) as Partial<BarProps>;
+}
+
 function useChartIdentityLogger(input: ChartIdentityLogInput) {
   const { mode, section, chartImpl, flags, data } = input;
   const dataFingerprint = useMemo(() => buildDataFingerprint(data), [data]);
@@ -1300,12 +1317,13 @@ export default function StatsDashboard({
       }
 
       const { cleaned: sanitizedBarProps } = sanitizeBarProps(baseBarProps);
-      barProps = sanitizedBarProps;
+      const allowlistedBarProps = buildAllowlistedBarProps(sanitizedBarProps);
+      barProps = allowlistedBarProps;
 
       try {
-        console.log('[bar-props-final]', { section: 'subscription', step, props: sanitizedBarProps });
+        console.log('[bar-props-final]', { section: 'subscription', step, props: allowlistedBarProps });
         if (typeof window !== 'undefined') {
-          (window as any).__lastSubscriptionBarProps = sanitizedBarProps;
+          (window as any).__lastSubscriptionBarProps = allowlistedBarProps;
         }
       } catch (error) {
         console.log('[bar-props-final] log failed', error);
@@ -1314,7 +1332,7 @@ export default function StatsDashboard({
       const barElement = featureFlags.hasLabelList
         ? React.createElement(
             Bar as unknown as React.ElementType,
-            { ...(sanitizedBarProps as any), key: 'bar' },
+            { ...(allowlistedBarProps as any), key: 'bar' },
             React.createElement(LabelList, {
               key: 'label-list',
               dataKey: 'subscriptionCount',
@@ -1323,7 +1341,7 @@ export default function StatsDashboard({
             })
           )
         : React.createElement(Bar as unknown as React.ElementType, {
-            ...(sanitizedBarProps as any),
+            ...(allowlistedBarProps as any),
             key: 'bar'
           });
 
@@ -1707,12 +1725,13 @@ export default function StatsDashboard({
       }
 
       const { cleaned: sanitizedBarProps } = sanitizeBarProps(baseBarProps);
-      barProps = sanitizedBarProps;
+      const allowlistedBarProps = buildAllowlistedBarProps(sanitizedBarProps);
+      barProps = allowlistedBarProps;
 
       try {
-        console.log('[bar-props-final]', { section: 'monthly', step, props: sanitizedBarProps });
+        console.log('[bar-props-final]', { section: 'monthly', step, props: allowlistedBarProps });
         if (typeof window !== 'undefined') {
-          (window as any).__lastMonthlyBarProps = sanitizedBarProps;
+          (window as any).__lastMonthlyBarProps = allowlistedBarProps;
         }
       } catch (error) {
         console.log('[bar-props-final] log failed', error);
@@ -1721,7 +1740,7 @@ export default function StatsDashboard({
       const barElement = featureFlags.hasLabelList
         ? React.createElement(
             Bar as unknown as React.ElementType,
-            { ...(sanitizedBarProps as any), key: 'bar' },
+            { ...(allowlistedBarProps as any), key: 'bar' },
             React.createElement(LabelList, {
               key: 'label-list',
               dataKey: 'totalCount',
@@ -1730,7 +1749,7 @@ export default function StatsDashboard({
             })
           )
         : React.createElement(Bar as unknown as React.ElementType, {
-            ...(sanitizedBarProps as any),
+            ...(allowlistedBarProps as any),
             key: 'bar'
           });
 
