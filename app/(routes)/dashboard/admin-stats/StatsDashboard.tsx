@@ -16,6 +16,7 @@ import {
   YAxis,
   Rectangle
 } from 'recharts';
+import type { BarProps } from 'recharts';
 import packageJson from '../../../../package.json';
 const pkgMeta = packageJson as {
   version?: string;
@@ -237,6 +238,22 @@ function resolveBarChartFeatureFlags(mode: ChartMode, step: number): BarChartFea
   };
 }
 
+function sanitizeBarProps(
+  props: BarProps
+): { cleaned: BarProps; nullFlags: { barLabelIsNull: boolean; barSizeIsNull: boolean; stackIdIsNull: boolean } } {
+  const nullFlags = {
+    barLabelIsNull: 'label' in props ? props.label === null : false,
+    barSizeIsNull: 'barSize' in props ? props.barSize === null : false,
+    stackIdIsNull: 'stackId' in props ? props.stackId === null : false
+  };
+
+  const cleaned = Object.fromEntries(
+    Object.entries(props as unknown as Record<string, unknown>).filter(([, value]) => value !== null)
+  ) as unknown as BarProps;
+
+  return { cleaned, nullFlags } as const;
+}
+
 function useChartIdentityLogger(input: ChartIdentityLogInput) {
   const { mode, section, chartImpl, flags, data } = input;
   const dataFingerprint = useMemo(() => buildDataFingerprint(data), [data]);
@@ -349,12 +366,12 @@ function logBarChartSignature({
   if (barElement && React.isValidElement(barElement)) {
     const barProps = (barElement as React.ReactElement).props ?? {};
     barPropsDump = {
-      dataKey: barProps.dataKey ?? null,
-      stackId: barProps.stackId ?? null,
-      barSize: barProps.barSize ?? null,
-      isAnimationActive: barProps.isAnimationActive ?? null,
-      minPointSize: barProps.minPointSize ?? null,
-      label: barProps.label ?? null
+      dataKey: barProps.dataKey,
+      stackId: barProps.stackId,
+      barSize: barProps.barSize,
+      isAnimationActive: barProps.isAnimationActive,
+      minPointSize: barProps.minPointSize,
+      label: barProps.label
     };
 
     const barChildArr = React.Children.toArray(barProps.children ?? []);
@@ -381,15 +398,19 @@ function logBarChartSignature({
         }
         const props = (child as React.ReactElement).props ?? {};
         return {
-          dataKey: props.dataKey ?? null,
-          position: props.position ?? null,
-          offset: props.offset ?? null,
+          dataKey: props.dataKey,
+          position: props.position,
+          offset: props.offset,
           formatterType: typeof props.formatter,
           contentType: typeof props.content
         };
       });
     }
   }
+
+  const barLabelIsNull = barPropsDump?.label === null;
+  const barSizeIsNull = barPropsDump?.barSize === null;
+  const stackIdIsNull = barPropsDump?.stackId === null;
 
   console.log('[client-212 -> chart-child-signature]', {
     mode,
@@ -408,7 +429,10 @@ function logBarChartSignature({
     animation,
     barPropsDump,
     barChildrenSignature,
-    labelListPropsDump
+    labelListPropsDump,
+    barLabelIsNull,
+    barSizeIsNull,
+    stackIdIsNull
   });
 }
 
@@ -674,7 +698,7 @@ export default function StatsDashboard({
     if (minChartStep >= 1) features.push('grid');
     if (minChartStep >= 2) features.push('tooltip');
     if (minChartStep >= 3) features.push('legend');
-    if (minChartStep >= 4) features.push('labelList');
+    if (minChartStep >= 9) features.push('labelList');
     return features;
   }, [minChartStep]);
   const minChartFeatureFlags = useMemo(() => resolveBarChartFeatureFlags('minChart', minChartStep), [minChartStep]);
@@ -1103,17 +1127,19 @@ export default function StatsDashboard({
         );
       }
 
+      const { cleaned: sanitizedBarProps } = sanitizeBarProps({
+        dataKey: 'subscriptionCount',
+        fill: '#22c55e',
+        barSize: featureFlags.barSize ?? undefined,
+        radius: featureFlags.radius ?? undefined,
+        minPointSize: 1,
+        stackId: featureFlags.stackIdUsed ? 'subscription' : undefined,
+        isAnimationActive: featureFlags.animation === 'default' ? undefined : featureFlags.animation,
+        label: featureFlags.hasLabelList ? undefined : false
+      });
+
       parts.push(
-        <Bar
-          key="bar"
-          dataKey="subscriptionCount"
-          fill="#22c55e"
-          barSize={featureFlags.barSize ?? undefined}
-          radius={featureFlags.radius ?? undefined}
-          minPointSize={1}
-          stackId={featureFlags.stackIdUsed ? 'subscription' : undefined}
-          isAnimationActive={featureFlags.animation === 'default' ? undefined : featureFlags.animation}
-        >
+        <Bar key="bar" {...(sanitizedBarProps as any)}>
           {barChildren}
         </Bar>
       );
@@ -1287,17 +1313,19 @@ export default function StatsDashboard({
         );
       }
 
+      const { cleaned: sanitizedBarProps } = sanitizeBarProps({
+        dataKey: 'totalCount',
+        fill: '#6366f1',
+        barSize: featureFlags.barSize ?? undefined,
+        radius: featureFlags.radius ?? undefined,
+        minPointSize: 1,
+        stackId: featureFlags.stackIdUsed ? 'monthly' : undefined,
+        isAnimationActive: featureFlags.animation === 'default' ? undefined : featureFlags.animation,
+        label: featureFlags.hasLabelList ? undefined : false
+      });
+
       parts.push(
-        <Bar
-          key="bar"
-          dataKey="totalCount"
-          fill="#6366f1"
-          barSize={featureFlags.barSize ?? undefined}
-          radius={featureFlags.radius ?? undefined}
-          minPointSize={1}
-          stackId={featureFlags.stackIdUsed ? 'monthly' : undefined}
-          isAnimationActive={featureFlags.animation === 'default' ? undefined : featureFlags.animation}
-        >
+        <Bar key="bar" {...(sanitizedBarProps as any)}>
           {barChildren}
         </Bar>
       );
