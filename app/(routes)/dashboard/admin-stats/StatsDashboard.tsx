@@ -12,10 +12,12 @@ import {
   Legend,
   ResponsiveContainer,
   XAxis,
-  YAxis
+  YAxis,
+  Rectangle
 } from 'recharts';
 
 import styles from './stats-dashboard.module.css';
+import PR010NaNProbe from './PR010NaNProbe.client';
 import type { MonthlyAveragePoint } from './server/fetchMonthlyAverages';
 import type { MonthlyOverviewPoint } from './server/fetchMonthlyOverview';
 import type { WeekdaySeriesMeta, WeekdayStatsPoint } from './server/fetchWeekdayStats';
@@ -95,6 +97,11 @@ function toNumber(value: unknown, fallback = 0) {
   const parsed = Number(value ?? fallback);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
+
+const minimalBarData = [
+  { label: 'Alpha', value: 12 },
+  { label: 'Beta', value: 24 }
+];
 
 export default function StatsDashboard({
   profile: _profile,
@@ -191,8 +198,8 @@ export default function StatsDashboard({
           next[key] = toNumber(value);
         });
 
-        return next;
-      }),
+      return next;
+    }),
     [weekdayStats.points]
   );
 
@@ -534,6 +541,7 @@ export default function StatsDashboard({
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
           <XAxis
             dataKey="label"
+            xAxisId="x"
             tickLine={false}
             axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
@@ -575,6 +583,7 @@ export default function StatsDashboard({
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
           <XAxis
             dataKey="label"
+            xAxisId="x"
             tickLine={false}
             axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
