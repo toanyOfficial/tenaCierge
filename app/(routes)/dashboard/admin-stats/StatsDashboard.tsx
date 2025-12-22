@@ -308,6 +308,89 @@ function logBarChartSignature({
     typeof value === 'number' ? (Number.isFinite(value) ? value : 'non-finite') : value
   );
 
+  const resolveDisplayName = (child: React.ReactNode) => {
+    const valid = React.isValidElement(child);
+    if (!valid) return typeof child;
+    const type = child.type as { displayName?: string; name?: string } | string;
+    if (typeof type === 'string') return type;
+    return type.displayName || type.name || 'anonymous';
+  };
+
+  const barElement = childArr.find((child) => {
+    if (!React.isValidElement(child)) return false;
+    const type = child.type as { displayName?: string; name?: string } | string;
+    if (typeof type === 'string') {
+      return type.toLowerCase() === 'bar';
+    }
+    const displayName = type.displayName || type.name || '';
+    return displayName.toLowerCase().includes('bar');
+  });
+
+  let barPropsDump: {
+    dataKey: unknown;
+    stackId: unknown;
+    barSize: unknown;
+    isAnimationActive: unknown;
+    minPointSize: unknown;
+    label: unknown;
+  } | null = null;
+
+  let barChildrenSignature: Array<string> = [];
+  let labelListPropsDump:
+    | Array<{
+        dataKey: unknown;
+        position: unknown;
+        offset: unknown;
+        formatterType: string;
+        contentType: string;
+      }>
+    | null = null;
+
+  if (barElement && React.isValidElement(barElement)) {
+    const barProps = (barElement as React.ReactElement).props ?? {};
+    barPropsDump = {
+      dataKey: barProps.dataKey ?? null,
+      stackId: barProps.stackId ?? null,
+      barSize: barProps.barSize ?? null,
+      isAnimationActive: barProps.isAnimationActive ?? null,
+      minPointSize: barProps.minPointSize ?? null,
+      label: barProps.label ?? null
+    };
+
+    const barChildArr = React.Children.toArray(barProps.children ?? []);
+    barChildrenSignature = barChildArr.map((child) => resolveDisplayName(child));
+
+    const labelListChildren = barChildArr.filter((child) => {
+      if (!React.isValidElement(child)) return false;
+      const type = child.type as { displayName?: string; name?: string } | string;
+      if (typeof type === 'string') return type.toLowerCase() === 'labellist';
+      const displayName = type.displayName || type.name || '';
+      return displayName.toLowerCase().includes('labellist');
+    });
+
+    if (labelListChildren.length > 0) {
+      labelListPropsDump = labelListChildren.map((child) => {
+        if (!React.isValidElement(child)) {
+          return {
+            dataKey: null,
+            position: null,
+            offset: null,
+            formatterType: typeof child,
+            contentType: typeof child
+          };
+        }
+        const props = (child as React.ReactElement).props ?? {};
+        return {
+          dataKey: props.dataKey ?? null,
+          position: props.position ?? null,
+          offset: props.offset ?? null,
+          formatterType: typeof props.formatter,
+          contentType: typeof props.content
+        };
+      });
+    }
+  }
+
   console.log('[client-212 -> chart-child-signature]', {
     mode,
     section,
@@ -322,7 +405,10 @@ function logBarChartSignature({
     stackId,
     barSize,
     domain: domainSafe,
-    animation
+    animation,
+    barPropsDump,
+    barChildrenSignature,
+    labelListPropsDump
   });
 }
 
@@ -357,11 +443,18 @@ class ChartErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
+    const errorMessage = String(error?.message ?? '');
+    const errorName = error?.name ?? null;
+    const stackHead = (error?.stack ?? '').slice(0, 300);
+
     console.log('[client-150 -> recharts-error-boundary]', {
       section: this.props.section,
-      message: error?.message,
-      name: error?.name,
+      message: errorMessage,
+      name: errorName,
+      errorMessage,
+      errorName,
       stackPresent: Boolean(error?.stack),
+      stackHead,
       componentStack: info?.componentStack ?? null,
       chartSummary: this.props.chartSummary ?? null,
       dataSummary: this.props.dataSummary ?? null
