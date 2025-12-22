@@ -1202,6 +1202,7 @@ export default function StatsDashboard({
     const featureFlags = useMemo(() => resolveBarChartFeatureFlags(mode, step), [mode, step]);
     const willRenderBarChart = featureFlags.hasBarChart && featureFlags.hasResponsiveContainer;
     const chartWrapperRef = useRef<HTMLDivElement | null>(null);
+    const chartRef = useRef<any>(null);
 
     useEffect(() => {
       if (mode !== 'minChart') return;
@@ -1453,7 +1454,7 @@ export default function StatsDashboard({
         }
 
         chartBody = (
-          <BarChart {...barChartProps}>
+          <BarChart ref={chartRef} {...barChartProps}>
             {cleanedChildren}
           </BarChart>
         );
@@ -1481,7 +1482,7 @@ export default function StatsDashboard({
           console.log('[subscription-bar-chart-props] log failed', error);
         }
         chartBody = (
-          <BarChart {...barChartProps}>
+          <BarChart ref={chartRef} {...barChartProps}>
             {normalizedParts}
           </BarChart>
         );
@@ -1531,6 +1532,47 @@ export default function StatsDashboard({
       yAxisProps
     ]);
 
+    useEffect(() => {
+      if (!featureFlags.hasBarChart) return;
+      const chartInstance = chartRef.current as any;
+      if (!chartInstance) return;
+
+      const rafId = requestAnimationFrame(() => {
+        try {
+          const state = chartInstance?.state ?? {};
+          const xAxisMap = state?.xAxisMap ?? {};
+          const yAxisMap = state?.yAxisMap ?? {};
+          const xAxis = (xAxisMap as any).x;
+          const yAxis = (yAxisMap as any).y;
+          const xBandWidth = typeof xAxis?.scale?.bandwidth === 'function' ? xAxis.scale.bandwidth() : null;
+          const xDomain = typeof xAxis?.scale?.domain === 'function' ? xAxis.scale.domain() : null;
+          const yDomain = typeof yAxis?.scale?.domain === 'function' ? yAxis.scale.domain() : null;
+          const formattedItems = (state as any).formattedGraphicalItems ?? (state as any).formatedGraphicalItems;
+          const barItems = Array.isArray(formattedItems)
+            ? formattedItems.map((item: any) => ({
+                type: item?.type?.displayName || item?.type?.name || item?.type,
+                dataKey: item?.props?.dataKey,
+                itemDataLen: item?.props?.data ? item.props.data.length : null
+              }))
+            : null;
+          console.log('[bar-internal-state]', {
+            section: 'subscription',
+            step,
+            stateKeys: Object.keys(state || {}),
+            xBandWidth,
+            xDomain,
+            yDomain,
+            barItems,
+            hasChartInstance: !!chartInstance
+          });
+        } catch (error) {
+          console.log('[bar-internal-state] log failed', error);
+        }
+      });
+
+      return () => cancelAnimationFrame(rafId);
+    }, [featureFlags.hasBarChart, step]);
+
     const wrappedChart = featureFlags.hasResponsiveContainer ? (
       <div ref={chartWrapperRef} style={{ width: '100%', height: 320, minHeight: 320 }}>
         <ResponsiveContainer width="100%" height="100%">
@@ -1566,6 +1608,8 @@ export default function StatsDashboard({
     const featureFlags = useMemo(() => resolveBarChartFeatureFlags(mode, step), [mode, step]);
     const willRenderBarChart = featureFlags.hasBarChart && featureFlags.hasResponsiveContainer;
     const chartWrapperRef = useRef<HTMLDivElement | null>(null);
+
+    const chartRef = useRef<any>(null);
 
     useEffect(() => {
       if (mode !== 'minChart') return;
@@ -1817,7 +1861,7 @@ export default function StatsDashboard({
         }
 
         chartBody = (
-          <BarChart {...barChartProps}>
+          <BarChart ref={chartRef} {...barChartProps}>
             {cleanedChildren}
           </BarChart>
         );
@@ -1845,7 +1889,7 @@ export default function StatsDashboard({
           console.log('[monthly-bar-chart-props] log failed', error);
         }
         chartBody = (
-          <BarChart {...barChartProps}>
+          <BarChart ref={chartRef} {...barChartProps}>
             {normalizedParts}
           </BarChart>
         );
@@ -1894,6 +1938,47 @@ export default function StatsDashboard({
       xAxisProps,
       yAxisProps
     ]);
+
+    useEffect(() => {
+      if (!featureFlags.hasBarChart) return;
+      const chartInstance = chartRef.current as any;
+      if (!chartInstance) return;
+
+      const rafId = requestAnimationFrame(() => {
+        try {
+          const state = chartInstance?.state ?? {};
+          const xAxisMap = state?.xAxisMap ?? {};
+          const yAxisMap = state?.yAxisMap ?? {};
+          const xAxis = (xAxisMap as any).x;
+          const yAxis = (yAxisMap as any).y;
+          const xBandWidth = typeof xAxis?.scale?.bandwidth === 'function' ? xAxis.scale.bandwidth() : null;
+          const xDomain = typeof xAxis?.scale?.domain === 'function' ? xAxis.scale.domain() : null;
+          const yDomain = typeof yAxis?.scale?.domain === 'function' ? yAxis.scale.domain() : null;
+          const formattedItems = (state as any).formattedGraphicalItems ?? (state as any).formatedGraphicalItems;
+          const barItems = Array.isArray(formattedItems)
+            ? formattedItems.map((item: any) => ({
+                type: item?.type?.displayName || item?.type?.name || item?.type,
+                dataKey: item?.props?.dataKey,
+                itemDataLen: item?.props?.data ? item.props.data.length : null
+              }))
+            : null;
+          console.log('[bar-internal-state]', {
+            section: 'monthly',
+            step,
+            stateKeys: Object.keys(state || {}),
+            xBandWidth,
+            xDomain,
+            yDomain,
+            barItems,
+            hasChartInstance: !!chartInstance
+          });
+        } catch (error) {
+          console.log('[bar-internal-state] log failed', error);
+        }
+      });
+
+      return () => cancelAnimationFrame(rafId);
+    }, [featureFlags.hasBarChart, step]);
 
     const wrappedChart = featureFlags.hasResponsiveContainer ? (
       <div ref={chartWrapperRef} style={{ width: '100%', height: 320, minHeight: 320 }}>
