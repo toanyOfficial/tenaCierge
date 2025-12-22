@@ -312,7 +312,18 @@
       - `client-203` -> chart-container-rect-raw { section, rect }
       - `client-204` -> chart-container-style-sample { section, style }
 
-19. **PR-017: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
+19. **PR-019: ErrorBoundary componentStack + runtime 버전 로그 + 최소 재현 단계 토글** — 상태: 진행
+    - 목표: invariant 발생 섹션에서 componentStack/차트/데이터 요약을 포함한 클래식 ErrorBoundary 로그 확보, 런타임 패키지 버전 및 최소 재현 차트 단계(step) 토글로 원인 축소.
+    - 변경:
+      - subscription/monthly ErrorBoundary를 class 기반으로 확장하여 componentDidCatch에서 섹션명/에러 name·message/stack 여부/componentStack/차트 props 요약/데이터 요약을 로그(`client-150`)에 포함.
+      - fingerprint를 env 기반(`NEXT_PUBLIC_GIT_SHA`, `NEXT_PUBLIC_BUILD_TIME`, `VERCEL_GIT_COMMIT_SHA`, package.json)으로 보강하고 runtime 패키지 버전 로그 추가(`client-205`).
+      - `?minChart=1&step=0..4` 토글 시 동일 데이터로 최소 BarChart를 렌더하며 단계/기능 목록을 `client-210`으로 1회 출력.
+      - package.json에서 react/recharts/next 버전 읽어 runtime 로그로 노출.
+    - 로그:
+      - `client-205` -> runtime-package-versions { react, recharts, next }
+      - `client-210` -> min-chart-step { step, features }
+
+20. **PR-017: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
     - 모든 디버그 로그/배너/임시 차트를 제거하고 기준 디자인만 남김.
     - 목표: 최종 정리.
 

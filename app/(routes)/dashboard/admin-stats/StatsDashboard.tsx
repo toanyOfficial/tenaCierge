@@ -11,10 +11,18 @@ import {
   LabelList,
   Legend,
   ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
   Rectangle
 } from 'recharts';
+import packageJson from '../../../../package.json';
+const pkgMeta = packageJson as {
+  version?: string;
+  commit?: string;
+  buildTime?: string;
+  dependencies?: Record<string, string>;
+};
 
 import styles from './stats-dashboard.module.css';
 import PR010NaNProbe from './PR010NaNProbe.client';
@@ -63,10 +71,20 @@ type Props = {
 };
 
 class ChartErrorBoundary extends React.Component<
-  { children: React.ReactNode; section: string },
+  {
+    children: React.ReactNode;
+    section: string;
+    chartSummary?: Record<string, unknown>;
+    dataSummary?: Record<string, unknown>;
+  },
   { hasError: boolean }
 > {
-  constructor(props: { children: React.ReactNode; section: string }) {
+  constructor(props: {
+    children: React.ReactNode;
+    section: string;
+    chartSummary?: Record<string, unknown>;
+    dataSummary?: Record<string, unknown>;
+  }) {
     super(props);
     this.state = { hasError: false };
   }
@@ -75,12 +93,15 @@ class ChartErrorBoundary extends React.Component<
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error) {
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.log('[client-150 -> recharts-error-boundary]', {
       section: this.props.section,
       message: error?.message,
       name: error?.name,
-      stackPresent: Boolean(error?.stack)
+      stackPresent: Boolean(error?.stack),
+      componentStack: info?.componentStack ?? null,
+      chartSummary: this.props.chartSummary ?? null,
+      dataSummary: this.props.dataSummary ?? null
     });
   }
 
@@ -98,10 +119,42 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-const minimalBarData = [
-  { label: 'Alpha', value: 12 },
-  { label: 'Beta', value: 24 }
-];
+function summarizeData(rows: Array<Record<string, unknown>>) {
+  const length = rows.length;
+  const first = rows[0] ?? null;
+  const keys = first ? Object.keys(first) : [];
+  const keyTypes: Record<string, Record<string, number>> = {};
+  let hasNaN = false;
+  let hasNullRow = false;
+
+  rows.forEach((row) => {
+    if (!row) {
+      hasNullRow = true;
+      return;
+    }
+    Object.entries(row).forEach(([key, value]) => {
+      const typeKey = Number.isNaN(value) ? 'NaN' : typeof value;
+      if (Number.isNaN(value)) hasNaN = true;
+      keyTypes[key] = keyTypes[key] ?? {};
+      keyTypes[key][typeKey] = (keyTypes[key][typeKey] ?? 0) + 1;
+    });
+  });
+
+  return { length, keys, keyTypes, hasNaN, hasNullRow };
+}
+
+function summarizeChartProps(props: {
+  hasBarChart?: boolean;
+  hasXAxis?: boolean;
+  hasYAxis?: boolean;
+  hasBar?: boolean;
+  hasTooltip?: boolean;
+  hasLegend?: boolean;
+  hasLabelList?: boolean;
+  [key: string]: unknown;
+}) {
+  return props;
+}
 
 export default function StatsDashboard({
   profile: _profile,
@@ -112,6 +165,9 @@ export default function StatsDashboard({
   const searchParams = useSearchParams();
   const unsafeCharts = searchParams?.get('unsafeCharts') === '1' || searchParams?.get('unsafeCharts') === 'true';
   const chartFilterRaw = searchParams?.get('chart');
+  const minChartEnabled = unsafeCharts && searchParams?.get('minChart') === '1';
+  const minChartStepRaw = searchParams?.get('step');
+  const minChartStep = Number.isFinite(Number(minChartStepRaw)) ? Number(minChartStepRaw) : 0;
   const allowedChartFilters = new Set(['subscription', 'monthly', 'weekday', 'pr001', 'pr010', 'all', 'none']);
   const chartFilter = chartFilterRaw && allowedChartFilters.has(chartFilterRaw) ? chartFilterRaw : null;
 
@@ -139,16 +195,33 @@ export default function StatsDashboard({
   const subscriptionHasSize =
     subscriptionRect.w !== null && subscriptionRect.w > 0 && subscriptionRect.h !== null && subscriptionRect.h > 0;
   const monthlyHasSize = monthlyRect.w !== null && monthlyRect.w > 0 && monthlyRect.h !== null && monthlyRect.h > 0;
+  const runtimeVersions = useMemo(
+    () => ({
+      react: pkgMeta.dependencies?.react ?? 'missing',
+      recharts: pkgMeta.dependencies?.recharts ?? 'missing',
+      next: pkgMeta.dependencies?.next ?? 'missing'
+    }),
+    []
+  );
 
   useEffect(() => {
+    const commit =
+      process.env.NEXT_PUBLIC_GIT_SHA ??
+      process.env.VERCEL_GIT_COMMIT_SHA ??
+      pkgMeta?.commit ??
+      pkgMeta?.version ??
+      'env:missing';
+    const buildTime = process.env.NEXT_PUBLIC_BUILD_TIME ?? pkgMeta?.buildTime ?? new Date().toISOString();
+
     console.log('[client-180 -> admin-stats-fingerprint]', {
-      commit: process.env.NEXT_PUBLIC_GIT_SHA ?? 'unknown',
-      buildTime: process.env.NEXT_PUBLIC_BUILD_TIME ?? 'unknown',
-      fileMarker: 'StatsDashboard.PR017-HOTFIX.v3',
+      commit,
+      buildTime,
+      fileMarker: 'StatsDashboard.PR017-HOTFIX.v3.min-step',
       unsafeCharts,
-      chart: chartFilter ?? 'none'
+      chart: chartFilter ?? 'none',
+      versions: runtimeVersions
     });
-  }, [chartFilter, unsafeCharts]);
+  }, [chartFilter, runtimeVersions, unsafeCharts]);
 
   useEffect(() => {
     console.log('[client-190 -> charts-toggle-state]', {
@@ -157,6 +230,10 @@ export default function StatsDashboard({
     });
     console.log('[client-191 -> charts-enabled-sections]', { enabledSections });
   }, [chartFilter, enabledSections, unsafeCharts]);
+
+  useEffect(() => {
+    console.log('[client-205 -> runtime-package-versions]', runtimeVersions);
+  }, [runtimeVersions]);
 
   const normalizedMonthlyAverages = useMemo(
     () =>
@@ -237,8 +314,110 @@ export default function StatsDashboard({
     return { data, totalFixed, roomFixed, total: data.length, allZero };
   }, [normalizedMonthlyOverview]);
 
-  const subscriptionDomain: [number, number | 'auto'] = subscriptionGuard.allZero ? [0, 1] : [0, 'auto'];
-  const monthlyDomain: [number, number | 'auto'] = monthlyGuard.allZero ? [0, 1] : [0, 'auto'];
+  const subscriptionDomain = useMemo<[number, number | 'auto']>(() => {
+    return subscriptionGuard.allZero ? [0, 1] : [0, 'auto'];
+  }, [subscriptionGuard.allZero]);
+  const monthlyDomain = useMemo<[number, number | 'auto']>(() => {
+    return monthlyGuard.allZero ? [0, 1] : [0, 'auto'];
+  }, [monthlyGuard.allZero]);
+
+  const subscriptionDataSummary = useMemo(() => summarizeData(subscriptionGuard.data), [subscriptionGuard.data]);
+  const monthlyDataSummary = useMemo(() => summarizeData(monthlyGuard.data), [monthlyGuard.data]);
+  const subscriptionChartSummary = useMemo(
+    () =>
+      summarizeChartProps({
+        hasBarChart: true,
+        hasXAxis: true,
+        hasYAxis: true,
+        hasBar: true,
+        hasTooltip: true,
+        hasLegend: true,
+        hasLabelList: true,
+        domain: subscriptionDomain,
+        barDataKey: 'subscriptionCount',
+        barSize: 20,
+        minPointSize: 1
+      }),
+    [subscriptionDomain]
+  );
+  const monthlyChartSummary = useMemo(
+    () =>
+      summarizeChartProps({
+        hasBarChart: true,
+        hasXAxis: true,
+        hasYAxis: true,
+        hasBar: true,
+        hasTooltip: true,
+        hasLegend: true,
+        hasLabelList: true,
+        domain: monthlyDomain,
+        barDataKey: 'totalCount',
+        barSize: 20,
+        minPointSize: 1
+      }),
+    [monthlyDomain]
+  );
+  const minChartFeatures = useMemo(() => {
+    const features = ['base'];
+    if (minChartStep >= 1) features.push('grid');
+    if (minChartStep >= 2) features.push('tooltip');
+    if (minChartStep >= 3) features.push('legend');
+    if (minChartStep >= 4) features.push('labelList');
+    return features;
+  }, [minChartStep]);
+  const minimalChartSummary = useMemo(
+    () =>
+      summarizeChartProps({
+        hasBarChart: true,
+        hasXAxis: true,
+        hasYAxis: true,
+        hasBar: true,
+        hasTooltip: minChartStep >= 2,
+        hasLegend: minChartStep >= 3,
+        hasLabelList: minChartStep >= 4
+      }),
+    [minChartStep]
+  );
+  useEffect(() => {
+    if (!minChartEnabled) return;
+    console.log('[client-210 -> min-chart-step]', { step: minChartStep, features: minChartFeatures });
+  }, [minChartEnabled, minChartFeatures, minChartStep]);
+  const renderMinimalBarChart = useMemo(() => {
+    const MinimalBarChart = ({
+      data,
+      domain,
+      dataKey,
+      color
+    }: {
+      data: any[];
+      domain: [number, number | 'auto'];
+      dataKey: string;
+      color: string;
+    }) => {
+      const showGrid = minChartStep >= 1;
+      const showTooltip = minChartStep >= 2;
+      const showLegend = minChartStep >= 3;
+      const showLabels = minChartStep >= 4;
+
+      return (
+        <BarChart width={520} height={320} data={data} margin={{ top: 24, right: 18, bottom: 24, left: 18 }}>
+          {showGrid ? (
+            <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
+          ) : null}
+          <XAxis dataKey="label" tickLine={false} axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }} />
+          <YAxis domain={domain} tickLine={false} axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }} />
+          {showTooltip ? <Tooltip /> : null}
+          {showLegend ? <Legend /> : null}
+          <Bar dataKey={dataKey} fill={color} isAnimationActive={false} barSize={20}>
+            {showLabels ? <LabelList dataKey={dataKey} position="top" /> : null}
+          </Bar>
+        </BarChart>
+      );
+    };
+
+    MinimalBarChart.displayName = 'MinimalBarChart';
+    return MinimalBarChart;
+  }, [minChartStep]);
 
   useEffect(() => {
     const subscriptionReason = !unsafeCharts
@@ -705,18 +884,19 @@ export default function StatsDashboard({
         </ComposedChart>
       </ResponsiveContainer>
     ),
-    [
-      BarValueLabel,
-      WeekdayLegend,
-      legendTopLeft,
-      makeBuildingLabel,
-      weekdayColorMap,
-      weekdayMax,
-      normalizedWeekdayBuildings,
-      normalizedWeekdayPoints,
-      weekdayTicks
-    ]
-  );
+      [
+        BarValueLabel,
+        WeekdayLegend,
+        legendTopLeft,
+        makeBuildingLabel,
+        weekdayColorMap,
+        weekdayMax,
+        normalizedWeekdayBuildings,
+        normalizedWeekdayPoints,
+        weekdayTicks,
+        weekdayBarShape
+      ]
+    );
 
   return (
     <div className={styles.shell}>
@@ -733,7 +913,11 @@ export default function StatsDashboard({
         </header>
 
         <div className={styles.graphGrid}>
-      <ChartErrorBoundary section="subscription">
+      <ChartErrorBoundary
+        section="subscription"
+        chartSummary={subscriptionChartSummary}
+        dataSummary={subscriptionDataSummary}
+      >
         <section id="chart-subscription" className={styles.graphCard} aria-label="요금제별 통계">
           <div className={styles.graphHeading}>
             <p className={styles.graphTitle}>요금제별 통계</p>
@@ -758,7 +942,11 @@ export default function StatsDashboard({
           </section>
         </ChartErrorBoundary>
 
-        <ChartErrorBoundary section="monthly">
+        <ChartErrorBoundary
+          section="monthly"
+          chartSummary={monthlyChartSummary}
+          dataSummary={monthlyDataSummary}
+        >
             <section id="chart-monthly" className={styles.graphCard} aria-label="월별 통계">
           <div className={styles.graphHeading}>
             <p className={styles.graphTitle}>월별 통계</p>
@@ -830,6 +1018,56 @@ export default function StatsDashboard({
               </div>
             </section>
           </ChartErrorBoundary>
+
+          {minChartEnabled ? (
+            <ChartErrorBoundary
+              section="min-subscription"
+              chartSummary={minimalChartSummary}
+              dataSummary={subscriptionDataSummary}
+            >
+              <section className={styles.graphCard} aria-label="PR-018 minimal subscription chart">
+                <div className={styles.graphHeading}>
+                  <p className={styles.graphTitle}>PR-018 최소 재현 (Subscription)</p>
+                  <p className={styles.graphSubtitle}>step={minChartStep}</p>
+                </div>
+                <div className={styles.graphSurface} aria-hidden="true">
+                  <div className={styles.mixedChart} style={{ minHeight: 320 }}>
+                    {renderMinimalBarChart({
+                      data: subscriptionGuard.data,
+                      domain: subscriptionDomain,
+                      dataKey: 'subscriptionCount',
+                      color: '#22c55e'
+                    })}
+                  </div>
+                </div>
+              </section>
+            </ChartErrorBoundary>
+          ) : null}
+
+          {minChartEnabled ? (
+            <ChartErrorBoundary
+              section="min-monthly"
+              chartSummary={minimalChartSummary}
+              dataSummary={monthlyDataSummary}
+            >
+              <section className={styles.graphCard} aria-label="PR-018 minimal monthly chart">
+                <div className={styles.graphHeading}>
+                  <p className={styles.graphTitle}>PR-018 최소 재현 (Monthly)</p>
+                  <p className={styles.graphSubtitle}>step={minChartStep}</p>
+                </div>
+                <div className={styles.graphSurface} aria-hidden="true">
+                  <div className={styles.mixedChart} style={{ minHeight: 320 }}>
+                    {renderMinimalBarChart({
+                      data: monthlyGuard.data,
+                      domain: monthlyDomain,
+                      dataKey: 'totalCount',
+                      color: '#6366f1'
+                    })}
+                  </div>
+                </div>
+              </section>
+            </ChartErrorBoundary>
+          ) : null}
         </div>
       </div>
     </div>
