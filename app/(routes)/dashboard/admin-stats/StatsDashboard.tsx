@@ -87,9 +87,10 @@ export default function StatsDashboard({
   const minimalChartRef = useRef<HTMLDivElement | null>(null);
   const minimalBarShapeLog = useRef<Set<string>>(new Set());
   const barShapeLogCounters = useRef<Record<string, number>>({});
+  const barShapeOnceLogGuard = useRef<Set<string>>(new Set());
 
   const debugBarShapes = useMemo(() => {
-    const createShape = (logId: string) =>
+    const createShape = (logId: string, onceLogId?: string) =>
       function DebugBarShape(props: any) {
         const { x, y, width, height, value, index, dataKey, fill, background } = props ?? {};
         const current = barShapeLogCounters.current[logId] ?? 0;
@@ -109,12 +110,28 @@ export default function StatsDashboard({
           });
         }
 
+        if (onceLogId && !barShapeOnceLogGuard.current.has(onceLogId)) {
+          barShapeOnceLogGuard.current.add(onceLogId);
+          console.log(`[${onceLogId} -> shape-props snapshot]`, {
+            index,
+            value,
+            valueType: typeof value,
+            y,
+            height,
+            isYFinite: Number.isFinite(y),
+            isHeightFinite: Number.isFinite(height),
+            fill,
+            stackId: props?.stackId,
+            yAxisId: props?.yAxisId
+          });
+        }
+
         return <RechartsRectangle {...props} />;
       };
 
     return {
-      subscription: createShape('client-080'),
-      monthly: createShape('client-081'),
+      subscription: createShape('client-080', 'client-110'),
+      monthly: createShape('client-081', 'client-111'),
       weekday: createShape('client-082')
     };
   }, []);
@@ -557,6 +574,26 @@ export default function StatsDashboard({
     normalizedWeekdayPoints
   ]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const targets = [
+        { id: 'chart-subscription', logId: 'client-112' },
+        { id: 'chart-monthly', logId: 'client-113' }
+      ];
+
+      targets.forEach(({ id, logId }) => {
+        const barPaths = document.querySelectorAll<SVGPathElement>(
+          `#${id} .recharts-layer.recharts-bar-rectangle path.recharts-rectangle`
+        );
+        console.log(`[${logId} -> ${id}-barPathCount-solid-fill]`, {
+          barPathCount: barPaths.length
+        });
+      });
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   const planMax = useMemo(() => {
     const peak = Math.max(
       ...normalizedMonthlyAverages.map((row) => Math.max(row.subscriptionCount, row.perOrderCount)),
@@ -783,7 +820,7 @@ export default function StatsDashboard({
           <Bar
             dataKey="subscriptionCount"
             yAxisId="left"
-            fill="url(#planBarGradient)"
+            fill="#22c55e"
             barSize={20}
             radius={[6, 6, 0, 0]}
             minPointSize={1}
@@ -867,7 +904,7 @@ export default function StatsDashboard({
           <Bar
             dataKey="totalCount"
             yAxisId="right"
-            fill="url(#totalCountGradient)"
+            fill="#6366f1"
             barSize={20}
             radius={[6, 6, 0, 0]}
             minPointSize={1}
