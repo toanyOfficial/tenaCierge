@@ -239,8 +239,8 @@ function resolveBarChartFeatureFlags(mode: ChartMode, step: number): BarChartFea
 }
 
 function sanitizeBarProps(
-  props: BarProps
-): { cleaned: BarProps; nullFlags: { barLabelIsNull: boolean; barSizeIsNull: boolean; stackIdIsNull: boolean } } {
+  props: Partial<BarProps>
+): { cleaned: Partial<BarProps>; nullFlags: { barLabelIsNull: boolean; barSizeIsNull: boolean; stackIdIsNull: boolean } } {
   const nullFlags = {
     barLabelIsNull: 'label' in props ? props.label === null : false,
     barSizeIsNull: 'barSize' in props ? props.barSize === null : false,
@@ -248,8 +248,12 @@ function sanitizeBarProps(
   };
 
   const cleaned = Object.fromEntries(
-    Object.entries(props as unknown as Record<string, unknown>).filter(([, value]) => value !== null)
-  ) as unknown as BarProps;
+    Object.entries(props as unknown as Record<string, unknown>).filter(([key, value]) => {
+      if (value === null || value === undefined) return false;
+      if (value === false && key !== 'isAnimationActive') return false;
+      return true;
+    })
+  ) as unknown as Partial<BarProps>;
 
   return { cleaned, nullFlags } as const;
 }
@@ -1185,17 +1189,13 @@ export default function StatsDashboard({
       const { cleaned: sanitizedBarProps } = sanitizeBarProps({
         dataKey: 'subscriptionCount',
         fill: '#22c55e',
-        barSize: featureFlags.barSize ?? undefined,
-        radius: featureFlags.radius ?? undefined,
         minPointSize: 1,
-        stackId: featureFlags.stackIdUsed ? 'subscription' : undefined,
         isAnimationActive: featureFlags.animation === 'default' ? undefined : featureFlags.animation,
-        label: featureFlags.hasLabelList ? undefined : false
       });
 
       parts.push(
         <Bar key="bar" {...(sanitizedBarProps as any)}>
-          {barChildren}
+          {barChildren.length > 0 ? barChildren : null}
         </Bar>
       );
     }
@@ -1380,17 +1380,13 @@ export default function StatsDashboard({
       const { cleaned: sanitizedBarProps } = sanitizeBarProps({
         dataKey: 'totalCount',
         fill: '#6366f1',
-        barSize: featureFlags.barSize ?? undefined,
-        radius: featureFlags.radius ?? undefined,
         minPointSize: 1,
-        stackId: featureFlags.stackIdUsed ? 'monthly' : undefined,
-        isAnimationActive: featureFlags.animation === 'default' ? undefined : featureFlags.animation,
-        label: featureFlags.hasLabelList ? undefined : false
+        isAnimationActive: featureFlags.animation === 'default' ? undefined : featureFlags.animation
       });
 
       parts.push(
         <Bar key="bar" {...(sanitizedBarProps as any)}>
-          {barChildren}
+          {barChildren.length > 0 ? barChildren : null}
         </Bar>
       );
     }
