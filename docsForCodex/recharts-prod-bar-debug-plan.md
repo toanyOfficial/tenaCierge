@@ -233,12 +233,23 @@
       - `client-124` -> subscription YAxis config (domain/allowDataOverflow/scale/yAxisId)
       - `client-125` -> monthly YAxis config(좌/우) 스냅샷
 
-13. **PR-013: axisId 명시로 Bar↔Axis 매칭 고정(구독/월별)** — 상태: 진행
-    - 목표: `chart-subscription`, `chart-monthly` Bar가 명시적 `xAxisId/yAxisId`를 사용하도록 강제해 NaN(y/height) 및 barPathCount=0 문제를 해소하는지 확인.
-    - 변경: 두 차트의 XAxis/Bar에 `xAxisId="x"`, YAxis/Bar에 명시적 `yAxisId` 부여, mount 후 barPathCount 재계측.
+13. **PR-013: axisId 명시 고정(구독/월별)** — 상태: 실패
+    - 목표: `xAxisId/yAxisId`를 Bar/Axis에 강제 지정해 NaN 문제를 제거하려 했으나 prod에서 "Invariant violation" 크래시 발생.
     - 로그:
       - `client-130` -> subscription barPathCount after axis fix
       - `client-131` -> monthly barPathCount after axis fix
+
+13-a. **PR-013-HOTFIX: invariant 크래시 방지 + axisId 안전 적용** — 상태: 진행
+    - 목표: admin-stats 페이지 크래시를 막고, axis 매칭 상태를 안전하게 계측.
+    - 변경:
+      - charts 영역에 ErrorBoundary 추가 → 크래시 시 화면 유지 + `[client-140]` 로그
+      - Bar의 `xAxisId` 강제 제거, `yAxisId`만 안전하게 명시(구독:left, 월별:right)
+      - mount 800ms 후 axis/DOM 상태 계측(`client-141/142`)
+    - 로그:
+      - `client-140` -> recharts-error-boundary catch 로그
+      - `client-141` -> subscription axis/dom sanity
+      - `client-142` -> monthly axis/dom sanity
+      - 기존 shape 로그 `client-120/121` 유지(축 id undefined 여부 확인)
 
 14. **PR-014: 생성/정렬 고정 실험(보류)** — 상태: 보류
     - 실제 대시보드 차트에서 Bar 생성용 key 배열 정렬/고정, stack 순서 명시.

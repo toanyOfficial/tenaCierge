@@ -68,6 +68,33 @@ const MONTHLY_LEFT_Y_AXIS_DOMAIN: [number, number | 'auto'] = [0, 'auto'];
 const MONTHLY_RIGHT_Y_AXIS_DOMAIN: [number, number | 'auto'] = [0, 'auto'];
 const DEBUG_BAR_SHAPE_LIMIT = 10;
 
+class ChartErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.log('[client-140 -> recharts-error-boundary]', {
+      message: error?.message,
+      name: error?.name,
+      stackPresent: Boolean(error?.stack)
+    });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <div>Chart render error</div>;
+    }
+
+    return this.props.children;
+  }
+}
+
 function toNumber(value: unknown, fallback = 0) {
   const parsed = Number(value ?? fallback);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -617,6 +644,23 @@ export default function StatsDashboard({
 
       logDomAfter('chart-subscription', 'client-122');
       logDomAfter('chart-monthly', 'client-123');
+
+      const logAxisDomSanity = (id: string, logId: string) => {
+        const root = document.getElementById(id);
+        console.log(`[${logId} -> ${id}-axis-dom-sanity]`, {
+          svgCount: root?.querySelectorAll('svg').length ?? 0,
+          yAxisCount: root?.querySelectorAll('.recharts-yAxis').length ?? 0,
+          xAxisCount: root?.querySelectorAll('.recharts-xAxis').length ?? 0,
+          barRectangleLayers: root?.querySelectorAll('.recharts-layer.recharts-bar-rectangle').length ?? 0,
+          barPathCount:
+            root?.querySelectorAll<SVGPathElement>('.recharts-layer.recharts-bar-rectangle path.recharts-rectangle')
+              .length ?? 0,
+          clipPathCount: root?.querySelectorAll('svg clipPath').length ?? 0
+        });
+      };
+
+      logAxisDomSanity('chart-subscription', 'client-141');
+      logAxisDomSanity('chart-monthly', 'client-142');
     }, 800);
 
     return () => clearTimeout(timer);
@@ -901,7 +945,6 @@ export default function StatsDashboard({
             barSize={20}
             radius={[6, 6, 0, 0]}
             minPointSize={1}
-            xAxisId="x"
             yAxisId="left"
             shape={debugBarShapes.subscription}
           >
@@ -987,7 +1030,6 @@ export default function StatsDashboard({
             barSize={20}
             radius={[6, 6, 0, 0]}
             minPointSize={1}
-            xAxisId="x"
             yAxisId="right"
             shape={debugBarShapes.monthly}
           >
@@ -1108,71 +1150,73 @@ export default function StatsDashboard({
           </div>
         </header>
 
-        <div className={styles.graphGrid}>
-          <section
-            id="chart-subscription"
-            className={styles.graphCard}
-            aria-label="요금제별 통계"
-          >
-            <div className={styles.graphHeading}>
-              <p className={styles.graphTitle}>요금제별 통계</p>
-            </div>
-            <div className={styles.graphSurface} aria-hidden="true">
-              <div className={styles.mixedChart}>{planChart}</div>
-            </div>
-          </section>
-
-          <section id="chart-monthly" className={styles.graphCard} aria-label="월별 통계">
-            <div className={styles.graphHeading}>
-              <p className={styles.graphTitle}>월별 통계</p>
-            </div>
-            <div className={styles.graphSurface} aria-hidden="true">
-              <div className={styles.mixedChart}>{monthlyTotalsChart}</div>
-            </div>
-          </section>
-
-          <section id="chart-weekday" className={styles.graphCard} aria-label="요일별 통계">
-            <div className={styles.graphHeading}>
-              <p className={styles.graphTitle}>요일별 통계</p>
-            </div>
-            <div className={styles.graphSurface} aria-hidden="true">
-              <div className={styles.mixedChart}>{weekdayChart}</div>
-            </div>
-          </section>
-
-          {/* ===========================
-              PR-001: Fixed BarChart Debug
-              =========================== */}
-          <section className={styles.graphCard} style={{ border: '2px dashed red' }}>
-            <h3 style={{ color: 'red' }}>고정형 BarChart 진단 (PR-001)</h3>
-
-            <div
-              id="pr-001-fixed-chart"
-              ref={minimalChartRef}
-              style={{
-                width: 520,
-                height: 320,
-                background: '#fff',
-                marginTop: 12
-              }}
+        <ChartErrorBoundary>
+          <div className={styles.graphGrid}>
+            <section
+              id="chart-subscription"
+              className={styles.graphCard}
+              aria-label="요금제별 통계"
             >
-              {(() => {
-                console.log('[client-003] PR-001 debug card mounted');
-                return <PR001ClientOnlyChart />;
-              })()}
-            </div>
-          </section>
+              <div className={styles.graphHeading}>
+                <p className={styles.graphTitle}>요금제별 통계</p>
+              </div>
+              <div className={styles.graphSurface} aria-hidden="true">
+                <div className={styles.mixedChart}>{planChart}</div>
+              </div>
+            </section>
 
-          <section className={styles.graphCard} style={{ border: '2px dashed #f97316' }}>
-            <h3 style={{ color: '#f97316' }}>PR-010 NaN Probe (subscription/monthly)</h3>
-            <div style={{ marginTop: 12 }}>
-              <PR010NaNProbe
-                subscriptionData={normalizedMonthlyAverages}
-                monthlyData={normalizedMonthlyOverview}
-              />
-            </div>
-          </section>
-        </div>
+            <section id="chart-monthly" className={styles.graphCard} aria-label="월별 통계">
+              <div className={styles.graphHeading}>
+                <p className={styles.graphTitle}>월별 통계</p>
+              </div>
+              <div className={styles.graphSurface} aria-hidden="true">
+                <div className={styles.mixedChart}>{monthlyTotalsChart}</div>
+              </div>
+            </section>
+
+            <section id="chart-weekday" className={styles.graphCard} aria-label="요일별 통계">
+              <div className={styles.graphHeading}>
+                <p className={styles.graphTitle}>요일별 통계</p>
+              </div>
+              <div className={styles.graphSurface} aria-hidden="true">
+                <div className={styles.mixedChart}>{weekdayChart}</div>
+              </div>
+            </section>
+
+            {/* ===========================
+                PR-001: Fixed BarChart Debug
+                =========================== */}
+            <section className={styles.graphCard} style={{ border: '2px dashed red' }}>
+              <h3 style={{ color: 'red' }}>고정형 BarChart 진단 (PR-001)</h3>
+
+              <div
+                id="pr-001-fixed-chart"
+                ref={minimalChartRef}
+                style={{
+                  width: 520,
+                  height: 320,
+                  background: '#fff',
+                  marginTop: 12
+                }}
+              >
+                {(() => {
+                  console.log('[client-003] PR-001 debug card mounted');
+                  return <PR001ClientOnlyChart />;
+                })()}
+              </div>
+            </section>
+
+            <section className={styles.graphCard} style={{ border: '2px dashed #f97316' }}>
+              <h3 style={{ color: '#f97316' }}>PR-010 NaN Probe (subscription/monthly)</h3>
+              <div style={{ marginTop: 12 }}>
+                <PR010NaNProbe
+                  subscriptionData={normalizedMonthlyAverages}
+                  monthlyData={normalizedMonthlyOverview}
+                />
+              </div>
+            </section>
+          </div>
+        </ChartErrorBoundary>
       </div>
     </div>
   );
