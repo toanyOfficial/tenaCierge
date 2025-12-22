@@ -1368,6 +1368,7 @@ export default function StatsDashboard({
     }, [mode, step, willRenderBarChart]);
 
     let chartBody: React.ReactNode;
+    const barChartProps = { data: dataForChart, margin: { top: 54, right: 18, bottom: 24, left: 18 } };
 
     if (!featureFlags.hasBarChart) {
       chartBody = <div data-minchart="1" data-step={step} data-section="subscription" />;
@@ -1411,6 +1412,9 @@ export default function StatsDashboard({
           if (typeof window !== 'undefined') {
             (window as any).__lastSubscriptionData = dataForChart;
             (window as any).__lastSubscriptionChildren = cleanedChildren;
+            (window as any).__lastSubscriptionBarChartProps = barChartProps;
+            (window as any).__lastSubscriptionXAxisProps = xAxisProps;
+            (window as any).__lastSubscriptionYAxisProps = yAxisProps;
           }
           const chartPropsDump = {
             width: undefined,
@@ -1425,12 +1429,15 @@ export default function StatsDashboard({
             keys: dataForChart?.[0] ? Object.keys(dataForChart[0]) : []
           });
           console.log('[__lastSubscriptionBarChartProps]', chartPropsDump);
+          console.log('[barChartProps-final][subscription]', barChartProps);
+          console.log('[xAxisProps-final][subscription]', xAxisProps);
+          console.log('[yAxisProps-final][subscription]', yAxisProps);
         } catch (error) {
           console.log('[subscription-bar-chart-props] log failed', error);
         }
 
         chartBody = (
-          <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
+          <BarChart {...barChartProps}>
             {cleanedChildren}
           </BarChart>
         );
@@ -1444,8 +1451,21 @@ export default function StatsDashboard({
           yAxisProps: yAxisProps as Record<string, unknown> | null,
           barProps: (barProps as Record<string, unknown> | null) ?? null
         });
+
+        try {
+          if (typeof window !== 'undefined') {
+            (window as any).__lastSubscriptionBarChartProps = barChartProps;
+            (window as any).__lastSubscriptionXAxisProps = xAxisProps;
+            (window as any).__lastSubscriptionYAxisProps = yAxisProps;
+          }
+          console.log('[barChartProps-final][subscription]', barChartProps);
+          console.log('[xAxisProps-final][subscription]', xAxisProps);
+          console.log('[yAxisProps-final][subscription]', yAxisProps);
+        } catch (error) {
+          console.log('[subscription-bar-chart-props] log failed', error);
+        }
         chartBody = (
-          <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
+          <BarChart {...barChartProps}>
             {normalizedParts}
           </BarChart>
         );
@@ -1649,6 +1669,7 @@ export default function StatsDashboard({
     }, [mode, step, willRenderBarChart]);
 
     let chartBody: React.ReactNode;
+    const barChartProps = { data: dataForChart, margin: { top: 54, right: 18, bottom: 24, left: 18 } };
 
     if (!featureFlags.hasBarChart) {
       chartBody = <div data-minchart="1" data-step={step} data-section="monthly" />;
@@ -1692,6 +1713,9 @@ export default function StatsDashboard({
           if (typeof window !== 'undefined') {
             (window as any).__lastMonthlyData = dataForChart;
             (window as any).__lastMonthlyChildren = cleanedChildren;
+            (window as any).__lastMonthlyBarChartProps = barChartProps;
+            (window as any).__lastMonthlyXAxisProps = xAxisProps;
+            (window as any).__lastMonthlyYAxisProps = yAxisProps;
           }
           const chartPropsDump = {
             width: undefined,
@@ -1706,12 +1730,15 @@ export default function StatsDashboard({
             keys: dataForChart?.[0] ? Object.keys(dataForChart[0]) : []
           });
           console.log('[__lastMonthlyBarChartProps]', chartPropsDump);
+          console.log('[barChartProps-final][monthly]', barChartProps);
+          console.log('[xAxisProps-final][monthly]', xAxisProps);
+          console.log('[yAxisProps-final][monthly]', yAxisProps);
         } catch (error) {
           console.log('[monthly-bar-chart-props] log failed', error);
         }
 
         chartBody = (
-          <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
+          <BarChart {...barChartProps}>
             {cleanedChildren}
           </BarChart>
         );
@@ -1725,8 +1752,21 @@ export default function StatsDashboard({
           yAxisProps: yAxisProps as Record<string, unknown> | null,
           barProps: (barProps as Record<string, unknown> | null) ?? null
         });
+
+        try {
+          if (typeof window !== 'undefined') {
+            (window as any).__lastMonthlyBarChartProps = barChartProps;
+            (window as any).__lastMonthlyXAxisProps = xAxisProps;
+            (window as any).__lastMonthlyYAxisProps = yAxisProps;
+          }
+          console.log('[barChartProps-final][monthly]', barChartProps);
+          console.log('[xAxisProps-final][monthly]', xAxisProps);
+          console.log('[yAxisProps-final][monthly]', yAxisProps);
+        } catch (error) {
+          console.log('[monthly-bar-chart-props] log failed', error);
+        }
         chartBody = (
-          <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
+          <BarChart {...barChartProps}>
             {normalizedParts}
           </BarChart>
         );
