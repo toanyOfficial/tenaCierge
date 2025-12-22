@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
 import {
   Bar,
   BarChart,
@@ -68,8 +69,11 @@ const MONTHLY_LEFT_Y_AXIS_DOMAIN: [number, number | 'auto'] = [0, 'auto'];
 const MONTHLY_RIGHT_Y_AXIS_DOMAIN: [number, number | 'auto'] = [0, 'auto'];
 const DEBUG_BAR_SHAPE_LIMIT = 10;
 
-class ChartErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
-  constructor(props: { children: React.ReactNode }) {
+class ChartErrorBoundary extends React.Component<
+  { children: React.ReactNode; section: string },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode; section: string }) {
     super(props);
     this.state = { hasError: false };
   }
@@ -79,7 +83,8 @@ class ChartErrorBoundary extends React.Component<{ children: React.ReactNode }, 
   }
 
   componentDidCatch(error: Error) {
-    console.log('[client-140 -> recharts-error-boundary]', {
+    console.log('[client-150 -> recharts-error-boundary]', {
+      section: this.props.section,
       message: error?.message,
       name: error?.name,
       stackPresent: Boolean(error?.stack)
@@ -88,7 +93,7 @@ class ChartErrorBoundary extends React.Component<{ children: React.ReactNode }, 
 
   render() {
     if (this.state.hasError) {
-      return <div>Chart render error</div>;
+      return <div>{`Chart render error (section=${this.props.section})`}</div>;
     }
 
     return this.props.children;
@@ -111,6 +116,7 @@ export default function StatsDashboard({
   monthlyOverview,
   weekdayStats
 }: Props) {
+  const searchParams = useSearchParams();
   const minimalChartRef = useRef<HTMLDivElement | null>(null);
   const minimalBarShapeLog = useRef<Set<string>>(new Set());
   const barShapeLogCounters = useRef<Record<string, number>>({});
@@ -238,6 +244,27 @@ export default function StatsDashboard({
     }),
     [weekdayStats.points]
   );
+
+  const enabledSections = useMemo(() => {
+    const param = searchParams.get('chart');
+    const chart = param ?? 'all';
+    const enabled = {
+      subscription: chart === 'all' || chart === 'subscription',
+      monthly: chart === 'all' || chart === 'monthly',
+      weekday: chart === 'all' || chart === 'weekday',
+      pr001: chart === 'all' || chart === 'pr001',
+      pr010: chart === 'all' || chart === 'pr010'
+    } as const;
+
+    console.log('[client-151 -> chart-render-toggle]', {
+      chart,
+      enabledSections: Object.entries(enabled)
+        .filter(([, value]) => value)
+        .map(([key]) => key)
+    });
+
+    return enabled;
+  }, [searchParams]);
 
   useEffect(() => {
     console.log('[client-001 -> minimal-fixed-barchart-mounted -> 고정형 BarChart 렌더 준비]', {
@@ -1150,73 +1177,91 @@ export default function StatsDashboard({
           </div>
         </header>
 
-        <ChartErrorBoundary>
-          <div className={styles.graphGrid}>
-            <section
-              id="chart-subscription"
-              className={styles.graphCard}
-              aria-label="요금제별 통계"
-            >
-              <div className={styles.graphHeading}>
-                <p className={styles.graphTitle}>요금제별 통계</p>
-              </div>
-              <div className={styles.graphSurface} aria-hidden="true">
-                <div className={styles.mixedChart}>{planChart}</div>
-              </div>
-            </section>
-
-            <section id="chart-monthly" className={styles.graphCard} aria-label="월별 통계">
-              <div className={styles.graphHeading}>
-                <p className={styles.graphTitle}>월별 통계</p>
-              </div>
-              <div className={styles.graphSurface} aria-hidden="true">
-                <div className={styles.mixedChart}>{monthlyTotalsChart}</div>
-              </div>
-            </section>
-
-            <section id="chart-weekday" className={styles.graphCard} aria-label="요일별 통계">
-              <div className={styles.graphHeading}>
-                <p className={styles.graphTitle}>요일별 통계</p>
-              </div>
-              <div className={styles.graphSurface} aria-hidden="true">
-                <div className={styles.mixedChart}>{weekdayChart}</div>
-              </div>
-            </section>
-
-            {/* ===========================
-                PR-001: Fixed BarChart Debug
-                =========================== */}
-            <section className={styles.graphCard} style={{ border: '2px dashed red' }}>
-              <h3 style={{ color: 'red' }}>고정형 BarChart 진단 (PR-001)</h3>
-
-              <div
-                id="pr-001-fixed-chart"
-                ref={minimalChartRef}
-                style={{
-                  width: 520,
-                  height: 320,
-                  background: '#fff',
-                  marginTop: 12
-                }}
+        <div className={styles.graphGrid}>
+          {enabledSections.subscription && (
+            <ChartErrorBoundary section="subscription">
+              <section
+                id="chart-subscription"
+                className={styles.graphCard}
+                aria-label="요금제별 통계"
               >
-                {(() => {
-                  console.log('[client-003] PR-001 debug card mounted');
-                  return <PR001ClientOnlyChart />;
-                })()}
-              </div>
-            </section>
+                <div className={styles.graphHeading}>
+                  <p className={styles.graphTitle}>요금제별 통계</p>
+                </div>
+                <div className={styles.graphSurface} aria-hidden="true">
+                  <div className={styles.mixedChart}>{planChart}</div>
+                </div>
+              </section>
+            </ChartErrorBoundary>
+          )}
 
-            <section className={styles.graphCard} style={{ border: '2px dashed #f97316' }}>
-              <h3 style={{ color: '#f97316' }}>PR-010 NaN Probe (subscription/monthly)</h3>
-              <div style={{ marginTop: 12 }}>
-                <PR010NaNProbe
-                  subscriptionData={normalizedMonthlyAverages}
-                  monthlyData={normalizedMonthlyOverview}
-                />
-              </div>
-            </section>
-          </div>
-        </ChartErrorBoundary>
+          {enabledSections.monthly && (
+            <ChartErrorBoundary section="monthly">
+              <section id="chart-monthly" className={styles.graphCard} aria-label="월별 통계">
+                <div className={styles.graphHeading}>
+                  <p className={styles.graphTitle}>월별 통계</p>
+                </div>
+                <div className={styles.graphSurface} aria-hidden="true">
+                  <div className={styles.mixedChart}>{monthlyTotalsChart}</div>
+                </div>
+              </section>
+            </ChartErrorBoundary>
+          )}
+
+          {enabledSections.weekday && (
+            <ChartErrorBoundary section="weekday">
+              <section id="chart-weekday" className={styles.graphCard} aria-label="요일별 통계">
+                <div className={styles.graphHeading}>
+                  <p className={styles.graphTitle}>요일별 통계</p>
+                </div>
+                <div className={styles.graphSurface} aria-hidden="true">
+                  <div className={styles.mixedChart}>{weekdayChart}</div>
+                </div>
+              </section>
+            </ChartErrorBoundary>
+          )}
+
+          {/* ===========================
+              PR-001: Fixed BarChart Debug
+              =========================== */}
+          {enabledSections.pr001 && (
+            <ChartErrorBoundary section="pr-001">
+              <section className={styles.graphCard} style={{ border: '2px dashed red' }}>
+                <h3 style={{ color: 'red' }}>고정형 BarChart 진단 (PR-001)</h3>
+
+                <div
+                  id="pr-001-fixed-chart"
+                  ref={minimalChartRef}
+                  style={{
+                    width: 520,
+                    height: 320,
+                    background: '#fff',
+                    marginTop: 12
+                  }}
+                >
+                  {(() => {
+                    console.log('[client-003] PR-001 debug card mounted');
+                    return <PR001ClientOnlyChart />;
+                  })()}
+                </div>
+              </section>
+            </ChartErrorBoundary>
+          )}
+
+          {enabledSections.pr010 && (
+            <ChartErrorBoundary section="pr-010">
+              <section className={styles.graphCard} style={{ border: '2px dashed #f97316' }}>
+                <h3 style={{ color: '#f97316' }}>PR-010 NaN Probe (subscription/monthly)</h3>
+                <div style={{ marginTop: 12 }}>
+                  <PR010NaNProbe
+                    subscriptionData={normalizedMonthlyAverages}
+                    monthlyData={normalizedMonthlyOverview}
+                  />
+                </div>
+              </section>
+            </ChartErrorBoundary>
+          )}
+        </div>
       </div>
     </div>
   );

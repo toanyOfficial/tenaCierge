@@ -239,27 +239,36 @@
       - `client-130` -> subscription barPathCount after axis fix
       - `client-131` -> monthly barPathCount after axis fix
 
-13-a. **PR-013-HOTFIX: invariant 크래시 방지 + axisId 안전 적용** — 상태: 진행
+13-a. **PR-013-HOTFIX: invariant 크래시 방지 + axisId 안전 적용** — 상태: 검증완료
     - 목표: admin-stats 페이지 크래시를 막고, axis 매칭 상태를 안전하게 계측.
     - 변경:
-      - charts 영역에 ErrorBoundary 추가 → 크래시 시 화면 유지 + `[client-140]` 로그
+      - charts 영역에 ErrorBoundary 추가 → 크래시 시 화면 유지 + `[client-150]` 로그
       - Bar의 `xAxisId` 강제 제거, `yAxisId`만 안전하게 명시(구독:left, 월별:right)
       - mount 800ms 후 axis/DOM 상태 계측(`client-141/142`)
     - 로그:
-      - `client-140` -> recharts-error-boundary catch 로그
+      - `client-150` -> recharts-error-boundary catch 로그
       - `client-141` -> subscription axis/dom sanity
       - `client-142` -> monthly axis/dom sanity
       - 기존 shape 로그 `client-120/121` 유지(축 id undefined 여부 확인)
 
-14. **PR-014: 생성/정렬 고정 실험(보류)** — 상태: 보류
+14. **PR-014: Invariant 범인 분리(섹션별 ErrorBoundary + 렌더 토글)** — 상태: 진행
+    - 목표: 어떤 카드(구독/월별/요일별/PR-001/PR-010 등)가 invariant를 발생시키는지 단번에 특정하고, URL 쿼리로 해당 카드만 렌더해 단독 재현 여부를 확인.
+    - 변경:
+      - 차트 섹션별로 개별 ErrorBoundary 적용(fallback: `Chart render error (section=<name>)`).
+      - `?chart=` 쿼리로 렌더 섹션 토글(`subscription|monthly|weekday|pr001|pr010|all`).
+    - 로그:
+      - `client-150` -> boundary catch 시 섹션명 포함 로그
+      - `client-151` -> chart-render-toggle (쿼리값 및 활성 섹션)
+
+15. **PR-015: 생성/정렬 고정 실험(보류)** — 상태: 보류
     - 실제 대시보드 차트에서 Bar 생성용 key 배열 정렬/고정, stack 순서 명시.
     - 목표: prod에서 순서 반전·중간 누락이 키 순서 문제인지 검증.
 
-15. **PR-015: 원인 확정 후 최소 수정 반영** — 상태: 예정
+16. **PR-016: 원인 확정 후 최소 수정 반영** — 상태: 예정
     - 위 실험 결과에 따라 최소 수정으로 prod Bar 렌더 복구.
     - 로그: 문제 해결 근거를 남기고, 해결 확인 후 상태 `검증완료`.
 
-16. **PR-016: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
+17. **PR-017: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
     - 모든 디버그 로그/배너/임시 차트를 제거하고 기준 디자인만 남김.
     - 목표: 최종 정리.
 
