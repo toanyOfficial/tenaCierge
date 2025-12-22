@@ -274,10 +274,10 @@ function useChartIdentityLogger(input: ChartIdentityLogInput) {
   }, [payload]);
 }
 
-function logBarChartSignature({
-  mode,
-  section,
-  step,
+  function logBarChartSignature({
+    mode,
+    section,
+    step,
   children,
   data,
   xAxisKey,
@@ -434,7 +434,62 @@ function logBarChartSignature({
     barSizeIsNull,
     stackIdIsNull
   });
-}
+  }
+
+  function logPreRechartsChildren({
+    mode,
+    section,
+    step,
+    children
+  }: {
+    mode: ChartMode;
+    section: 'subscription' | 'monthly';
+    step: number;
+    children: React.ReactNode;
+  }) {
+    const arr = React.Children.toArray(children);
+    const summary = arr.map((child) => {
+      const isValid = React.isValidElement(child);
+      const type = (() => {
+        if (!isValid) return typeof child;
+        const t = (child as React.ReactElement).type as { displayName?: string; name?: string } | string;
+        if (typeof t === 'string') return t;
+        return t.displayName || t.name || 'anonymous';
+      })();
+
+      const propsKeys = isValid ? Object.keys((child as React.ReactElement).props ?? {}) : [];
+
+      return { type, propsKeys };
+    });
+
+    console.log('[pre-recharts-children]', {
+      mode,
+      section,
+      step,
+      length: arr.length,
+      children: summary
+    });
+  }
+
+  function normalizeChartChildrenOrder(children: React.ReactElement[]): React.ReactElement[] {
+    const priority: Record<string, number> = {
+      grid: 1,
+      'x-axis': 2,
+      'y-axis': 3,
+      tooltip: 4,
+      legend: 5,
+      bar: 6
+    };
+
+    return [...children].sort((a, b) => {
+      const aKey = typeof a.key === 'string' ? a.key : String(a.key ?? '');
+      const bKey = typeof b.key === 'string' ? b.key : String(b.key ?? '');
+      const aPriority = priority[aKey] ?? 99;
+      const bPriority = priority[bKey] ?? 99;
+      if (aPriority !== bPriority) return aPriority - bPriority;
+      return aKey.localeCompare(bKey);
+    });
+  }
 
 type Props = {
   profile: ProfileSummary;
@@ -1149,6 +1204,8 @@ export default function StatsDashboard({
       parts.push(<Tooltip key="tooltip" />);
     }
 
+    const normalizedParts = mode === 'minChart' ? normalizeChartChildrenOrder(parts) : parts;
+
     const dataForChart = featureFlags.useData ? data : [];
 
     const identityFlags = useMemo(
@@ -1191,11 +1248,18 @@ export default function StatsDashboard({
       chartBody = <div data-minchart="1" data-step={step} data-section="subscription" />;
     } else {
       if (willRenderBarChart) {
+        logPreRechartsChildren({
+          mode,
+          section: 'subscription',
+          step,
+          children: normalizedParts
+        });
+
         logBarChartSignature({
           mode,
           section: 'subscription',
           step,
-          children: parts,
+          children: normalizedParts,
           data: dataForChart,
           xAxisKey: 'label',
           barDataKey: 'subscriptionCount',
@@ -1208,7 +1272,7 @@ export default function StatsDashboard({
 
       chartBody = (
         <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
-          {parts}
+          {normalizedParts}
         </BarChart>
       );
     }
@@ -1335,6 +1399,8 @@ export default function StatsDashboard({
       parts.push(<Tooltip key="tooltip" />);
     }
 
+    const normalizedParts = mode === 'minChart' ? normalizeChartChildrenOrder(parts) : parts;
+
     const dataForChart = featureFlags.useData ? data : [];
 
     const identityFlags = useMemo(
@@ -1377,11 +1443,18 @@ export default function StatsDashboard({
       chartBody = <div data-minchart="1" data-step={step} data-section="monthly" />;
     } else {
       if (willRenderBarChart) {
+        logPreRechartsChildren({
+          mode,
+          section: 'monthly',
+          step,
+          children: normalizedParts
+        });
+
         logBarChartSignature({
           mode,
           section: 'monthly',
           step,
-          children: parts,
+          children: normalizedParts,
           data: dataForChart,
           xAxisKey: 'label',
           barDataKey: 'totalCount',
@@ -1394,7 +1467,7 @@ export default function StatsDashboard({
 
       chartBody = (
         <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
-          {parts}
+          {normalizedParts}
         </BarChart>
       );
     }
