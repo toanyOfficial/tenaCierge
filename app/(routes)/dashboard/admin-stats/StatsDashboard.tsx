@@ -111,15 +111,37 @@ export default function StatsDashboard({
 }: Props) {
   const searchParams = useSearchParams();
   const unsafeCharts = searchParams?.get('unsafeCharts') === '1';
+  const chartFilterRaw = searchParams?.get('chart');
+  const allowedChartFilters = new Set(['subscription', 'monthly', 'weekday', 'pr001', 'pr010', 'all']);
+  const chartFilter = chartFilterRaw && allowedChartFilters.has(chartFilterRaw) ? chartFilterRaw : null;
+
+  const subscriptionEnabled = unsafeCharts && (!chartFilter || chartFilter === 'all' || chartFilter === 'subscription');
+  const monthlyEnabled = unsafeCharts && (!chartFilter || chartFilter === 'all' || chartFilter === 'monthly');
+  const weekdayEnabled = !chartFilter || chartFilter === 'all' || chartFilter === 'weekday';
+  const pr001Enabled = !chartFilter || chartFilter === 'all' || chartFilter === 'pr001';
 
   useEffect(() => {
     console.log('[client-180 -> admin-stats-fingerprint]', {
       commit: process.env.NEXT_PUBLIC_GIT_SHA ?? 'unknown',
       buildTime: process.env.NEXT_PUBLIC_BUILD_TIME ?? 'unknown',
-      fileMarker: 'StatsDashboard.PR017-HOTFIX.v1',
-      unsafeCharts
+      fileMarker: 'StatsDashboard.PR017-HOTFIX.v2',
+      unsafeCharts,
+      chart: chartFilter ?? 'none'
     });
-  }, [unsafeCharts]);
+  }, [chartFilter, unsafeCharts]);
+
+  useEffect(() => {
+    console.log('[client-190 -> charts-toggle-state]', {
+      unsafeCharts,
+      chart: chartFilter ?? 'none'
+    });
+    const enabledSections: string[] = [];
+    if (subscriptionEnabled) enabledSections.push('subscription');
+    if (monthlyEnabled) enabledSections.push('monthly');
+    if (weekdayEnabled) enabledSections.push('weekday');
+    if (pr001Enabled) enabledSections.push('pr001');
+    console.log('[client-191 -> charts-enabled-sections]', { enabledSections });
+  }, [chartFilter, monthlyEnabled, pr001Enabled, subscriptionEnabled, unsafeCharts, weekdayEnabled]);
 
   const normalizedMonthlyAverages = useMemo(
     () =>
@@ -587,11 +609,11 @@ export default function StatsDashboard({
               </div>
               <div className={styles.graphSurface} aria-hidden="true">
                 <div className={styles.mixedChart}>
-                  {unsafeCharts ? (
+                  {subscriptionEnabled ? (
                     planChart
                   ) : (
                     <p className={styles.chartDisabledText}>
-                      Chart temporarily disabled (invariant hotfix). add ?unsafeCharts=1 to render.
+                      Chart temporarily disabled (invariant hotfix). add ?unsafeCharts=1&chart=subscription to render.
                     </p>
                   )}
                 </div>
@@ -606,11 +628,11 @@ export default function StatsDashboard({
               </div>
               <div className={styles.graphSurface} aria-hidden="true">
                 <div className={styles.mixedChart}>
-                  {unsafeCharts ? (
+                  {monthlyEnabled ? (
                     monthlyTotalsChart
                   ) : (
                     <p className={styles.chartDisabledText}>
-                      Chart temporarily disabled (invariant hotfix). add ?unsafeCharts=1 to render.
+                      Chart temporarily disabled (invariant hotfix). add ?unsafeCharts=1&chart=monthly to render.
                     </p>
                   )}
                 </div>
@@ -624,7 +646,15 @@ export default function StatsDashboard({
                 <p className={styles.graphTitle}>요일별 통계</p>
               </div>
               <div className={styles.graphSurface} aria-hidden="true">
-                <div className={styles.mixedChart}>{weekdayChart}</div>
+                <div className={styles.mixedChart}>
+                  {weekdayEnabled ? (
+                    weekdayChart
+                  ) : (
+                    <p className={styles.chartDisabledText}>
+                      Chart disabled by filter. remove chart parameter or set chart=weekday.
+                    </p>
+                  )}
+                </div>
               </div>
             </section>
           </ChartErrorBoundary>
@@ -635,19 +665,25 @@ export default function StatsDashboard({
                 <p className={styles.graphTitle}>고정형 BarChart 진단 (PR-001)</p>
               </div>
               <div className={styles.graphSurface} aria-hidden="true">
-                <div
-                  style={{
-                    width: 520,
-                    height: 320,
-                    background: '#fff',
-                    margin: '12px auto'
-                  }}
-                >
-                  {(() => {
-                    console.log('[client-003] PR-001 debug card mounted');
-                    return <PR001ClientOnlyChart />;
-                  })()}
-                </div>
+                {pr001Enabled ? (
+                  <div
+                    style={{
+                      width: 520,
+                      height: 320,
+                      background: '#fff',
+                      margin: '12px auto'
+                    }}
+                  >
+                    {(() => {
+                      console.log('[client-003] PR-001 debug card mounted');
+                      return <PR001ClientOnlyChart />;
+                    })()}
+                  </div>
+                ) : (
+                  <p className={styles.chartDisabledText}>
+                    Chart disabled by filter. set chart=pr001 to render this card.
+                  </p>
+                )}
               </div>
             </section>
           </ChartErrorBoundary>

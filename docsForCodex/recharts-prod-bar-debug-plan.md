@@ -282,12 +282,16 @@
     - 목표: prod에서 subscription/monthly 섹션이 invariant를 발생시키지 않도록 기본적으로 Recharts 렌더를 차단하고, 빌드/코드 fingerprint와 렌더 경로를 로그로 남김.
     - 변경:
       - `unsafeCharts` URL 쿼리(`?unsafeCharts=1`)가 없으면 subscription/monthly 섹션에서 차트를 렌더하지 않고 안내 문구를 표시하는 안전 모드 적용.
-      - fingerprint 로그(`client-180`)로 빌드 정보/토글 상태/파일 마커를 1회 출력.
+      - `chart` 쿼리(`subscription|monthly|weekday|pr001|pr010|all`)가 주어지면 해당 섹션만 렌더하고 나머지는 강제 비활성화(unsafeCharts=1일 때만 적용)하여 invariant 범인을 단독 재현 가능하게 함.
+      - fingerprint 로그(`client-180`)로 빌드 정보/토글 상태/파일 마커(v2) 및 chart 파라미터를 1회 출력.
       - 렌더 경로 로그(`client-181/182`)로 subscription/monthly의 렌더 여부와 사유 기록.
+      - 토글 상태/실제로 렌더된 섹션 목록을 `client-190/191`로 1회 기록.
     - 로그:
-      - `client-180` -> admin-stats-fingerprint { commit, buildTime, fileMarker, unsafeCharts }
+      - `client-180` -> admin-stats-fingerprint { commit, buildTime, fileMarker, unsafeCharts, chart }
       - `client-181` -> subscription-render-path { rendered, reason }
       - `client-182` -> monthly-render-path { rendered, reason }
+      - `client-190` -> charts-toggle-state { unsafeCharts, chart }
+      - `client-191` -> charts-enabled-sections { enabledSections }
 
 18. **PR-017: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
     - 모든 디버그 로그/배너/임시 차트를 제거하고 기준 디자인만 남김.
