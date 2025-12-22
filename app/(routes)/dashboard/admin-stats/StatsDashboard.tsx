@@ -63,6 +63,163 @@ function shadeDirection(channel: number, ratio: number, lighten: (channel: numbe
   return hexChannel(channel * (1 + ratio));
 }
 
+function buildSubscriptionChartData(rows: MonthlyAveragePoint[]) {
+  let fixed = 0;
+  const data = rows.map((row) => {
+    const subscriptionCount = toNumber(row.subscriptionCount, 0);
+    if (!Number.isFinite(row.subscriptionCount)) fixed += 1;
+    return {
+      label: row.label,
+      subscriptionCount,
+      perOrderCount: toNumber(row.perOrderCount, 0)
+    };
+  });
+
+  const allZero = data.every((row) => row.subscriptionCount === 0);
+  const domain: [number, number | 'auto'] = allZero ? [0, 1] : [0, 'auto'];
+  const planMax = Math.max(...data.map((row) => Math.max(row.subscriptionCount, row.perOrderCount)), 0);
+  const effectiveMax = planMax === 0 ? 1 : Math.ceil(planMax * 1.1);
+  const ticks = [0.25, 0.5, 0.75, 1].map((ratio) => Math.ceil(effectiveMax * ratio));
+
+  return { data, fixed, total: data.length, allZero, domain, ticks } as const;
+}
+
+function buildMonthlyChartData(rows: MonthlyOverviewPoint[]) {
+  let totalFixed = 0;
+  let roomFixed = 0;
+  const data = rows.map((row) => {
+    const totalCount = toNumber(row.totalCount, 0);
+    const roomAverage = toNumber(row.roomAverage, 0);
+
+    if (!Number.isFinite(row.totalCount)) totalFixed += 1;
+    if (!Number.isFinite(row.roomAverage)) roomFixed += 1;
+
+    return { label: row.label, totalCount, roomAverage };
+  });
+
+  const allZero = data.every((row) => row.totalCount === 0);
+  const domain: [number, number | 'auto'] = allZero ? [0, 1] : [0, 'auto'];
+  const monthlyMax = Math.max(...data.map((row) => Math.max(row.totalCount, row.roomAverage)), 0);
+  const effectiveMax = monthlyMax === 0 ? 1 : Math.max(1, Math.ceil(monthlyMax * 1.15));
+  const ticks = [0.25, 0.5, 0.75, 1].map((ratio) => Math.ceil(effectiveMax * ratio));
+
+  return { data, totalFixed, roomFixed, total: data.length, allZero, domain, ticks } as const;
+}
+
+type ValueType = 'null' | 'array' | 'number' | 'string' | 'boolean' | 'object' | 'undefined';
+
+function resolveValueType(value: unknown): ValueType {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  return typeof value as ValueType;
+}
+
+function simpleHash(value: string) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0;
+  }
+  return `h${Math.abs(hash)}`;
+}
+
+function buildDataFingerprint(rows: Array<Record<string, unknown>>) {
+  const length = rows.length;
+  const keys = Array.from(
+    new Set(
+      rows.flatMap((row) => (row ? Object.keys(row).slice(0, 32) : []))
+    )
+  ).sort();
+
+  const keyTypes: Record<string, string> = {};
+  let hasNaN = false;
+  let hasInfinity = false;
+  let hasNullRow = false;
+
+  rows.forEach((row) => {
+    if (row === null) {
+      hasNullRow = true;
+      return;
+    }
+
+    Object.entries(row).forEach(([key, value]) => {
+      const valueType = resolveValueType(value);
+      keyTypes[key] = keyTypes[key] ?? valueType;
+
+      if (typeof value === 'number') {
+        if (Number.isNaN(value)) hasNaN = true;
+        if (!Number.isFinite(value)) hasInfinity = true;
+      }
+    });
+  });
+
+  const sample0 = rows[0] ?? null;
+  const hash = length > 0 ? simpleHash(JSON.stringify(rows.slice(0, 64))) : null;
+
+  return { length, keys, keyTypes, hasNaN, hasInfinity, hasNullRow, sample0, hash } as const;
+}
+
+type ChartMode = 'unsafeCharts' | 'minChart';
+
+type ChartIdentityLogInput = {
+  mode: ChartMode;
+  section: 'subscription' | 'monthly';
+  chartImpl: 'SubscriptionChartImpl@v1' | 'MonthlyChartImpl@v1';
+  flags: {
+    hasResponsiveContainer: boolean;
+    hasXAxis: boolean;
+    hasYAxis: boolean;
+    hasTooltip: boolean;
+    hasLegend: boolean;
+    hasLabelList: boolean;
+    hasCartesianGrid: boolean;
+    animation: boolean | 'default';
+    stackIdUsed: boolean;
+    barSize: number | null;
+  };
+  data: Array<Record<string, unknown>>;
+};
+
+type BarChartFeatureFlags = {
+  showGrid: boolean;
+  showTooltip: boolean;
+  showLegend: boolean;
+  showLabelList: boolean;
+  animation: boolean | 'default';
+};
+
+function resolveBarChartFeatureFlags(mode: ChartMode, step: number): BarChartFeatureFlags {
+  const normalizedStep = mode === 'unsafeCharts' ? Number.POSITIVE_INFINITY : Math.max(0, step);
+
+  return {
+    showGrid: normalizedStep >= 1 || mode === 'unsafeCharts',
+    showTooltip: normalizedStep >= 2 || mode === 'unsafeCharts',
+    showLegend: normalizedStep >= 3 || mode === 'unsafeCharts',
+    showLabelList: normalizedStep >= 4 || mode === 'unsafeCharts',
+    animation: mode === 'minChart' && normalizedStep < 5 ? false : 'default'
+  };
+}
+
+function useChartIdentityLogger(input: ChartIdentityLogInput) {
+  const { mode, section, chartImpl, flags, data } = input;
+  const dataFingerprint = useMemo(() => buildDataFingerprint(data), [data]);
+
+  const payload = useMemo(
+    () => ({
+      mode,
+      section,
+      chartImpl,
+      flags,
+      dataFingerprint
+    }),
+    [chartImpl, dataFingerprint, flags, mode, section]
+  );
+
+  useEffect(() => {
+    console.log('[client-211 -> chart-impl-identity]', payload);
+  }, [payload]);
+}
+
 type Props = {
   profile: ProfileSummary;
   monthlyAverages: MonthlyAveragePoint[];
@@ -235,25 +392,9 @@ export default function StatsDashboard({
     console.log('[client-205 -> runtime-package-versions]', runtimeVersions);
   }, [runtimeVersions]);
 
-  const normalizedMonthlyAverages = useMemo(
-    () =>
-      monthlyAverages.map((row) => ({
-        ...row,
-        subscriptionCount: toNumber(row.subscriptionCount),
-        perOrderCount: toNumber(row.perOrderCount)
-      })),
-    [monthlyAverages]
-  );
+  const subscriptionGuard = useMemo(() => buildSubscriptionChartData(monthlyAverages), [monthlyAverages]);
 
-  const normalizedMonthlyOverview = useMemo(
-    () =>
-      monthlyOverview.map((row) => ({
-        ...row,
-        totalCount: toNumber(row.totalCount),
-        roomAverage: toNumber(row.roomAverage)
-      })),
-    [monthlyOverview]
-  );
+  const monthlyGuard = useMemo(() => buildMonthlyChartData(monthlyOverview), [monthlyOverview]);
 
   const normalizedWeekdayBuildings = useMemo(
     () =>
@@ -289,38 +430,6 @@ export default function StatsDashboard({
     [weekdayStats.points]
   );
 
-  const subscriptionGuard = useMemo(() => {
-    let fixed = 0;
-    const data = normalizedMonthlyAverages.map((row) => {
-      const value = toNumber(row.subscriptionCount, 0);
-      if (!Number.isFinite(row.subscriptionCount)) fixed += 1;
-      return { ...row, subscriptionCount: value };
-    });
-    const allZero = data.every((row) => row.subscriptionCount === 0);
-    return { data, fixed, total: data.length, allZero };
-  }, [normalizedMonthlyAverages]);
-
-  const monthlyGuard = useMemo(() => {
-    let totalFixed = 0;
-    let roomFixed = 0;
-    const data = normalizedMonthlyOverview.map((row) => {
-      const totalCount = toNumber(row.totalCount, 0);
-      const roomAverage = toNumber(row.roomAverage, 0);
-      if (!Number.isFinite(row.totalCount)) totalFixed += 1;
-      if (!Number.isFinite(row.roomAverage)) roomFixed += 1;
-      return { ...row, totalCount, roomAverage };
-    });
-    const allZero = data.every((row) => row.totalCount === 0);
-    return { data, totalFixed, roomFixed, total: data.length, allZero };
-  }, [normalizedMonthlyOverview]);
-
-  const subscriptionDomain = useMemo<[number, number | 'auto']>(() => {
-    return subscriptionGuard.allZero ? [0, 1] : [0, 'auto'];
-  }, [subscriptionGuard.allZero]);
-  const monthlyDomain = useMemo<[number, number | 'auto']>(() => {
-    return monthlyGuard.allZero ? [0, 1] : [0, 'auto'];
-  }, [monthlyGuard.allZero]);
-
   const subscriptionDataSummary = useMemo(() => summarizeData(subscriptionGuard.data), [subscriptionGuard.data]);
   const monthlyDataSummary = useMemo(() => summarizeData(monthlyGuard.data), [monthlyGuard.data]);
   const subscriptionChartSummary = useMemo(
@@ -333,12 +442,12 @@ export default function StatsDashboard({
         hasTooltip: true,
         hasLegend: true,
         hasLabelList: true,
-        domain: subscriptionDomain,
+        domain: subscriptionGuard.domain,
         barDataKey: 'subscriptionCount',
         barSize: 20,
         minPointSize: 1
       }),
-    [subscriptionDomain]
+    [subscriptionGuard.domain]
   );
   const monthlyChartSummary = useMemo(
     () =>
@@ -350,12 +459,12 @@ export default function StatsDashboard({
         hasTooltip: true,
         hasLegend: true,
         hasLabelList: true,
-        domain: monthlyDomain,
+        domain: monthlyGuard.domain,
         barDataKey: 'totalCount',
         barSize: 20,
         minPointSize: 1
       }),
-    [monthlyDomain]
+    [monthlyGuard.domain]
   );
   const minChartFeatures = useMemo(() => {
     const features = ['base'];
@@ -365,6 +474,7 @@ export default function StatsDashboard({
     if (minChartStep >= 4) features.push('labelList');
     return features;
   }, [minChartStep]);
+  const minChartFeatureFlags = useMemo(() => resolveBarChartFeatureFlags('minChart', minChartStep), [minChartStep]);
   const minimalChartSummary = useMemo(
     () =>
       summarizeChartProps({
@@ -372,52 +482,18 @@ export default function StatsDashboard({
         hasXAxis: true,
         hasYAxis: true,
         hasBar: true,
-        hasTooltip: minChartStep >= 2,
-        hasLegend: minChartStep >= 3,
-        hasLabelList: minChartStep >= 4
+        hasTooltip: minChartFeatureFlags.showTooltip,
+        hasLegend: minChartFeatureFlags.showLegend,
+        hasLabelList: minChartFeatureFlags.showLabelList,
+        hasCartesianGrid: minChartFeatureFlags.showGrid,
+        animation: minChartFeatureFlags.animation
       }),
-    [minChartStep]
+    [minChartFeatureFlags]
   );
   useEffect(() => {
     if (!minChartEnabled) return;
     console.log('[client-210 -> min-chart-step]', { step: minChartStep, features: minChartFeatures });
   }, [minChartEnabled, minChartFeatures, minChartStep]);
-  const renderMinimalBarChart = useMemo(() => {
-    const MinimalBarChart = ({
-      data,
-      domain,
-      dataKey,
-      color
-    }: {
-      data: any[];
-      domain: [number, number | 'auto'];
-      dataKey: string;
-      color: string;
-    }) => {
-      const showGrid = minChartStep >= 1;
-      const showTooltip = minChartStep >= 2;
-      const showLegend = minChartStep >= 3;
-      const showLabels = minChartStep >= 4;
-
-      return (
-        <BarChart width={520} height={320} data={data} margin={{ top: 24, right: 18, bottom: 24, left: 18 }}>
-          {showGrid ? (
-            <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
-          ) : null}
-          <XAxis dataKey="label" tickLine={false} axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }} />
-          <YAxis domain={domain} tickLine={false} axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }} />
-          {showTooltip ? <Tooltip /> : null}
-          {showLegend ? <Legend /> : null}
-          <Bar dataKey={dataKey} fill={color} isAnimationActive={false} barSize={20}>
-            {showLabels ? <LabelList dataKey={dataKey} position="top" /> : null}
-          </Bar>
-        </BarChart>
-      );
-    };
-
-    MinimalBarChart.displayName = 'MinimalBarChart';
-    return MinimalBarChart;
-  }, [minChartStep]);
 
   useEffect(() => {
     const subscriptionReason = !unsafeCharts
@@ -554,38 +630,10 @@ export default function StatsDashboard({
       mon_fixed: monthlyGuard.totalFixed + monthlyGuard.roomFixed,
       sub_allZero: subscriptionGuard.allZero,
       mon_allZero: monthlyGuard.allZero,
-      sub_domain: subscriptionDomain,
-      mon_domain: monthlyDomain
+      sub_domain: subscriptionGuard.domain,
+      mon_domain: monthlyGuard.domain
     });
-  }, [monthlyDomain, monthlyGuard, subscriptionDomain, subscriptionGuard]);
-
-  const planMax = useMemo(() => {
-    const peak = Math.max(
-      ...subscriptionGuard.data.map((row) => Math.max(row.subscriptionCount, row.perOrderCount)),
-      0
-    );
-    if (peak === 0) return 1;
-    return Math.ceil(peak * 1.1);
-  }, [subscriptionGuard.data]);
-
-  const planTicks = useMemo(() => {
-    const ratios = [0.25, 0.5, 0.75, 1];
-    return ratios.map((ratio) => Math.ceil(planMax * ratio));
-  }, [planMax]);
-
-  const monthlyMax = useMemo(() => {
-    const peak = Math.max(
-      ...monthlyGuard.data.map((row) => Math.max(row.totalCount, row.roomAverage)),
-      0
-    );
-    if (peak === 0) return 1;
-    return Math.max(1, Math.ceil(peak * 1.15));
-  }, [monthlyGuard.data]);
-
-  const monthlyTicks = useMemo(() => {
-    const ratios = [0.25, 0.5, 0.75, 1];
-    return ratios.map((ratio) => Math.ceil(monthlyMax * ratio));
-  }, [monthlyMax]);
+  }, [monthlyGuard, subscriptionGuard]);
 
   const weekdayColorMap = useMemo(() => {
     const sectorBaseColors: Record<string, string> = {
@@ -739,11 +787,56 @@ export default function StatsDashboard({
 
   const legendTopLeft = useMemo(() => ({ top: 6, left: 12 }), []);
 
-  const planChart = useMemo(
-    () => (
+  function SubscriptionChartImpl({
+    mode,
+    step,
+    legendContent,
+    labelContent,
+    data,
+    domain,
+    ticks,
+    legendStyle
+  }: {
+    mode: ChartMode;
+    step: number;
+    legendContent: React.ReactElement;
+    labelContent: React.ReactElement;
+    data: typeof subscriptionGuard.data;
+    domain: [number, number | 'auto'];
+    ticks: number[];
+    legendStyle: Record<string, unknown>;
+  }) {
+    const featureFlags = useMemo(() => resolveBarChartFeatureFlags(mode, step), [mode, step]);
+    const identityFlags = useMemo(
+      () => ({
+        hasResponsiveContainer: true,
+        hasXAxis: true,
+        hasYAxis: true,
+        hasTooltip: featureFlags.showTooltip,
+        hasLegend: featureFlags.showLegend,
+        hasLabelList: featureFlags.showLabelList,
+        hasCartesianGrid: featureFlags.showGrid,
+        animation: featureFlags.animation,
+        stackIdUsed: false,
+        barSize: 20
+      }),
+      [featureFlags]
+    );
+
+    useChartIdentityLogger({
+      mode,
+      section: 'subscription',
+      chartImpl: 'SubscriptionChartImpl@v1',
+      flags: identityFlags,
+      data
+    });
+
+    return (
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={subscriptionGuard.data} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
-          <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
+        <BarChart data={data} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
+          {featureFlags.showGrid ? (
+            <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
+          ) : null}
           <XAxis
             dataKey="label"
             xAxisId="x"
@@ -756,36 +849,80 @@ export default function StatsDashboard({
             tickLine={false}
             axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-            domain={subscriptionDomain}
-            ticks={planTicks}
+            domain={domain}
+            ticks={ticks}
             allowDecimals={false}
           />
-          <Legend
-            verticalAlign="top"
-            align="left"
-            wrapperStyle={legendTopLeft}
-            content={<PlanLegend />}
-          />
+          {featureFlags.showLegend ? (
+            <Legend verticalAlign="top" align="left" wrapperStyle={legendStyle} content={legendContent} />
+          ) : null}
           <Bar
             dataKey="subscriptionCount"
             fill="#22c55e"
             barSize={20}
             radius={[6, 6, 0, 0]}
             minPointSize={1}
+            isAnimationActive={featureFlags.animation === 'default' ? undefined : featureFlags.animation}
           >
-            <LabelList dataKey="subscriptionCount" position="top" content={<BarValueLabel />} />
+            {featureFlags.showLabelList ? (
+              <LabelList dataKey="subscriptionCount" position="top" content={labelContent} />
+            ) : null}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-    ),
-    [BarValueLabel, PlanLegend, legendTopLeft, subscriptionDomain, subscriptionGuard.data, planTicks]
-  );
+    );
+  }
 
-  const monthlyTotalsChart = useMemo(
-    () => (
+  function MonthlyChartImpl({
+    mode,
+    step,
+    legendContent,
+    labelContent,
+    data,
+    domain,
+    ticks,
+    legendStyle
+  }: {
+    mode: ChartMode;
+    step: number;
+    legendContent: React.ReactElement;
+    labelContent: React.ReactElement;
+    data: typeof monthlyGuard.data;
+    domain: [number, number | 'auto'];
+    ticks: number[];
+    legendStyle: Record<string, unknown>;
+  }) {
+    const featureFlags = useMemo(() => resolveBarChartFeatureFlags(mode, step), [mode, step]);
+    const identityFlags = useMemo(
+      () => ({
+        hasResponsiveContainer: true,
+        hasXAxis: true,
+        hasYAxis: true,
+        hasTooltip: featureFlags.showTooltip,
+        hasLegend: featureFlags.showLegend,
+        hasLabelList: featureFlags.showLabelList,
+        hasCartesianGrid: featureFlags.showGrid,
+        animation: featureFlags.animation,
+        stackIdUsed: false,
+        barSize: 20
+      }),
+      [featureFlags]
+    );
+
+    useChartIdentityLogger({
+      mode,
+      section: 'monthly',
+      chartImpl: 'MonthlyChartImpl@v1',
+      flags: identityFlags,
+      data
+    });
+
+    return (
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={monthlyGuard.data} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
-          <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
+        <BarChart data={data} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
+          {featureFlags.showGrid ? (
+            <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
+          ) : null}
           <XAxis
             dataKey="label"
             xAxisId="x"
@@ -798,23 +935,126 @@ export default function StatsDashboard({
             tickLine={false}
             axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
             tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-            domain={monthlyDomain}
-            ticks={monthlyTicks}
+            domain={domain}
+            ticks={ticks}
             allowDecimals={false}
           />
-          <Legend
-            verticalAlign="top"
-            align="left"
-            wrapperStyle={legendTopLeft}
-            content={<MonthlyLegend />}
-          />
-          <Bar dataKey="totalCount" fill="#6366f1" barSize={20} radius={[6, 6, 0, 0]} minPointSize={1}>
-            <LabelList dataKey="totalCount" position="top" content={<BarValueLabel />} />
+          {featureFlags.showLegend ? (
+            <Legend verticalAlign="top" align="left" wrapperStyle={legendStyle} content={legendContent} />
+          ) : null}
+          <Bar
+            dataKey="totalCount"
+            fill="#6366f1"
+            barSize={20}
+            radius={[6, 6, 0, 0]}
+            minPointSize={1}
+            isAnimationActive={featureFlags.animation === 'default' ? undefined : featureFlags.animation}
+          >
+            {featureFlags.showLabelList ? (
+              <LabelList dataKey="totalCount" position="top" content={labelContent} />
+            ) : null}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+    );
+  }
+
+  const subscriptionChart = useMemo(
+    () => (
+      <SubscriptionChartImpl
+        mode="unsafeCharts"
+        step={Number.POSITIVE_INFINITY}
+        legendContent={<PlanLegend />}
+        labelContent={<BarValueLabel />}
+        data={subscriptionGuard.data}
+        domain={subscriptionGuard.domain}
+        ticks={subscriptionGuard.ticks}
+        legendStyle={legendTopLeft}
+      />
     ),
-    [BarValueLabel, MonthlyLegend, legendTopLeft, monthlyDomain, monthlyGuard.data, monthlyTicks]
+    [
+      BarValueLabel,
+      PlanLegend,
+      SubscriptionChartImpl,
+      legendTopLeft,
+      subscriptionGuard.data,
+      subscriptionGuard.domain,
+      subscriptionGuard.ticks
+    ]
+  );
+
+  const monthlyTotalsChart = useMemo(
+    () => (
+      <MonthlyChartImpl
+        mode="unsafeCharts"
+        step={Number.POSITIVE_INFINITY}
+        legendContent={<MonthlyLegend />}
+        labelContent={<BarValueLabel />}
+        data={monthlyGuard.data}
+        domain={monthlyGuard.domain}
+        ticks={monthlyGuard.ticks}
+        legendStyle={legendTopLeft}
+      />
+    ),
+    [
+      BarValueLabel,
+      MonthlyChartImpl,
+      MonthlyLegend,
+      legendTopLeft,
+      monthlyGuard.data,
+      monthlyGuard.domain,
+      monthlyGuard.ticks
+    ]
+  );
+
+  const minimalSubscriptionChart = useMemo(
+    () => (
+      <SubscriptionChartImpl
+        mode="minChart"
+        step={minChartStep}
+        legendContent={<PlanLegend />}
+        labelContent={<BarValueLabel />}
+        data={subscriptionGuard.data}
+        domain={subscriptionGuard.domain}
+        ticks={subscriptionGuard.ticks}
+        legendStyle={legendTopLeft}
+      />
+    ),
+    [
+      BarValueLabel,
+      PlanLegend,
+      SubscriptionChartImpl,
+      legendTopLeft,
+      minChartStep,
+      subscriptionGuard.data,
+      subscriptionGuard.domain,
+      subscriptionGuard.ticks
+    ]
+  );
+
+  const minimalMonthlyChart = useMemo(
+    () => (
+      <MonthlyChartImpl
+        mode="minChart"
+        step={minChartStep}
+        legendContent={<MonthlyLegend />}
+        labelContent={<BarValueLabel />}
+        data={monthlyGuard.data}
+        domain={monthlyGuard.domain}
+        ticks={monthlyGuard.ticks}
+        legendStyle={legendTopLeft}
+      />
+    ),
+    [
+      BarValueLabel,
+      MonthlyChartImpl,
+      MonthlyLegend,
+      legendTopLeft,
+      minChartStep,
+      monthlyGuard.data,
+      monthlyGuard.domain,
+      monthlyGuard.ticks
+    ]
   );
 
   useEffect(() => {
@@ -822,13 +1062,13 @@ export default function StatsDashboard({
       console.log('[client-170 -> chart-type-simplified]', {
         subscriptionChart: 'BarChart',
         monthlyChart: 'BarChart',
-        sub_domain: subscriptionDomain,
-        mon_domain: monthlyDomain
+        sub_domain: subscriptionGuard.domain,
+        mon_domain: monthlyGuard.domain
       });
     }, 200);
 
     return () => clearTimeout(timer);
-  }, [monthlyDomain, subscriptionDomain]);
+  }, [monthlyGuard.domain, subscriptionGuard.domain]);
 
   const weekdayChart = useMemo(
     () => (
@@ -922,16 +1162,16 @@ export default function StatsDashboard({
           <div className={styles.graphHeading}>
             <p className={styles.graphTitle}>요금제별 통계</p>
           </div>
-            <div className={styles.graphSurface} aria-hidden="true">
-              <div className={styles.mixedChart} ref={subscriptionContainerRef} style={{ minHeight: 320 }}>
-                {subscriptionEnabled ? (
-                  subscriptionHasSize ? (
-                    planChart
-                  ) : (
-                    <p className={styles.chartDisabledText}>
-                      Chart container not ready (size unavailable). enable unsafeCharts=1&chart=subscription and retry.
-                    </p>
-                  )
+                <div className={styles.graphSurface} aria-hidden="true">
+                  <div className={styles.mixedChart} ref={subscriptionContainerRef} style={{ minHeight: 320 }}>
+                    {subscriptionEnabled ? (
+                      subscriptionHasSize ? (
+                        subscriptionChart
+                      ) : (
+                        <p className={styles.chartDisabledText}>
+                          Chart container not ready (size unavailable). enable unsafeCharts=1&chart=subscription and retry.
+                        </p>
+                      )
                 ) : (
                   <p className={styles.chartDisabledText}>
                     Chart temporarily disabled (invariant hotfix). add ?unsafeCharts=1&chart=subscription to render.
@@ -1032,12 +1272,7 @@ export default function StatsDashboard({
                 </div>
                 <div className={styles.graphSurface} aria-hidden="true">
                   <div className={styles.mixedChart} style={{ minHeight: 320 }}>
-                    {renderMinimalBarChart({
-                      data: subscriptionGuard.data,
-                      domain: subscriptionDomain,
-                      dataKey: 'subscriptionCount',
-                      color: '#22c55e'
-                    })}
+                    {minimalSubscriptionChart}
                   </div>
                 </div>
               </section>
@@ -1057,12 +1292,7 @@ export default function StatsDashboard({
                 </div>
                 <div className={styles.graphSurface} aria-hidden="true">
                   <div className={styles.mixedChart} style={{ minHeight: 320 }}>
-                    {renderMinimalBarChart({
-                      data: monthlyGuard.data,
-                      domain: monthlyDomain,
-                      dataKey: 'totalCount',
-                      color: '#6366f1'
-                    })}
+                    {minimalMonthlyChart}
                   </div>
                 </div>
               </section>
