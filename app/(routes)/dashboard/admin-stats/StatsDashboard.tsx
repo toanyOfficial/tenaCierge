@@ -603,10 +603,10 @@ export default function StatsDashboard({
         hasXAxis: true,
         hasYAxis: true,
         hasBar: true,
-        hasTooltip: minChartFeatureFlags.showTooltip,
-        hasLegend: minChartFeatureFlags.showLegend,
-        hasLabelList: minChartFeatureFlags.showLabelList,
-        hasCartesianGrid: minChartFeatureFlags.showGrid,
+        hasTooltip: minChartFeatureFlags.hasTooltip,
+        hasLegend: minChartFeatureFlags.hasLegend,
+        hasLabelList: minChartFeatureFlags.hasLabelList,
+        hasCartesianGrid: minChartFeatureFlags.hasCartesianGrid,
         animation: minChartFeatureFlags.animation
       }),
     [minChartFeatureFlags]
