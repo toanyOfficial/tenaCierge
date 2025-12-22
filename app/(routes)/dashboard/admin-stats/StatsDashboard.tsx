@@ -9,8 +9,6 @@ import {
   ComposedChart,
   LabelList,
   Legend,
-  Line,
-  Rectangle as RechartsRectangle,
   ResponsiveContainer,
   XAxis,
   YAxis,
@@ -330,20 +328,6 @@ export default function StatsDashboard({
     []
   );
 
-  const LineValueLabel = useMemo(
-    () =>
-      function LineLabel({ x, y, value }: any) {
-        if (!value) return null;
-        const labelY = (y ?? 0) - 6;
-        return (
-          <text x={x} y={labelY} textAnchor="middle" className={styles.lineLabelText}>
-            {formatValue(value)}
-          </text>
-        );
-      },
-    []
-  );
-
   const PlanLegend = useMemo(
     () =>
       function LegendContent() {
@@ -403,11 +387,7 @@ export default function StatsDashboard({
   const planChart = useMemo(
     () => (
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart
-          data={subscriptionGuard.data}
-          margin={{ top: 54, right: 18, bottom: 24, left: 18 }}
-          style={{ overflow: 'visible' }}
-        >
+        <BarChart data={subscriptionGuard.data} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
           <XAxis
             dataKey="label"
@@ -437,51 +417,19 @@ export default function StatsDashboard({
             barSize={20}
             radius={[6, 6, 0, 0]}
             minPointSize={1}
-            yAxisId="left"
           >
             <LabelList dataKey="subscriptionCount" position="top" content={<BarValueLabel />} />
           </Bar>
-          <Line
-            dataKey="perOrderCount"
-            yAxisId="left"
-            type="monotone"
-            stroke="#38bdf8"
-            strokeWidth={1}
-            dot={false}
-            activeDot={false}
-            connectNulls
-          >
-            <LabelList dataKey="perOrderCount" position="top" content={<LineValueLabel />} />
-          </Line>
-          <defs>
-            <linearGradient id="planBarGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#22c55e" stopOpacity="0.9" />
-              <stop offset="100%" stopColor="#16a34a" stopOpacity="0.9" />
-            </linearGradient>
-          </defs>
-        </ComposedChart>
+        </BarChart>
       </ResponsiveContainer>
     ),
-    [
-      BarValueLabel,
-      LineValueLabel,
-      PlanLegend,
-      legendTopLeft,
-      subscriptionDomain,
-      subscriptionGuard.data,
-      planMax,
-      planTicks
-    ]
+    [BarValueLabel, PlanLegend, legendTopLeft, subscriptionDomain, subscriptionGuard.data, planTicks]
   );
 
   const monthlyTotalsChart = useMemo(
     () => (
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart
-          data={monthlyGuard.data}
-          margin={{ top: 54, right: 18, bottom: 24, left: 18 }}
-          style={{ overflow: 'visible' }}
-        >
+        <BarChart data={monthlyGuard.data} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
           <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
           <XAxis
             dataKey="label"
@@ -505,48 +453,27 @@ export default function StatsDashboard({
             wrapperStyle={legendTopLeft}
             content={<MonthlyLegend />}
           />
-          <Bar
-            dataKey="totalCount"
-            fill="#6366f1"
-            barSize={20}
-            radius={[6, 6, 0, 0]}
-            minPointSize={1}
-            yAxisId="left"
-          >
+          <Bar dataKey="totalCount" fill="#6366f1" barSize={20} radius={[6, 6, 0, 0]} minPointSize={1}>
             <LabelList dataKey="totalCount" position="top" content={<BarValueLabel />} />
           </Bar>
-          <Line
-            dataKey="roomAverage"
-            yAxisId="left"
-            type="monotone"
-            stroke="#7dd3fc"
-            strokeWidth={1}
-            dot={{ stroke: '#0ea5e9', fill: '#0ea5e9', r: 3 }}
-            activeDot={false}
-            connectNulls
-          >
-            <LabelList dataKey="roomAverage" position="top" content={<LineValueLabel />} />
-          </Line>
-          <defs>
-            <linearGradient id="totalCountGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#818cf8" stopOpacity="0.95" />
-              <stop offset="100%" stopColor="#6366f1" stopOpacity="0.95" />
-            </linearGradient>
-          </defs>
-        </ComposedChart>
+        </BarChart>
       </ResponsiveContainer>
     ),
-    [
-      BarValueLabel,
-      LineValueLabel,
-      MonthlyLegend,
-      legendTopLeft,
-      monthlyDomain,
-      monthlyGuard.data,
-      monthlyMax,
-      monthlyTicks
-    ]
+    [BarValueLabel, MonthlyLegend, legendTopLeft, monthlyDomain, monthlyGuard.data, monthlyTicks]
   );
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      console.log('[client-170 -> chart-type-simplified]', {
+        subscriptionChart: 'BarChart',
+        monthlyChart: 'BarChart',
+        sub_domain: subscriptionDomain,
+        mon_domain: monthlyDomain
+      });
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [monthlyDomain, subscriptionDomain]);
 
   const weekdayChart = useMemo(
     () => (

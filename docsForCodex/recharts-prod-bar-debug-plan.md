@@ -257,21 +257,25 @@
     - 로그:
       - `client-150` -> boundary catch 시 섹션명 포함 로그
 
-15. **PR-015: subscription/monthly invariant 제거 + finite 가드** — 상태: 진행
+15. **PR-015: subscription/monthly invariant 제거 + finite 가드** — 상태: 검증완료
     - 목표: 축 매칭을 단일 left YAxis로 고정하고, NaN/undefined를 0으로 치환하며 domain을 `[0,1]/[0,'auto']`로 안정화해 invariant와 NaN을 제거.
-    - 변경 예정/진행:
+    - 결과: 데이터 finite 가드/단일 축 적용 후에도 subscription/monthly에서 invariant가 발생해 추가 단순화 필요.
+    - 변경:
       - 구독/월별 데이터 shallow copy 후 finite 가드 → domain `[0,1]`(전부 0) or `[0,'auto']`.
-      - 구독: 단일 YAxis left + Bar `yAxisId="left"` 명시, xAxisId 미사용.
-      - 월별: YAxis 하나만(left), Bar/Line 모두 left 축 사용.
+      - 구독/월별 Bar는 단일 left 축 사용, 불필요한 axisId 제거.
       - 디버그 섹션/shape 실험 제거, 필수 로그만 유지.
       - **빌드 복구:** StatsDashboard에 `dynamic` import 및 PR-001 client-only 고정 차트를 다시 렌더하도록 복구(고정형 카드가 항상 DOM에 포함됨).
       - **추가 빌드 수습:** weekday Bar에서 남아 있을 수 있는 `debugBarShapes` shape 참조를 안전한 기본 shape 변수로 고정해 TS 빌드 오류(`Cannot find name 'debugBarShapes'`)를 차단.
     - 로그:
       - `client-160` -> chart-finite-guard-summary (데이터 총계/치환 건수/domain)
 
-16. **PR-016: 원인 확정 후 최소 수정 반영** — 상태: 예정
-    - 위 실험 결과에 따라 최소 수정으로 prod Bar 렌더 복구.
-    - 로그: 문제 해결 근거를 남기고, 해결 확인 후 상태 `검증완료`.
+16. **PR-016: subscription/monthly invariant 제거(BarChart 단순화)** — 상태: 진행
+    - 목표: subscription/monthly 차트를 ComposedChart에서 BarChart로 단순화해 invariant를 제거하고 동일 데이터/라벨 기반으로 안정 렌더 확인.
+    - 변경:
+      - 구독/월별 차트를 `BarChart` + XAxis(label)/YAxis(domain `[0,1]` 또는 `[0,'auto']`)/Legend/Bar(단일) 구성으로 단순화, stack/Line/axisId 제거.
+      - mount 200ms 후 차트 타입/적용 도메인을 1회 로그(`client-170`)로 기록.
+    - 로그:
+      - `client-170` -> chart-type-simplified (subscriptionChart, monthlyChart, sub_domain, mon_domain)
 
 17. **PR-017: 디버그 로그/임시 코드 일괄 삭제** — 상태: 예정
     - 모든 디버그 로그/배너/임시 차트를 제거하고 기준 디자인만 남김.
