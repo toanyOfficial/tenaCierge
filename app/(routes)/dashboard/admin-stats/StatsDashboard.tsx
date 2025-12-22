@@ -181,22 +181,59 @@ type ChartIdentityLogInput = {
 };
 
 type BarChartFeatureFlags = {
-  showGrid: boolean;
-  showTooltip: boolean;
-  showLegend: boolean;
-  showLabelList: boolean;
+  hasResponsiveContainer: boolean;
+  hasBarChart: boolean;
+  hasXAxis: boolean;
+  hasYAxis: boolean;
+  hasTooltip: boolean;
+  hasLegend: boolean;
+  hasLabelList: boolean;
+  hasCartesianGrid: boolean;
+  useData: boolean;
+  hasBar: boolean;
   animation: boolean | 'default';
+  stackIdUsed: boolean;
+  barSize: number | null;
+  radius: [number, number, number, number] | null;
 };
 
 function resolveBarChartFeatureFlags(mode: ChartMode, step: number): BarChartFeatureFlags {
-  const normalizedStep = mode === 'unsafeCharts' ? Number.POSITIVE_INFINITY : Math.max(0, step);
+  if (mode === 'unsafeCharts') {
+    return {
+      hasResponsiveContainer: true,
+      hasBarChart: true,
+      hasXAxis: true,
+      hasYAxis: true,
+      hasTooltip: true,
+      hasLegend: true,
+      hasLabelList: true,
+      hasCartesianGrid: true,
+      useData: true,
+      hasBar: true,
+      animation: 'default',
+      stackIdUsed: false,
+      barSize: 20,
+      radius: [6, 6, 0, 0]
+    };
+  }
+
+  const normalizedStep = Math.max(0, step);
 
   return {
-    showGrid: normalizedStep >= 1 || mode === 'unsafeCharts',
-    showTooltip: normalizedStep >= 2 || mode === 'unsafeCharts',
-    showLegend: normalizedStep >= 3 || mode === 'unsafeCharts',
-    showLabelList: normalizedStep >= 4 || mode === 'unsafeCharts',
-    animation: mode === 'minChart' && normalizedStep < 5 ? false : 'default'
+    hasResponsiveContainer: normalizedStep >= 1,
+    hasBarChart: normalizedStep >= 2,
+    useData: normalizedStep >= 3,
+    hasXAxis: normalizedStep >= 4,
+    hasYAxis: normalizedStep >= 5,
+    hasBar: normalizedStep >= 6,
+    hasTooltip: normalizedStep >= 7,
+    hasLegend: normalizedStep >= 8,
+    hasLabelList: normalizedStep >= 9,
+    hasCartesianGrid: normalizedStep >= 10,
+    animation: normalizedStep >= 11 ? 'default' : false,
+    stackIdUsed: normalizedStep >= 12,
+    barSize: normalizedStep >= 13 ? 20 : null,
+    radius: normalizedStep >= 14 ? [6, 6, 0, 0] : null
   };
 }
 
@@ -218,6 +255,75 @@ function useChartIdentityLogger(input: ChartIdentityLogInput) {
   useEffect(() => {
     console.log('[client-211 -> chart-impl-identity]', payload);
   }, [payload]);
+}
+
+function logBarChartSignature({
+  mode,
+  section,
+  step,
+  children,
+  data,
+  xAxisKey,
+  barDataKey,
+  stackId,
+  barSize,
+  domain,
+  animation
+}: {
+  mode: ChartMode;
+  section: 'subscription' | 'monthly';
+  step: number;
+  children: React.ReactElement[];
+  data: Array<Record<string, unknown>>;
+  xAxisKey: string;
+  barDataKey: string;
+  stackId: string | undefined;
+  barSize: number | null;
+  domain: [number, number | 'auto'];
+  animation: boolean | 'default';
+}) {
+  const childArr = React.Children.toArray(children);
+  const childSignature = childArr.map((child) => {
+    const valid = React.isValidElement(child);
+    if (!valid) {
+      return { valid, type: typeof child, displayName: null };
+    }
+    const type = child.type as { displayName?: string; name?: string } | string;
+    if (typeof type === 'string') {
+      return { valid, type, displayName: type };
+    }
+    const displayName = type.displayName || type.name || 'anonymous';
+    return { valid, type: displayName, displayName };
+  });
+
+  const sample = data[0] ?? null;
+  const sampleTypes: Record<string, string> = {};
+  if (sample && typeof sample === 'object') {
+    Object.entries(sample).forEach(([key, value]) => {
+      sampleTypes[key] = resolveValueType(value as unknown);
+    });
+  }
+
+  const domainSafe = domain.map((value) =>
+    typeof value === 'number' ? (Number.isFinite(value) ? value : 'non-finite') : value
+  );
+
+  console.log('[client-212 -> chart-child-signature]', {
+    mode,
+    section,
+    step,
+    childSignature,
+    childCount: childArr.length,
+    dataLength: data.length,
+    sampleKeys: sample ? Object.keys(sample) : [],
+    sampleTypes,
+    xAxisKey,
+    barDataKey,
+    stackId,
+    barSize,
+    domain: domainSafe,
+    animation
+  });
 }
 
 type Props = {
@@ -826,18 +932,118 @@ export default function StatsDashboard({
     legendStyle: Record<string, unknown>;
   }) {
     const featureFlags = useMemo(() => resolveBarChartFeatureFlags(mode, step), [mode, step]);
+    const willRenderBarChart = featureFlags.hasBarChart && featureFlags.hasResponsiveContainer;
+
+    useEffect(() => {
+      if (mode !== 'minChart') return;
+      console.log('[minchart-render-truth]', {
+        section: 'subscription',
+        willCreateBarChart: willRenderBarChart,
+        didCreateBarChart: false,
+        step
+      });
+    }, [mode, step, willRenderBarChart]);
+
+    const parts: React.ReactElement[] = [];
+
+    if (featureFlags.hasCartesianGrid) {
+      parts.push(
+        <CartesianGrid
+          key="grid"
+          strokeDasharray="4 4"
+          stroke="rgba(148, 163, 184, 0.2)"
+          vertical={false}
+        />
+      );
+    }
+
+    if (featureFlags.hasXAxis) {
+      parts.push(
+        <XAxis
+          key="x-axis"
+          dataKey="label"
+          xAxisId="x"
+          tickLine={false}
+          axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+          tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+        />
+      );
+    }
+
+    if (featureFlags.hasYAxis) {
+      parts.push(
+        <YAxis
+          key="y-axis"
+          orientation="left"
+          tickLine={false}
+          axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+          tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+          domain={domain}
+          ticks={ticks}
+          allowDecimals={false}
+        />
+      );
+    }
+
+    if (featureFlags.hasLegend) {
+      parts.push(
+        <Legend
+          key="legend"
+          verticalAlign="top"
+          align="left"
+          wrapperStyle={legendStyle}
+          content={legendContent}
+        />
+      );
+    }
+
+    if (featureFlags.hasBar) {
+      const barChildren: React.ReactElement[] = [];
+      if (featureFlags.hasLabelList) {
+        barChildren.push(
+          <LabelList
+            key="label-list"
+            dataKey="subscriptionCount"
+            position="top"
+            content={labelContent}
+          />
+        );
+      }
+
+      parts.push(
+        <Bar
+          key="bar"
+          dataKey="subscriptionCount"
+          fill="#22c55e"
+          barSize={featureFlags.barSize ?? undefined}
+          radius={featureFlags.radius ?? undefined}
+          minPointSize={1}
+          stackId={featureFlags.stackIdUsed ? 'subscription' : undefined}
+          isAnimationActive={featureFlags.animation === 'default' ? undefined : featureFlags.animation}
+        >
+          {barChildren}
+        </Bar>
+      );
+    }
+
+    if (featureFlags.hasTooltip) {
+      parts.push(<Tooltip key="tooltip" />);
+    }
+
+    const dataForChart = featureFlags.useData ? data : [];
+
     const identityFlags = useMemo(
       () => ({
-        hasResponsiveContainer: true,
-        hasXAxis: true,
-        hasYAxis: true,
-        hasTooltip: featureFlags.showTooltip,
-        hasLegend: featureFlags.showLegend,
-        hasLabelList: featureFlags.showLabelList,
-        hasCartesianGrid: featureFlags.showGrid,
+        hasResponsiveContainer: featureFlags.hasResponsiveContainer,
+        hasXAxis: featureFlags.hasXAxis,
+        hasYAxis: featureFlags.hasYAxis,
+        hasTooltip: featureFlags.hasTooltip,
+        hasLegend: featureFlags.hasLegend,
+        hasLabelList: featureFlags.hasLabelList,
+        hasCartesianGrid: featureFlags.hasCartesianGrid,
         animation: featureFlags.animation,
-        stackIdUsed: false,
-        barSize: 20
+        stackIdUsed: featureFlags.stackIdUsed,
+        barSize: featureFlags.barSize
       }),
       [featureFlags]
     );
@@ -847,49 +1053,52 @@ export default function StatsDashboard({
       section: 'subscription',
       chartImpl: 'SubscriptionChartImpl@v1',
       flags: identityFlags,
-      data
+      data: dataForChart
     });
 
-    return (
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
-          {featureFlags.showGrid ? (
-            <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
-          ) : null}
-          <XAxis
-            dataKey="label"
-            xAxisId="x"
-            tickLine={false}
-            axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
-            tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-          />
-          <YAxis
-            orientation="left"
-            tickLine={false}
-            axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
-            tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-            domain={domain}
-            ticks={ticks}
-            allowDecimals={false}
-          />
-          {featureFlags.showLegend ? (
-            <Legend verticalAlign="top" align="left" wrapperStyle={legendStyle} content={legendContent} />
-          ) : null}
-          <Bar
-            dataKey="subscriptionCount"
-            fill="#22c55e"
-            barSize={20}
-            radius={[6, 6, 0, 0]}
-            minPointSize={1}
-            isAnimationActive={featureFlags.animation === 'default' ? undefined : featureFlags.animation}
-          >
-            {featureFlags.showLabelList ? (
-              <LabelList dataKey="subscriptionCount" position="top" content={labelContent} />
-            ) : null}
-          </Bar>
+    useEffect(() => {
+      if (mode !== 'minChart') return;
+      console.log('[minchart-render-truth]', {
+        section: 'subscription',
+        willCreateBarChart: willRenderBarChart,
+        didCreateBarChart: willRenderBarChart,
+        step
+      });
+    }, [mode, step, willRenderBarChart]);
+
+    let chartBody: React.ReactNode;
+
+    if (!featureFlags.hasBarChart) {
+      chartBody = <div data-minchart="1" data-step={step} data-section="subscription" />;
+    } else {
+      if (willRenderBarChart) {
+        logBarChartSignature({
+          mode,
+          section: 'subscription',
+          step,
+          children: parts,
+          data: dataForChart,
+          xAxisKey: 'label',
+          barDataKey: 'subscriptionCount',
+          stackId: featureFlags.stackIdUsed ? 'subscription' : undefined,
+          barSize: featureFlags.barSize,
+          domain,
+          animation: featureFlags.animation
+        });
+      }
+
+      chartBody = (
+        <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
+          {parts}
         </BarChart>
-      </ResponsiveContainer>
-    );
+      );
+    }
+
+    if (!featureFlags.hasResponsiveContainer) {
+      return <div data-minchart="1" data-step={step} data-section="subscription" />;
+    }
+
+    return <ResponsiveContainer width="100%" height="100%">{chartBody}</ResponsiveContainer>;
   }
 
   function MonthlyChartImpl({
@@ -912,18 +1121,113 @@ export default function StatsDashboard({
     legendStyle: Record<string, unknown>;
   }) {
     const featureFlags = useMemo(() => resolveBarChartFeatureFlags(mode, step), [mode, step]);
+    const willRenderBarChart = featureFlags.hasBarChart && featureFlags.hasResponsiveContainer;
+
+    useEffect(() => {
+      if (mode !== 'minChart') return;
+      console.log('[minchart-render-truth]', {
+        section: 'monthly',
+        willCreateBarChart: willRenderBarChart,
+        didCreateBarChart: false,
+        step
+      });
+    }, [mode, step, willRenderBarChart]);
+
+    const parts: React.ReactElement[] = [];
+
+    if (featureFlags.hasCartesianGrid) {
+      parts.push(
+        <CartesianGrid
+          key="grid"
+          strokeDasharray="4 4"
+          stroke="rgba(148, 163, 184, 0.2)"
+          vertical={false}
+        />
+      );
+    }
+
+    if (featureFlags.hasXAxis) {
+      parts.push(
+        <XAxis
+          key="x-axis"
+          dataKey="label"
+          xAxisId="x"
+          tickLine={false}
+          axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+          tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+        />
+      );
+    }
+
+    if (featureFlags.hasYAxis) {
+      parts.push(
+        <YAxis
+          key="y-axis"
+          orientation="left"
+          tickLine={false}
+          axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
+          tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
+          domain={domain}
+          ticks={ticks}
+          allowDecimals={false}
+        />
+      );
+    }
+
+    if (featureFlags.hasLegend) {
+      parts.push(
+        <Legend
+          key="legend"
+          verticalAlign="top"
+          align="left"
+          wrapperStyle={legendStyle}
+          content={legendContent}
+        />
+      );
+    }
+
+    if (featureFlags.hasBar) {
+      const barChildren: React.ReactElement[] = [];
+      if (featureFlags.hasLabelList) {
+        barChildren.push(
+          <LabelList key="label-list" dataKey="totalCount" position="top" content={labelContent} />
+        );
+      }
+
+      parts.push(
+        <Bar
+          key="bar"
+          dataKey="totalCount"
+          fill="#6366f1"
+          barSize={featureFlags.barSize ?? undefined}
+          radius={featureFlags.radius ?? undefined}
+          minPointSize={1}
+          stackId={featureFlags.stackIdUsed ? 'monthly' : undefined}
+          isAnimationActive={featureFlags.animation === 'default' ? undefined : featureFlags.animation}
+        >
+          {barChildren}
+        </Bar>
+      );
+    }
+
+    if (featureFlags.hasTooltip) {
+      parts.push(<Tooltip key="tooltip" />);
+    }
+
+    const dataForChart = featureFlags.useData ? data : [];
+
     const identityFlags = useMemo(
       () => ({
-        hasResponsiveContainer: true,
-        hasXAxis: true,
-        hasYAxis: true,
-        hasTooltip: featureFlags.showTooltip,
-        hasLegend: featureFlags.showLegend,
-        hasLabelList: featureFlags.showLabelList,
-        hasCartesianGrid: featureFlags.showGrid,
+        hasResponsiveContainer: featureFlags.hasResponsiveContainer,
+        hasXAxis: featureFlags.hasXAxis,
+        hasYAxis: featureFlags.hasYAxis,
+        hasTooltip: featureFlags.hasTooltip,
+        hasLegend: featureFlags.hasLegend,
+        hasLabelList: featureFlags.hasLabelList,
+        hasCartesianGrid: featureFlags.hasCartesianGrid,
         animation: featureFlags.animation,
-        stackIdUsed: false,
-        barSize: 20
+        stackIdUsed: featureFlags.stackIdUsed,
+        barSize: featureFlags.barSize
       }),
       [featureFlags]
     );
@@ -933,49 +1237,52 @@ export default function StatsDashboard({
       section: 'monthly',
       chartImpl: 'MonthlyChartImpl@v1',
       flags: identityFlags,
-      data
+      data: dataForChart
     });
 
-    return (
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
-          {featureFlags.showGrid ? (
-            <CartesianGrid strokeDasharray="4 4" stroke="rgba(148, 163, 184, 0.2)" vertical={false} />
-          ) : null}
-          <XAxis
-            dataKey="label"
-            xAxisId="x"
-            tickLine={false}
-            axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
-            tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-          />
-          <YAxis
-            orientation="left"
-            tickLine={false}
-            axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
-            tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-            domain={domain}
-            ticks={ticks}
-            allowDecimals={false}
-          />
-          {featureFlags.showLegend ? (
-            <Legend verticalAlign="top" align="left" wrapperStyle={legendStyle} content={legendContent} />
-          ) : null}
-          <Bar
-            dataKey="totalCount"
-            fill="#6366f1"
-            barSize={20}
-            radius={[6, 6, 0, 0]}
-            minPointSize={1}
-            isAnimationActive={featureFlags.animation === 'default' ? undefined : featureFlags.animation}
-          >
-            {featureFlags.showLabelList ? (
-              <LabelList dataKey="totalCount" position="top" content={labelContent} />
-            ) : null}
-          </Bar>
+    useEffect(() => {
+      if (mode !== 'minChart') return;
+      console.log('[minchart-render-truth]', {
+        section: 'monthly',
+        willCreateBarChart: willRenderBarChart,
+        didCreateBarChart: willRenderBarChart,
+        step
+      });
+    }, [mode, step, willRenderBarChart]);
+
+    let chartBody: React.ReactNode;
+
+    if (!featureFlags.hasBarChart) {
+      chartBody = <div data-minchart="1" data-step={step} data-section="monthly" />;
+    } else {
+      if (willRenderBarChart) {
+        logBarChartSignature({
+          mode,
+          section: 'monthly',
+          step,
+          children: parts,
+          data: dataForChart,
+          xAxisKey: 'label',
+          barDataKey: 'totalCount',
+          stackId: featureFlags.stackIdUsed ? 'monthly' : undefined,
+          barSize: featureFlags.barSize,
+          domain,
+          animation: featureFlags.animation
+        });
+      }
+
+      chartBody = (
+        <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
+          {parts}
         </BarChart>
-      </ResponsiveContainer>
-    );
+      );
+    }
+
+    if (!featureFlags.hasResponsiveContainer) {
+      return <div data-minchart="1" data-step={step} data-section="monthly" />;
+    }
+
+    return <ResponsiveContainer width="100%" height="100%">{chartBody}</ResponsiveContainer>;
   }
 
   const subscriptionChart = useMemo(
