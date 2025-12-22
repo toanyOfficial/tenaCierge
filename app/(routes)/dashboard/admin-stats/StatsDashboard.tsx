@@ -129,6 +129,7 @@ export default function StatsDashboard({
   const pr001Enabled = enabledSections.includes('pr001');
   const subscriptionContainerRef = useRef<HTMLDivElement | null>(null);
   const monthlyContainerRef = useRef<HTMLDivElement | null>(null);
+  const containerRefLogged = useRef({ subscription: false, monthly: false });
 
   useEffect(() => {
     console.log('[client-180 -> admin-stats-fingerprint]', {
@@ -282,28 +283,63 @@ export default function StatsDashboard({
   }, [monthlyEnabled, monthlyGuard.data, subscriptionEnabled, subscriptionGuard.data]);
 
   useEffect(() => {
+    if (!unsafeCharts) return;
+
     const timer = setTimeout(() => {
-      const entries: { section: 'subscription' | 'monthly'; w: number | null; h: number | null }[] = [];
+      const processSection = (
+        section: 'subscription' | 'monthly',
+        ref: React.RefObject<HTMLDivElement | null>
+      ) => {
+        if (containerRefLogged.current[section]) return;
+
+        const node = ref.current;
+        console.log('[client-202 -> chart-container-ref-state]', {
+          section,
+          hasRef: Boolean(node),
+          nodeName: node?.nodeName ?? null,
+          isConnected: node ? node.isConnected : null
+        });
+
+        const rect = node?.getBoundingClientRect?.();
+        console.log('[client-203 -> chart-container-rect-raw]', { section, rect: rect ?? null });
+
+        const style = node
+          ? getComputedStyle(node)
+          : null;
+        console.log('[client-204 -> chart-container-style-sample]', {
+          section,
+          style:
+            style !== null
+              ? {
+                  width: style.width,
+                  height: style.height,
+                  minHeight: style.minHeight,
+                  display: style.display,
+                  position: style.position
+                }
+              : null
+        });
+
+        console.log('[client-201 -> chart-container-rect]', {
+          section,
+          w: rect?.width ?? null,
+          h: rect?.height ?? null
+        });
+
+        containerRefLogged.current[section] = true;
+      };
 
       if (subscriptionEnabled) {
-        const rect = subscriptionContainerRef.current?.getBoundingClientRect();
-        entries.push({ section: 'subscription', w: rect?.width ?? null, h: rect?.height ?? null });
+        processSection('subscription', subscriptionContainerRef);
       }
 
       if (monthlyEnabled) {
-        const rect = monthlyContainerRef.current?.getBoundingClientRect();
-        entries.push({ section: 'monthly', w: rect?.width ?? null, h: rect?.height ?? null });
-      }
-
-      if (entries.length > 0) {
-        entries.forEach((entry) => {
-          console.log('[client-201 -> chart-container-rect]', entry);
-        });
+        processSection('monthly', monthlyContainerRef);
       }
     }, 200);
 
     return () => clearTimeout(timer);
-  }, [monthlyEnabled, subscriptionEnabled]);
+  }, [monthlyEnabled, subscriptionEnabled, unsafeCharts]);
 
   useEffect(() => {
     console.log('[client-160 -> chart-finite-guard-summary]', {

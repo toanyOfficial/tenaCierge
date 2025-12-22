@@ -286,12 +286,16 @@
       - fingerprint 로그(`client-180`)로 빌드 정보/토글 상태/파일 마커(v3) 및 chart 파라미터를 1회 출력.
       - 렌더 경로 로그(`client-181/182`)로 subscription/monthly의 렌더 여부와 사유 기록.
       - 토글 상태/실제로 렌더된 섹션 목록을 `client-190/191`로 1회 기록.
+      - 컨테이너 ref/크기/style 원시 상태를 `client-202/203/204`로 1회 기록(unsafeCharts=1, 섹션 활성 시).
     - 로그:
       - `client-180` -> admin-stats-fingerprint { commit, buildTime, fileMarker, unsafeCharts, chart }
       - `client-181` -> subscription-render-path { rendered, reason }
       - `client-182` -> monthly-render-path { rendered, reason }
       - `client-190` -> charts-toggle-state { unsafeCharts, chart }
       - `client-191` -> charts-enabled-sections { enabledSections }
+      - `client-202` -> chart-container-ref-state { section, hasRef, nodeName, isConnected }
+      - `client-203` -> chart-container-rect-raw { section, rect }
+      - `client-204` -> chart-container-style-sample { section, style(width/height/minHeight/display/position) }
 
 18. **PR-018: unsafeCharts+chart 단독 렌더 버그 수정 + 데이터/컨테이너 스냅샷** — 상태: 진행
     - 목표: `?unsafeCharts=1&chart=<section>`일 때 해당 섹션만 렌더되도록 필터를 단일 선택으로 강제하고, 데이터Key/컨테이너 크기 스냅샷 로그로 원인 확정을 지원.
