@@ -453,7 +453,7 @@ function useChartIdentityLogger(input: ChartIdentityLogInput) {
     children: React.ReactNode;
   }) {
     const arr = React.Children.toArray(children);
-    const summary = arr.map((child) => {
+    const summary = arr.map((child, index) => {
       const isValid = React.isValidElement(child);
       const type = (() => {
         if (!isValid) return typeof child;
@@ -464,10 +464,17 @@ function useChartIdentityLogger(input: ChartIdentityLogInput) {
 
       const propsKeys = isValid ? Object.keys((child as React.ReactElement).props ?? {}) : [];
 
-      return { type, propsKeys };
+      return {
+        i: index,
+        typeof: typeof child,
+        isValid,
+        type,
+        propsKeys,
+        value: isValid ? undefined : child
+      };
     });
 
-    console.log('[pre-recharts-children]', {
+    console.log('[barChart-raw-children]', {
       mode,
       section,
       step,
@@ -1249,18 +1256,21 @@ export default function StatsDashboard({
       chartBody = <div data-minchart="1" data-step={step} data-section="subscription" />;
     } else {
       if (willRenderBarChart) {
+        const rawChildren = React.Children.toArray(normalizedParts);
+        const cleanedChildren = rawChildren.filter(React.isValidElement) as React.ReactElement[];
+
         logPreRechartsChildren({
           mode,
           section: 'subscription',
           step,
-          children: normalizedParts
+          children: rawChildren
         });
 
         logBarChartSignature({
           mode,
           section: 'subscription',
           step,
-          children: normalizedParts,
+          children: cleanedChildren,
           data: dataForChart,
           xAxisKey: 'label',
           barDataKey: 'subscriptionCount',
@@ -1269,13 +1279,19 @@ export default function StatsDashboard({
           domain,
           animation: featureFlags.animation
         });
-      }
 
-      chartBody = (
-        <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
-          {normalizedParts}
-        </BarChart>
-      );
+        chartBody = (
+          <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
+            {cleanedChildren}
+          </BarChart>
+        );
+      } else {
+        chartBody = (
+          <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
+            {normalizedParts}
+          </BarChart>
+        );
+      }
     }
 
     if (!featureFlags.hasResponsiveContainer) {
@@ -1445,18 +1461,21 @@ export default function StatsDashboard({
       chartBody = <div data-minchart="1" data-step={step} data-section="monthly" />;
     } else {
       if (willRenderBarChart) {
+        const rawChildren = React.Children.toArray(normalizedParts);
+        const cleanedChildren = rawChildren.filter(React.isValidElement) as React.ReactElement[];
+
         logPreRechartsChildren({
           mode,
           section: 'monthly',
           step,
-          children: normalizedParts
+          children: rawChildren
         });
 
         logBarChartSignature({
           mode,
           section: 'monthly',
           step,
-          children: normalizedParts,
+          children: cleanedChildren,
           data: dataForChart,
           xAxisKey: 'label',
           barDataKey: 'totalCount',
@@ -1465,13 +1484,19 @@ export default function StatsDashboard({
           domain,
           animation: featureFlags.animation
         });
-      }
 
-      chartBody = (
-        <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
-          {normalizedParts}
-        </BarChart>
-      );
+        chartBody = (
+          <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
+            {cleanedChildren}
+          </BarChart>
+        );
+      } else {
+        chartBody = (
+          <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
+            {normalizedParts}
+          </BarChart>
+        );
+      }
     }
 
     if (!featureFlags.hasResponsiveContainer) {
