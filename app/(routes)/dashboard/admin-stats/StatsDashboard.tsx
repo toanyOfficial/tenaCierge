@@ -1488,12 +1488,9 @@ export default function StatsDashboard({
       }
     }
 
-    if (!featureFlags.hasResponsiveContainer) {
-      return <div data-minchart="1" data-step={step} data-section="subscription" />;
-    }
-
     useEffect(() => {
       if (mode !== 'minChart') return;
+      if (!featureFlags.hasResponsiveContainer) return;
       if (!willRenderBarChart) return;
       const node = chartWrapperRef.current;
       if (!node) return;
@@ -1522,15 +1519,29 @@ export default function StatsDashboard({
       });
 
       return () => cancelAnimationFrame(id);
-    }, [barChartProps, barProps, dataForChart, mode, step, willRenderBarChart, xAxisProps, yAxisProps]);
+    }, [
+      barChartProps,
+      barProps,
+      dataForChart,
+      featureFlags.hasResponsiveContainer,
+      mode,
+      step,
+      willRenderBarChart,
+      xAxisProps,
+      yAxisProps
+    ]);
 
-    return (
+    const wrappedChart = featureFlags.hasResponsiveContainer ? (
       <div ref={chartWrapperRef} style={{ width: '100%', height: 320, minHeight: 320 }}>
         <ResponsiveContainer width="100%" height="100%">
           {chartBody}
         </ResponsiveContainer>
       </div>
+    ) : (
+      chartBody
     );
+
+    return wrappedChart;
   }
 
   function MonthlyChartImpl({
@@ -1841,12 +1852,9 @@ export default function StatsDashboard({
       }
     }
 
-    if (!featureFlags.hasResponsiveContainer) {
-      return <div data-minchart="1" data-step={step} data-section="monthly" />;
-    }
-
     useEffect(() => {
       if (mode !== 'minChart') return;
+      if (!featureFlags.hasResponsiveContainer) return;
       if (!willRenderBarChart) return;
       const node = chartWrapperRef.current;
       if (!node) return;
@@ -1875,15 +1883,29 @@ export default function StatsDashboard({
       });
 
       return () => cancelAnimationFrame(id);
-    }, [barChartProps, barProps, dataForChart, mode, step, willRenderBarChart, xAxisProps, yAxisProps]);
+    }, [
+      barChartProps,
+      barProps,
+      dataForChart,
+      featureFlags.hasResponsiveContainer,
+      mode,
+      step,
+      willRenderBarChart,
+      xAxisProps,
+      yAxisProps
+    ]);
 
-    return (
+    const wrappedChart = featureFlags.hasResponsiveContainer ? (
       <div ref={chartWrapperRef} style={{ width: '100%', height: 320, minHeight: 320 }}>
         <ResponsiveContainer width="100%" height="100%">
           {chartBody}
         </ResponsiveContainer>
       </div>
+    ) : (
+      chartBody
     );
+
+    return wrappedChart;
   }
 
   const subscriptionChart = useMemo(
