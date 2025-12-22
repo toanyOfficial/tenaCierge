@@ -192,6 +192,8 @@ type BarChartFeatureFlags = {
   hasCartesianGrid: boolean;
   useData: boolean;
   hasBar: boolean;
+  barHasFill: boolean;
+  barHasMinPointSize: boolean;
   animation: boolean | 'default';
   stackIdUsed: boolean;
   barSize: number | null;
@@ -211,6 +213,8 @@ function resolveBarChartFeatureFlags(mode: ChartMode, step: number): BarChartFea
       hasCartesianGrid: true,
       useData: true,
       hasBar: true,
+      barHasFill: true,
+      barHasMinPointSize: true,
       animation: 'default',
       stackIdUsed: false,
       barSize: 20,
@@ -227,14 +231,16 @@ function resolveBarChartFeatureFlags(mode: ChartMode, step: number): BarChartFea
     hasXAxis: normalizedStep >= 4,
     hasYAxis: normalizedStep >= 5,
     hasBar: normalizedStep >= 6,
-    hasTooltip: normalizedStep >= 7,
-    hasLegend: normalizedStep >= 8,
-    hasLabelList: normalizedStep >= 9,
-    hasCartesianGrid: normalizedStep >= 10,
-    animation: normalizedStep >= 11 ? 'default' : false,
-    stackIdUsed: normalizedStep >= 12,
-    barSize: normalizedStep >= 13 ? 20 : null,
-    radius: normalizedStep >= 14 ? [6, 6, 0, 0] : null
+    barHasFill: normalizedStep >= 7,
+    barHasMinPointSize: normalizedStep >= 8,
+    animation: normalizedStep >= 9 ? 'default' : false,
+    hasTooltip: normalizedStep >= 10,
+    hasLegend: normalizedStep >= 11,
+    hasLabelList: normalizedStep >= 12,
+    hasCartesianGrid: normalizedStep >= 13,
+    stackIdUsed: normalizedStep >= 14,
+    barSize: normalizedStep >= 15 ? 20 : null,
+    radius: normalizedStep >= 16 ? [6, 6, 0, 0] : null
   };
 }
 
@@ -481,6 +487,70 @@ function useChartIdentityLogger(input: ChartIdentityLogInput) {
       length: arr.length,
       children: summary
     });
+  }
+
+  function logBarChartCriticalProps({
+    mode,
+    section,
+    step,
+    data,
+    xAxisProps,
+    yAxisProps,
+    barProps
+  }: {
+    mode: ChartMode;
+    section: 'subscription' | 'monthly';
+    step: number;
+    data: Array<Record<string, unknown>>;
+    xAxisProps: Record<string, unknown> | null;
+    yAxisProps: Record<string, unknown> | null;
+    barProps: Record<string, unknown> | null;
+  }) {
+    try {
+      const sample = data?.[0] ?? null;
+      console.log('[barChart-critical-props]', {
+        mode,
+        section,
+        step,
+        dataLen: data?.length ?? 0,
+        data0Keys: sample ? Object.keys(sample) : [],
+        data0Sample: sample,
+        xAxis: xAxisProps
+          ? {
+              dataKey: xAxisProps.dataKey,
+              xAxisId: xAxisProps.xAxisId,
+              typeofDataKey: typeof xAxisProps.dataKey,
+              typeofXAxisId: typeof xAxisProps.xAxisId
+            }
+          : null,
+        yAxis: yAxisProps
+          ? {
+              yAxisId: yAxisProps.yAxisId,
+              domain: yAxisProps.domain,
+              typeofYAxisId: typeof yAxisProps.yAxisId,
+              typeofDomain: typeof yAxisProps.domain
+            }
+          : null,
+        bar: barProps
+          ? {
+              dataKey: (barProps as any).dataKey,
+              xAxisId: (barProps as any).xAxisId,
+              yAxisId: (barProps as any).yAxisId,
+              stackId: (barProps as any).stackId,
+              minPointSize: (barProps as any).minPointSize,
+              isAnimationActive: (barProps as any).isAnimationActive,
+              typeofDataKey: typeof (barProps as any).dataKey,
+              typeofXAxisId: typeof (barProps as any).xAxisId,
+              typeofYAxisId: typeof (barProps as any).yAxisId,
+              typeofStackId: typeof (barProps as any).stackId,
+              typeofMinPointSize: typeof (barProps as any).minPointSize,
+              typeofIsAnimationActive: typeof (barProps as any).isAnimationActive
+            }
+          : null
+      });
+    } catch (error) {
+      console.log('[barChart-critical-props] log failed', error);
+    }
   }
 
   function normalizeChartChildrenOrder(children: React.ReactElement[]): React.ReactElement[] {
@@ -762,10 +832,22 @@ export default function StatsDashboard({
   );
   const minChartFeatures = useMemo(() => {
     const features = ['base'];
-    if (minChartStep >= 1) features.push('grid');
-    if (minChartStep >= 2) features.push('tooltip');
-    if (minChartStep >= 3) features.push('legend');
-    if (minChartStep >= 9) features.push('labelList');
+    if (minChartStep >= 1) features.push('responsive');
+    if (minChartStep >= 2) features.push('barChart');
+    if (minChartStep >= 3) features.push('data');
+    if (minChartStep >= 4) features.push('xAxis');
+    if (minChartStep >= 5) features.push('yAxis');
+    if (minChartStep >= 6) features.push('bar');
+    if (minChartStep >= 7) features.push('barFill');
+    if (minChartStep >= 8) features.push('minPointSize');
+    if (minChartStep >= 9) features.push('animation');
+    if (minChartStep >= 10) features.push('tooltip');
+    if (minChartStep >= 11) features.push('legend');
+    if (minChartStep >= 12) features.push('labelList');
+    if (minChartStep >= 13) features.push('grid');
+    if (minChartStep >= 14) features.push('stack');
+    if (minChartStep >= 15) features.push('barSize');
+    if (minChartStep >= 16) features.push('radius');
     return features;
   }, [minChartStep]);
   const minChartFeatureFlags = useMemo(() => resolveBarChartFeatureFlags('minChart', minChartStep), [minChartStep]);
@@ -1130,64 +1212,85 @@ export default function StatsDashboard({
 
     const parts: React.ReactElement[] = [];
 
-    if (featureFlags.hasCartesianGrid) {
-      parts.push(
-        <CartesianGrid
-          key="grid"
-          strokeDasharray="4 4"
-          stroke="rgba(148, 163, 184, 0.2)"
-          vertical={false}
-        />
-      );
+    const xAxisProps = featureFlags.hasXAxis
+      ? {
+          key: 'x-axis',
+          dataKey: 'label',
+          xAxisId: 'x',
+          tickLine: false,
+          axisLine: { stroke: 'rgba(148, 163, 184, 0.4)' },
+          tick: { fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }
+        }
+      : null;
+
+    const yAxisProps = featureFlags.hasYAxis
+      ? {
+          key: 'y-axis',
+          orientation: 'left' as const,
+          tickLine: false,
+          axisLine: { stroke: 'rgba(148, 163, 184, 0.4)' },
+          tick: { fill: '#cbd5e1', fontWeight: 700, fontSize: 12 },
+          domain,
+          ticks,
+          allowDecimals: false
+        }
+      : null;
+
+    const gridProps = featureFlags.hasCartesianGrid
+      ? {
+          key: 'grid',
+          strokeDasharray: '4 4',
+          stroke: 'rgba(148, 163, 184, 0.2)',
+          vertical: false
+        }
+      : null;
+
+    if (gridProps) {
+      parts.push(<CartesianGrid {...gridProps} />);
     }
 
-    if (featureFlags.hasXAxis) {
-      parts.push(
-        <XAxis
-          key="x-axis"
-          dataKey="label"
-          xAxisId="x"
-          tickLine={false}
-          axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
-          tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-        />
-      );
+    if (xAxisProps) {
+      parts.push(<XAxis {...xAxisProps} />);
     }
 
-    if (featureFlags.hasYAxis) {
-      parts.push(
-        <YAxis
-          key="y-axis"
-          orientation="left"
-          tickLine={false}
-          axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
-          tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-          domain={domain}
-          ticks={ticks}
-          allowDecimals={false}
-        />
-      );
+    if (yAxisProps) {
+      parts.push(<YAxis {...yAxisProps} />);
     }
 
     if (featureFlags.hasLegend) {
-      parts.push(
-        <Legend
-          key="legend"
-          verticalAlign="top"
-          align="left"
-          wrapperStyle={legendStyle}
-          content={legendContent}
-        />
-      );
+      const legendProps = {
+        key: 'legend',
+        verticalAlign: 'top' as const,
+        align: 'left' as const,
+        wrapperStyle: legendStyle,
+        content: legendContent
+      };
+      parts.push(<Legend {...legendProps} />);
     }
 
+    let barProps: Partial<BarProps> | null = null;
     if (featureFlags.hasBar) {
-      const { cleaned: sanitizedBarProps } = sanitizeBarProps({
+      const baseBarProps: Partial<BarProps> = {
         dataKey: 'subscriptionCount',
-        fill: '#22c55e',
-        minPointSize: 1,
-        isAnimationActive: featureFlags.animation === 'default' ? undefined : featureFlags.animation,
-      });
+        isAnimationActive: featureFlags.animation === 'default' ? undefined : featureFlags.animation
+      };
+
+      if (featureFlags.barHasFill) {
+        baseBarProps.fill = '#22c55e';
+      }
+
+      if (featureFlags.barHasMinPointSize) {
+        baseBarProps.minPointSize = 1;
+      }
+
+      const { cleaned: sanitizedBarProps } = sanitizeBarProps(baseBarProps);
+      barProps = sanitizedBarProps;
+
+      try {
+        console.log('[bar-props-final]', { section: 'subscription', step, props: sanitizedBarProps });
+      } catch (error) {
+        console.log('[bar-props-final] log failed', error);
+      }
 
       const barElement = featureFlags.hasLabelList
         ? React.createElement(
@@ -1210,6 +1313,13 @@ export default function StatsDashboard({
 
     if (featureFlags.hasTooltip) {
       parts.push(<Tooltip key="tooltip" />);
+    }
+
+    try {
+      console.log('[xaxis-props-final]', { section: 'subscription', step, props: xAxisProps });
+      console.log('[yaxis-props-final]', { section: 'subscription', step, props: yAxisProps });
+    } catch (error) {
+      console.log('[axis-props-final] log failed', error);
     }
 
     const normalizedParts = mode === 'minChart' ? normalizeChartChildrenOrder(parts) : parts;
@@ -1280,12 +1390,31 @@ export default function StatsDashboard({
           animation: featureFlags.animation
         });
 
+        logBarChartCriticalProps({
+          mode,
+          section: 'subscription',
+          step,
+          data: dataForChart,
+          xAxisProps: xAxisProps as Record<string, unknown> | null,
+          yAxisProps: yAxisProps as Record<string, unknown> | null,
+          barProps: (barProps as Record<string, unknown> | null) ?? null
+        });
+
         chartBody = (
           <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
             {cleanedChildren}
           </BarChart>
         );
       } else {
+        logBarChartCriticalProps({
+          mode,
+          section: 'subscription',
+          step,
+          data: dataForChart,
+          xAxisProps: xAxisProps as Record<string, unknown> | null,
+          yAxisProps: yAxisProps as Record<string, unknown> | null,
+          barProps: (barProps as Record<string, unknown> | null) ?? null
+        });
         chartBody = (
           <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
             {normalizedParts}
@@ -1335,64 +1464,85 @@ export default function StatsDashboard({
 
     const parts: React.ReactElement[] = [];
 
-    if (featureFlags.hasCartesianGrid) {
-      parts.push(
-        <CartesianGrid
-          key="grid"
-          strokeDasharray="4 4"
-          stroke="rgba(148, 163, 184, 0.2)"
-          vertical={false}
-        />
-      );
+    const xAxisProps = featureFlags.hasXAxis
+      ? {
+          key: 'x-axis',
+          dataKey: 'label',
+          xAxisId: 'x',
+          tickLine: false,
+          axisLine: { stroke: 'rgba(148, 163, 184, 0.4)' },
+          tick: { fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }
+        }
+      : null;
+
+    const yAxisProps = featureFlags.hasYAxis
+      ? {
+          key: 'y-axis',
+          orientation: 'left' as const,
+          tickLine: false,
+          axisLine: { stroke: 'rgba(148, 163, 184, 0.4)' },
+          tick: { fill: '#cbd5e1', fontWeight: 700, fontSize: 12 },
+          domain,
+          ticks,
+          allowDecimals: false
+        }
+      : null;
+
+    const gridProps = featureFlags.hasCartesianGrid
+      ? {
+          key: 'grid',
+          strokeDasharray: '4 4',
+          stroke: 'rgba(148, 163, 184, 0.2)',
+          vertical: false
+        }
+      : null;
+
+    if (gridProps) {
+      parts.push(<CartesianGrid {...gridProps} />);
     }
 
-    if (featureFlags.hasXAxis) {
-      parts.push(
-        <XAxis
-          key="x-axis"
-          dataKey="label"
-          xAxisId="x"
-          tickLine={false}
-          axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
-          tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-        />
-      );
+    if (xAxisProps) {
+      parts.push(<XAxis {...xAxisProps} />);
     }
 
-    if (featureFlags.hasYAxis) {
-      parts.push(
-        <YAxis
-          key="y-axis"
-          orientation="left"
-          tickLine={false}
-          axisLine={{ stroke: 'rgba(148, 163, 184, 0.4)' }}
-          tick={{ fill: '#cbd5e1', fontWeight: 700, fontSize: 12 }}
-          domain={domain}
-          ticks={ticks}
-          allowDecimals={false}
-        />
-      );
+    if (yAxisProps) {
+      parts.push(<YAxis {...yAxisProps} />);
     }
 
     if (featureFlags.hasLegend) {
-      parts.push(
-        <Legend
-          key="legend"
-          verticalAlign="top"
-          align="left"
-          wrapperStyle={legendStyle}
-          content={legendContent}
-        />
-      );
+      const legendProps = {
+        key: 'legend',
+        verticalAlign: 'top' as const,
+        align: 'left' as const,
+        wrapperStyle: legendStyle,
+        content: legendContent
+      };
+      parts.push(<Legend {...legendProps} />);
     }
 
+    let barProps: Partial<BarProps> | null = null;
     if (featureFlags.hasBar) {
-      const { cleaned: sanitizedBarProps } = sanitizeBarProps({
+      const baseBarProps: Partial<BarProps> = {
         dataKey: 'totalCount',
-        fill: '#6366f1',
-        minPointSize: 1,
         isAnimationActive: featureFlags.animation === 'default' ? undefined : featureFlags.animation
-      });
+      };
+
+      if (featureFlags.barHasFill) {
+        baseBarProps.fill = '#6366f1';
+      }
+
+      if (featureFlags.barHasMinPointSize) {
+        baseBarProps.minPointSize = 1;
+      }
+
+      const { cleaned: sanitizedBarProps } = sanitizeBarProps(baseBarProps);
+      barProps = sanitizedBarProps;
+
+      try {
+        console.log('[bar-props-final]', { section: 'monthly', step, props: sanitizedBarProps });
+      } catch (error) {
+        console.log('[bar-props-final] log failed', error);
+      }
 
       const barElement = featureFlags.hasLabelList
         ? React.createElement(
@@ -1415,6 +1565,13 @@ export default function StatsDashboard({
 
     if (featureFlags.hasTooltip) {
       parts.push(<Tooltip key="tooltip" />);
+    }
+
+    try {
+      console.log('[xaxis-props-final]', { section: 'monthly', step, props: xAxisProps });
+      console.log('[yaxis-props-final]', { section: 'monthly', step, props: yAxisProps });
+    } catch (error) {
+      console.log('[axis-props-final] log failed', error);
     }
 
     const normalizedParts = mode === 'minChart' ? normalizeChartChildrenOrder(parts) : parts;
@@ -1485,12 +1642,31 @@ export default function StatsDashboard({
           animation: featureFlags.animation
         });
 
+        logBarChartCriticalProps({
+          mode,
+          section: 'monthly',
+          step,
+          data: dataForChart,
+          xAxisProps: xAxisProps as Record<string, unknown> | null,
+          yAxisProps: yAxisProps as Record<string, unknown> | null,
+          barProps: (barProps as Record<string, unknown> | null) ?? null
+        });
+
         chartBody = (
           <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
             {cleanedChildren}
           </BarChart>
         );
       } else {
+        logBarChartCriticalProps({
+          mode,
+          section: 'monthly',
+          step,
+          data: dataForChart,
+          xAxisProps: xAxisProps as Record<string, unknown> | null,
+          yAxisProps: yAxisProps as Record<string, unknown> | null,
+          barProps: (barProps as Record<string, unknown> | null) ?? null
+        });
         chartBody = (
           <BarChart data={dataForChart} margin={{ top: 54, right: 18, bottom: 24, left: 18 }}>
             {normalizedParts}
